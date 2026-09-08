@@ -1,0 +1,18 @@
+# Local environment and credentials
+.env
+.env.*
+
+# Machine-local files, dependencies, and build outputs
+.DS_Store
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+/dist/
+/build/
+/tmp/
+*.log
+
+# Historical delivery payloads include local paths and session identifiers.
+# Keep the files locally; track their human-readable summary in REFERENCES.md.
+/evidence/20260909-media/*.json
