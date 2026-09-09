@@ -33,6 +33,16 @@ export class ReviewStore {
           messages: [],
           startedAt: Date.now(),
         };
+    // Keep immutable published assets downloadable even when an unsubmitted
+    // view has not yet observed a newer active version.
+    this.state.models ||= {};
+    for (const model of [
+      this.state.active,
+      this.state.pending,
+      ...this.state.submissions.map((s) => s.model),
+    ]) {
+      if (model) this.state.models[model.id] ||= model;
+    }
     this.save();
   }
   save() {
@@ -47,6 +57,7 @@ export class ReviewStore {
       locked: !!s.lock,
       owned: s.lock?.clientId === clientId,
       draft: s.draft,
+      echo: s.echo?.versionId === s.active?.id ? s.echo : null,
       submissions: s.submissions.slice(-20).map(({ annotations, ...x }) => x),
       messages: s.messages.slice(-60),
       startedAt: s.startedAt,
@@ -73,6 +84,7 @@ export class ReviewStore {
       annotations: [],
       camera: null,
       submittedRevision: null,
+      labelCursor: 0,
     };
   }
   acquire(versionId, clientId) {
@@ -98,7 +110,14 @@ export class ReviewStore {
         "LOCKED",
       );
   }
-  updateDraft({ versionId, clientId, revision, annotations, camera }) {
+  updateDraft({
+    versionId,
+    clientId,
+    revision,
+    annotations,
+    camera,
+    labelCursor,
+  }) {
     this.assertOwner(versionId, clientId);
     const draft = this.state.draft;
     // The server may have saved a PUT whose response was lost. Accept only
@@ -106,7 +125,8 @@ export class ReviewStore {
     if (
       revision === draft.revision - 1 &&
       isDeepStrictEqual(annotations, draft.annotations) &&
-      isDeepStrictEqual(camera, draft.camera)
+      isDeepStrictEqual(camera, draft.camera) &&
+      (labelCursor === undefined || labelCursor === draft.labelCursor)
     )
       return structuredClone(draft);
     if (revision !== draft.revision)
@@ -115,6 +135,16 @@ export class ReviewStore {
         409,
         "STALE_DRAFT",
       );
+    const letters = annotations
+      .filter((a) => a.type === "pin" && /^[A-Z]+$/.test(a.label))
+      .map((a) =>
+        [...a.label].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0),
+      );
+    draft.labelCursor = Math.max(
+      draft.labelCursor || 0,
+      labelCursor || 0,
+      ...letters,
+    );
     draft.revision += 1;
     draft.annotations = annotations;
     draft.camera = camera;
@@ -129,6 +159,7 @@ export class ReviewStore {
         status: s.pending?.id === model.id ? "queued" : "active",
         model,
       };
+    s.models[model.id] = structuredClone(model);
     if (s.lock) {
       s.pending = model;
       this.save();
@@ -157,7 +188,7 @@ export class ReviewStore {
     const d = this.state.draft;
     if (d.revision !== revision)
       throw new ReviewError("請等草稿保存完成後再提交。");
-    if (!d.annotations.length)
+    if (!d.annotations.length && d.submittedRevision == null)
       throw new ReviewError("請先加入點標籤或塗選區域。", 400, "EMPTY");
     const item = {
       id: submissionId,
@@ -187,11 +218,42 @@ export class ReviewStore {
     this.save();
     return s;
   }
+  acknowledgeRead(id, versionId) {
+    const submission = this.state.submissions.find(
+      (s) => s.id === id && s.versionId === versionId,
+    );
+    if (!submission) throw new ReviewError("提交或模型版本不符。", 404);
+    // Explicit local Agent read acknowledgment, never inferred from chat.send.
+    return this.submissionStatus(id, submission.status, {
+      readAt: submission.readAt || Date.now(),
+    });
+  }
+  setEcho({ submissionId, versionId, summary, annotations }) {
+    this.assertVersion(versionId);
+    const submission = this.state.submissions.find(
+      (s) => s.id === submissionId && s.versionId === versionId,
+    );
+    if (!submission) throw new ReviewError("找不到對應提交。", 404);
+    this.state.echo = {
+      id: crypto.randomUUID(),
+      submissionId,
+      versionId,
+      revision: submission.revision,
+      summary,
+      annotations,
+      createdAt: Date.now(),
+    };
+    this.save();
+    return this.state.echo;
+  }
   finish(versionId, clientId) {
     this.assertOwner(versionId, clientId);
     const s = this.state;
     const d = s.draft;
-    if (d.annotations.length && d.submittedRevision !== d.revision)
+    if (
+      (d.annotations.length || d.submittedRevision != null) &&
+      d.submittedRevision !== d.revision
+    )
       throw new ReviewError(
         "仲有未提交標注，請先提交；草稿已保留。",
         409,

@@ -1,5 +1,11 @@
 import "./style.css";
 import { ModelViewer } from "./viewer.js";
+import {
+  letterLabel,
+  letterNumber,
+  erasePatches,
+  facesOf,
+} from "./annotation-edits.js";
 
 const $ = (selector) => document.querySelector(selector);
 const app = $("#app");
@@ -16,30 +22,34 @@ const icon = (name) =>
     check: "✓",
   })[name] || name;
 app.innerHTML = `
-<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>形體審閱</strong><span>OpenClaw · 3D Review</span></div><span class="prototype">試用版 0.2</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
+<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>形體審閱</strong><span>OpenClaw · 3D Review</span></div><span class="prototype">試用版 0.3</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="模型審閱">
-  <div class="model-heading"><div><span class="eyebrow">CURRENT MODEL</span><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
+  <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
+   <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">隱藏標注</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">素色檢視</button></div>
    <div class="toolbar" role="toolbar" aria-label="模型操作工具">
     <button data-mode="orbit" class="tool active" title="拖動旋轉，雙擊表面落標籤" aria-label="檢視及標籤">${icon("orbit")}<span>檢視／標籤</span></button>
     <button data-mode="paint" class="tool" title="畫筆只標可見表面" aria-label="畫筆模式">${icon("paint")}<span>畫筆</span></button>
+    <button data-mode="erase" class="tool" aria-label="橡皮擦模式" title="只擦走標注筆跡">▱<span>橡皮擦</span></button>
+    <button data-mode="fill" class="tool" aria-label="油漆桶模式" title="預覽相連近平面，單擊填色">▰<span>油漆桶</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button><button class="tool small" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
    </div>
-   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="label-control">編號 <select id="label-style" aria-label="標籤編號方式"><option value="numbers">1, 2, 3</option><option value="letters">A, B, C</option></select></label><button class="quiet-dark" id="new-region" hidden>＋ 新區域</button></div>
-   <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表">−</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
+   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>＋ 新區域</button></div>
+   <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">−</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
+   <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span>模型載入完成後就可以開始標記</span></div>
    <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
   </div>
   <div id="pending-banner" class="pending-banner" hidden><span>新模型已準備好，暫時唔會更換你正標記嘅版本。</span></div>
   <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗持有審閱草稿。</span><button id="resume-review" class="quiet">接續已保存草稿</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>本機另有未同步草稿，已保留，未覆蓋目前版本。</span><a id="download-recovery">下載草稿備份</a></div>
-  <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
+  <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><a id="download-model" class="secondary-button" hidden>下載當前版本</a><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="關閉">×</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上數字或字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用編號，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>標注期間模型會鎖住。完成本輪、標記已提交後，撳「結束本輪審閱」，Agent 才可以交付新版。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="關閉">×</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>標注期間模型會鎖住。完成本輪、標記已提交後，撳「結束本輪審閱」，Agent 才可以交付新版。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -67,7 +77,10 @@ let saveFlight = null,
 let undoStack = [],
   redoStack = [],
   initialDraftRestored = false;
-let pollFlight = null;
+let pollFlight = null,
+  labelCursor = 0,
+  relocatingId = null,
+  echoId = null;
 let recoveryBlocked = false,
   recoveryUrl = null;
 const clone = (x) => structuredClone(x);
@@ -116,6 +129,7 @@ function cacheDraft() {
       draftKey(),
       JSON.stringify({
         annotations,
+        labelCursor,
         revision,
         dirty: editSeq > savedSeq,
         editSeq,
@@ -138,22 +152,7 @@ function historyPush() {
   redoStack = [];
 }
 function nextLabel() {
-  const used = new Set(
-    annotations.filter((a) => a.type === "pin").map((a) => a.label),
-  );
-  for (let n = 1; n <= 1000; n++) {
-    let label = String(n);
-    if ($("#label-style").value === "letters") {
-      label = "";
-      let v = n;
-      while (v) {
-        v--;
-        label = String.fromCharCode(65 + (v % 26)) + label;
-        v = Math.floor(v / 26);
-      }
-    }
-    if (!used.has(label)) return label;
-  }
+  return letterLabel(++labelCursor);
 }
 function changed() {
   editSeq++;
@@ -209,6 +208,36 @@ function regionName(a) {
   return `${colorNames[a.color] || a.color}區域`;
 }
 function onPaint(patches) {
+  patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
+  if (mode === "erase") {
+    const serialized = viewer.serializeAnnotations(annotations);
+    const next = serialized
+      .map((a) => {
+        if (a.type !== "region") return a;
+        const sourcePatches = (a.surfacePatches || []).map((p) => ({
+          ...p,
+          faceIndex: p.sourceFaceIndex,
+        }));
+        const remaining = erasePatches(sourcePatches, patches);
+        if (sameValue(sourcePatches, remaining)) return a;
+        return {
+          ...a,
+          coverage: "source-v1",
+          faces: facesOf(remaining),
+          surfacePatches: remaining,
+        };
+      })
+      .filter((a) => a.type === "pin" || a.surfacePatches.length);
+    if (next.reduce((n, a) => n + (a.surfacePatches?.length || 0), 0) > 40000) {
+      toast("擦除產生太多細小筆跡，請縮小範圍。");
+      return;
+    }
+    if (!sameValue(serialized, next)) {
+      annotations = next;
+      changed();
+    }
+    return;
+  }
   const count = annotations.reduce(
     (n, a) => n + (a.surfacePatches?.length || 0),
     0,
@@ -222,7 +251,7 @@ function onPaint(patches) {
       a.id === selectedId &&
       a.type === "region" &&
       a.color === color &&
-      a.coverage === "brush-v1",
+      a.coverage === "source-v1",
   );
   const targetFaces = new Set(
     Object.entries(region?.faces || {}).flatMap(([meshId, ids]) =>
@@ -251,7 +280,7 @@ function onPaint(patches) {
       type: "region",
       label: regionName({ color }),
       color,
-      coverage: "brush-v1",
+      coverage: "source-v1",
       faces: {},
       surfacePatches: [],
     };
@@ -281,6 +310,15 @@ viewer.onSelect = (id) => {
   selectedId = id;
   renderAnnotations();
 };
+viewer.onRelocate = (pin) => {
+  const a = annotations.find((a) => a.id === relocatingId && a.type === "pin");
+  if (!a) return;
+  Object.assign(a, pin);
+  selectedId = a.id;
+  relocatingId = null;
+  setMode("orbit");
+  changed();
+};
 viewer.setRadius(22);
 
 async function flushDraft() {
@@ -294,6 +332,7 @@ async function flushDraft() {
   // before its response was lost, while the user has already made another edit.
   pendingWrite ||= {
     revision,
+    labelCursor,
     annotations: clone(annotations),
     camera: viewer.cameraState(),
     seq: editSeq,
@@ -304,6 +343,7 @@ async function flushDraft() {
     payload = {
       ...owner(),
       revision: pendingWrite.revision,
+      labelCursor: pendingWrite.labelCursor ?? labelCursor,
       annotations: viewer.serializeAnnotations(pendingWrite.annotations),
       camera: pendingWrite.camera,
     };
@@ -337,14 +377,18 @@ function updateButtons() {
   const ready = !!loadedId && viewer.enabled && !recoveryBlocked,
     foreign = state?.locked && !state?.owned;
   $("#submit-feedback").disabled =
-    !ready || foreign || !annotations.length || submitting;
+    !ready ||
+    foreign ||
+    (!annotations.length && !state?.draft?.submittedRevision) ||
+    submitting;
   $("#finish-review").disabled =
     !ready ||
     !state?.owned ||
     editSeq !== savedSeq ||
     submitting ||
     !!saveFlight ||
-    (annotations.length > 0 && state?.draft?.submittedRevision !== revision);
+    ((annotations.length > 0 || state?.draft?.submittedRevision != null) &&
+      state?.draft?.submittedRevision !== revision);
   $("#undo").disabled = !ready || !undoStack.length || foreign || submitting;
   $("#redo").disabled = !ready || !redoStack.length || foreign || submitting;
   $("#review-status").textContent = state?.locked
@@ -352,13 +396,14 @@ function updateButtons() {
       ? "審閱中 · 模型已鎖定"
       : "其他視窗審閱中"
     : "目前版本 · 可以開始標記";
+  updateReceipt();
   $("#pending-banner").hidden = !state?.pending;
   $("#resume-banner").hidden = !foreign;
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => (b.disabled = !ready || foreign || submitting));
   document
-    .querySelectorAll(".delete-annotation")
+    .querySelectorAll(".delete-annotation, .edit-action")
     .forEach((b) => (b.disabled = !ready || foreign || submitting));
 }
 function renderAnnotations() {
@@ -392,7 +437,7 @@ function renderAnnotations() {
       detail.textContent =
         a.type === "pin"
           ? "已固定在模型表面"
-          : a.coverage === "brush-v1"
+          : a.coverage === "source-v1"
             ? "沿表面筆跡標記"
             : "舊版整面標記 · 原樣保留";
       text.append(title, detail);
@@ -401,7 +446,6 @@ function renderAnnotations() {
         selectedId = a.id;
         color = a.color;
         updatePalette();
-        viewer.focusAnnotation(a);
         renderAnnotations();
       });
       const remove = document.createElement("button");
@@ -424,27 +468,55 @@ function renderAnnotations() {
           toast(e.message);
         }
       });
-      row.append(select, remove);
+      const focus = document.createElement("button");
+      focus.className = "quiet-dark annotation-action";
+      focus.textContent = "定位";
+      focus.setAttribute(
+        "aria-label",
+        `轉視角查看 ${a.type === "pin" ? a.label : regionName(a)}`,
+      );
+      focus.addEventListener("click", () => viewer.focusAnnotation(a));
+      row.append(select, focus);
+      if (a.type === "pin") {
+        const move = document.createElement("button");
+        move.className = "quiet-dark annotation-action edit-action";
+        move.textContent = "移動";
+        move.setAttribute("aria-label", `移動標籤 ${a.label}`);
+        move.disabled = remove.disabled;
+        move.addEventListener("click", () => {
+          relocatingId = a.id;
+          setMode("relocate");
+          toast(`點模型表面移動 ${a.label}；Esc 取消。`);
+        });
+        row.append(move);
+      }
+      row.append(remove);
       list.append(row);
     }
   });
 }
 function setMode(next) {
   mode = next;
+  if (next !== "relocate") relocatingId = null;
+  viewer.setVisible(true);
+  $("#toggle-marks").textContent = "隱藏標注";
+  $("#toggle-marks").setAttribute("aria-pressed", "false");
   viewer.setMode(next);
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
   $("#tool-options").hidden = false;
-  $("#label-control").hidden = next === "paint";
-  $("#radius-control").hidden = next !== "paint";
+  $("#fill-control").hidden = next !== "fill";
+  $(".palette").hidden = ["erase", "relocate"].includes(next);
+  $("#radius-control").hidden = !["paint", "erase"].includes(next);
   $("#new-region").hidden = next !== "paint";
-  $("#tool-hint").textContent =
-    next === "paint"
-      ? "塗可見表面 · Option／Alt 拖動旋轉"
-      : next === "pin"
-        ? "點模型表面落標籤 · 標籤會跟隨模型"
-        : "拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放";
+  $("#tool-hint").textContent = {
+    paint: "塗可見表面 · Option／Alt 拖動旋轉",
+    erase: "擦走可見筆跡 · 不影響模型 · Option／Alt 旋轉",
+    fill: "移上預覽 · 單擊填色 · Option／Alt 旋轉",
+    relocate: "點表面移動標籤 · Esc 取消",
+    orbit: "拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放",
+  }[next];
 }
 function updatePalette() {
   document
@@ -470,6 +542,34 @@ document
 $("#brush-size").addEventListener("input", (e) =>
   viewer.setRadius(Number(e.target.value)),
 );
+$("#fill-range").addEventListener("input", (e) =>
+  viewer.setFillTolerance(Number(e.target.value)),
+);
+$("#toggle-marks").addEventListener("click", () => {
+  viewer.setVisible(!viewer.annotationsVisible);
+  $("#toggle-marks").textContent = viewer.annotationsVisible
+    ? "隱藏標注"
+    : "顯示標注";
+  $("#toggle-marks").setAttribute(
+    "aria-pressed",
+    String(!viewer.annotationsVisible),
+  );
+});
+$("#neutral-view").addEventListener("click", () => {
+  viewer.setNeutral(!viewer.neutral);
+  $("#neutral-view").textContent = viewer.neutral ? "原色檢視" : "素色檢視";
+  $("#neutral-view").setAttribute("aria-pressed", String(viewer.neutral));
+});
+$("#toggle-echo").addEventListener("click", () => {
+  viewer.agentHidden = !viewer.agentHidden;
+  viewer.setVisible(viewer.annotationsVisible);
+  $("#toggle-echo").textContent = viewer.agentHidden ? "顯示回顯" : "隱藏回顯";
+  $("#toggle-echo").setAttribute("aria-pressed", String(viewer.agentHidden));
+});
+$("#focus-echo").addEventListener("click", () => {
+  const a = viewer.agentEcho?.annotations?.[0];
+  if (a) viewer.focusAnnotation(a);
+});
 $("#home-view").addEventListener("click", () => viewer.home());
 $("#new-region").addEventListener("click", () => {
   selectedId = null;
@@ -479,6 +579,14 @@ $("#new-region").addEventListener("click", () => {
 });
 $("#toggle-annotations").addEventListener("click", () => {
   $("#annotations-list").hidden = !$("#annotations-list").hidden;
+  $("#toggle-annotations").setAttribute(
+    "aria-expanded",
+    String(!$("#annotations-list").hidden),
+  );
+  $(".annotations-panel").classList.toggle(
+    "collapsed",
+    $("#annotations-list").hidden,
+  );
   $("#toggle-annotations").textContent = $("#annotations-list").hidden
     ? "+"
     : "−";
@@ -507,6 +615,7 @@ async function travelHistory(redo = false) {
 $("#undo").addEventListener("click", () => travelHistory());
 $("#redo").addEventListener("click", () => travelHistory(true));
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && mode === "relocate") setMode("orbit");
   if (["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement?.tagName))
     return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -530,6 +639,12 @@ function showRecovery(backup) {
 }
 async function restoreDraft(draft) {
   annotations = clone(draft?.annotations || []);
+  labelCursor = Math.max(
+    draft?.labelCursor || 0,
+    ...annotations
+      .filter((a) => a.type === "pin")
+      .map((a) => letterNumber(a.label)),
+  );
   revision = draft?.revision || 0;
   editSeq = 0;
   savedSeq = 0;
@@ -551,6 +666,12 @@ async function restoreDraft(draft) {
     state = await api("review/begin", owner());
     draft = state.draft;
     annotations = clone(draft?.annotations || []);
+    labelCursor = Math.max(
+      draft?.labelCursor || 0,
+      ...annotations
+        .filter((a) => a.type === "pin")
+        .map((a) => letterNumber(a.label)),
+    );
     revision = draft?.revision || 0;
   }
   const uncertainWriteMatches =
@@ -562,6 +683,13 @@ async function restoreDraft(draft) {
     sameValue(cached.pendingWrite.camera, draft?.camera);
   if (cached.revision === revision || uncertainWriteMatches) {
     annotations = cached.annotations;
+    labelCursor = Math.max(
+      labelCursor,
+      cached.labelCursor || 0,
+      ...annotations
+        .filter((a) => a.type === "pin")
+        .map((a) => letterNumber(a.label)),
+    );
     viewer.restoreCamera(cached.camera);
     editSeq = cached.editSeq || 1;
     savedSeq = cached.savedSeq || 0;
@@ -589,6 +717,14 @@ async function loadActive(fullState) {
   const model = fullState.active;
   if (!model) return;
   loadedId = model.id;
+  labelCursor = 0;
+  echoId = null;
+  relocatingId = null;
+  $("#echo-panel").hidden = true;
+  $("#download-model").href = endpoint(`api/download/${model.filename}`);
+  $("#download-model").download =
+    `${model.name}-${model.version}.${model.format}`;
+  $("#download-model").hidden = false;
   initialDraftRestored = false;
   annotations = [];
   selectedId = null;
@@ -681,12 +817,41 @@ async function readState() {
     $("#connection-status").textContent = incoming.bridgeEnabled
       ? "回傳原會話"
       : "本機審閱";
+    updateEcho(incoming);
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
     $("#connection-status").textContent = "連線暫停";
     $("#save-status").textContent = "服務暫時離線";
   }
+}
+function updateReceipt() {
+  if (submitting) return;
+  const last = state?.submissions?.findLast((s) => s.versionId === loadedId);
+  if (!last) {
+    $("#feedback-status").textContent = annotations.length
+      ? "尚未提交 · 草稿自動保存"
+      : "標注會附帶三維位置及當前版本";
+    return;
+  }
+  const status = `已保存 · ${last.deliveredAt ? "已送到原會話" : last.status === "accepted" ? "送達待核實" : "送達未確認，可重試"} · ${last.readAt ? "Agent 已讀取" : "等候 Agent 讀取"}`;
+  $("#feedback-status").textContent =
+    status +
+    (editSeq > savedSeq || revision !== last.revision
+      ? "；另有尚未提交改動"
+      : "");
+}
+function updateEcho(incoming) {
+  const echo = incoming.echo;
+  $("#echo-stale").hidden =
+    !echo || (echo.revision === revision && editSeq === savedSeq);
+  if ((echo?.id || null) === echoId || !viewer.enabled) return;
+  echoId = echo?.id || null;
+  viewer.setAgentEcho(echo?.versionId === loadedId ? echo : null);
+  $("#echo-panel").hidden = !viewer.agentEcho;
+  $("#echo-summary").textContent = viewer.agentEcho
+    ? `Agent 理解：${echo.summary}`
+    : "";
 }
 function pollState() {
   if (pollFlight) return pollFlight;
@@ -712,11 +877,14 @@ $("#submit-feedback").addEventListener("click", async () => {
       submissionId: submissionKey,
     });
     state.draft = { ...state.draft, submittedRevision: revision };
-    $("#feedback-status").textContent =
-      "已交到會話，等候 Agent 回覆；請返原會話補充修改要求。";
+    state.submissions = [
+      ...(state.submissions || []).filter((s) => s.id !== result.id),
+      result,
+    ];
+    updateReceipt();
     $("#download-feedback").href = endpoint(`api/submissions/${result.id}`);
     $("#download-feedback").hidden = false;
-    toast("標記已提交到 OpenClaw 會話，模型仍然鎖定。");
+    toast("標記已保存，提交狀態會按實際回執更新；模型仍然鎖定。");
   } catch (e) {
     $("#feedback-status").textContent = e.message;
     toast(e.message);
@@ -781,6 +949,7 @@ window.__reviewDiagnostics = () => ({
   versionId: loadedId,
   revision,
   annotationCount: annotations.length,
+  labelCursor,
   dirty: editSeq > savedSeq,
   annotations: viewer.serializeAnnotations(annotations),
   camera: viewer.cameraState(),

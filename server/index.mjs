@@ -94,7 +94,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("region"),
-      coverage: z.literal("brush-v1").optional(),
+      coverage: z.enum(["brush-v1", "source-v1"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       faces: z.record(id, z.array(z.number().int().min(0)).max(MAX_TRIANGLES)),
@@ -118,6 +118,7 @@ const owner = z.object({ versionId: id, clientId: id });
 const camera = z.object({ position: vec3, target: vec3 }).nullable();
 const draftSchema = owner.extend({
   revision: z.number().int().min(0),
+  labelCursor: z.number().int().min(0).max(1000000).optional(),
   annotations: z.array(annotation).max(200),
   camera,
 });
@@ -184,7 +185,13 @@ function validateAnnotations(versionId, annotations) {
     for (const [meshId, faces] of Object.entries(groups)) {
       if (
         !meshes.has(meshId) ||
-        faces.some((f) => f >= meshes.get(meshId).triangles)
+        faces.some(
+          (f) =>
+            f >=
+            (a.type === "region" && a.coverage === "source-v1"
+              ? meshes.get(meshId).sourceTriangles
+              : meshes.get(meshId).triangles),
+        )
       )
         throw new ReviewError(
           "標注與目前模型網格不符，沒有覆蓋草稿。",
@@ -207,13 +214,15 @@ function validateAnnotations(versionId, annotations) {
         ),
       );
       if (
-        (a.coverage !== "brush-v1" && patches.length !== selected.size) ||
+        (!["brush-v1", "source-v1"].includes(a.coverage) &&
+          patches.length !== selected.size) ||
         new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`)).size !==
           selected.size ||
         patches.some(
           (p) =>
             !selected.has(`${p.meshId}:${p.faceIndex}`) ||
-            p.sourceFaceIndex >= meshes.get(p.meshId).sourceTriangles,
+            p.sourceFaceIndex >= meshes.get(p.meshId).sourceTriangles ||
+            (a.coverage === "source-v1" && p.faceIndex !== p.sourceFaceIndex),
         )
       )
         throw new ReviewError(
@@ -233,7 +242,7 @@ app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
     app: "3d-agent-review",
-    version: "0.2.0",
+    version: "0.3.0",
     pid: process.pid,
   }),
 );
@@ -309,7 +318,7 @@ app.post("/api/feedback", async (req, res) => {
     store.submissionStatus(item.id, item.status);
   }
   if (item.status === "accepted")
-    return res.json({ id: item.id, status: "accepted", runId: item.runId });
+    return res.json({ ...item, annotations: undefined });
   if (!feedbackFlights.has(item.id)) {
     feedbackFlights.set(
       item.id,
@@ -319,10 +328,10 @@ app.post("/api/feedback", async (req, res) => {
           .map((a) =>
             a.type === "pin"
               ? `${a.label}：點標籤，${a.meshId}／面 ${a.faceIndex}`
-              : `${a.color} 塗抹區域（區域識別 ${a.id}）：${a.coverage === "brush-v1" ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
+              : `${a.color} 塗抹區域（區域識別 ${a.id}）：${["brush-v1", "source-v1"].includes(a.coverage) ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
           )
           .join("\n");
-        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。不要發 Telegram 或其他外部訊息。使用者尚未結束審閱，不能強行替換模型。`;
+        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 node ${path.join(repo, "scripts/reviewctl.mjs")} read ${item.id} 讀取完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。不要發 Telegram 或其他外部訊息。使用者尚未結束審閱，不能強行替換模型。`;
         store.submissionStatus(item.id, "sending");
         try {
           const result = await bridge.send(message, `3d-feedback-${item.id}`);
@@ -330,11 +339,23 @@ app.post("/api/feedback", async (req, res) => {
             runId: result.runId || null,
             acceptedAt: Date.now(),
           });
-          return {
-            id: item.id,
-            status: "accepted",
-            runId: result.runId || null,
-          };
+          try {
+            const history = await bridge.history(item.createdAt - 5000);
+            if (
+              history.messages.some(
+                (m) =>
+                  m.role === "user" &&
+                  m.text.includes(`[3D 審閱標記提交 ${item.id}]`),
+              )
+            )
+              store.submissionStatus(item.id, "accepted", {
+                deliveredAt: Date.now(),
+              });
+          } catch {
+            /* Acceptance is real, but delivery remains unconfirmed. */
+          }
+          const { annotations, ...receipt } = item;
+          return receipt;
         } catch {
           store.submissionStatus(item.id, "unconfirmed", {
             error: "尚未確認交到 OpenClaw；標注已保存在本機。",
@@ -358,6 +379,20 @@ app.get("/api/submissions/:id", (req, res) => {
     root: path.join(runtime, "submissions"),
   });
 });
+app.get("/api/download/:filename", (req, res) => {
+  const filename = z
+    .string()
+    .regex(/^[a-f0-9]{64}\.(glb|stl)$/)
+    .parse(req.params.filename);
+  const model = Object.values(store.state.models).find(
+    (m) => m?.filename === filename,
+  );
+  if (!model) throw new ReviewError("找不到此已發布版本。", 404);
+  // Same immutable source bytes as the viewer, never a modified review mesh.
+  res.download(filename, `${model.name}-${model.version}.${model.format}`, {
+    root: mediaDir,
+  });
+});
 // Conversation history and input belong exclusively to the origin session.
 app.all("/api/chat", (req, res) =>
   res.status(410).json({ error: "請返回發起審閱的原會話對話。" }),
@@ -365,7 +400,7 @@ app.all("/api/chat", (req, res) =>
 
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
 const agentApp = express();
-agentApp.use(express.json({ limit: "1mb" }));
+agentApp.use(express.json({ limit: "16mb" }));
 agentApp.get("/status", (req, res) =>
   res.json({
     ...stateFor("", true),
@@ -386,6 +421,36 @@ agentApp.post("/publish", (req, res) => {
   res.json(store.publish(model));
 });
 agentApp.get("/submissions", (req, res) => res.json(store.state.submissions));
+agentApp.get("/submissions/:id", (req, res) => {
+  const submission = store.state.submissions.find(
+    (s) => s.id === id.parse(req.params.id),
+  );
+  if (!submission) throw new ReviewError("找不到提交。", 404);
+  res.json(submission);
+});
+agentApp.post("/read", (req, res) => {
+  const p = z.object({ submissionId: id, versionId: id }).parse(req.body);
+  res.json(store.acknowledgeRead(p.submissionId, p.versionId));
+});
+agentApp.post("/echo", (req, res) => {
+  const p = z
+    .object({
+      submissionId: id,
+      versionId: id,
+      summary: z.string().min(1).max(1000),
+      annotations: z.array(annotation).max(20),
+    })
+    .strict()
+    .parse(req.body);
+  if (p.annotations.some((a) => a.type !== "region"))
+    throw new ReviewError(
+      "理解回顯需要明確表面範圍，不能以點標籤冒充範圍。",
+      400,
+    );
+  validateAnnotations(p.versionId, p.annotations);
+  res.json(store.setEcho(p));
+});
+
 function errorHandler(err, req, res, next) {
   const schemaError = err instanceof z.ZodError;
   const status = schemaError ? 400 : err.status || 500;

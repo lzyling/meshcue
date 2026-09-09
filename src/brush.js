@@ -24,22 +24,25 @@ const area = (p) =>
     const b = p[(i + 1) % p.length];
     return s + a[0] * b[1] - a[1] * b[0];
   }, 0) / 2;
-const useful = (p) => p.length >= 3 && Math.abs(area(p)) > 1e-7;
+const useful = (p, minArea = 1e-7) =>
+  p.length >= 3 && Math.abs(area(p)) > minArea;
 function edge(a, b) {
   return (p) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
 }
-export function subtract(subject, cutter) {
-  if (!useful(cutter)) return [subject];
+export function subtract(subject, cutter, minArea = 1e-7) {
+  if (!useful(cutter, minArea)) return [subject];
   const ccw = area(cutter) > 0 ? cutter : [...cutter].reverse();
   let inside = subject;
   const outside = [];
-  for (let i = 0; i < ccw.length && useful(inside); i++) {
+  for (let i = 0; i < ccw.length && useful(inside, minArea); i++) {
     const d = edge(ccw[i], ccw[(i + 1) % ccw.length]);
     const piece = clip(inside, (p) => -d(p));
-    if (useful(piece)) outside.push(piece);
+    if (useful(piece, minArea)) outside.push(piece);
     inside = clip(inside, d);
   }
-  return outside;
+  // Edge extensions may partition a disjoint subject. No actual overlap means
+  // no edit, rather than replacing it with equivalent fragments.
+  return useful(inside, minArea) ? outside : [subject];
 }
 function bounds(poly) {
   return [

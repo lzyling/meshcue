@@ -195,7 +195,7 @@ test("new Agent model waits through editing and submission until the user ends t
     page.getByRole("button", { name: "結束本輪審閱", exact: true }),
   ).toBeDisabled();
   await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已交到會話");
+  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().versionId),
   ).toBe(original);
@@ -309,7 +309,7 @@ test("temporary save failure keeps local edits, then retries without losing the 
   );
   await page.unroute("**/api/draft");
   await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已交到會話");
+  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   const d = await page.evaluate(() => window.__reviewDiagnostics());
   expect(d.annotationCount).toBe(1);
   expect(d.dirty).toBe(false);
@@ -324,11 +324,11 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("草稿已保存");
   await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已交到會話");
+  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   const s = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"))
     .submissions[0];
   expect(s.annotations[0].surfacePatches.length).toBeGreaterThan(0);
-  expect(s.annotations[0].coverage).toBe("brush-v1");
+  expect(s.annotations[0].coverage).toBe("source-v1");
   const sent = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   ).calls.find((c) => c.method === "chat.send");
@@ -470,7 +470,7 @@ test("an accepted feedback response lost in transit can be retried after refresh
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已交到會話");
+  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   const log = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   );
@@ -792,7 +792,7 @@ test("legacy pins and paint fixture restore unchanged alongside new precise stro
   await expect(page.locator("#save-status")).toHaveText("草稿已保存");
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations.slice(0, 3)).toEqual(legacy.annotations);
-  expect(after.annotations[3].coverage).toBe("brush-v1");
+  expect(after.annotations[3].coverage).toBe("source-v1");
 });
 
 test("narrow embedded review fixture remains interactive without a duplicated conversation", async ({
@@ -825,7 +825,7 @@ test("narrow embedded review fixture remains interactive without a duplicated co
     .toBe(1);
   await expect(frame.locator("#save-status")).toHaveText("草稿已保存");
   await frame.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(frame.locator("#feedback-status")).toContainText("已交到會話");
+  await expect(frame.locator("#feedback-status")).toContainText("已送到原會話");
 });
 
 test("paint mode supports temporary Option navigation and does not consume point label numbers", async ({
@@ -857,7 +857,7 @@ test("paint mode supports temporary Option navigation and does not consume point
   const annotations = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
-  expect(annotations.find((a) => a.type === "pin").label).toBe("1");
+  expect(annotations.find((a) => a.type === "pin").label).toBe("A");
 });
 
 test("medium and wide review layouts do not retain an empty chat column", async ({
@@ -874,4 +874,381 @@ test("medium and wide review layouts do not retain an empty chat column", async 
       ),
     ).toBe(true);
   }
+});
+
+test("iteration: stable letters, explicit focus, relocation, hide and undo preserve identity", async ({
+  page,
+}) => {
+  await ready(page);
+  await pin(page);
+  const first = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(first.annotations[0].label).toBe("A");
+  await page.getByRole("button", { name: "刪除標記 A", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(0);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await pin(page);
+  const second = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(second.annotations[0].label).toBe("B");
+  const p = await point(page, -80, -50);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 40, p.y + 20, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  const camera = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  await page.locator(".annotation-select").click();
+  const selectedCamera = await page.evaluate(
+    () => window.__reviewDiagnostics().camera,
+  );
+  for (const key of ["position", "target"])
+    selectedCamera[key].forEach((v, i) =>
+      expect(v).toBeCloseTo(camera[key][i], 8),
+    );
+  await page.getByRole("button", { name: "移動標籤 B", exact: true }).click();
+  const target = await point(page, -25, 30);
+  await page.mouse.click(target.x, target.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotations[0].position),
+    )
+    .not.toEqual(second.annotations[0].position);
+  expect(
+    (await page.evaluate(() => window.__reviewDiagnostics().annotations[0])).id,
+  ).toBe(second.annotations[0].id);
+  await page.getByRole("button", { name: "撤銷", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
+    .toEqual(second.annotations);
+  await page.locator("#toggle-marks").click();
+  await expect(page.locator(".model-pin")).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
+    .toEqual(second.annotations);
+  await page.locator("#toggle-marks").click();
+  await page.locator("#toggle-annotations").click();
+  await expect(page.locator("#annotations-list")).toBeHidden();
+});
+
+test("iteration: bucket preview equals filled coverage and eraser is partial and undoable", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.getByRole("button", { name: "油漆桶模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.move(p.x, p.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().viewer.fillFaces),
+    )
+    .toBeGreaterThan(1);
+  const count = await page.evaluate(
+    () => window.__reviewDiagnostics().viewer.fillFaces,
+  );
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(0);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const filled = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  expect(filled[0].surfacePatches.length).toBe(count);
+  await page.getByRole("button", { name: "橡皮擦模式", exact: true }).click();
+  await page.locator("#brush-size").fill("6");
+  await page.mouse.click(p.x, p.y);
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
+    .not.toEqual(filled);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const erased = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  expect(erased).not.toEqual(filled);
+  expect(erased[0].id).toBe(filled[0].id);
+  await page.getByRole("button", { name: "撤銷", exact: true }).click();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(filled);
+});
+
+test("iteration: explicit Agent read receipt and separate echo survive corrections without moving the camera", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await page.getByRole("button", { name: /交畀 Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(page.locator("#feedback-status")).not.toContainText(
+    "Agent 已讀取",
+  );
+  const submission = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  ).submissions[0];
+  execFileSync(
+    process.execPath,
+    ["scripts/reviewctl.mjs", "read", submission.id],
+    { cwd: repo, env, stdio: "pipe" },
+  );
+  await expect(page.locator("#feedback-status")).toContainText("Agent 已讀取");
+  const before = await page.evaluate(() => window.__reviewDiagnostics());
+  const file = path.join(dir, "echo.json");
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      submissionId: submission.id,
+      versionId: submission.versionId,
+      summary: "測試指定範圍",
+      annotations: submission.annotations,
+    }),
+  );
+  execFileSync(process.execPath, ["scripts/reviewctl.mjs", "echo", file], {
+    cwd: repo,
+    env,
+    stdio: "pipe",
+  });
+  await expect(page.locator("#echo-panel")).toBeVisible();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(before.annotations);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().camera),
+  ).toEqual(before.camera);
+  await page.locator("#toggle-marks").click();
+  expect(
+    await page.evaluate(
+      () => window.__reviewDiagnostics().viewer.annotationsVisible,
+    ),
+  ).toBe(false);
+  expect(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(dir, "submissions", submission.id + ".json"),
+        "utf8",
+      ),
+    ).annotations,
+  ).toEqual(submission.annotations);
+});
+
+test("iteration: current-version download is original bytes, including after neutral view and a queued replacement", async ({
+  page,
+}) => {
+  await ready(page);
+  await pin(page);
+  const stateBefore = (await request("GET", "state")).data;
+  await page.locator("#neutral-view").click();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().viewer.neutral),
+  ).toBe(true);
+  publish("bunny-figurine.glb", "pending");
+  const pending = page.waitForEvent("download");
+  await page.locator("#download-model").click();
+  const download = await pending;
+  const bytes = fs.readFileSync(await download.path());
+  const { createHash } = await import("node:crypto");
+  expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+    stateBefore.active.sha256,
+  );
+  expect(download.suggestedFilename()).toContain(stateBefore.active.version);
+  expect((await request("GET", "state")).data.locked).toBe(true);
+});
+
+test("iteration: superseded unsubmitted model remains downloadable from the current view", async ({
+  page,
+}) => {
+  await ready(page);
+  const current = (await request("GET", "state")).data.active;
+  await page.route("**/api/state**", (route) => route.abort());
+  publish("bunny-figurine.glb", "v2");
+  const pending = page.waitForEvent("download");
+  await page.locator("#download-model").click();
+  const download = await pending;
+  expect(await download.failure()).toBeNull();
+  const { createHash } = await import("node:crypto");
+  expect(
+    createHash("sha256")
+      .update(fs.readFileSync(await download.path()))
+      .digest("hex"),
+  ).toBe(current.sha256);
+});
+test("iteration: changing tool cancels a bucket action awaiting edit ownership", async ({
+  page,
+}) => {
+  await ready(page);
+  let release;
+  const blocked = new Promise((resolve) => {
+    release = resolve;
+  });
+  let entered = false;
+  await page.route("**/api/review/begin", async (route) => {
+    entered = true;
+    await blocked;
+    await route.continue();
+  });
+  await page.locator('[data-mode="fill"]').click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => entered).toBe(true);
+  await page.locator('[data-mode="paint"]').click();
+  release();
+  await expect
+    .poll(async () => (await request("GET", "state")).data.locked)
+    .toBe(true);
+  await page.waitForTimeout(200);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(0);
+});
+
+test("iteration: colored texture survives annotation, hide and neutral display round trips", async ({
+  page,
+}) => {
+  await ready(page);
+  const texture = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 32;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ef3030";
+    context.fillRect(0, 0, 32, 32);
+    context.fillStyle = "#2050ef";
+    context.fillRect(0, 0, 16, 16);
+    context.fillRect(16, 16, 16, 16);
+    return canvas.toDataURL("image/png");
+  });
+  const original = fs.readFileSync(
+    path.resolve(
+      "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
+    ),
+  );
+  const jsonSize = original.readUInt32LE(12);
+  const doc = JSON.parse(original.toString("utf8", 20, 20 + jsonSize));
+  doc.images = [{ uri: texture }];
+  doc.textures = [{ source: 0 }];
+  doc.extensionsUsed = [
+    ...new Set([...(doc.extensionsUsed || []), "KHR_materials_unlit"]),
+  ];
+  for (const material of doc.materials) {
+    material.pbrMetallicRoughness.baseColorFactor = [1, 1, 1, 1];
+    material.pbrMetallicRoughness.baseColorTexture = { index: 0 };
+    material.extensions = { KHR_materials_unlit: {} };
+  }
+  const json = Buffer.from(JSON.stringify(doc));
+  const padded = Buffer.alloc(Math.ceil(json.length / 4) * 4, 32);
+  json.copy(padded);
+  const header = Buffer.from(original.subarray(0, 20));
+  const tail = original.subarray(20 + jsonSize);
+  header.writeUInt32LE(20 + padded.length + tail.length, 8);
+  header.writeUInt32LE(padded.length, 12);
+  const file = path.join(dir, "colored-texture.glb");
+  fs.writeFileSync(file, Buffer.concat([header, padded, tail]));
+  const model = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "scripts/reviewctl.mjs",
+        "publish",
+        file,
+        "--name",
+        "彩色貼圖驗證",
+        "--version",
+        "color-proof",
+      ],
+      { cwd: repo, env, encoding: "utf8" },
+    ),
+  ).model;
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().viewer.versionId),
+    )
+    .toBe(model.id);
+  await expect(page.locator("#loading")).toBeHidden();
+  const canvas = page.locator("#viewer canvas");
+  const box = await canvas.boundingBox();
+  // Compare model pixels, excluding the deliberately changing toolbar/list receipts.
+  const capture = () =>
+    page.screenshot({
+      clip: {
+        x: box.x + box.width * 0.25,
+        y: box.y + box.height * 0.15,
+        width: box.width * 0.53,
+        height: box.height * 0.7,
+      },
+    });
+  const clean = await capture();
+  const cleanCamera = await page.evaluate(
+    () => window.__reviewDiagnostics().camera,
+  );
+  async function colors(bytes) {
+    return page.evaluate(async (base64) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      let red = 0,
+        blue = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i] > pixels[i + 2] * 1.5 && pixels[i] > 100) red++;
+        if (pixels[i + 2] > pixels[i] * 1.5 && pixels[i + 2] > 100) blue++;
+      }
+      return { red, blue };
+    }, bytes.toString("base64"));
+  }
+  const colored = await colors(clean);
+  expect(colored.red).toBeGreaterThan(1000);
+  expect(colored.blue).toBeGreaterThan(1000);
+  await pin(page);
+  await page.locator('[data-mode="paint"]').click();
+  const p = await point(page);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 75, p.y, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  const annotations = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  expect((await capture()).equals(clean)).toBe(false);
+  await page.screenshot({
+    path: path.resolve(
+      "../../media/images/2026-09-09-3d-review-v03-colored-annotations.png",
+    ),
+  });
+  await page.locator("#toggle-marks").click();
+  const hidden = await capture();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().camera),
+  ).toEqual(cleanCamera);
+  expect(hidden.equals(clean)).toBe(true);
+  await page.locator("#neutral-view").click();
+  const neutral = await colors(await capture());
+  expect(neutral.red + neutral.blue).toBeLessThan(100);
+  await page.locator("#neutral-view").click();
+  expect((await capture()).equals(clean)).toBe(true);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(annotations);
 });

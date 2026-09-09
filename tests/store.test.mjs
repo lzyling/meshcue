@@ -389,3 +389,76 @@ test("actual viewer BVH raycasts keep point labels and painted patches attached 
   mesh.geometry.dispose();
   mesh.material.dispose();
 });
+
+test("letter high-water survives deletion and restart, while undo can restore the original identity", (t) => {
+  const { dir, store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  draft(store, [{ ...pins[0], label: "D" }]);
+  draft(store, [], 1);
+  const restored = new ReviewStore(dir);
+  assert.equal(restored.state.draft.labelCursor, 4);
+  draft(restored, [{ ...pins[0], label: "D" }], 2);
+  assert.equal(restored.state.draft.labelCursor, 4);
+});
+test("Agent read and echo are version bound and do not overwrite annotations or release review", (t) => {
+  const { store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  draft(store);
+  const submission = store.createSubmission({
+    versionId: m1.id,
+    clientId: "client-a",
+    revision: 1,
+    submissionId: "echo-test",
+  });
+  const before = structuredClone(submission.annotations);
+  assert.throws(() => store.acknowledgeRead(submission.id, m2.id));
+  store.acknowledgeRead(submission.id, m1.id);
+  assert.ok(submission.readAt);
+  assert.equal(submission.deliveredAt, undefined);
+  store.setEcho({
+    submissionId: submission.id,
+    versionId: m1.id,
+    summary: "range",
+    annotations: [],
+  });
+  assert.equal(store.publicState("client-a").echo.revision, 1);
+  assert.deepEqual(submission.annotations, before);
+  assert.deepEqual(store.state.draft.annotations, before);
+  assert.ok(store.state.lock);
+  assert.throws(() =>
+    store.setEcho({
+      submissionId: submission.id,
+      versionId: m2.id,
+      summary: "wrong",
+      annotations: [],
+    }),
+  );
+});
+test("deleting all previously submitted notes remains an unsubmitted change until manually submitted", (t) => {
+  const { store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  draft(store);
+  store.createSubmission({
+    versionId: m1.id,
+    clientId: "client-a",
+    revision: 1,
+    submissionId: "old",
+  });
+  store.submissionStatus("old", "accepted");
+  draft(store, [], 1);
+  assert.throws(
+    () => store.finish(m1.id, "client-a"),
+    (e) => e.code === "UNSUBMITTED",
+  );
+  const replacement = store.createSubmission({
+    versionId: m1.id,
+    clientId: "client-a",
+    revision: 2,
+    submissionId: "empty-update",
+  });
+  assert.equal(replacement.annotations.length, 0);
+  assert.equal(store.state.submissions[0].annotations.length, 1);
+});

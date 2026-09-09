@@ -9,6 +9,7 @@ import {
 } from "three-mesh-bvh";
 import { reviewSurface, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
+import { buildFillTopology, planarFaces } from "./planar-fill.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -65,6 +66,11 @@ export class ModelViewer {
     this.scene.add(this.root);
     this.overlay = new THREE.Group();
     this.scene.add(this.overlay);
+    this.agentOverlay = new THREE.Group();
+    this.previewOverlay = new THREE.Group();
+    this.scene.add(this.agentOverlay, this.previewOverlay);
+    this.annotationsVisible = true;
+    this.fillTolerance = 6;
     this.labels = document.createElement("div");
     this.labels.className = "pin-layer";
     container.append(this.labels);
@@ -93,7 +99,10 @@ export class ModelViewer {
       "pointerleave",
       () => (this.cursor.style.display = "none"),
     );
-    window.addEventListener("pointerup", () => this.pointerUp());
+    window.addEventListener("pointerup", (e) => {
+      this.clickEdit(e);
+      this.pointerUp();
+    });
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
       this.enabled = false;
@@ -109,6 +118,16 @@ export class ModelViewer {
     this.renderer.setSize(width, height);
   }
   setMode(mode) {
+    this.editEpoch = (this.editEpoch || 0) + 1;
+    this.clickStart = null;
+    this.pendingPoints = [];
+    if (this.drawing) {
+      this.drawing = false;
+      this.onStrokeEnd();
+    }
+    this.controls.enabled = true;
+    this.clearOverlay(this.previewOverlay);
+    this.fillTarget = null;
     this.mode = mode;
     this.controls.enableRotate = mode === "orbit";
     this.cursor.style.display = "none";
@@ -144,7 +163,11 @@ export class ModelViewer {
     this.controls.enableDamping = damping;
   }
   clearModel() {
+    this.setNeutral(false);
     this.setAnnotations([]);
+    this.clearOverlay(this.agentOverlay);
+    this.clearOverlay(this.previewOverlay);
+    this.fillTarget = null;
     const geometries = new Set(),
       materials = new Set(),
       textures = new Set();
@@ -245,6 +268,7 @@ export class ModelViewer {
         sourceCount,
         Math.floor((600000 * sourceCount) / sourceTotal),
       );
+      o.userData.fillTopology = buildFillTopology(o.geometry, o.matrixWorld);
       originals.add(o.geometry);
       o.geometry = reviewSurface(o.geometry, o.matrixWorld, budget);
       const n = o.geometry.attributes.position.count / 3;
@@ -317,7 +341,7 @@ export class ModelViewer {
   }
   serializeAnnotations(annotations) {
     return annotations.map((a) =>
-      a.type === "pin" || a.coverage === "brush-v1"
+      a.type === "pin" || ["brush-v1", "source-v1"].includes(a.coverage)
         ? structuredClone(a)
         : {
             ...structuredClone(a),
@@ -342,7 +366,7 @@ export class ModelViewer {
   async doubleClick(e) {
     if (
       e.button !== 0 ||
-      this.mode === "paint" ||
+      this.mode !== "orbit" ||
       !this.enabled ||
       this.pinPending ||
       this.lastGestureDragged
@@ -351,11 +375,16 @@ export class ModelViewer {
     e.preventDefault();
     const hit = this.rayAt(e.clientX, e.clientY);
     if (!hit) return;
+    const epoch = this.editEpoch;
     const pin = this.pinFromHit(hit),
       modelId = this.model.id;
     this.pinPending = true;
     try {
-      if ((await this.onEdit()) && modelId === this.model?.id) {
+      if (
+        (await this.onEdit()) &&
+        modelId === this.model?.id &&
+        epoch === this.editEpoch
+      ) {
         this.onPin(pin);
         this.onStrokeEnd();
       }
@@ -368,7 +397,20 @@ export class ModelViewer {
   async pointerDown(e) {
     this.gestureStart = [e.clientX, e.clientY];
     this.lastGestureDragged = false;
-    if (e.button !== 0 || this.mode !== "paint" || !this.enabled) return;
+    if (
+      e.button !== 0 ||
+      this.mode === "orbit" ||
+      !this.enabled ||
+      this.editPending ||
+      this.pinPending
+    )
+      return;
+    if (!e.altKey && ["fill", "relocate"].includes(this.mode)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      this.clickStart = [e.clientX, e.clientY];
+      return;
+    }
     // Temporary navigation while painting; does not create a stroke.
     if (e.altKey) {
       this.controls.enableRotate = true;
@@ -376,6 +418,7 @@ export class ModelViewer {
     }
     e.stopImmediatePropagation();
     e.preventDefault();
+    const epoch = this.editEpoch;
     const point = [e.clientX, e.clientY],
       modelId = this.model?.id;
     if (!this.rayAt(...point)) return;
@@ -388,7 +431,7 @@ export class ModelViewer {
     try {
       const allowed = await this.onEdit();
       this.editPending = false;
-      if (!allowed || modelId !== this.model?.id) {
+      if (!allowed || modelId !== this.model?.id || epoch !== this.editEpoch) {
         this.drawing = false;
         this.controls.enabled = true;
         return;
@@ -404,6 +447,8 @@ export class ModelViewer {
     }
   }
   pointerMove(e) {
+    if (this.mode === "fill" && !e.buttons)
+      this.previewFill(e.clientX, e.clientY);
     if (
       this.gestureStart &&
       Math.hypot(
@@ -413,12 +458,16 @@ export class ModelViewer {
     )
       this.lastGestureDragged = true;
     const r = this.container.getBoundingClientRect();
-    if (this.mode === "paint" && this.enabled) {
+    if (
+      ["paint", "erase"].includes(this.mode) &&
+      this.enabled &&
+      this.annotationsVisible
+    ) {
       this.cursor.style.display = "block";
       this.cursor.style.left = `${e.clientX - r.left}px`;
       this.cursor.style.top = `${e.clientY - r.top}px`;
     }
-    if (this.drawing && this.mode === "paint") {
+    if (this.drawing && ["paint", "erase"].includes(this.mode)) {
       this.pendingPoints.push([e.clientX, e.clientY]);
       if (!this.pendingFrame && !this.editPending)
         this.pendingFrame = requestAnimationFrame(() => {
@@ -450,7 +499,7 @@ export class ModelViewer {
       this.onStrokeEnd();
     }
     this.controls.enabled = true;
-    this.controls.enableRotate = this.mode !== "paint";
+    this.controls.enableRotate = this.mode === "orbit";
   }
   paint(x, y) {
     if (!this.enabled || !this.model) return;
@@ -480,11 +529,7 @@ export class ModelViewer {
     if (patches.length) this.onPaint(patches);
   }
   setAnnotations(annotations, selectedId) {
-    for (const child of [...this.overlay.children]) {
-      child.geometry.dispose();
-      child.material.dispose();
-      this.overlay.remove(child);
-    }
+    this.clearOverlay(this.overlay);
     this.labels.replaceChildren();
     this.pins = [];
     for (const a of annotations) {
@@ -508,7 +553,7 @@ export class ModelViewer {
           const mesh = this.meshMap.get(meshId);
           if (!mesh) continue;
           const coords = [];
-          if (a.coverage === "brush-v1") {
+          if (["brush-v1", "source-v1"].includes(a.coverage)) {
             for (const patch of a.surfacePatches || []) {
               if (patch.meshId === meshId)
                 for (const v of patch.vertices) coords.push(...v);
@@ -531,17 +576,7 @@ export class ModelViewer {
             "position",
             new THREE.Float32BufferAttribute(coords, 3),
           );
-          const material = new THREE.MeshBasicMaterial({
-            color: a.color,
-            transparent: false,
-            opacity: 1,
-            toneMapped: false,
-            depthWrite: false,
-            polygonOffset: true,
-            polygonOffsetFactor: -2,
-            polygonOffsetUnits: -2,
-            side: THREE.DoubleSide,
-          });
+          const material = this.markMaterial(a.color, a.id === selectedId);
           const overlay = new THREE.Mesh(geometry, material);
           overlay.matrixAutoUpdate = false;
           overlay.matrix.copy(mesh.matrixWorld);
@@ -574,7 +609,7 @@ export class ModelViewer {
           !hit ||
           hit.distance >= this.camera.position.distanceTo(world) - 0.015;
       }
-      el.hidden = !visible;
+      el.hidden = !visible || !this.annotationsVisible;
       el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,-100%)`;
     }
   }
@@ -586,19 +621,203 @@ export class ModelViewer {
     const p =
       a.type === "pin"
         ? new V().fromArray(a.position)
-        : a.coverage === "brush-v1"
+        : ["brush-v1", "source-v1"].includes(a.coverage)
           ? new V().fromArray(a.surfacePatches[0].vertices[0])
           : this.triangle(mesh, Object.values(a.faces)[0][0]).getMidpoint(
               new V(),
             );
     mesh.localToWorld(p);
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    this.camera.position.copy(p).add(offset);
     this.controls.target.copy(p);
     this.controls.update();
+  }
+  clearOverlay(group) {
+    for (const o of [...group.children]) {
+      o.geometry.dispose();
+      o.material.dispose();
+      group.remove(o);
+    }
+  }
+  markMaterial(color, selected = false, agent = false) {
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.83,
+      toneMapped: false,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
+    });
+    material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
+        float stripe = step(0.68, fract((gl_FragCoord.x ${agent ? "-" : "+"} gl_FragCoord.y) / 10.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${selected ? "0.05" : "0.98"}), stripe * 0.85);
+      `,
+      );
+    };
+    material.customProgramCacheKey = () => `marks-${selected}-${agent}`;
+    return material;
+  }
+  setVisible(visible) {
+    this.annotationsVisible = visible;
+    this.overlay.visible = visible;
+    this.agentOverlay.visible = visible && !this.agentHidden;
+    this.previewOverlay.visible = visible;
+    this.cursor.style.display = "none";
+  }
+  setNeutral(neutral) {
+    for (const mesh of this.meshes) {
+      if (neutral && !mesh.userData.originalMaterial) {
+        mesh.userData.originalMaterial = mesh.material;
+        const copy = (m) => {
+          const neutral = m.clone();
+          neutral.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "#include <color_fragment>",
+              "#include <color_fragment>\ndiffuseColor.rgb=vec3(0.52,0.56,0.58);",
+            );
+          };
+          neutral.customProgramCacheKey = () => "review-neutral";
+          return neutral;
+        };
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map(copy)
+          : copy(mesh.material);
+      } else if (!neutral && mesh.userData.originalMaterial) {
+        for (const m of Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material])
+          m.dispose();
+        mesh.material = mesh.userData.originalMaterial;
+        delete mesh.userData.originalMaterial;
+      }
+    }
+    this.neutral = neutral;
+  }
+  drawPatches(group, patches, color, agent = false) {
+    this.clearOverlay(group);
+    const groups = new Map();
+    for (const p of patches) {
+      if (!groups.has(p.meshId)) groups.set(p.meshId, []);
+      groups.get(p.meshId).push(...p.vertices.flat());
+    }
+    for (const [id, coords] of groups) {
+      const mesh = this.meshMap.get(id);
+      if (!mesh) continue;
+      const geometry = new THREE.BufferGeometry().setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(coords, 3),
+      );
+      const overlay = new THREE.Mesh(
+        geometry,
+        this.markMaterial(color, true, agent),
+      );
+      overlay.matrixAutoUpdate = false;
+      overlay.matrix.copy(mesh.matrixWorld);
+      overlay.renderOrder = agent ? 5 : 4;
+      group.add(overlay);
+    }
+  }
+  setAgentEcho(echo) {
+    this.agentEcho = echo;
+    const annotations =
+      echo?.versionId === this.model?.id ? echo.annotations : [];
+    const patches = this.serializeAnnotations(annotations || []).flatMap(
+      (a) => a.surfacePatches || [],
+    );
+    this.drawPatches(this.agentOverlay, patches, "#f5dc72", true);
+  }
+  setFillTolerance(value) {
+    this.fillTolerance = value;
+    if (this.fillTarget) this.computeFill(this.fillTarget);
+  }
+  previewFill(x, y) {
+    const hit = this.rayAt(x, y);
+    if (!hit) {
+      this.fillTarget = null;
+      this.clearOverlay(this.previewOverlay);
+      return;
+    }
+    const target = {
+      mesh: hit.object,
+      seed: hit.object.geometry.userData.sourceFaces[hit.faceIndex],
+    };
+    if (
+      this.fillTarget?.mesh === target.mesh &&
+      this.fillTarget?.seed === target.seed
+    )
+      return;
+    this.computeFill(target);
+  }
+  computeFill(target) {
+    this.fillTarget = target;
+    const { mesh, seed } = target;
+    const selected = new Set(
+      planarFaces(mesh.userData.fillTopology, seed, this.fillTolerance),
+    );
+    const patches = [...selected].map((sourceFaceIndex) => ({
+      meshId: mesh.userData.reviewId,
+      faceIndex: sourceFaceIndex,
+      sourceFaceIndex,
+      vertices: mesh.userData.fillTopology.vertices[sourceFaceIndex],
+    }));
+    this.fillTooLarge = patches.length > 20000;
+    this.fillPatches = this.fillTooLarge ? [] : patches;
+    this.drawPatches(this.previewOverlay, this.fillPatches, "#fcfcfc");
+  }
+  async clickEdit(e) {
+    const start = this.clickStart;
+    this.clickStart = null;
+    if (
+      !start ||
+      Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 4 ||
+      this.pinPending
+    )
+      return;
+    const hit = this.rayAt(e.clientX, e.clientY);
+    if (!hit) return;
+    const epoch = this.editEpoch;
+    const mode = this.mode,
+      modelId = this.model?.id;
+    if (mode === "fill") this.previewFill(e.clientX, e.clientY);
+    if (mode === "fill" && this.fillTooLarge) {
+      this.onError(
+        "此平面超過本輪 20,000 面標注上限；可收窄範圍或先簡化模型。",
+      );
+      return;
+    }
+    const patches = this.fillPatches,
+      pin = this.pinFromHit(hit);
+    this.pinPending = true;
+    try {
+      if (
+        !(await this.onEdit()) ||
+        modelId !== this.model?.id ||
+        epoch !== this.editEpoch
+      )
+        return;
+      if (mode === "relocate") this.onRelocate?.(pin);
+      else if (mode === "fill" && patches?.length) this.onPaint(patches);
+      this.onStrokeEnd();
+    } catch (e) {
+      this.onError(e.message);
+    } finally {
+      this.pinPending = false;
+    }
   }
   stats() {
     return {
       versionId: this.model?.id,
       meshes: this.meshes.length,
+      annotationsVisible: this.annotationsVisible,
+      neutral: !!this.neutral,
+      fillFaces: this.fillPatches?.length || 0,
+      agentEchoId: this.agentEcho?.id || null,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
     };

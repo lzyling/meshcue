@@ -884,3 +884,235 @@ dialog .muted {
     padding: 10px 6px;
   }
 }
+
+/* 0.3: the model owns the available height, including narrow host panels. */
+.app-header {
+  height: 38px;
+  padding: 0 12px;
+  gap: 8px;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  font-size: 24px;
+}
+.brand strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.brand span,
+.prototype {
+  display: none;
+}
+.workspace {
+  height: calc(100dvh - 38px);
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
+}
+.review-panel {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 6px 8px;
+}
+.model-heading {
+  min-height: 30px;
+  margin-bottom: 5px;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.model-heading > div:first-child {
+  min-width: 0;
+}
+.model-heading h2 {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.model-meta {
+  flex-shrink: 0;
+  gap: 8px;
+}
+.version-chip {
+  padding: 3px 7px;
+}
+.viewer-shell {
+  min-height: 290px;
+  border-radius: 10px;
+}
+.viewer-top {
+  top: 8px;
+  left: 10px;
+  right: 10px;
+}
+.scene-pill {
+  padding: 4px 7px;
+}
+.scene-pill.subtle {
+  display: none;
+}
+.toolbar {
+  top: 40px;
+  left: 8px;
+  padding: 4px;
+  gap: 1px;
+  border-radius: 9px;
+}
+.tool {
+  width: 38px;
+  height: 39px;
+  font-size: 20px;
+}
+.tool.small {
+  height: 25px;
+}
+.tool span {
+  font-size: 8px;
+}
+.view-actions {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: flex;
+  gap: 4px;
+}
+.view-actions button {
+  border-radius: 6px;
+  background: #fbfff7ed;
+  padding: 5px 7px;
+  border: 1px solid #ced9c6;
+}
+.view-actions [aria-pressed="true"] {
+  background: #263e31;
+  color: #edf5e6;
+}
+.tool-options {
+  left: 64px;
+  right: auto;
+  top: auto;
+  bottom: 30px;
+  max-width: calc(100% - 74px);
+  padding: 7px 9px;
+  gap: 10px;
+}
+.annotations-panel {
+  top: 40px;
+  right: 8px;
+  bottom: auto;
+  width: 240px;
+  max-height: calc(100% - 125px);
+}
+.annotations-heading {
+  padding: 7px 9px;
+}
+.annotations-panel.collapsed {
+  width: 125px;
+}
+.annotation-row {
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 1px;
+}
+.annotation-select {
+  padding: 6px 4px;
+}
+.annotation-select small {
+  font-size: 8px;
+}
+.annotation-action {
+  font-size: 9px;
+  padding: 6px 3px;
+}
+.annotation-badge {
+  border: 1px solid #fff;
+  outline: 1px solid #283b3580;
+  color: #132a23;
+}
+.delete-annotation {
+  padding: 6px 4px;
+}
+.model-pin {
+  color: #101d19;
+  box-shadow:
+    0 0 0 1px #142a25,
+    0 2px 5px #18231833;
+}
+.review-footer {
+  padding-top: 6px;
+  min-height: 38px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.submission-status {
+  flex-basis: auto;
+}
+.primary-button,
+.secondary-button {
+  padding: 8px 10px;
+  flex: none;
+  font-size: 10px;
+}
+a.secondary-button {
+  text-decoration: none;
+  text-align: center;
+}
+.viewer-bottom {
+  bottom: 9px;
+  left: 10px;
+  right: 10px;
+}
+.pending-banner {
+  margin-top: 5px;
+  padding: 5px 9px;
+}
+#echo-panel {
+  position: absolute;
+  left: 64px;
+  bottom: 70px;
+  max-width: calc(100% - 75px);
+  background: #fff8d7ed;
+  color: #453f22;
+  border: 1px dashed #817536;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+#echo-panel button {
+  margin-left: 8px;
+  text-decoration: underline;
+}
+#echo-stale {
+  display: block;
+  font-size: 9px;
+  margin-top: 4px;
+}
+@media (max-width: 650px) {
+  .header-right {
+    font-size: 9px;
+  }
+  .annotations-panel {
+    width: 180px;
+  }
+  .annotation-select {
+    flex-basis: 100%;
+    padding-bottom: 1px;
+  }
+  .annotation-action {
+    margin-left: 5px;
+  }
+  .submission-status {
+    flex-basis: 100%;
+    font-size: 9px;
+  }
+  .model-meta #save-status {
+    max-width: 65px;
+    font-size: 9px;
+  }
+  .primary-button,
+  .secondary-button {
+    flex: 1;
+    padding: 7px 5px;
+  }
+}

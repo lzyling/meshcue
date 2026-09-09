@@ -7,6 +7,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     channel: "chrome",
+    acceptDownloads: true,
     headless: true,
     viewport: { width: 1440, height: 1000 },
     launchOptions: {
