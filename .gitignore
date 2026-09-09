@@ -21,3 +21,6 @@ __pycache__/
 /runtime/
 /test-results/
 /playwright-report/
+
+# Machine-specific installed-code backups and staged runtime bundles.
+/evidence/sidebar-release-*/
