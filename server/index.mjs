@@ -94,6 +94,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("region"),
+      coverage: z.literal("brush-v1").optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       faces: z.record(id, z.array(z.number().int().min(0)).max(MAX_TRIANGLES)),
@@ -122,6 +123,7 @@ const draftSchema = owner.extend({
 });
 function stateFor(clientId, full = false) {
   const state = store.publicState(clientId);
+  delete state.messages;
   if (!full && state.draft)
     state.draft = {
       ...state.draft,
@@ -173,7 +175,8 @@ function validateAnnotations(versionId, annotations) {
     ]),
   );
   const usedIds = new Set();
-  let faceCount = 0;
+  let faceCount = 0,
+    patchCount = 0;
   for (const a of annotations) {
     if (usedIds.has(a.id)) throw new ReviewError("標注識別碼重複。", 400);
     usedIds.add(a.id);
@@ -204,7 +207,7 @@ function validateAnnotations(versionId, annotations) {
         ),
       );
       if (
-        patches.length !== selected.size ||
+        (a.coverage !== "brush-v1" && patches.length !== selected.size) ||
         new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`)).size !==
           selected.size ||
         patches.some(
@@ -219,6 +222,9 @@ function validateAnnotations(versionId, annotations) {
           "BAD_GEOMETRY",
         );
     }
+    patchCount += a.surfacePatches?.length || 0;
+    if (patchCount > 40000)
+      throw new ReviewError("本輪筆跡已達上限，請分批提交。", 400);
     if (faceCount > 20000)
       throw new ReviewError("本輪標注上限為 2 萬個審閱面，請分批提交。", 400);
   }
@@ -227,7 +233,7 @@ app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
     app: "3d-agent-review",
-    version: "0.1.0",
+    version: "0.2.0",
     pid: process.pid,
   }),
 );
@@ -313,7 +319,7 @@ app.post("/api/feedback", async (req, res) => {
           .map((a) =>
             a.type === "pin"
               ? `${a.label}：點標籤，${a.meshId}／面 ${a.faceIndex}`
-              : `${a.label}：${a.color} 區域，共 ${Object.values(a.faces).reduce((n, f) => n + f.length, 0)} 個三角面`,
+              : `${a.color} 塗抹區域（區域識別 ${a.id}）：${a.coverage === "brush-v1" ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
           )
           .join("\n");
         const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。不要發 Telegram 或其他外部訊息。使用者尚未結束審閱，不能強行替換模型。`;
@@ -352,33 +358,10 @@ app.get("/api/submissions/:id", (req, res) => {
     root: path.join(runtime, "submissions"),
   });
 });
-app.get("/api/chat", async (req, res) => {
-  try {
-    res.json(await bridge.history(store.state.startedAt));
-  } catch {
-    res.json({
-      connected: false,
-      busy: false,
-      messages: [],
-      error: bridge.enabled
-        ? "OpenClaw 暫時未連上；標注工具仍可用。"
-        : "尚未綁定 OpenClaw 會話。",
-    });
-  }
-});
-app.post("/api/chat", async (req, res) => {
-  const p = z
-    .object({ message: z.string().trim().min(1).max(12000), messageId: id })
-    .parse(req.body);
-  const context = store.state.active
-    ? `\n\n[3D 工作台上下文：當前模型 ${store.state.active.name}／${store.state.active.version}，versionId=${store.state.active.id}。Agent 操作文件 ${path.join(repo, "AGENT-INTERFACE.md")}。這是在本地工作台輸入的使用者訊息，請在同一會話回覆，不发 Telegram。]`
-    : "";
-  const result = await bridge.send(
-    p.message + context,
-    `3d-chat-${p.messageId}`,
-  );
-  res.json({ accepted: true, runId: result.runId || null });
-});
+// Conversation history and input belong exclusively to the origin session.
+app.all("/api/chat", (req, res) =>
+  res.status(410).json({ error: "請返回發起審閱的原會話對話。" }),
+);
 
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
 const agentApp = express();
@@ -420,9 +403,15 @@ const socketPath = path.join(runtime, "agent.sock");
 if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const agentServer = http.createServer(agentApp);
 agentServer.listen(socketPath, () => fs.chmodSync(socketPath, 0o600));
-app.use(express.static(path.join(repo, "dist")));
+app.use(
+  express.static(
+    path.resolve(process.env.REVIEW_DIST_DIR || path.join(repo, "dist")),
+  ),
+);
 app.get("/{*path}", (req, res) =>
-  res.sendFile("index.html", { root: path.join(repo, "dist") }),
+  res.sendFile("index.html", {
+    root: path.resolve(process.env.REVIEW_DIST_DIR || path.join(repo, "dist")),
+  }),
 );
 app.use(errorHandler);
 const port = Number(process.env.PORT || 43173);

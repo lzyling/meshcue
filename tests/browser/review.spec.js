@@ -37,7 +37,7 @@ async function ready(page) {
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "點標籤模式", exact: true }),
+    page.getByRole("button", { name: "檢視及標籤", exact: true }),
   ).toBeEnabled();
 }
 async function point(page, dx = 0, dy = 0) {
@@ -48,9 +48,9 @@ async function point(page, dx = 0, dy = 0) {
   };
 }
 async function pin(page) {
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -70,6 +70,7 @@ test.beforeEach(async () => {
     ...process.env,
     PORT: "43174",
     REVIEW_DATA_DIR: dir,
+    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_FAKE_GATEWAY_LOG: path.join(dir, "fake-gateway.json"),
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
@@ -99,7 +100,7 @@ test.afterEach(async () => {
   }
 });
 
-test("actual click creates a surface pin; refresh restores it and geometry ownership", async ({
+test("actual double click creates a surface pin; refresh restores it and geometry ownership", async ({
   page,
 }) => {
   await ready(page);
@@ -116,7 +117,7 @@ test("actual click creates a surface pin; refresh restores it and geometry owner
   expect(after.owned).toBe(true);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-pin-tested.png",
+      "../../media/images/2026-09-09-3d-review-v02-pin-tested.png",
     ),
     fullPage: true,
   });
@@ -164,11 +165,11 @@ test("brush produces real face sets; undo, redo, delete and refresh retain the c
   ).toEqual(painted);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-brush-tested.png",
+      "../../media/images/2026-09-09-3d-review-v02-brush-tested.png",
     ),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "刪除標記 1", exact: true }).click();
+  await page.getByRole("button", { name: "刪除紅色區域", exact: true }).click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -218,7 +219,7 @@ test("new Agent model waits through editing and submission until the user ends t
   expect(state.data.submissions[0].versionId).toBe(original);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-figurine-tested.png",
+      "../../media/images/2026-09-09-3d-review-v02-figurine-tested.png",
     ),
     fullPage: true,
   });
@@ -235,7 +236,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   await expect(other.locator("#loading")).toBeHidden();
   await expect(other.locator("#resume-banner")).toBeVisible();
   await expect(
-    other.getByRole("button", { name: "點標籤模式", exact: true }),
+    other.getByRole("button", { name: "檢視及標籤", exact: true }),
   ).toBeDisabled();
   await other
     .getByRole("button", { name: "接續已保存草稿", exact: true })
@@ -285,8 +286,7 @@ test("visible-only brush never selects the occluded mesh and its patches match t
         .project(camera);
       const x = box.x + ((v.x + 1) * box.width) / 2,
         y = box.y + ((1 - v.y) * box.height) / 2;
-      expect(Math.abs(x - p.x)).toBeLessThan(38);
-      expect(Math.abs(y - p.y)).toBeLessThan(38);
+      expect(Math.hypot(x - p.x, y - p.y)).toBeLessThanOrEqual(22.001);
     }
 });
 
@@ -295,9 +295,9 @@ test("temporary save failure keeps local edits, then retries without losing the 
 }) => {
   await ready(page);
   await page.route("**/api/draft", (r) => r.abort());
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -328,6 +328,12 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   const s = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"))
     .submissions[0];
   expect(s.annotations[0].surfacePatches.length).toBeGreaterThan(0);
+  expect(s.annotations[0].coverage).toBe("brush-v1");
+  const sent = JSON.parse(
+    fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
+  ).calls.find((c) => c.method === "chat.send");
+  expect(sent.params.message).toContain("不是編號點標籤");
+  expect(sent.params.deliver).toBe(false);
   expect(s.meshManifest.meshes[0].surfaceAlgorithm).toBe(
     "midpoint-v1-edge0.07",
   );
@@ -380,7 +386,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
   await expect(page.locator("#brush-size")).toBeVisible();
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-compact-tested.png",
+      "../../media/images/2026-09-09-3d-review-v02-compact-tested.png",
     ),
     fullPage: true,
   });
@@ -433,7 +439,7 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     });
     await page.screenshot({
       path: path.resolve(
-        `../../media/images/2026-09-09-3d-review-real-${file.split(".")[0]}.png`,
+        `../../media/images/2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
       ),
       fullPage: true,
     });
@@ -474,35 +480,64 @@ test("an accepted feedback response lost in transit can be retried after refresh
   expect(s.draft.annotations).toHaveLength(1);
 });
 
-test("chat retry keeps the original idempotency key after a lost acknowledgement", async ({
+test("review page has no conversation copy, history polling or second message input", async ({
+  page,
+}) => {
+  const calls = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/chat")) calls.push(r.url());
+  });
+  await ready(page);
+  await expect(
+    page.locator("#chat-input, #chat-messages, .chat-panel"),
+  ).toHaveCount(0);
+  await page.waitForTimeout(5300);
+  expect(calls).toEqual([]);
+  expect(
+    (
+      await request("POST", "chat", {
+        message: "must not deliver",
+        messageId: "disabled-chat",
+      })
+    ).status,
+  ).toBe(410);
+  expect(fs.existsSync(path.join(dir, "fake-gateway.json"))).toBe(false);
+});
+
+test("drag rotates and single click does nothing; double click adds exactly one pin without tool switching", async ({
   page,
 }) => {
   await ready(page);
-  let lost = false;
-  const ids = [];
-  await page.route("**/api/chat", async (r) => {
-    if (r.request().method() !== "POST") return r.continue();
-    ids.push(r.request().postDataJSON().messageId);
-    if (!lost) {
-      lost = true;
-      await r.fetch();
-      await r.abort();
-    } else await r.continue();
-  });
-  await page
-    .locator("#chat-input")
-    .fill("一號位置請收幼少少，先說明你點理解。");
-  await page.getByRole("button", { name: "發送修改說明", exact: true }).click();
-  await expect(page.locator("#chat-error")).toBeVisible();
-  await expect(page.locator("#chat-input")).not.toHaveValue("");
-  await page.getByRole("button", { name: "發送修改說明", exact: true }).click();
-  await expect(page.locator("#chat-input")).toHaveValue("");
-  expect(ids).toHaveLength(2);
-  expect(ids[0]).toBe(ids[1]);
-  const log = JSON.parse(
-    fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
-  );
-  expect(log.messages.filter((m) => m.role === "user")).toHaveLength(1);
+  const p = await point(page);
+  const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  await page.mouse.click(p.x, p.y);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(0);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 45, p.y + 20, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(350);
+  const moved = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(moved.annotationCount).toBe(0);
+  expect(moved.camera).not.toEqual(before);
+  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  await page.mouse.dblclick(p.x, p.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const saved = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  await page.waitForTimeout(150);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().camera),
+  ).toEqual(saved);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
 });
 
 test("a lost draft acknowledgement replays its exact write before saving a newer edit", async ({
@@ -518,11 +553,11 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
     }
     return route.continue();
   });
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("未同步");
-  await page.mouse.click(p.x + 8, p.y + 8);
+  await page.mouse.dblclick(p.x + 8, p.y + 8);
   await expect(page.locator("#save-status")).toHaveText("草稿已保存");
   expect(writes[1]).toEqual(writes[0]);
   expect(writes.at(-1).annotations).toHaveLength(2);
@@ -542,11 +577,11 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
     if (++writes === 1) await route.fetch();
     return route.abort();
   });
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("未同步");
-  await page.mouse.click(p.x + 8, p.y + 8);
+  await page.mouse.dblclick(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -592,9 +627,9 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("未同步");
   const before = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
@@ -624,9 +659,9 @@ test("a truly divergent cached draft is durably backed up before new edits can r
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
   const p = await point(page);
-  await page.mouse.click(p.x, p.y);
+  await page.mouse.dblclick(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("未同步");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   const clientId = await page.evaluate(() =>
@@ -651,8 +686,8 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(different);
-  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
-  await page.mouse.click(p.x + 8, p.y + 8);
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page.mouse.dblclick(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -674,4 +709,169 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(2);
+});
+
+test("small brush rendered pixels follow the circular cursor instead of filling whole faces", async ({
+  page,
+}) => {
+  publish("occlusion-check.glb", "pixel-check");
+  await ready(page);
+  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.locator("#brush-size").fill("6");
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await page.mouse.move(5, 5);
+  const png = await page.screenshot();
+  const data = JSON.parse(
+    execFileSync(
+      "python3",
+      [
+        "-c",
+        `
+import sys,io,json,math
+from PIL import Image
+im=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert('RGB')
+x,y=map(float,sys.argv[1:])
+points=[]
+for b in range(int(y)-50,int(y)+51):
+ for a in range(int(x)-50,int(x)+51):
+  r,g,v=im.getpixel((a,b))
+  if r>180 and r>g*1.35 and r>v*1.35:points.append(math.hypot(a+0.5-x,b+0.5-y))
+print(json.dumps({'count':len(points),'radius':max(points,default=0)}))
+`,
+        String(p.x),
+        String(p.y),
+      ],
+      { input: png, encoding: "utf8" },
+    ),
+  );
+  expect(data.count).toBeGreaterThan(60);
+  expect(data.radius).toBeLessThan(7.5);
+});
+
+test("legacy pins and paint fixture restore unchanged alongside new precise strokes", async ({
+  page,
+}) => {
+  await ready(page);
+  const legacy = JSON.parse(
+    fs.readFileSync("tests/fixtures/legacy-review.json", "utf8"),
+  );
+  const d = await page.evaluate(() => window.__reviewDiagnostics());
+  const clientId = await page.evaluate(() =>
+    sessionStorage.getItem("3d-review-client"),
+  );
+  const owner = { versionId: d.versionId, clientId };
+  expect((await request("POST", "review/begin", owner)).status).toBe(200);
+  expect(
+    (
+      await request("PUT", "draft", {
+        ...owner,
+        revision: 0,
+        annotations: legacy.annotations,
+        camera: legacy.camera,
+      })
+    ).status,
+  ).toBe(200);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(legacy.annotations);
+  await expect(page.locator(".model-pin")).toHaveCount(2);
+  await expect(page.locator(".annotation-badge").nth(2)).toHaveText("");
+  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(4);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const after = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(after.annotations.slice(0, 3)).toEqual(legacy.annotations);
+  expect(after.annotations[3].coverage).toBe("brush-v1");
+});
+
+test("narrow embedded review fixture remains interactive without a duplicated conversation", async ({
+  page,
+}) => {
+  await page.route(`${url}/host-fixture`, (r) =>
+    r.fulfill({
+      contentType: "text/html",
+      body: `<style>body{margin:0;display:flex}aside{flex:1}iframe{width:460px;height:850px;border:0}</style><aside>Original conversation fixture — not Control UI</aside><iframe name="review" src="${url}/"></iframe>`,
+    }),
+  );
+  await page.goto(`${url}/host-fixture`);
+  const frame = page.frame({ name: "review" });
+  await expect(frame.locator("#loading")).toBeHidden();
+  expect(
+    await frame.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await expect(frame.locator("#chat-input")).toHaveCount(0);
+  const box = await frame.locator("#viewer").boundingBox();
+  await page.mouse.dblclick(
+    box.x + box.width * 0.55,
+    box.y + box.height * 0.45,
+  );
+  await expect
+    .poll(() =>
+      frame.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
+  await expect(frame.locator("#save-status")).toHaveText("草稿已保存");
+  await frame.getByRole("button", { name: /交畀 Agent/ }).click();
+  await expect(frame.locator("#feedback-status")).toContainText("已交到會話");
+});
+
+test("paint mode supports temporary Option navigation and does not consume point label numbers", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const before = await page.evaluate(() => window.__reviewDiagnostics());
+  await page.keyboard.down("Alt");
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 30, p.y + 12, { steps: 4 });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  const after = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(after.annotations).toEqual(before.annotations);
+  expect(after.camera).not.toEqual(before.camera);
+  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page.mouse.dblclick(p.x, p.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  const annotations = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  expect(annotations.find((a) => a.type === "pin").label).toBe("1");
+});
+
+test("medium and wide review layouts do not retain an empty chat column", async ({
+  page,
+}) => {
+  await ready(page);
+  for (const width of [900, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const box = await page.locator(".review-panel").boundingBox();
+    expect(box.width).toBeGreaterThan(width * 0.95);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
 });

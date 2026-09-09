@@ -8,6 +8,7 @@ import {
   disposeBoundsTree,
 } from "three-mesh-bvh";
 import { reviewSurface, SURFACE_ALGORITHM } from "./surface.js";
+import { brushPatches } from "./brush.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -86,6 +87,8 @@ export class ModelViewer {
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
+    canvas.addEventListener("dblclick", (e) => this.doubleClick(e));
+    canvas.addEventListener("pointercancel", () => this.pointerUp());
     canvas.addEventListener(
       "pointerleave",
       () => (this.cursor.style.display = "none"),
@@ -130,9 +133,15 @@ export class ModelViewer {
     this.controls.update();
   }
   home() {
+    // Flush residual OrbitControls damping before resetting; otherwise the
+    // supposedly reset surface continues drifting under the next double click.
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();
     this.camera.position.set(4, 2.8, 5);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
+    this.controls.enableDamping = damping;
   }
   clearModel() {
     this.setAnnotations([]);
@@ -267,6 +276,8 @@ export class ModelViewer {
     return { triangles: total, meshes: this.meshes.length };
   }
   rayAt(x, y) {
+    // Input can arrive before the next render after orbit/home changes.
+    this.camera.updateMatrixWorld();
     const r = this.renderer.domElement.getBoundingClientRect();
     this.ray.setFromCamera(
       new THREE.Vector2(
@@ -306,7 +317,7 @@ export class ModelViewer {
   }
   serializeAnnotations(annotations) {
     return annotations.map((a) =>
-      a.type === "pin"
+      a.type === "pin" || a.coverage === "brush-v1"
         ? structuredClone(a)
         : {
             ...structuredClone(a),
@@ -328,16 +339,51 @@ export class ModelViewer {
           },
     );
   }
+  async doubleClick(e) {
+    if (
+      e.button !== 0 ||
+      this.mode === "paint" ||
+      !this.enabled ||
+      this.pinPending ||
+      this.lastGestureDragged
+    )
+      return;
+    e.preventDefault();
+    const hit = this.rayAt(e.clientX, e.clientY);
+    if (!hit) return;
+    const pin = this.pinFromHit(hit),
+      modelId = this.model.id;
+    this.pinPending = true;
+    try {
+      if ((await this.onEdit()) && modelId === this.model?.id) {
+        this.onPin(pin);
+        this.onStrokeEnd();
+      }
+    } catch (err) {
+      this.onError(err.message);
+    } finally {
+      this.pinPending = false;
+    }
+  }
   async pointerDown(e) {
-    if (e.button !== 0 || this.mode === "orbit" || !this.enabled) return;
+    this.gestureStart = [e.clientX, e.clientY];
+    this.lastGestureDragged = false;
+    if (e.button !== 0 || this.mode !== "paint" || !this.enabled) return;
+    // Temporary navigation while painting; does not create a stroke.
+    if (e.altKey) {
+      this.controls.enableRotate = true;
+      return;
+    }
     e.stopImmediatePropagation();
     e.preventDefault();
-    const point = { x: e.clientX, y: e.clientY },
+    const point = [e.clientX, e.clientY],
       modelId = this.model?.id;
-    if (!this.rayAt(point.x, point.y)) return;
+    if (!this.rayAt(...point)) return;
     this.drawing = true;
     this.pointerHeld = true;
     this.editPending = true;
+    this.pendingPoints = [];
+    this.lastPaintPoint = null;
     this.controls.enabled = false;
     try {
       const allowed = await this.onEdit();
@@ -347,74 +393,91 @@ export class ModelViewer {
         this.controls.enabled = true;
         return;
       }
-      if (this.mode === "pin") {
-        const hit = this.rayAt(point.x, point.y);
-        if (hit) this.onPin(this.pinFromHit(hit));
-        this.drawing = false;
-        this.controls.enabled = true;
-        this.onStrokeEnd();
-      } else {
-        this.paint(point.x, point.y);
-        if (!this.pointerHeld) {
-          this.drawing = false;
-          this.controls.enabled = true;
-          this.onStrokeEnd();
-        }
-      }
+      this.paint(...point);
+      this.flushPaintPoints();
+      if (!this.pointerHeld) this.pointerUp();
     } catch (err) {
       this.editPending = false;
-      this.pointerUp();
+      this.drawing = false;
+      this.controls.enabled = true;
       this.onError(err.message);
     }
   }
   pointerMove(e) {
+    if (
+      this.gestureStart &&
+      Math.hypot(
+        e.clientX - this.gestureStart[0],
+        e.clientY - this.gestureStart[1],
+      ) > 4
+    )
+      this.lastGestureDragged = true;
     const r = this.container.getBoundingClientRect();
     if (this.mode === "paint" && this.enabled) {
       this.cursor.style.display = "block";
       this.cursor.style.left = `${e.clientX - r.left}px`;
       this.cursor.style.top = `${e.clientY - r.top}px`;
     }
-    if (this.drawing && !this.editPending && this.mode === "paint") {
-      this.pendingPoint = [e.clientX, e.clientY];
-      if (!this.pendingFrame)
+    if (this.drawing && this.mode === "paint") {
+      this.pendingPoints.push([e.clientX, e.clientY]);
+      if (!this.pendingFrame && !this.editPending)
         this.pendingFrame = requestAnimationFrame(() => {
           this.pendingFrame = null;
-          if (this.drawing && this.pendingPoint)
-            this.paint(...this.pendingPoint);
+          if (this.drawing) this.flushPaintPoints();
         });
+    }
+  }
+  flushPaintPoints() {
+    const points = this.pendingPoints || [];
+    this.pendingPoints = [];
+    try {
+      for (const p of points) this.paint(...p);
+    } catch (err) {
+      this.onError(err.message);
+      this.drawing = false;
+      this.controls.enabled = true;
+      this.onStrokeEnd();
     }
   }
   pointerUp() {
     this.pointerHeld = false;
+    this.gestureStart = null;
     if (this.editPending) return;
     if (this.drawing) {
-      if (this.mode === "paint" && this.pendingPoint)
-        this.paint(...this.pendingPoint);
+      this.flushPaintPoints();
       this.drawing = false;
-      this.pendingPoint = null;
+      this.lastPaintPoint = null;
       this.onStrokeEnd();
     }
     this.controls.enabled = true;
+    this.controls.enableRotate = this.mode !== "paint";
   }
   paint(x, y) {
     if (!this.enabled || !this.model) return;
-    const faces = {};
-    const step = Math.max(4, this.radius / 4);
-    const add = (a, b) => {
-      const h = this.rayAt(a, b);
-      if (h) {
-        const key = h.object.userData.reviewId;
-        (faces[key] ||= new Set()).add(h.faceIndex);
-      }
-    };
-    add(x, y);
-    for (let dx = -this.radius; dx <= this.radius; dx += step)
-      for (let dy = -this.radius; dy <= this.radius; dy += step)
-        if (dx * dx + dy * dy <= this.radius * this.radius) add(x + dx, y + dy);
-    if (Object.keys(faces).length)
-      this.onPaint(
-        Object.fromEntries(Object.entries(faces).map(([k, v]) => [k, [...v]])),
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const previous = this.lastPaintPoint || [x, y];
+    const distance = Math.hypot(x - previous[0], y - previous[1]);
+    if (this.lastPaintPoint && distance < 0.5) return;
+    const steps = Math.max(
+      1,
+      Math.ceil(distance / Math.max(2, this.radius / 3)),
+    );
+    const patches = [];
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      patches.push(
+        ...brushPatches(
+          this.meshes,
+          this.camera,
+          rect,
+          previous[0] + (x - previous[0]) * t,
+          previous[1] + (y - previous[1]) * t,
+          this.radius,
+        ),
       );
+    }
+    this.lastPaintPoint = [x, y];
+    if (patches.length) this.onPaint(patches);
   }
   setAnnotations(annotations, selectedId) {
     for (const child of [...this.overlay.children]) {
@@ -445,17 +508,23 @@ export class ModelViewer {
           const mesh = this.meshMap.get(meshId);
           if (!mesh) continue;
           const coords = [];
-          for (const face of faces) {
-            if (
-              face >=
-              (mesh.geometry.index?.count ||
-                mesh.geometry.attributes.position.count) /
-                3
-            )
-              continue;
-            const t = this.triangle(mesh, face);
-            for (const v of [t.a, t.b, t.c]) coords.push(...v.toArray());
-          }
+          if (a.coverage === "brush-v1") {
+            for (const patch of a.surfacePatches || []) {
+              if (patch.meshId === meshId)
+                for (const v of patch.vertices) coords.push(...v);
+            }
+          } else
+            for (const face of faces) {
+              if (
+                face >=
+                (mesh.geometry.index?.count ||
+                  mesh.geometry.attributes.position.count) /
+                  3
+              )
+                continue;
+              const t = this.triangle(mesh, face);
+              for (const v of [t.a, t.b, t.c]) coords.push(...v.toArray());
+            }
           if (!coords.length) continue;
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute(
@@ -464,8 +533,9 @@ export class ModelViewer {
           );
           const material = new THREE.MeshBasicMaterial({
             color: a.color,
-            transparent: true,
-            opacity: a.id === selectedId ? 0.76 : 0.57,
+            transparent: false,
+            opacity: 1,
+            toneMapped: false,
             depthWrite: false,
             polygonOffset: true,
             polygonOffsetFactor: -2,
@@ -516,9 +586,11 @@ export class ModelViewer {
     const p =
       a.type === "pin"
         ? new V().fromArray(a.position)
-        : this.triangle(mesh, Object.values(a.faces)[0][0]).getMidpoint(
-            new V(),
-          );
+        : a.coverage === "brush-v1"
+          ? new V().fromArray(a.surfacePatches[0].vertices[0])
+          : this.triangle(mesh, Object.values(a.faces)[0][0]).getMidpoint(
+              new V(),
+            );
     mesh.localToWorld(p);
     this.controls.target.copy(p);
     this.controls.update();

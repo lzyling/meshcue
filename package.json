@@ -1,6 +1,6 @@
 {
   "name": "openclaw-3d-review",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "vite build",
     "start": "node server/index.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "playwright test",
+    "test:browser": "vite build --outDir tmp/refinement-dist && playwright test",
     "samples": "node scripts/generate-samples.mjs",
     "serve:start": "node scripts/service.mjs start",
     "serve:stop": "node scripts/service.mjs stop",
