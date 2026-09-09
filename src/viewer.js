@@ -243,7 +243,9 @@ export class ModelViewer {
       if (total > 600000) throw new Error("模型超過 60 萬面，請先簡化。");
       const meshId = `mesh-${this.meshes.length}`;
       o.userData.reviewId = meshId;
-      o.geometry.computeBoundsTree({ maxLeafTris: 12 });
+      // Keep review face indices aligned with sourceFaces. BVH's default
+      // in-place triangle reordering would silently corrupt annotation mapping.
+      o.geometry.computeBoundsTree({ targetLeafSize: 12, indirect: true });
       this.meshes.push(o);
       this.meshMap.set(meshId, o);
     });

@@ -504,3 +504,174 @@ test("chat retry keeps the original idempotency key after a lost acknowledgement
   );
   expect(log.messages.filter((m) => m.role === "user")).toHaveLength(1);
 });
+
+test("a lost draft acknowledgement replays its exact write before saving a newer edit", async ({
+  page,
+}) => {
+  await ready(page);
+  const writes = [];
+  await page.route("**/api/draft", async (route) => {
+    writes.push(route.request().postDataJSON());
+    if (writes.length === 1) {
+      await route.fetch();
+      return route.abort();
+    }
+    return route.continue();
+  });
+  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toContainText("未同步");
+  await page.mouse.click(p.x + 8, p.y + 8);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  expect(writes[1]).toEqual(writes[0]);
+  expect(writes.at(-1).annotations).toHaveLength(2);
+  const saved = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  expect(saved.draft.annotations).toHaveLength(2);
+  expect(saved.draft.revision).toBe(2);
+});
+
+test("refresh recovers newer local edits after an acknowledged-on-server draft lost its response", async ({
+  page,
+}) => {
+  await ready(page);
+  let writes = 0;
+  await page.route("**/api/draft", async (route) => {
+    if (++writes === 1) await route.fetch();
+    return route.abort();
+  });
+  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toContainText("未同步");
+  await page.mouse.click(p.x + 8, p.y + 8);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  await expect(page.locator("#save-status")).toContainText("未同步");
+  const before = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  await page.unroute("**/api/draft");
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(before);
+  const saved = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  expect(saved.draft.annotations).toEqual(before);
+  expect(saved.draft.revision).toBe(2);
+});
+
+test("a failed model download automatically retries and only enables editing after a verified load", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route("**/api/models/*", async (route) => {
+    if (++attempts === 1) return route.abort();
+    return route.continue();
+  });
+  await ready(page);
+  expect(attempts).toBe(2);
+  await pin(page);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().viewer.versionId),
+  ).toBe((await request("GET", "state")).data.active.id);
+});
+
+test("resuming a closed tab restores its unsynced local draft instead of replacing it with the older server draft", async ({
+  page,
+  context,
+}) => {
+  await ready(page);
+  await page.route("**/api/draft", (route) => route.abort());
+  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toContainText("未同步");
+  const before = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations,
+  );
+  await page.close();
+  const replacement = await context.newPage();
+  await replacement.goto(url);
+  await expect(replacement.locator("#loading")).toBeHidden();
+  await expect(replacement.locator("#resume-banner")).toBeVisible();
+  await replacement.waitForTimeout(31000);
+  await replacement
+    .getByRole("button", { name: "接續已保存草稿", exact: true })
+    .click();
+  await expect(replacement.locator("#save-status")).toHaveText("草稿已保存");
+  expect(
+    await replacement.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(before);
+  const saved = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  expect(saved.draft.annotations).toEqual(before);
+  await replacement.close();
+});
+
+test("a truly divergent cached draft is durably backed up before new edits can replace the active cache", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.route("**/api/draft", (route) => route.abort());
+  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator("#save-status")).toContainText("未同步");
+  const before = await page.evaluate(() => window.__reviewDiagnostics());
+  const clientId = await page.evaluate(() =>
+    sessionStorage.getItem("3d-review-client"),
+  );
+  const different = [{ ...before.annotations[0], color: "#629bd8" }];
+  expect(
+    (
+      await request("PUT", "draft", {
+        versionId: before.versionId,
+        clientId,
+        revision: before.revision,
+        annotations: different,
+        camera: before.camera,
+      })
+    ).status,
+  ).toBe(200);
+  await page.unroute("**/api/draft");
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator("#recovery-banner")).toBeVisible();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(different);
+  await page.getByRole("button", { name: "點標籤模式", exact: true }).click();
+  await page.mouse.click(p.x + 8, p.y + 8);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const backup = await page.evaluate((versionId) => {
+    const key = localStorage.getItem(
+      `3d-review-draft-${versionId}-recovery-latest`,
+    );
+    return JSON.parse(localStorage.getItem(key));
+  }, before.versionId);
+  expect(backup.versionId).toBe(before.versionId);
+  expect(backup.annotations[0].color).toBe(before.annotations[0].color);
+  expect(backup.pendingWrite.annotations).toEqual(backup.annotations);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator("#download-recovery")).toBeVisible();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(2);
+});

@@ -43,6 +43,7 @@ app.innerHTML = `
   </div>
   <div id="pending-banner" class="pending-banner" hidden><span>新模型已準備好，暫時唔會更換你正標記嘅版本。</span></div>
   <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗持有審閱草稿。</span><button id="resume-review" class="quiet">接續已保存草稿</button></div>
+  <div id="recovery-banner" class="pending-banner" hidden><span>本機另有未同步草稿，已保留，未覆蓋目前版本。</span><a id="download-recovery">下載草稿備份</a></div>
   <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
@@ -64,6 +65,7 @@ let state = null,
   editSeq = 0,
   savedSeq = 0;
 let saveFlight = null,
+  pendingWrite = null,
   saveTimer = null,
   renderFrame = null,
   loadFlight = null,
@@ -75,6 +77,9 @@ let undoStack = [],
   lastChatSignature = "",
   optimistic = [],
   initialDraftRestored = false;
+let pollFlight = null;
+let recoveryBlocked = false,
+  recoveryUrl = null;
 let pendingChat = null;
 try {
   pendingChat = JSON.parse(sessionStorage.getItem("3d-review-chat-outbox"));
@@ -120,6 +125,7 @@ function draftKey() {
   return `3d-review-draft-${loadedId}`;
 }
 function cacheDraft() {
+  if (recoveryBlocked) return;
   try {
     localStorage.setItem(
       draftKey(),
@@ -127,6 +133,9 @@ function cacheDraft() {
         annotations,
         revision,
         dirty: editSeq > savedSeq,
+        editSeq,
+        savedSeq,
+        pendingWrite,
         camera: viewer.cameraState(),
       }),
     );
@@ -173,7 +182,8 @@ function changed() {
   updateButtons();
 }
 async function beginEdit() {
-  if (!loadedId || !viewer.enabled || submitting) return false;
+  if (!loadedId || !viewer.enabled || submitting || recoveryBlocked)
+    return false;
   if (beginFlight) return beginFlight;
   beginFlight = (async () => {
     const result = await api("review/begin", owner());
@@ -264,13 +274,22 @@ async function flushDraft() {
     return;
   }
   if (editSeq === savedSeq || !loadedId) return;
-  const seq = editSeq,
+  // An uncertain write must be replayed unchanged: the server may have saved it
+  // before its response was lost, while the user has already made another edit.
+  pendingWrite ||= {
+    revision,
+    annotations: clone(annotations),
+    camera: viewer.cameraState(),
+    seq: editSeq,
+  };
+  cacheDraft();
+  const seq = pendingWrite.seq,
     modelId = loadedId,
     payload = {
       ...owner(),
-      revision,
-      annotations: viewer.serializeAnnotations(annotations),
-      camera: viewer.cameraState(),
+      revision: pendingWrite.revision,
+      annotations: viewer.serializeAnnotations(pendingWrite.annotations),
+      camera: pendingWrite.camera,
     };
   saveFlight = (async () => {
     try {
@@ -278,6 +297,7 @@ async function flushDraft() {
       if (loadedId !== modelId) return;
       revision = draft.revision;
       savedSeq = seq;
+      pendingWrite = null;
       state.draft = {
         ...draft,
         annotations: undefined,
@@ -298,7 +318,7 @@ async function flushDraft() {
   if (editSeq > savedSeq) return flushDraft();
 }
 function updateButtons() {
-  const ready = !!loadedId && viewer.enabled,
+  const ready = !!loadedId && viewer.enabled && !recoveryBlocked,
     foreign = state?.locked && !state?.owned;
   $("#submit-feedback").disabled =
     !ready || foreign || !annotations.length || submitting;
@@ -309,8 +329,8 @@ function updateButtons() {
     submitting ||
     !!saveFlight ||
     (annotations.length > 0 && state?.draft?.submittedRevision !== revision);
-  $("#undo").disabled = !undoStack.length || foreign || submitting;
-  $("#redo").disabled = !redoStack.length || foreign || submitting;
+  $("#undo").disabled = !ready || !undoStack.length || foreign || submitting;
+  $("#redo").disabled = !ready || !redoStack.length || foreign || submitting;
   $("#review-status").textContent = state?.locked
     ? state.owned
       ? "審閱中 · 模型已鎖定"
@@ -320,6 +340,9 @@ function updateButtons() {
   $("#resume-banner").hidden = !foreign;
   document
     .querySelectorAll("[data-mode]")
+    .forEach((b) => (b.disabled = !ready || foreign || submitting));
+  document
+    .querySelectorAll(".delete-annotation")
     .forEach((b) => (b.disabled = !ready || foreign || submitting));
 }
 function renderAnnotations() {
@@ -369,7 +392,8 @@ function renderAnnotations() {
       remove.className = "delete-annotation";
       remove.textContent = "×";
       remove.setAttribute("aria-label", `刪除標記 ${a.label}`);
-      remove.disabled = !!(state?.locked && !state?.owned) || submitting;
+      remove.disabled =
+        !!(state?.locked && !state?.owned) || submitting || recoveryBlocked;
       remove.addEventListener("click", async () => {
         try {
           if (!(await beginEdit())) return;
@@ -475,6 +499,72 @@ $("#help-button").addEventListener("click", () =>
 );
 $("#close-help").addEventListener("click", () => $("#help-dialog").close());
 
+function showRecovery(backup) {
+  if (recoveryUrl) URL.revokeObjectURL(recoveryUrl);
+  recoveryUrl = URL.createObjectURL(
+    new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }),
+  );
+  $("#download-recovery").href = recoveryUrl;
+  $("#download-recovery").download = `3d-review-${loadedId}-unsynced.json`;
+  $("#recovery-banner").hidden = false;
+}
+async function restoreDraft(draft) {
+  annotations = clone(draft?.annotations || []);
+  revision = draft?.revision || 0;
+  editSeq = 0;
+  savedSeq = 0;
+  pendingWrite = null;
+  recoveryBlocked = false;
+  viewer.restoreCamera(draft?.camera);
+  let cached;
+  try {
+    cached = JSON.parse(localStorage.getItem(draftKey()));
+    const backupKey = localStorage.getItem(`${draftKey()}-recovery-latest`);
+    if (backupKey) {
+      const backup = JSON.parse(localStorage.getItem(backupKey));
+      if (backup) showRecovery(backup);
+    }
+  } catch {}
+  if (!cached?.dirty || (state.locked && !state.owned)) return;
+  // Re-acquiring ownership can return a newer server draft than the first poll.
+  if (!state.owned) {
+    state = await api("review/begin", owner());
+    draft = state.draft;
+    annotations = clone(draft?.annotations || []);
+    revision = draft?.revision || 0;
+  }
+  const uncertainWriteMatches =
+    cached.pendingWrite?.revision === revision - 1 &&
+    sameValue(
+      viewer.serializeAnnotations(cached.pendingWrite.annotations),
+      draft?.annotations,
+    ) &&
+    sameValue(cached.pendingWrite.camera, draft?.camera);
+  if (cached.revision === revision || uncertainWriteMatches) {
+    annotations = cached.annotations;
+    viewer.restoreCamera(cached.camera);
+    editSeq = cached.editSeq || 1;
+    savedSeq = cached.savedSeq || 0;
+    pendingWrite = cached.pendingWrite || null;
+    toast("已恢復上次未同步嘅草稿。");
+    return;
+  }
+  // A genuine concurrent conflict is not an acknowledgement retry. Keep the
+  // complete local draft under a separate durable key before allowing edits.
+  const backup = { versionId: loadedId, ...cached };
+  showRecovery(backup);
+  try {
+    const key = `${draftKey()}-recovery-${crypto.randomUUID()}`;
+    localStorage.setItem(key, JSON.stringify(backup));
+    localStorage.setItem(`${draftKey()}-recovery-latest`, key);
+    cacheDraft();
+    toast("未同步草稿已獨立備份，可下載交畀 Agent；目前顯示伺服器已保存版本。");
+  } catch {
+    recoveryBlocked = true;
+    toast("本機空間不足，已保護未同步草稿並暫停編輯；請下載備份交畀 Agent。");
+  }
+}
+
 async function loadActive(fullState) {
   const model = fullState.active;
   if (!model) return;
@@ -488,11 +578,15 @@ async function loadActive(fullState) {
   undoStack = [];
   redoStack = [];
   submissionKey = null;
+  pendingWrite = null;
+  recoveryBlocked = false;
+  $("#recovery-banner").hidden = true;
   $("#model-name").textContent = model.name;
   $("#model-version").textContent = model.version;
   $("#model-info").textContent =
     `${model.format.toUpperCase()} · ${model.units}`;
   $("#loading").hidden = false;
+  $("#loading .spinner").hidden = false;
   $("#loading-text").textContent = "載入並核對模型版本";
   $("#save-status").textContent = "核對中…";
   try {
@@ -503,27 +597,7 @@ async function loadActive(fullState) {
     if (!stats) return;
     $("#model-info").textContent =
       `${model.triangles.toLocaleString()} 面 · ${model.format.toUpperCase()} · ${model.units}`;
-    const d = fullState.draft;
-    annotations = clone(d?.annotations || []);
-    revision = d?.revision || 0;
-    let cached;
-    try {
-      cached = JSON.parse(localStorage.getItem(draftKey()));
-    } catch {}
-    if (cached?.dirty) {
-      if (cached.revision === revision && (!state.locked || state.owned)) {
-        await api("review/begin", owner());
-        annotations = cached.annotations;
-        viewer.restoreCamera(cached.camera);
-        editSeq = 1;
-        state.locked = true;
-        state.owned = true;
-        toast("已恢復上次未同步嘅草稿。");
-      } else
-        toast(
-          "本機另有草稿備份，未覆蓋伺服器版本。請保留此頁並聯絡 Agent 處理。",
-        );
-    } else if (d?.camera) viewer.restoreCamera(d.camera);
+    await restoreDraft(fullState.draft);
     initialDraftRestored = true;
     renderAnnotations();
     $("#loading").hidden = true;
@@ -534,19 +608,36 @@ async function loadActive(fullState) {
           ? "草稿已保存"
           : "未開始標記";
     updateButtons();
-    if (editSeq > savedSeq) await flushDraft();
+    if (editSeq > savedSeq) await flushDraft().catch((e) => toast(e.message));
   } catch (e) {
+    if (!initialDraftRestored) {
+      viewer.enabled = false;
+      loadedId = null;
+    }
     $("#loading-text").textContent = e.message;
     $("#loading .spinner").hidden = true;
     toast(e.message);
+    updateButtons();
   }
 }
-async function pollState() {
+function sameValue(left, right) {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object")
+    return false;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]),
+    )
+  );
+}
+async function readState() {
   try {
     const incoming = await api(
       `state?clientId=${encodeURIComponent(clientId)}`,
     );
-    if (loadFlight) return;
+    if (loadFlight || beginFlight || saveFlight || submitting) return;
     if (incoming.active?.id !== loadedId) {
       if (loadedId && editSeq > savedSeq) {
         toast("偵測到版本不同，已保留當前草稿，停止自動換版。");
@@ -555,6 +646,7 @@ async function pollState() {
       const full = await api(
         `state?clientId=${encodeURIComponent(clientId)}&full=1`,
       );
+      if (beginFlight || saveFlight || submitting || editSeq > savedSeq) return;
       state = full;
       if (full.active) {
         loadFlight = loadActive(full);
@@ -569,6 +661,13 @@ async function pollState() {
   } catch (e) {
     $("#save-status").textContent = "服務暫時離線";
   }
+}
+function pollState() {
+  if (pollFlight) return pollFlight;
+  pollFlight = readState().finally(() => {
+    pollFlight = null;
+  });
+  return pollFlight;
 }
 $("#submit-feedback").addEventListener("click", async () => {
   if (submitting) return;
@@ -603,27 +702,39 @@ $("#submit-feedback").addEventListener("click", async () => {
   }
 });
 $("#finish-review").addEventListener("click", async () => {
+  if (submitting) return;
+  submitting = true;
+  updateButtons();
   try {
     await flushDraft();
     state = await api("review/finish", owner());
     toast("本輪審閱已結束，已提交標記仍有保存。");
-    await pollState();
   } catch (e) {
     toast(e.message);
+  } finally {
+    submitting = false;
+    updateButtons();
+    await pollState();
   }
 });
 $("#resume-review").addEventListener("click", async () => {
+  if (submitting) return;
+  submitting = true;
+  updateButtons();
   try {
     state = await api("review/resume", owner());
-    annotations = clone(state.draft?.annotations || []);
-    revision = state.draft?.revision || 0;
-    editSeq = 0;
-    savedSeq = 0;
+    await restoreDraft(state.draft);
+    selectedId = null;
+    undoStack = [];
+    redoStack = [];
     renderAnnotations();
-    updateButtons();
+    if (editSeq > savedSeq) await flushDraft();
     toast("已接續原有草稿。");
   } catch (e) {
     toast(e.message);
+  } finally {
+    submitting = false;
+    updateButtons();
   }
 });
 

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 export class ReviewError extends Error {
   constructor(message, status = 409, code = "CONFLICT") {
@@ -59,6 +60,21 @@ export class ReviewStore {
         "STALE_VERSION",
       );
   }
+  freshDraft(versionId) {
+    // A content-addressed model can be published again later. Never reuse a
+    // version/revision pair: the browser uses it to recover submission IDs.
+    const revision = this.state.submissions.reduce(
+      (n, s) => (s.versionId === versionId ? Math.max(n, s.revision) : n),
+      0,
+    );
+    return {
+      versionId,
+      revision,
+      annotations: [],
+      camera: null,
+      submittedRevision: null,
+    };
+  }
   acquire(versionId, clientId) {
     this.assertVersion(versionId);
     const s = this.state;
@@ -69,13 +85,7 @@ export class ReviewStore {
         "LOCKED",
       );
     s.lock = { clientId, versionId, touchedAt: Date.now() };
-    s.draft ||= {
-      versionId,
-      revision: 0,
-      annotations: [],
-      camera: null,
-      submittedRevision: null,
-    };
+    s.draft ||= this.freshDraft(versionId);
     this.save();
     return this.publicState(clientId);
   }
@@ -91,6 +101,14 @@ export class ReviewStore {
   updateDraft({ versionId, clientId, revision, annotations, camera }) {
     this.assertOwner(versionId, clientId);
     const draft = this.state.draft;
+    // The server may have saved a PUT whose response was lost. Accept only
+    // the identical immediately previous write; other stale edits still fail.
+    if (
+      revision === draft.revision - 1 &&
+      isDeepStrictEqual(annotations, draft.annotations) &&
+      isDeepStrictEqual(camera, draft.camera)
+    )
+      return structuredClone(draft);
     if (revision !== draft.revision)
       throw new ReviewError(
         "草稿已更新，請重新載入已保存版本。",
@@ -122,7 +140,8 @@ export class ReviewStore {
     }
     s.active = model;
     s.pending = null;
-    s.draft = null;
+    const draft = this.freshDraft(model.id);
+    s.draft = draft.revision ? draft : null;
     s.generation += 1;
     this.save();
     return { status: "active", model };
@@ -160,7 +179,10 @@ export class ReviewStore {
     if (!s) throw new ReviewError("找不到提交。", 404);
     Object.assign(s, { status }, extra);
     if (status === "accepted" && this.state.draft?.versionId === s.versionId)
-      this.state.draft.submittedRevision = s.revision;
+      this.state.draft.submittedRevision = Math.max(
+        this.state.draft.submittedRevision ?? -1,
+        s.revision,
+      );
     atomicJson(path.join(this.dir, "submissions", `${s.id}.json`), s);
     this.save();
     return s;
@@ -178,7 +200,8 @@ export class ReviewStore {
     if (s.pending) {
       s.active = s.pending;
       s.pending = null;
-      s.draft = null;
+      const draft = this.freshDraft(s.active.id);
+      s.draft = draft.revision ? draft : null;
       s.generation += 1;
     }
     // Keep submitted markings when no new model exists. Starting another review preserves them.

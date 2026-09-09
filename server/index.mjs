@@ -406,16 +406,14 @@ agentApp.get("/submissions", (req, res) => res.json(store.state.submissions));
 function errorHandler(err, req, res, next) {
   const schemaError = err instanceof z.ZodError;
   const status = schemaError ? 400 : err.status || 500;
-  res
-    .status(status)
-    .json({
-      error: schemaError
-        ? "輸入資料格式不正確。"
-        : status >= 500
-          ? "服務暫時未能完成請求，草稿會保留。"
-          : err.message,
-      code: err.code || "ERROR",
-    });
+  res.status(status).json({
+    error: schemaError
+      ? "輸入資料格式不正確。"
+      : status >= 500
+        ? "服務暫時未能完成請求，草稿會保留。"
+        : err.message,
+    code: err.code || "ERROR",
+  });
 }
 agentApp.use(errorHandler);
 const socketPath = path.join(runtime, "agent.sock");

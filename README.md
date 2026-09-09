@@ -6,7 +6,7 @@
 
 本机服务入口：<http://127.0.0.1:43173/>。这是运行 OpenClaw 的同一台机器的回环地址，不是其他电脑或手机直接可用的网址。
 
-Control UI 的 Portal 创建正在等待语音确认，**尚未创建或验证**；没有修改 Gateway／Control UI 或改为公开网络服务。
+Control UI 的 Portal **尚未创建或验证**。此前创建动作被语音确认机制阻止；关闭语音不等于批准该入口，因此本轮没有重试，也没有修改 Gateway／Control UI 或改为公开网络服务。
 
 1. 已载入「双孔支架」参数样例。左键旋转、右键平移、滚轮缩放。
 2. 选择「标签」，点表面落 1／2／3 或 A／B／C；选择「画笔」塗选可见区域，可换色、新建区域、撤销／重做、删除。
@@ -44,6 +44,7 @@ npm run test:browser
 - [项目与已确认方向](PROJECT.md)
 - [需求](REQUIREMENTS.md) · [待办](ROADMAP.md)
 - [初版验收、测试截图与限制](ACCEPTANCE-20260909.md)
+- [睡醒后的试用指引与交付状态](HANDOFF-20260909.md)
 - [Agent 操作接口](AGENT-INTERFACE.md) · [实施记录](IMPLEMENTATION.md)
 - [早期调研](RESEARCH-20260909.md) · [上游参考素材](REFERENCES.md)
 

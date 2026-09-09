@@ -8,6 +8,7 @@ export class OpenClawBridge {
     this.enabled = enabled;
     this.cached = null;
     this.pending = null;
+    this.visibleMessages = new Map();
   }
   async call(method, params) {
     if (!this.enabled) throw new Error("此測試服務未啟用 OpenClaw 連線。");
@@ -42,16 +43,55 @@ export class OpenClawBridge {
     });
   }
   async history(since = 0) {
-    if (this.cached && Date.now() - this.cached.at < 4000)
+    if (this.cached?.since === since && Date.now() - this.cached.at < 4000)
       return this.cached.data;
-    if (this.pending) return this.pending;
+    if (this.pending) {
+      await this.pending;
+      return this.history(since);
+    }
     this.pending = (async () => {
-      const data = await this.call("chat.history", {
-        sessionKey: this.sessionKey,
-        limit: 80,
-        maxBytes: 160000,
-      });
-      const messages = (data.messages || [])
+      let data;
+      let offset;
+      const seenOffsets = new Set();
+      const raw = [];
+      // Tool-heavy turns can fill an entire history page. Fetch a bounded
+      // backfill and retain already-seen conversation text across polls.
+      for (let page = 0; page < 3; page++) {
+        const current = await this.call("chat.history", {
+          sessionKey: this.sessionKey,
+          limit: 80,
+          maxBytes: 160000,
+          ...(offset === undefined ? {} : { offset }),
+        });
+        data ||= current;
+        raw.unshift(...(current.messages || []));
+        const visible = raw.filter(
+          (m) =>
+            ["user", "assistant"].includes(m.role) &&
+            m.channel !== "analysis" &&
+            (typeof m.content === "string"
+              ? m.content.trim()
+              : (m.content || []).some(
+                  (c) => c.type === "text" && c.text?.trim(),
+                )),
+        );
+        const oldest = raw.reduce((min, m) => {
+          const time = Number(m.timestamp) || Date.parse(m.timestamp);
+          return Number.isFinite(time) ? Math.min(min, time) : min;
+        }, Infinity);
+        const next = current.nextOffset;
+        if (
+          visible.length >= 12 ||
+          oldest < since ||
+          !current.hasMore ||
+          !Number.isInteger(next) ||
+          seenOffsets.has(next)
+        )
+          break;
+        seenOffsets.add(next);
+        offset = next;
+      }
+      const messages = raw
         .filter(
           (m) =>
             ["user", "assistant"].includes(m.role) && m.channel !== "analysis",
@@ -73,12 +113,24 @@ export class OpenClawBridge {
           ).slice(0, 12000),
         }))
         .filter((m) => m.text.trim());
+      for (const m of messages) this.visibleMessages.set(m.id, m);
+      const retained = [...this.visibleMessages.values()]
+        .filter(
+          (m) => (Number(m.timestamp) || Date.parse(m.timestamp) || 0) >= since,
+        )
+        .sort(
+          (a, b) =>
+            (Number(a.timestamp) || Date.parse(a.timestamp) || 0) -
+            (Number(b.timestamp) || Date.parse(b.timestamp) || 0),
+        )
+        .slice(-40);
+      this.visibleMessages = new Map(retained.map((m) => [m.id, m]));
       const result = {
         connected: true,
         busy: !!data.inFlightRun,
-        messages: messages.slice(-40),
+        messages: retained,
       };
-      this.cached = { at: Date.now(), data: result };
+      this.cached = { at: Date.now(), since, data: result };
       return result;
     })();
     try {
