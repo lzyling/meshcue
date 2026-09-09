@@ -12,7 +12,9 @@
     "samples": "node scripts/generate-samples.mjs",
     "serve:start": "node scripts/service.mjs start",
     "serve:stop": "node scripts/service.mjs stop",
-    "serve:status": "node scripts/service.mjs status"
+    "serve:status": "node scripts/service.mjs status",
+    "format": "prettier --write src server scripts tests index.html vite.config.js playwright.config.js package.json",
+    "format:check": "prettier --check src server scripts tests index.html vite.config.js playwright.config.js package.json"
   },
   "dependencies": {
     "express": "^5.1.0",
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "prettier": "^3.9.6",
     "vite": "^7.1.0"
   }
 }
