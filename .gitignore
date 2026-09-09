@@ -16,3 +16,8 @@ __pycache__/
 # Historical delivery payloads include local paths and session identifiers.
 # Keep the files locally; track their human-readable summary in REFERENCES.md.
 /evidence/20260909-media/*.json
+
+# Runtime state and browser verification outputs
+/runtime/
+/test-results/
+/playwright-report/
