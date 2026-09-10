@@ -3,6 +3,9 @@
   "version": "0.5.0-dev.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "description": "MeshCue browser review and annotation integration for OpenClaw",
   "openclaw": {
     "extensions": [

@@ -726,6 +726,9 @@ agentApp.post("/publish", (req, res) => {
       units: z.string().max(30).optional(),
       origin: originSchema.optional(),
     })
+    // Strict like every other write route: a caller that misnames a field must
+    // hear about it rather than have the model published under a default.
+    .strict()
     .parse(req.body);
   const model = importModel(p, { workspace, mediaDir });
   res.json(store.publish(model, p.origin));
@@ -781,7 +784,10 @@ agentApp.get("/submissions/:id", (req, res) => {
   res.json(submission);
 });
 agentApp.post("/read", (req, res) => {
-  const p = z.object({ submissionId: id, versionId: id }).parse(req.body);
+  const p = z
+    .object({ submissionId: id, versionId: id })
+    .strict()
+    .parse(req.body);
   res.json(store.acknowledgeRead(p.submissionId, p.versionId));
 });
 agentApp.post("/echo", (req, res) => {

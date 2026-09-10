@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { lanAddresses } from "../server/network.mjs";
 import { agentSocketPath, readInstance } from "../server/instance.mjs";
+import { within } from "../server/paths.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = fs.realpathSync(
   path.resolve(process.env.REVIEW_WORKSPACE || path.resolve(repo, "../..")),
@@ -13,56 +14,88 @@ if (command === "network") {
   console.log(JSON.stringify({ interfaces: lanAddresses() }));
   process.exit(0);
 }
-const options = {};
-for (let i = 1; i < args.length; i += 2)
-  options[args[i].replace(/^--/, "")] = args[i + 1];
+// A misplaced word used to shift the whole pairing, so `publish m.glb v1 --name
+// X` silently parsed as {v1: "--name"} and lost every later option. The server
+// then dropped the unknown key without complaint, leaving no layer that could
+// report that the flag had not taken effect.
+function parseOptions(rest, allowed) {
+  const flags = ` 可用選項：${allowed.map((name) => `--${name}`).join(" ")}。`;
+  const options = {};
+  for (let i = 0; i < rest.length; i += 2) {
+    const flag = rest[i];
+    const name = flag.startsWith("--") && flag.slice(2);
+    if (!name) throw new Error(`無法辨識的參數 ${flag}。${flags}`);
+    if (!allowed.includes(name))
+      throw new Error(`未支援的選項 ${flag}。${flags}`);
+    if (Object.hasOwn(options, name))
+      throw new Error(`選項 ${flag} 重複出現。`);
+    const value = rest[i + 1];
+    if (value === undefined || value.startsWith("--"))
+      throw new Error(`選項 ${flag} 缺少值。`);
+    options[name] = value;
+  }
+  return options;
+}
 function readWorkspaceJson(name) {
   const file = fs.realpathSync(path.resolve(name || ""));
-  const relative = path.relative(workspace, file);
-  if (relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("操作資料必須在工作區內。");
+  if (!within(workspace, file)) throw new Error("操作資料必須在工作區內。");
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 let endpoint, body;
-if (command === "publish") {
-  if (!args[0])
+try {
+  if (command === "publish") {
+    if (!args[0])
+      throw new Error(
+        "Usage: node scripts/reviewctl.mjs publish <GLB-or-STL> [--name title] [--version v1] [--source source-file] [--units mm]",
+      );
+    endpoint = "/publish";
+    const options = parseOptions(args.slice(1), [
+      "name",
+      "version",
+      "source",
+      "units",
+      "origin",
+    ]);
+    body = {
+      file: path.relative(workspace, path.resolve(args[0])),
+      ...options,
+    };
+    if (body.origin) body.origin = readWorkspaceJson(body.origin);
+    if (body.source)
+      body.source = path.relative(workspace, path.resolve(body.source));
+  } else if (command === "bind") {
+    endpoint = "/origin";
+    body = { origin: readWorkspaceJson(args[0]) };
+  } else if (command === "revoke") {
+    if (args.length > 1) throw new Error("Usage: revoke [browser-record-id]");
+    endpoint = "/access/revoke";
+    body = args[0] ? { browserId: args[0] } : {};
+  } else if (command === "admit") {
+    if (!args[0] || args.length !== 1)
+      throw new Error("Usage: admit <verified-LAN-IPv4>");
+    endpoint = "/access/admit";
+    body = { address: args[0] };
+  } else if (command === "status") endpoint = "/status";
+  else if (command === "browsers") endpoint = "/access/browsers";
+  else if (command === "submissions") endpoint = "/submissions";
+  else if (command === "read") {
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(args[0] || ""))
+      throw new Error("Usage: read <submission-id>");
+    endpoint = `/submissions/${args[0]}`;
+  } else if (command === "echo") {
+    const file = fs.realpathSync(path.resolve(args[0] || ""));
+    if (!within(workspace, file)) throw new Error("回顯資料必須在工作區內。");
+    body = JSON.parse(fs.readFileSync(file, "utf8"));
+    endpoint = "/echo";
+  } else
     throw new Error(
-      "Usage: node scripts/reviewctl.mjs publish <GLB-or-STL> [--name title] [--version v1] [--source source-file] [--units mm]",
+      "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo",
     );
-  endpoint = "/publish";
-  body = { file: path.relative(workspace, path.resolve(args[0])), ...options };
-  if (body.origin) body.origin = readWorkspaceJson(body.origin);
-  if (body.source)
-    body.source = path.relative(workspace, path.resolve(body.source));
-} else if (command === "bind") {
-  endpoint = "/origin";
-  body = { origin: readWorkspaceJson(args[0]) };
-} else if (command === "revoke") {
-  if (args.length > 1) throw new Error("Usage: revoke [browser-record-id]");
-  endpoint = "/access/revoke";
-  body = args[0] ? { browserId: args[0] } : {};
-} else if (command === "admit") {
-  if (!args[0] || args.length !== 1)
-    throw new Error("Usage: admit <verified-LAN-IPv4>");
-  endpoint = "/access/admit";
-  body = { address: args[0] };
-} else if (command === "status") endpoint = "/status";
-else if (command === "browsers") endpoint = "/access/browsers";
-else if (command === "submissions") endpoint = "/submissions";
-else if (command === "read") {
-  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(args[0] || ""))
-    throw new Error("Usage: read <submission-id>");
-  endpoint = `/submissions/${args[0]}`;
-} else if (command === "echo") {
-  const file = fs.realpathSync(path.resolve(args[0] || ""));
-  if (path.relative(workspace, file).startsWith(".."))
-    throw new Error("回顯資料必須在工作區內。");
-  body = JSON.parse(fs.readFileSync(file, "utf8"));
-  endpoint = "/echo";
-} else
-  throw new Error(
-    "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo",
-  );
+} catch (error) {
+  // Usage problems are the operator's, not a crash: print the reason alone.
+  console.error(error.message);
+  process.exit(1);
+}
 const runtime = path.resolve(
   process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
 );

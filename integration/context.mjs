@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeOrigin } from "../server/origin.mjs";
+import { within } from "../server/paths.mjs";
 
 export class IntegrationError extends Error {
   constructor(code, message) {
@@ -11,15 +12,7 @@ export class IntegrationError extends Error {
 export const fail = (code, message) => {
   throw new IntegrationError(code, message);
 };
-export function within(root, target) {
-  const relative = path.relative(root, target);
-  return (
-    relative === "" ||
-    (!relative.startsWith(`..${path.sep}`) &&
-      relative !== ".." &&
-      !path.isAbsolute(relative))
-  );
-}
+export { within };
 export function workspaceContext(ctx) {
   if (ctx.sandboxed)
     fail("HOST_UNAVAILABLE", "此會話在沙箱內；沒有越過沙箱啟動主機服務。");

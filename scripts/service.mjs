@@ -59,7 +59,7 @@ async function stop() {
 }
 async function start() {
   if (await health()) {
-    console.log(`MeshCue 審閱服務已啟動：${url}`);
+    console.log(`MeshCue 審閱服務已啟動：${url}（runtime ${runtime}）`);
     return;
   }
   fs.mkdirSync(runtime, { recursive: true });
@@ -72,15 +72,22 @@ async function start() {
   });
   child.unref();
   fs.closeSync(log);
-  fs.writeFileSync(pidFile, String(child.pid) + "\n", { mode: 0o600 });
   for (let i = 0; i < 60; i++) {
-    if (await health()) {
-      console.log(`MeshCue 審閱服務已啟動：${url}`);
+    const up = await health();
+    if (up) {
+      // Record the pid the service reports, and only once it is actually
+      // serving. Writing it before meant a child that died on a busy port left
+      // a stale pid behind, and every later stop refused with "PID 不符".
+      fs.writeFileSync(pidFile, `${up.pid}\n`, { mode: 0o600 });
+      console.log(`MeshCue 審閱服務已啟動：${url}（runtime ${runtime}）`);
       return;
     }
+    if (child.exitCode !== null || child.signalCode !== null) break;
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error("服務未啟動；請查看 runtime/server.log。");
+  throw new Error(
+    `服務未啟動；請查看 ${path.join(runtime, "server.log")}。沒有寫入 PID 檔。`,
+  );
 }
 if (command === "start") await start();
 else if (command === "stop") await stop();
@@ -88,5 +95,14 @@ else if (command === "restart") {
   await stop();
   await start();
 } else if (command === "status")
-  console.log(JSON.stringify((await health()) || { ok: false }, null, 2));
+  // Always name the runtime being addressed: every REVIEW_* path comes from
+  // the ambient environment, and reading the wrong instance has already cost
+  // a debugging session once.
+  console.log(
+    JSON.stringify(
+      { runtime, url, ...((await health()) || { ok: false }) },
+      null,
+      2,
+    ),
+  );
 else throw new Error("Commands: start, stop, restart, status");

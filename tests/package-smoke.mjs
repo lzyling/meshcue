@@ -8,6 +8,11 @@ import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 
+if (!process.argv[2])
+  throw new Error(
+    "Usage: node tests/package-smoke.mjs <built-package-dir>\n" +
+      "Build one first: npm run build:integration -- tmp/<candidate>",
+  );
 const root = fs.realpathSync(process.argv[2]);
 const globalModules = execFileSync("npm", ["root", "-g"], {
   encoding: "utf8",
