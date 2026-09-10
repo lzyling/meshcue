@@ -269,6 +269,42 @@ test("fresh-process disable skips a stale registration and still pauses other pr
   );
 });
 
+// A pause plus an unfinished round used to be inescapable: the paused instance
+// refused the submit that would end the round, and the unended round refused the
+// upgrade that would lift the pause.
+test("a refused upgrade still lifts the pause, so the blocking review can be finished", async (t) => {
+  const f = setup(t);
+  const opened = await f.open("projects/a");
+  const p = f.manager.project("projects/a");
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(fs.existsSync(path.join(p.runtime, "disabled.json")), true);
+  assert.equal(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+  // Report the exact shape the deadlock needs: a release this instance is not
+  // running, plus a round the user has not submitted. stopOwned refuses on the
+  // busy check before it touches the process.
+  f.manager.status = async () => ({
+    releaseId: "a-release-this-instance-does-not-run",
+    locked: true,
+    draft: {
+      annotations: [{ type: "pin" }],
+      submittedRevision: null,
+      revision: 3,
+    },
+  });
+  await assert.rejects(
+    f.manager.execute({ action: "open", project: "projects/a" }),
+    (e) => e.code === "REVIEW_BUSY",
+  );
+  assert.equal(fs.existsSync(path.join(p.runtime, "disabled.json")), false);
+  assert.notEqual(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+});
+
 test("filesystem boundary rejects escaping symlinks and narrow-scope creation before writing", async (t) => {
   const f = setup(t);
   fs.mkdirSync(path.join(f.workspace, "projects"));

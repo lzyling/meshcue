@@ -220,7 +220,10 @@ export class InstanceManager {
         state.draft?.submittedRevision != null) &&
         state.draft.submittedRevision !== state.draft.revision)
     )
-      fail("REVIEW_BUSY", "使用者尚在審閱；未停止或升級服務，草稿已保留。");
+      fail(
+        "REVIEW_BUSY",
+        "使用者尚在審閱；未停止或升級服務，草稿已保留。請讓使用者在網頁提交並結束本輪，再重試。",
+      );
     const health = await fetch(
       `http://${state.network.host}:${state.network.port}/api/health`,
       { signal: AbortSignal.timeout(2000) },
@@ -431,8 +434,17 @@ export class InstanceManager {
       if (!exists) atomicJson(file, config);
       await this.register(p, config);
       let state;
-      if (opens) state = await this.ensure(p, config);
-      else {
+      if (opens) {
+        // Lift the pause before attempting the upgrade, not after it succeeds.
+        // A paused instance refuses every write, so a user holding an
+        // unsubmitted round cannot submit or finish it — and that unfinished
+        // round is exactly what makes stopOwned refuse the upgrade. Clearing it
+        // first breaks the cycle; managedEnabled() still gates on the installed
+        // manifest, so a plugin that is really gone stays disabled.
+        const disabled = path.join(p.runtime, "disabled.json");
+        if (fs.existsSync(disabled)) fs.unlinkSync(disabled);
+        state = await this.ensure(p, config);
+      } else {
         try {
           state = await this.status(p, config);
         } catch (error) {
@@ -468,8 +480,6 @@ export class InstanceManager {
         state = await this.status(p, config);
       }
       if (opens) {
-        const disabled = path.join(p.runtime, "disabled.json");
-        if (fs.existsSync(disabled)) fs.unlinkSync(disabled);
         let published;
         if (input.file)
           published = await ipc(p.runtime, config.instance, "/publish", {

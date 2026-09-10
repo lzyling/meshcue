@@ -1,7 +1,7 @@
 {
   "id": "meshcue",
   "name": "MeshCue",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "3D model review, annotation and model iteration in the originating conversation",
   "activation": {
     "onStartup": true
