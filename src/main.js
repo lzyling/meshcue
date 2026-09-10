@@ -766,7 +766,12 @@ async function restoreDraft(draft) {
   try {
     const key = `${draftKey()}-recovery-${newId()}`;
     localStorage.setItem(key, JSON.stringify(backup));
+    const superseded = localStorage.getItem(`${draftKey()}-recovery-latest`);
     localStorage.setItem(`${draftKey()}-recovery-latest`, key);
+    // Write, repoint, then drop: a crash never strands the pointer. Only the
+    // latest backup is ever offered, so keeping older copies just consumes the
+    // quota that has to protect the next unsynced draft.
+    if (superseded && superseded !== key) localStorage.removeItem(superseded);
     cacheDraft();
     toast("未同步草稿已獨立備份，可下載交畀 Agent；目前顯示伺服器已保存版本。");
   } catch {

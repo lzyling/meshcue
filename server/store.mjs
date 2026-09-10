@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { normalizeOrigin } from "./origin.mjs";
+import { log, errorDetail } from "./log.mjs";
 
 export class ReviewError extends Error {
   constructor(message, status = 409, code = "CONFLICT") {
@@ -40,6 +41,7 @@ export class ReviewStore {
         409,
         "STATE_VERSION",
       );
+    this.restoreSubmissionAnnotations();
     // Keep immutable published assets downloadable even when an unsubmitted
     // view has not yet observed a newer active version.
     this.state.models ||= {};
@@ -118,8 +120,60 @@ export class ReviewStore {
       this.state.bindingId
     );
   }
+  // Submission annotations already have their own immutable file. Keeping a
+  // second copy in state.json meant every lock heartbeat rewrote the whole
+  // review history, and the file grew without bound for the lifetime of the
+  // project. They stay in memory; only the durable copy is deduplicated.
+  serializable() {
+    return {
+      ...this.state,
+      submissions: this.state.submissions.map(
+        ({ annotations, ...rest }) => rest,
+      ),
+    };
+  }
   save() {
-    atomicJson(this.file, this.state);
+    atomicJson(this.file, this.serializable());
+  }
+  restoreSubmissionAnnotations() {
+    for (const item of this.state.submissions) {
+      if (Array.isArray(item.annotations)) continue;
+      try {
+        const stored = JSON.parse(
+          fs.readFileSync(
+            path.join(this.dir, "submissions", `${item.id}.json`),
+            "utf8",
+          ),
+        );
+        if (stored.id === item.id && Array.isArray(stored.annotations))
+          item.annotations = stored.annotations;
+      } catch (error) {
+        log.error("store", "submission annotations could not be reloaded", {
+          submissionId: item.id,
+          ...errorDetail(error),
+        });
+      }
+      item.annotations ||= [];
+    }
+  }
+  recordViewerReceipt(clientId, receipt) {
+    const receipts = (this.state.viewerReceipts ||= {});
+    receipts[clientId] = receipt;
+    // One entry per tab, and a browser stays remembered for a month. Bound it
+    // the way browser client associations already are, and never drop the
+    // receipt the current review lock depends on to resume.
+    const ids = Object.keys(receipts).filter(
+      (id) => id !== this.state.lock?.clientId,
+    );
+    if (ids.length > 64)
+      for (const id of ids
+        .sort(
+          (a, b) => (receipts[a].loadedAt || 0) - (receipts[b].loadedAt || 0),
+        )
+        .slice(0, ids.length - 64))
+        delete receipts[id];
+    this.save();
+    return receipts[clientId];
   }
   publicState(clientId) {
     const s = this.state;
@@ -459,10 +513,12 @@ export class ReviewStore {
     this.save();
     return this.publicState(clientId);
   }
+  // Liveness only, so it stays in memory. Every real edit persists touchedAt
+  // through updateDraft, and after a restart nobody holds a live session
+  // anyway: an older timestamp only makes an explicit resume easier, and
+  // resume preserves the draft it takes over.
   heartbeat(clientId) {
-    if (this.state.lock?.clientId === clientId) {
+    if (this.state.lock?.clientId === clientId)
       this.state.lock.touchedAt = Date.now();
-      this.save();
-    }
   }
 }

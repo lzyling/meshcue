@@ -469,13 +469,11 @@ app.post("/api/ready", (req, res) => {
   if (p.sha256 !== store.state.active.sha256)
     throw new ReviewError("載入檔案與 Agent 交付不符。", 409, "HASH_MISMATCH");
   saveManifest(p.versionId, p.meshes);
-  store.state.viewerReceipts ||= {};
-  store.state.viewerReceipts[p.clientId] = {
+  store.recordViewerReceipt(p.clientId, {
     versionId: p.versionId,
     sha256: p.sha256,
     loadedAt: Date.now(),
-  };
-  store.save();
+  });
   rememberUse(req, res);
   res.json({ ready: true });
 });

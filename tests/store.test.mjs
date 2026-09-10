@@ -462,3 +462,111 @@ test("deleting all previously submitted notes remains an unsubmitted change unti
   assert.equal(replacement.annotations.length, 0);
   assert.equal(store.state.submissions[0].annotations.length, 1);
 });
+
+test("state.json stops duplicating submission annotations and a reload restores them", (t) => {
+  const { dir, store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  draft(store);
+  const item = store.createSubmission({
+    versionId: m1.id,
+    clientId: "client-a",
+    revision: 1,
+    submissionId: "submission-one",
+  });
+  assert.equal(item.annotations.length, pins.length);
+
+  const onDisk = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  assert.equal(onDisk.submissions.length, 1);
+  assert.equal(onDisk.submissions[0].id, "submission-one");
+  assert.equal(
+    Object.hasOwn(onDisk.submissions[0], "annotations"),
+    false,
+    "state.json still carries a second copy of every annotation",
+  );
+  assert.deepEqual(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(dir, "submissions", "submission-one.json"),
+        "utf8",
+      ),
+    ).annotations,
+    item.annotations,
+  );
+  assert.deepEqual(
+    new ReviewStore(dir).state.submissions[0].annotations,
+    item.annotations,
+  );
+});
+
+test("an upgrade from an inlined state.json keeps every annotation", (t) => {
+  const { dir, store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  draft(store);
+  const item = store.createSubmission({
+    versionId: m1.id,
+    clientId: "client-a",
+    revision: 1,
+    submissionId: "submission-one",
+  });
+  // Recreate the pre-upgrade layout: inlined in state.json, no separate file.
+  const legacy = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  legacy.submissions[0].annotations = item.annotations;
+  fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(legacy));
+  fs.rmSync(path.join(dir, "submissions", "submission-one.json"));
+  assert.deepEqual(
+    new ReviewStore(dir).state.submissions[0].annotations,
+    item.annotations,
+  );
+});
+
+test("a lock heartbeat keeps liveness in memory without rewriting the history", (t) => {
+  const { dir, store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  const file = path.join(dir, "state.json");
+  const before = fs.readFileSync(file, "utf8");
+  store.state.lock.touchedAt = 0;
+  store.heartbeat("client-a");
+  assert.equal(store.state.lock.touchedAt > 0, true);
+  assert.equal(
+    fs.readFileSync(file, "utf8"),
+    before,
+    "heartbeat wrote to disk",
+  );
+  // A foreign window still cannot refresh a lock it does not hold.
+  store.state.lock.touchedAt = 0;
+  store.heartbeat("client-b");
+  assert.equal(store.state.lock.touchedAt, 0);
+});
+
+test("viewer receipts stay bounded and never evict the client holding the review", (t) => {
+  const { store } = fixture(t);
+  store.publish(m1);
+  store.acquire(m1.id, "client-a");
+  store.recordViewerReceipt("client-a", {
+    versionId: m1.id,
+    sha256: m1.sha256,
+    loadedAt: 1,
+  });
+  for (let i = 0; i < 200; i++)
+    store.recordViewerReceipt(`tab-${i}`, {
+      versionId: m1.id,
+      sha256: m1.sha256,
+      loadedAt: 100 + i,
+    });
+  const receipts = store.state.viewerReceipts;
+  assert.equal(Object.keys(receipts).length <= 65, true);
+  assert.equal(
+    receipts["client-a"]?.loadedAt,
+    1,
+    "the lock holder's receipt was evicted and it can no longer begin",
+  );
+  assert.equal(receipts["tab-199"].loadedAt, 299);
+  assert.equal(receipts["tab-0"], undefined);
+});
