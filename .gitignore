@@ -19,6 +19,8 @@ __pycache__/
 
 # Runtime state and browser verification outputs
 /runtime/
+**/browser-access.json
+**/browser-access.json.*.tmp
 /test-results/
 /playwright-report/
 

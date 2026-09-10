@@ -327,3 +327,109 @@ test("an unauthenticated browser sees a clear entrance state and no model", asyn
     await page.evaluate(() => window.__reviewDiagnostics().versionId),
   ).toBeNull();
 });
+
+test("remembered browser survives service restart and tab reopening; passive polls do not renew, actual navigation does", async ({
+  page,
+  context,
+}) => {
+  await f.ipc("/access/admit", { address: "127.0.0.1" });
+  await page.goto(browserUrl);
+  await expect(page.locator("#loading")).toBeHidden();
+  expect(
+    (await context.cookies()).some(
+      (c) =>
+        c.name === "review_access" &&
+        c.expires > Date.now() / 1000 + 29 * 86400,
+    ),
+  ).toBe(true);
+  const first = (await f.ipc("/status")).body.access.browsers[0];
+  await page.waitForResponse((r) => new URL(r.url()).pathname === "/api/state");
+  expect((await f.ipc("/status")).body.access.browsers[0].lastUsedAt).toBe(
+    first.lastUsedAt,
+  );
+  const activity = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/access/activity",
+  );
+  const box = await page.locator("#viewer").boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -80);
+  expect((await activity).status()).toBe(200);
+  expect(
+    (await f.ipc("/status")).body.access.browsers[0].lastUsedAt,
+  ).toBeGreaterThan(first.lastUsedAt);
+  await mark(page);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const before = await page.evaluate(() => window.__reviewDiagnostics());
+  await f.restart();
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  const after = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(after.annotations).toEqual(before.annotations);
+  expect(after.owned).toBe(true);
+  expect((await f.ipc("/status")).body.access.browsers[0].id).toBe(first.id);
+  await page.close();
+  const reopened = await context.newPage();
+  await reopened.goto(browserUrl);
+  await expect(reopened.locator("#loading")).toBeHidden();
+  expect((await f.ipc("/status")).body.access.browsers[0].id).toBe(first.id);
+  expect((await f.ipc("/status")).body.access.sessions).toBe(1);
+  expect(
+    await reopened.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
+});
+
+test("an editing tab recovers after a sibling tab collects their shared browser cookie", async ({
+  page,
+  context,
+}) => {
+  await ready(page, context);
+  await mark(page);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  const before = await page.evaluate(() => window.__reviewDiagnostics());
+  const sibling = await context.newPage();
+  await sibling.goto(browserUrl);
+  await expect(sibling.locator("#loading")).toBeHidden();
+  await page.route("**/api/access/claim", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "ACCESS_REQUIRED",
+        error: "Awaiting sibling admission",
+      }),
+    }),
+  );
+  await f.ipc("/access/revoke", {});
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().accessBlocked))
+    .toBe(true);
+  await expect
+    .poll(() =>
+      sibling.evaluate(() => window.__reviewDiagnostics().accessBlocked),
+    )
+    .toBe(true);
+  await f.ipc("/access/admit", { address: "127.0.0.1" });
+  await expect
+    .poll(() =>
+      sibling.evaluate(() => window.__reviewDiagnostics().accessBlocked),
+    )
+    .toBe(false);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const current = window.__reviewDiagnostics();
+        return { owned: current.owned, blocked: current.accessBlocked };
+      }),
+    )
+    .toEqual({ owned: true, blocked: false });
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotations),
+  ).toEqual(before.annotations);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().accessBlocked),
+  ).toBe(false);
+  expect(await sibling.evaluate(() => window.__reviewDiagnostics().owned)).toBe(
+    false,
+  );
+  expect((await f.ipc("/status")).body.access.sessions).toBe(1);
+});

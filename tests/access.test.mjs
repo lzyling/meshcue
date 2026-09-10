@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { ReviewAccess, sessionCookie } from "../server/access.mjs";
 import { listenerConfig, lanAddresses } from "../server/network.mjs";
 import { inspectModel } from "../server/models.mjs";
 
-test("confirmed admission rules expire at 15 minutes and keep the original 60-minute browser deadline on reissue", () => {
+test("admission expires at 15 minutes; browser use renews a 30-day idle deadline but polling and issuance do not", () => {
   const minute = 60_000;
+  const idle = 30 * 24 * 60 * minute;
   let time = 0;
   const access = new ReviewAccess({
     scope: () => "confirmed-review",
@@ -19,7 +22,7 @@ test("confirmed admission rules expire at 15 minutes and keep the original 60-mi
   time += 15 * minute - 1;
   const session = access.redeem(admission.value);
   const deadline = session.expiresAt;
-  assert.equal(deadline - time, 60 * minute);
+  assert.equal(deadline - time, idle);
   assert.throws(() => access.redeem(admission.value), {
     code: "ACCESS_EXPIRED",
   });
@@ -34,7 +37,14 @@ test("confirmed admission rules expire at 15 minutes and keep the original 60-mi
   const retained = access.redeem(reissued.value, session.value);
   assert.equal(retained.value === session.value, true);
   assert.equal(retained.expiresAt, deadline);
-  time = deadline;
+  const used = access.touch(session.value);
+  const renewed = used.expiresAt;
+  assert.equal(renewed, time + idle);
+  time = deadline + 60 * minute;
+  assert.equal(access.authenticate(session.value).expiresAt, renewed);
+  assert.equal(access.metadata().idleDays, 30);
+  assert.equal(access.metadata().sessionPolicy, "idle");
+  time = renewed;
   assert.throws(() => access.authenticate(session.value), {
     code: "ACCESS_REQUIRED",
   });
@@ -121,7 +131,7 @@ test("address admission is one-use, private, rotated and scoped; active cookies 
   access.admitAddress("192.168.1.23");
   assert.throws(() => access.claimAddress("192.168.1.22"));
   const session = access.claimAddress("::ffff:192.168.1.23");
-  assert.equal(session.expiresAt - time, 60 * 60_000);
+  assert.equal(session.expiresAt - time, 30 * 24 * 60 * 60_000);
   access.claimClient(access.authenticate(session.value), "existing-editor");
   assert.throws(() => access.claimAddress("192.168.1.23"));
   assert.equal(access.metadata().grantActive, false);
@@ -152,6 +162,77 @@ test("address admission is one-use, private, rotated and scoped; active cookies 
   const finalSession = access.claimAddress("192.168.1.22");
   time = finalSession.expiresAt;
   assert.throws(() => access.claimAddress("192.168.1.22", finalSession.value));
+});
+
+test("browser verifiers and edit identity survive restart; grants and raw credentials do not; revoke is targeted and durable", (t) => {
+  fs.mkdirSync("tmp", { recursive: true });
+  const dir = fs.mkdtempSync(path.resolve("tmp/trust-unit-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "browser-access.json");
+  let scope = "one-project",
+    time = 100;
+  const options = {
+    file,
+    scope: () => scope,
+    now: () => time,
+    protectedClient: () => "locked-tab",
+  };
+  const first = new ReviewAccess(options);
+  const admission = first.issue();
+  const session = first.redeem(admission.value);
+  const browserId = first.authenticate(session.value).id;
+  first.claimClient(first.authenticate(session.value), "locked-tab");
+  for (let n = 0; n < 100; n++)
+    first.claimClient(first.authenticate(session.value), `view-${n}`);
+  assert.equal(
+    first.ownsClient(first.authenticate(session.value), "locked-tab"),
+    true,
+  );
+  assert.equal(first.authenticate(session.value).clients.size, 64);
+  time += 5_000;
+  first.touch(session.value);
+  const other = first.redeem(first.issue().value);
+  const otherId = first.authenticate(other.value).id;
+  first.admitAddress("192.168.1.23");
+  const stored = fs.readFileSync(file, "utf8");
+  assert.equal(
+    stored.includes(session.value) ||
+      stored.includes(other.value) ||
+      stored.includes(admission.value),
+    false,
+  );
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  const restarted = new ReviewAccess(options);
+  assert.equal(restarted.metadata().grantActive, false);
+  assert.equal(restarted.authenticate(session.value).id, browserId);
+  assert.equal(
+    restarted.ownsClient(restarted.authenticate(session.value), "locked-tab"),
+    true,
+  );
+  assert.throws(
+    () =>
+      restarted.claimClient(restarted.authenticate(other.value), "locked-tab"),
+    { code: "CLIENT_OWNERSHIP" },
+  );
+  assert.equal(restarted.authenticate(session.value).lastUsedAt, time);
+  assert.equal(JSON.stringify(restarted.metadata()).includes('"hash"'), false);
+  fs.renameSync(file, `${file}.backup`);
+  fs.mkdirSync(file);
+  assert.throws(() => restarted.revoke(browserId), { code: "ACCESS_STORAGE" });
+  assert.equal(restarted.authenticate(session.value).id, browserId);
+  fs.rmdirSync(file);
+  fs.renameSync(`${file}.backup`, file);
+  restarted.revoke(browserId);
+  const afterRevoke = new ReviewAccess(options);
+  assert.throws(() => afterRevoke.authenticate(session.value));
+  assert.equal(afterRevoke.authenticate(other.value).id, otherId);
+  scope = "another-project";
+  const rebound = new ReviewAccess(options);
+  assert.equal(rebound.metadata().sessions, 0);
+  assert.throws(() => rebound.authenticate(other.value));
+  fs.writeFileSync(file, '{"damaged":');
+  assert.throws(() => new ReviewAccess(options), /原檔未覆寫/);
+  assert.equal(fs.readFileSync(file, "utf8"), '{"damaged":');
 });
 
 test("LAN address selection requires a concrete local private interface and does not guess among networks", () => {

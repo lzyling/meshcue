@@ -8,7 +8,7 @@
 
 **2026-09-10：已在 `feat/v0.4-lan-delivery` 实现 0.4 候选，尚未覆盖正式服务或用户数据。** 新增逐轮原会话绑定、Telegram 显式话题回传、普通内网 HTTP 的 UUID／SHA 兼容、具体私网网卡监听、短期授权与跨话题隔离。隔离浏览器已跑通真实参数改模及新版再审；验收细节及尚待端上核实的项目见 [0.4 结果](ITERATION-V04-RESULTS.md)。
 
-已补[内网定向入场适配](LAN-ADMISSION.md)：Agent 为已核对的客户端 IPv4 创建15分钟一次性许可，普通网页自动领取60分钟 HttpOnly 会话，没有 token 输入或 Mac 配对步骤。Windows 已确认内网页面连通，实际模型操作及真实 Telegram 回传仍待端上验收；不能把 Mac 隔离验证扩大为 Windows 已通过。
+已补[内网定向入场适配](LAN-ADMISSION.md)：Agent 为已核对的客户端 IPv4 创建15分钟一次性许可，普通网页自动领取HttpOnly浏览器授权，没有token输入或Mac配对步骤。**16:32用户确认[长期记住浏览器](BROWSER-TRUST.md)**：30天未实际使用才过期、正常使用续期、重启保留，取代60分钟硬截止。Windows已确认内网页面连通，模型操作及真实Telegram回传仍待端上验收。
 
 ## 0.3 交付基线（历史）
 

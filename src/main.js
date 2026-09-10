@@ -857,6 +857,7 @@ async function readState() {
   try {
     if (loadFlight || beginFlight || saveFlight || submitting) return;
     const statePath = `state?clientId=${encodeURIComponent(clientId)}`;
+    const wasBlocked = accessBlocked;
     let incoming;
     try {
       incoming = await api(statePath);
@@ -868,6 +869,9 @@ async function readState() {
       accessRecoveryNeeded = true;
       incoming = await api(statePath);
     }
+    // A sibling tab may have collected the shared HttpOnly cookie. This tab
+    // still needs its own association even if it did not win /claim.
+    if (wasBlocked) accessRecoveryNeeded = true;
     if (loadFlight || beginFlight || saveFlight || submitting) return;
     if (
       accessRecoveryNeeded &&
@@ -1044,6 +1048,50 @@ window.addEventListener("beforeunload", (e) => {
 });
 await pollState();
 setInterval(pollState, 2200);
+// A visible user action extends remembered-browser access. Passive state and
+// lock heartbeats do not count as use; no unconditional renewal timer runs.
+let activityTimer = null,
+  activityFlight = false,
+  activityPending = false,
+  lastActivitySent = 0;
+function noteActivity(event) {
+  if (!event.isTrusted || document.visibilityState !== "visible") return;
+  activityPending = true;
+  scheduleActivity();
+}
+function scheduleActivity() {
+  if (
+    activityTimer ||
+    activityFlight ||
+    !activityPending ||
+    !loadedId ||
+    accessBlocked ||
+    document.visibilityState !== "visible"
+  )
+    return;
+  activityTimer = setTimeout(
+    async () => {
+      activityTimer = null;
+      if (document.visibilityState !== "visible" || !loadedId || accessBlocked)
+        return;
+      activityPending = false;
+      activityFlight = true;
+      try {
+        await api("access/activity", { clientId });
+        lastActivitySent = Date.now();
+      } catch {
+        // The state poll handles lost authorization. Keep any unsynced draft.
+      } finally {
+        activityFlight = false;
+        scheduleActivity();
+      }
+    },
+    Math.max(0, 60_000 - (Date.now() - lastActivitySent)),
+  );
+}
+for (const event of ["pointerdown", "wheel", "keydown"])
+  document.addEventListener(event, noteActivity, { passive: true });
+document.addEventListener("visibilitychange", noteActivity);
 setInterval(() => {
   if (state?.owned && !accessBlocked)
     api("review/heartbeat", { clientId }).catch(() => {});

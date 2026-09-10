@@ -225,6 +225,62 @@ async function createFeedback(f, model, clientId, cookie) {
   return { body, result };
 }
 
+test("remembered browser survives a real process restart; only activity renews it and targeted revocation preserves another browser", async (t) => {
+  const f = await startReview(t, { origin, protectedAccess: true });
+  const model = await f.publish();
+  const cookie = await grant(f);
+  await createFeedback(f, model, "persisted-owner", cookie);
+  const before = (await f.ipc("/status")).body;
+  const original = before.access.browsers[0];
+  const poll = await f.api("state?clientId=persisted-owner", { cookie });
+  assert.equal(poll.status, 200);
+  assert.equal(poll.headers.has("set-cookie"), false);
+  await f.api("review/heartbeat", {
+    method: "POST",
+    cookie,
+    body: { clientId: "persisted-owner" },
+  });
+  assert.equal(
+    (await f.ipc("/status")).body.access.browsers[0].lastUsedAt,
+    original.lastUsedAt,
+  );
+  const activity = await f.api("access/activity", {
+    method: "POST",
+    cookie,
+    body: { clientId: "persisted-owner" },
+  });
+  assert.equal(activity.status, 200);
+  const maxAge = Number(
+    activity.headers.get("set-cookie").match(/Max-Age=(\d+)/)[1],
+  );
+  assert.ok(maxAge >= 30 * 86400 - 5 && maxAge <= 30 * 86400);
+  const active = (await f.ipc("/status")).body.access.browsers[0];
+  assert.ok(active.lastUsedAt > original.lastUsedAt);
+  assert.equal(active.expiresAt - active.lastUsedAt, 30 * 86_400_000);
+  await f.ipc("/access/admit", { address: "192.168.1.23" });
+  await f.restart();
+  const restored = await f.api("state?clientId=persisted-owner", { cookie });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.owned, true);
+  assert.equal(restored.body.locked, true);
+  assert.equal(restored.body.reviewId, before.reviewId);
+  assert.equal(restored.body.draft.revision, before.draft.revision);
+  const status = (await f.ipc("/status")).body;
+  assert.deepEqual(status.access.browsers[0], active);
+  assert.equal(status.access.grantActive, false);
+  const secondCookie = await grant(f);
+  assert.equal(
+    (await f.ipc("/access/revoke", { browserId: active.id })).status,
+    200,
+  );
+  assert.equal((await f.api("state", { cookie })).status, 401);
+  assert.equal((await f.api("state", { cookie: secondCookie })).status, 200);
+  await f.restart();
+  assert.equal((await f.api("state", { cookie })).status, 401);
+  assert.equal((await f.api("state", { cookie: secondCookie })).status, 200);
+  assert.equal((await f.ipc("/status")).body.locked, true);
+});
+
 test("real HTTP submission preserves explicit topic route and does not route old retries to a newly bound topic", async (t) => {
   const f = await startReview(t, { origin });
   const model = await f.publish();

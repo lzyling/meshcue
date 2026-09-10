@@ -35,14 +35,16 @@ if (command === "publish") {
   endpoint = "/origin";
   body = { origin: readWorkspaceJson(args[0]) };
 } else if (command === "revoke") {
+  if (args.length > 1) throw new Error("Usage: revoke [browser-record-id]");
   endpoint = "/access/revoke";
-  body = {};
+  body = args[0] ? { browserId: args[0] } : {};
 } else if (command === "admit") {
   if (!args[0] || args.length !== 1)
     throw new Error("Usage: admit <verified-LAN-IPv4>");
   endpoint = "/access/admit";
   body = { address: args[0] };
 } else if (command === "status") endpoint = "/status";
+else if (command === "browsers") endpoint = "/access/browsers";
 else if (command === "submissions") endpoint = "/submissions";
 else if (command === "read") {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(args[0] || ""))
@@ -56,7 +58,7 @@ else if (command === "read") {
   endpoint = "/echo";
 } else
   throw new Error(
-    "Commands: publish, bind, status, network, admit, revoke, submissions, read, echo",
+    "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo",
   );
 const socketPath = path.join(
   path.resolve(process.env.REVIEW_DATA_DIR || path.join(repo, "runtime")),

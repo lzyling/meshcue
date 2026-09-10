@@ -15,6 +15,7 @@ import {
   AccessError,
   sessionCookie,
   accessCookie,
+  browserInfo,
 } from "./access.mjs";
 
 export const repo = path.resolve(
@@ -76,7 +77,23 @@ const network = listenerConfig(
   process.env.REVIEW_HOST || config.host || "127.0.0.1",
 );
 const accessRequired = network.lan || process.env.REVIEW_ACCESS === "required";
-const access = new ReviewAccess({ scope: () => store.state.bindingId });
+const access = new ReviewAccess({
+  scope: () => store.state.bindingId,
+  file: accessRequired ? path.join(runtime, "browser-access.json") : null,
+  protectedClient: () => store.state.lock?.clientId || null,
+});
+function rememberUse(req, res) {
+  if (!accessRequired) return;
+  const value = sessionCookie(req.headers);
+  const browser = access.touch(
+    value,
+    browserInfo(req.headers, req.socket.remoteAddress),
+  );
+  res.setHeader(
+    "Set-Cookie",
+    accessCookie(value, browser.expiresAt - Date.now()),
+  );
+}
 const allowedHosts = new Set([
   network.host,
   "localhost",
@@ -123,6 +140,7 @@ app.post("/api/access/claim", (req, res) => {
   const session = access.claimAddress(
     req.socket.remoteAddress,
     sessionCookie(req.headers),
+    browserInfo(req.headers, req.socket.remoteAddress),
   );
   res.setHeader(
     "Set-Cookie",
@@ -136,7 +154,11 @@ app.post("/api/access/exchange", (req, res) => {
     .object({ grant: z.string().max(128) })
     .strict()
     .parse(req.body);
-  const session = access.redeem(p.grant, sessionCookie(req.headers));
+  const session = access.redeem(
+    p.grant,
+    sessionCookie(req.headers),
+    browserInfo(req.headers, req.socket.remoteAddress),
+  );
   res.setHeader(
     "Set-Cookie",
     accessCookie(session.value, session.expiresAt - Date.now()),
@@ -370,6 +392,11 @@ app.get("/api/state", (req, res) =>
     ),
   ),
 );
+app.post("/api/access/activity", (req, res) => {
+  z.object({ clientId: id }).strict().parse(req.body);
+  rememberUse(req, res);
+  res.json({ remembered: true });
+});
 app.get("/api/models/:filename", (req, res) => {
   if (!/^[a-f0-9]{64}\.(glb|stl)$/.test(req.params.filename))
     throw new ReviewError("找不到模型。", 404);
@@ -399,6 +426,7 @@ app.post("/api/ready", (req, res) => {
     loadedAt: Date.now(),
   };
   store.save();
+  rememberUse(req, res);
   res.json({ ready: true });
 });
 app.post("/api/review/begin", (req, res) => {
@@ -406,6 +434,7 @@ app.post("/api/review/begin", (req, res) => {
   if (store.state.viewerReceipts?.[p.clientId]?.versionId !== p.versionId)
     throw new ReviewError("請等模型完成載入及版本核對。", 409, "NOT_READY");
   store.acquire(p.versionId, p.clientId);
+  rememberUse(req, res);
   res.json(stateFor(p.clientId, true));
 });
 app.post("/api/review/heartbeat", (req, res) => {
@@ -416,12 +445,15 @@ app.post("/api/review/heartbeat", (req, res) => {
 app.post("/api/review/resume", (req, res) => {
   const p = owner.parse(req.body);
   store.resume(p.versionId, p.clientId);
+  rememberUse(req, res);
   res.json(stateFor(p.clientId, true));
 });
 app.put("/api/draft", (req, res) => {
   const p = draftSchema.parse(req.body);
   validateAnnotations(p.versionId, p.annotations);
-  res.json(store.updateDraft(p));
+  const draft = store.updateDraft(p);
+  rememberUse(req, res);
+  res.json(draft);
 });
 app.post("/api/review/finish", (req, res) => {
   const p = owner.parse(req.body);
@@ -432,6 +464,7 @@ app.post("/api/review/finish", (req, res) => {
       409,
       "REVIEW_FINISHED",
     );
+  rememberUse(req, res);
   res.json(stateFor(p.clientId, true));
 });
 const feedbackFlights = new Map();
@@ -523,6 +556,7 @@ app.get("/api/download/:filename", (req, res) => {
     (m) => m?.filename === filename,
   );
   if (!model) throw new ReviewError("找不到此已發布版本。", 404);
+  rememberUse(req, res);
   // Same immutable source bytes as the viewer, never a modified review mesh.
   res.download(filename, `${model.name}-${model.version}.${model.format}`, {
     root: mediaDir,
@@ -586,9 +620,16 @@ agentApp.post("/access/admit", (req, res) => {
   res.json(access.admitAddress(p.address));
 });
 agentApp.post("/access/revoke", (req, res) => {
-  access.revoke();
-  res.json({ revoked: true });
+  const p = z
+    .object({ browserId: z.string().uuid().optional() })
+    .strict()
+    .parse(req.body);
+  access.revoke(p.browserId);
+  res.json({ revoked: true, browserId: p.browserId || null });
 });
+agentApp.get("/access/browsers", (req, res) =>
+  res.json({ browsers: access.metadata().browsers }),
+);
 agentApp.post("/origin", (req, res) => {
   const p = z.object({ origin: originSchema }).strict().parse(req.body);
   store.bindOrigin(p.origin);
