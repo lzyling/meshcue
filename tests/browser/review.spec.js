@@ -341,15 +341,21 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   const s = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"))
     .submissions[0];
-  expect(s.annotations[0].surfacePatches.length).toBeGreaterThan(0);
-  expect(s.annotations[0].coverage).toBe("source-v1");
+  // state.json keeps the receipt; the annotations live only in the immutable
+  // per-submission file, which is the copy reviewctl read actually serves.
+  expect(Object.hasOwn(s, "annotations")).toBe(false);
+  const stored = JSON.parse(
+    fs.readFileSync(path.join(dir, "submissions", `${s.id}.json`), "utf8"),
+  );
+  expect(stored.annotations[0].surfacePatches.length).toBeGreaterThan(0);
+  expect(stored.annotations[0].coverage).toBe("source-v1");
   const sent = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   ).calls.find((c) => c.method === "chat.send");
   expect(sent.params.message).toContain("不是編號點標籤");
   expect(sent.params.deliver).toBe(false);
   expect(s.meshManifest.meshes[0].surfaceAlgorithm).toBe(
-    "midpoint-v1-edge0.07",
+    "midpoint-v2-edge0.07-rationed",
   );
   expect(s.model.sha256).toHaveLength(64);
   expect(await page.evaluate(() => window.__reviewDiagnostics().locked)).toBe(
@@ -1005,9 +1011,15 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
   await expect(page.locator("#feedback-status")).not.toContainText(
     "Agent 已讀取",
   );
-  const submission = JSON.parse(
+  const receipt = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
   ).submissions[0];
+  const submission = JSON.parse(
+    fs.readFileSync(
+      path.join(dir, "submissions", `${receipt.id}.json`),
+      "utf8",
+    ),
+  );
   execFileSync(
     process.execPath,
     ["scripts/reviewctl.mjs", "read", submission.id],

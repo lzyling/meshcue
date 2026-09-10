@@ -3,7 +3,10 @@ import * as THREE from "three";
 // Deterministic review-only tessellation. The source GLB/STL is never modified.
 // Every review triangle remembers its original triangle; selected patches export
 // original-mesh local coordinates as well as both indices.
-export const SURFACE_ALGORITHM = "midpoint-v1-edge0.07";
+// Bumped when the emitted triangles change: annotations index into them, so a
+// stale browser tab must be refused by saveManifest rather than quietly record
+// marks against a tessellation the server no longer produces.
+export const SURFACE_ALGORITHM = "midpoint-v2-edge0.07-rationed";
 const EDGE = 0.07;
 const MAX_DEPTH = 12;
 export function reviewSurface(geometry, matrixWorld, budget = 600000) {

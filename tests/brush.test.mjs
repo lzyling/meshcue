@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { computeBoundsTree } from "three-mesh-bvh";
-import { brushPatches } from "../src/brush.js";
+import { brushPatches, binSize } from "../src/brush.js";
 
 function plane(id, z, size = 10) {
   const g = new THREE.PlaneGeometry(size, size);
@@ -100,4 +100,41 @@ test("mirrored object transforms follow the rendered front-face orientation", ()
       const [x, y] = project(v, m, c);
       assert.ok(Math.hypot(x - 410, y - 290) <= 10.00001);
     }
+});
+
+test("bucket size follows the candidates, not a fixed pixel grid", () => {
+  const boxes = (n, size, spread) =>
+    Array.from({ length: n }, (_, i) => {
+      const x = (i % 40) * (spread / 40),
+        y = Math.floor(i / 40) * (spread / 40);
+      return { box: [x, y, x + size, y + size] };
+    });
+
+  assert.equal(binSize([]) > 0, true);
+  // A dense mesh under a small brush is exactly the case a 16px grid missed:
+  // every triangle landed in one cell and the pairwise stage stayed quadratic.
+  assert.equal(binSize(boxes(2000, 0.5, 12)) < 16, true);
+  // Where the fixed grid was already the right scale, nothing shrinks.
+  assert.equal(binSize(boxes(200, 16, 600)) >= 16, true);
+
+  for (const candidates of [
+    boxes(2000, 0.5, 12),
+    boxes(200, 16, 600),
+    boxes(50, 300, 400),
+    [{ box: [5, 5, 5, 5] }],
+  ]) {
+    const cell = binSize(candidates);
+    assert.equal(
+      Number.isFinite(cell) && cell > 0,
+      true,
+      "cell must be usable",
+    );
+    const span = candidates.reduce(
+      (n, { box }) => Math.max(n, box[2] - box[0], box[3] - box[1]),
+      0,
+    );
+    // The grid stays bounded, so one oversized triangle cannot explode the
+    // number of cell keys it has to be registered under.
+    assert.equal(span / cell <= 64 || candidates.length === 1, true);
+  }
 });

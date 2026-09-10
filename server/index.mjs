@@ -331,7 +331,7 @@ function saveManifest(versionId, meshes) {
           name: z.string().max(200),
           triangles: z.number().int().positive().max(MAX_TRIANGLES),
           sourceTriangles: z.number().int().positive().max(MAX_TRIANGLES),
-          surfaceAlgorithm: z.literal("midpoint-v1-edge0.07"),
+          surfaceAlgorithm: z.literal("midpoint-v2-edge0.07-rationed"),
           matrixWorld: z.array(z.number().finite()).length(16),
         })
         .strict(),

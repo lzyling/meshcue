@@ -83,6 +83,11 @@ export class ModelViewer {
     this.meshes = [];
     this.meshMap = new Map();
     this.pins = [];
+    // Reused per frame: the pin layer used to allocate four vectors per pin.
+    this.scratch = { world: new V(), projected: new V(), direction: new V() };
+    this.occlusionAt = { position: new V(), target: new V() };
+    this.occlusionValid = false;
+    this.markMaterials = new Map();
     this.mode = "orbit";
     this.radius = 22;
     this.enabled = false;
@@ -190,11 +195,14 @@ export class ModelViewer {
       g.disposeBoundsTree?.();
       g.dispose();
     }
+    for (const material of this.markMaterials.values()) material.dispose();
+    this.markMaterials.clear();
     this.root.clear();
     this.root.position.set(0, 0, 0);
     this.root.scale.setScalar(1);
     this.meshes = [];
     this.meshMap.clear();
+    this.occlusionValid = false;
     this.renderer.renderLists.dispose();
   }
   async load(model, url) {
@@ -529,6 +537,8 @@ export class ModelViewer {
     this.clearOverlay(this.overlay);
     this.labels.replaceChildren();
     this.pins = [];
+    // Fresh pin records carry no cached occlusion; recheck on the next frame.
+    this.occlusionValid = false;
     for (const a of annotations) {
       if (a.type === "pin") {
         const mesh = this.meshMap.get(a.meshId);
@@ -586,28 +596,48 @@ export class ModelViewer {
   render() {
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    if (!this.pins.length) return;
     const rect = this.container.getBoundingClientRect();
-    for (const { el, a, mesh } of this.pins) {
-      const world = mesh.localToWorld(new V().fromArray(a.position)),
-        projected = world.clone().project(this.camera);
+    // Occlusion costs one ray per pin and only changes when the view does. At
+    // the documented 200-pin ceiling, testing it every frame was 12,000 BVH
+    // raycasts a second; damping keeps this true for the frames that matter.
+    const moved =
+      !this.occlusionValid ||
+      !this.occlusionAt.position.equals(this.camera.position) ||
+      !this.occlusionAt.target.equals(this.controls.target);
+    if (moved) {
+      this.occlusionAt.position.copy(this.camera.position);
+      this.occlusionAt.target.copy(this.controls.target);
+      this.occlusionValid = true;
+    }
+    for (const pin of this.pins) {
+      const world = pin.mesh.localToWorld(
+        this.scratch.world.fromArray(pin.a.position),
+      );
+      const projected = this.scratch.projected.copy(world).project(this.camera);
       const inView =
         projected.z >= -1 &&
         projected.z <= 1 &&
         Math.abs(projected.x) < 1 &&
         Math.abs(projected.y) < 1;
-      let visible = inView;
-      if (visible) {
-        this.ray.set(
-          this.camera.position,
-          world.clone().sub(this.camera.position).normalize(),
-        );
-        const hit = this.ray.intersectObjects(this.meshes, false)[0];
-        visible =
-          !hit ||
-          hit.distance >= this.camera.position.distanceTo(world) - 0.015;
+      if (moved) {
+        pin.unoccluded = false;
+        if (inView) {
+          this.ray.set(
+            this.camera.position,
+            this.scratch.direction
+              .copy(world)
+              .sub(this.camera.position)
+              .normalize(),
+          );
+          const hit = this.ray.intersectObjects(this.meshes, false)[0];
+          pin.unoccluded =
+            !hit ||
+            hit.distance >= this.camera.position.distanceTo(world) - 0.015;
+        }
       }
-      el.hidden = !visible || !this.annotationsVisible;
-      el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,-100%)`;
+      pin.el.hidden = !inView || !pin.unoccluded || !this.annotationsVisible;
+      pin.el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,-100%)`;
     }
   }
   focusAnnotation(a) {
@@ -631,12 +661,19 @@ export class ModelViewer {
   }
   clearOverlay(group) {
     for (const o of [...group.children]) {
+      // Geometry is per stroke; the material is shared and outlives the group.
       o.geometry.dispose();
-      o.material.dispose();
       group.remove(o);
     }
   }
+  // Overlay materials are rebuilt on every stroke. They depend only on these
+  // three inputs, so share one instance per combination instead of compiling a
+  // fresh onBeforeCompile closure for every patch group, every frame. Owned by
+  // the viewer and released with the model, never by clearOverlay.
   markMaterial(color, selected = false, agent = false) {
+    const key = `${color}|${selected}|${agent}`;
+    const cached = this.markMaterials.get(key);
+    if (cached) return cached;
     const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
@@ -658,6 +695,7 @@ export class ModelViewer {
       );
     };
     material.customProgramCacheKey = () => `marks-${selected}-${agent}`;
+    this.markMaterials.set(key, material);
     return material;
   }
   setVisible(visible) {

@@ -68,6 +68,35 @@ function depthPlane(p) {
   return null;
 }
 
+// Bucket at the scale of the candidates themselves. A fixed 16px grid put every
+// triangle of a dense mesh into the same handful of cells, and the smallest
+// brush is 12px across — narrower than one cell — so the pairwise occlusion
+// stage stayed quadratic exactly where bucketing was supposed to help. Cell
+// size only decides which pairs are compared, never which ones overlap: every
+// box is registered in every cell it touches, so a smaller grid cannot miss a
+// pair. The 64x64 floor keeps one oversized triangle from exploding the keys.
+export function binSize(candidates) {
+  if (!candidates.length) return 16;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity,
+    extent = 0;
+  for (const { box } of candidates) {
+    if (box[0] < minX) minX = box[0];
+    if (box[1] < minY) minY = box[1];
+    if (box[2] > maxX) maxX = box[2];
+    if (box[3] > maxY) maxY = box[3];
+    extent += box[2] - box[0] + (box[3] - box[1]);
+  }
+  return Math.max(
+    extent / candidates.length,
+    (maxX - minX) / 64,
+    (maxY - minY) / 64,
+    1e-3,
+  );
+}
+
 export function brushPatches(meshes, camera, rect, x, y, radius) {
   camera.updateMatrixWorld();
   const candidates = [],
@@ -151,7 +180,7 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
   }
   // Spatial buckets avoid comparing every pair on dense meshes.
   const bins = new Map(),
-    cell = 16;
+    cell = binSize(candidates);
   const keys = (box) => {
     const result = [];
     for (let a = Math.floor(box[0] / cell); a <= Math.floor(box[2] / cell); a++)
