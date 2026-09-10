@@ -4,6 +4,8 @@ import * as THREE from "three";
 // Every review triangle remembers its original triangle; selected patches export
 // original-mesh local coordinates as well as both indices.
 export const SURFACE_ALGORITHM = "midpoint-v1-edge0.07";
+const EDGE = 0.07;
+const MAX_DEPTH = 12;
 export function reviewSurface(geometry, matrixWorld, budget = 600000) {
   const sourceCount =
     (geometry.index?.count || geometry.attributes.position.count) / 3;
@@ -18,7 +20,6 @@ export function reviewSurface(geometry, matrixWorld, budget = 600000) {
     groups = [];
   const va = new THREE.Vector3(),
     vb = new THREE.Vector3();
-  let currentCount = sourceCount;
   const read = (i) =>
     Object.fromEntries(
       names.map((n) => [
@@ -39,9 +40,11 @@ export function reviewSurface(geometry, matrixWorld, budget = 600000) {
         return [n, v];
       }),
     );
+  // Takes raw positions so the pricing pass can run without building a full
+  // attribute record for every candidate midpoint.
   const length = (a, b) => {
-    va.fromArray(a.position).applyMatrix4(matrixWorld);
-    vb.fromArray(b.position).applyMatrix4(matrixWorld);
+    va.fromArray(a).applyMatrix4(matrixWorld);
+    vb.fromArray(b).applyMatrix4(matrixWorld);
     return va.distanceToSquared(vb);
   };
   const emit = (vertices, source, material) => {
@@ -52,30 +55,86 @@ export function reviewSurface(geometry, matrixWorld, budget = 600000) {
     if (previous?.materialIndex === material) previous.count += 3;
     else groups.push({ start, count: 3, materialIndex: material });
   };
-  for (let face = 0; face < sourceCount; face++) {
-    const vertices = [0, 1, 2].map((k) =>
-      read(geometry.index ? geometry.index.getX(face * 3 + k) : face * 3 + k),
+  const vertexIds = (face) =>
+    [0, 1, 2].map((k) =>
+      geometry.index ? geometry.index.getX(face * 3 + k) : face * 3 + k,
     );
+  // Price every face first, using positions only: the same split predicate and
+  // the same first-longest-edge choice, without reading or interpolating any
+  // other attribute. Only then is it known whether the budget binds at all.
+  const positionOf = (i) => [
+    geometry.attributes.position.getX(i),
+    geometry.attributes.position.getY(i),
+    geometry.attributes.position.getZ(i),
+  ];
+  const half = (a, b) => a.map((x, i) => (x + b[i]) / 2);
+  const fullCost = (corners) => {
+    let count = 0;
+    const stack = [{ p: corners, depth: 0 }];
+    while (stack.length) {
+      const { p, depth } = stack.pop();
+      const lengths = [
+        length(p[0], p[1]),
+        length(p[1], p[2]),
+        length(p[2], p[0]),
+      ];
+      const longest = Math.max(...lengths);
+      if (longest > EDGE ** 2 && depth < MAX_DEPTH) {
+        const a = lengths.indexOf(longest),
+          b = (a + 1) % 3,
+          c = (a + 2) % 3,
+          m = half(p[a], p[b]);
+        stack.push(
+          { p: [m, p[b], p[c]], depth: depth + 1 },
+          { p: [p[a], m, p[c]], depth: depth + 1 },
+        );
+      } else count++;
+    }
+    return count;
+  };
+  const costs = [];
+  let wanted = 0;
+  for (let face = 0; face < sourceCount; face++) {
+    costs.push(fullCost(vertexIds(face).map(positionOf)));
+    wanted += costs[face];
+  }
+  // A single global counter spent the budget on whichever faces the index
+  // buffer happened to list first, so on a large model the leading faces were
+  // subdivided hundreds of times over while the rest stayed raw triangles and
+  // the brush snapped across them. Ration per face instead, and only when the
+  // whole model genuinely does not fit.
+  const rationed = wanted > budget;
+  const caps = rationed
+    ? costs.map((cost) => Math.max(1, Math.floor((budget * cost) / wanted)))
+    : null;
+  for (let face = 0; face < sourceCount; face++) {
+    const vertices = vertexIds(face).map(read);
     const group =
       geometry.groups.find(
         (g) => face * 3 >= g.start && face * 3 < g.start + g.count,
       )?.materialIndex || 0;
-    const stack = [{ v: vertices, depth: 0 }];
-    while (stack.length) {
-      const { v, depth } = stack.pop();
+    const cap = rationed ? caps[face] : Infinity;
+    let emitted = 1;
+    const queue = [{ v: vertices, depth: 0 }];
+    while (queue.length) {
+      // Below the budget this stays depth-first, so the emitted geometry is
+      // identical to the unrationed algorithm and an in-progress draft's face
+      // indices keep pointing at the same triangles. A rationed face goes
+      // breadth-first so it degrades evenly rather than in one corner.
+      const { v, depth } = rationed ? queue.shift() : queue.pop();
       const lengths = [
-        length(v[0], v[1]),
-        length(v[1], v[2]),
-        length(v[2], v[0]),
+        length(v[0].position, v[1].position),
+        length(v[1].position, v[2].position),
+        length(v[2].position, v[0].position),
       ];
       const longest = Math.max(...lengths);
-      if (longest > 0.07 ** 2 && depth < 12 && currentCount < budget) {
+      if (longest > EDGE ** 2 && depth < MAX_DEPTH && emitted < cap) {
         const a = lengths.indexOf(longest),
           b = (a + 1) % 3,
           c = (a + 2) % 3,
           m = midpoint(v[a], v[b]);
-        currentCount++;
-        stack.push(
+        emitted++;
+        queue.push(
           { v: [m, v[b], v[c]], depth: depth + 1 },
           { v: [v[a], m, v[c]], depth: depth + 1 },
         );
