@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { reviewSurface, SURFACE_ALGORITHM } from "../src/surface.js";
+import {
+  reviewSurface,
+  surfaceCost,
+  SURFACE_ALGORITHM,
+} from "../src/surface.js";
 
 // Coplanar quads whose edges are far longer than the 0.07 review edge, i.e. the
 // flat faces a functional part is mostly made of.
@@ -93,4 +97,47 @@ test("rationing never runs a face below its own source triangle", () => {
   const result = reviewSurface(geometry, identity, source);
   assert.equal(result.userData.sourceFaces.length, source);
   assert.deepEqual(new Set(perSourceFace(result)), new Set([1]));
+});
+
+test("the price of a mesh matches what an unrationed pass emits", () => {
+  // The viewer shares one budget across meshes by pricing them first, so a
+  // price that disagreed with the emitter would hand out shares nobody can use.
+  for (const [cells, span] of [
+    [6, 1],
+    [10, 6],
+    [14, 2],
+  ]) {
+    const geometry = slab(cells, span);
+    const costs = surfaceCost(geometry, identity);
+    const emitted = reviewSurface(geometry, identity, 600000);
+    assert.equal(costs.length, geometry.attributes.position.count / 3);
+    assert.equal(
+      costs.reduce((n, c) => n + c, 0),
+      emitted.userData.sourceFaces.length,
+      "the priced cost is not what the emitter produces",
+    );
+    assert.deepEqual(costs, perSourceFace(emitted));
+  }
+});
+
+test("a supplied price produces exactly the same geometry as recomputing it", () => {
+  const dump = (g) => [
+    Array.from(g.attributes.position.array),
+    g.userData.sourceFaces,
+  ];
+  for (const budget of [600000, 8000]) {
+    const geometry = slab(12, 12);
+    assert.deepEqual(
+      dump(
+        reviewSurface(
+          geometry,
+          identity,
+          budget,
+          surfaceCost(geometry, identity),
+        ),
+      ),
+      dump(reviewSurface(geometry, identity, budget)),
+      "reusing the price changed the result",
+    );
+  }
 });

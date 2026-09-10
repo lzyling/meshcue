@@ -8,7 +8,7 @@ import {
   computeBoundsTree,
   disposeBoundsTree,
 } from "three-mesh-bvh";
-import { reviewSurface, SURFACE_ALGORITHM } from "./surface.js";
+import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 
@@ -16,6 +16,8 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 const V = THREE.Vector3;
+// Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
+const MAX_REVIEW_TRIANGLES = 600000;
 export class ModelViewer {
   constructor(
     container,
@@ -250,44 +252,63 @@ export class ModelViewer {
     this.root.scale.setScalar(scale);
     this.root.position.copy(center).multiplyScalar(-scale);
     this.root.updateMatrixWorld(true);
-    let sourceTotal = 0;
+    const source = [];
     this.root.traverse((o) => {
-      if (o.isMesh)
-        sourceTotal +=
-          (o.geometry.index?.count || o.geometry.attributes.position.count) / 3;
+      if (o.isMesh) source.push(o);
     });
-    if (sourceTotal > 600000) throw new Error("模型超過 60 萬面，請先簡化。");
-    let total = 0;
-    const originals = new Set();
-    this.root.traverse((o) => {
-      if (!o.isMesh) return;
+    const faces = source.map(
+      (o) =>
+        (o.geometry.index?.count || o.geometry.attributes.position.count) / 3,
+    );
+    for (const o of source)
       if (
         o.isSkinnedMesh ||
         o.isInstancedMesh ||
         o.geometry.morphAttributes.position?.length
       )
         throw new Error("請先匯出靜態網格；初版不標注變形動畫。");
-      const sourceCount =
-        (o.geometry.index?.count || o.geometry.attributes.position.count) / 3;
-      const budget = Math.max(
-        sourceCount,
-        Math.floor((600000 * sourceCount) / sourceTotal),
-      );
-      o.userData.fillTopology = buildFillTopology(o.geometry, o.matrixWorld);
-      originals.add(o.geometry);
-      o.geometry = reviewSurface(o.geometry, o.matrixWorld, budget);
-      const n = o.geometry.attributes.position.count / 3;
-      total += n;
-      if (total > 600000) throw new Error("模型超過 60 萬面，請先簡化。");
-      const meshId = `mesh-${this.meshes.length}`;
-      o.userData.reviewId = meshId;
-      // Keep review face indices aligned with sourceFaces. BVH's default
-      // in-place triangle reordering would silently corrupt annotation mapping.
-      o.geometry.computeBoundsTree({ targetLeafSize: 12, indirect: true });
-      this.meshes.push(o);
-      this.meshMap.set(meshId, o);
-    });
-    for (const geometry of originals) geometry.dispose();
+    const sourceTotal = faces.reduce((n, c) => n + c, 0);
+    if (sourceTotal > MAX_REVIEW_TRIANGLES)
+      throw new Error("模型超過 60 萬面，請先簡化。");
+    // Share the budget by what each mesh needs, not by how many triangles it
+    // happens to start with. A dense mesh used to hold a share far larger than
+    // it could ever spend while a mesh of a few large faces was starved down to
+    // raw triangles. Every mesh keeps at least its own faces; only the surplus
+    // above that is rationed, so a model that fits is left exactly as before.
+    const costs = source.map((o) => surfaceCost(o.geometry, o.matrixWorld));
+    const extra = costs.map((c, i) =>
+      Math.max(0, c.reduce((n, x) => n + x, 0) - faces[i]),
+    );
+    const demand = extra.reduce((n, x) => n + x, 0);
+    const spare = MAX_REVIEW_TRIANGLES - sourceTotal;
+    const originals = new Set();
+    try {
+      source.forEach((o, i) => {
+        const budget =
+          faces[i] +
+          (demand <= spare
+            ? extra[i]
+            : Math.floor((spare * extra[i]) / demand));
+        o.userData.fillTopology = buildFillTopology(o.geometry, o.matrixWorld);
+        originals.add(o.geometry);
+        o.geometry = reviewSurface(o.geometry, o.matrixWorld, budget, costs[i]);
+        const meshId = `mesh-${this.meshes.length}`;
+        o.userData.reviewId = meshId;
+        // Keep review face indices aligned with sourceFaces. BVH's default
+        // in-place triangle reordering would silently corrupt annotation mapping.
+        o.geometry.computeBoundsTree({ targetLeafSize: 12, indirect: true });
+        this.meshes.push(o);
+        this.meshMap.set(meshId, o);
+      });
+    } finally {
+      // A mesh converted before a later one failed must not keep its source
+      // geometry alive; nothing calls clearModel on this path.
+      for (const geometry of originals) geometry.dispose();
+    }
+    const total = this.meshes.reduce(
+      (n, o) => n + o.geometry.attributes.position.count / 3,
+      0,
+    );
     this.model = model;
     this.grid.position.y = (-size.y * scale) / 2 - 0.025;
     this.home();

@@ -9,7 +9,68 @@ import * as THREE from "three";
 export const SURFACE_ALGORITHM = "midpoint-v2-edge0.07-rationed";
 const EDGE = 0.07;
 const MAX_DEPTH = 12;
-export function reviewSurface(geometry, matrixWorld, budget = 600000) {
+// What a full, unrationed subdivision of each source face would cost, using
+// positions only: the same split predicate and the same first-longest-edge
+// choice, without reading or interpolating any other attribute. Callers price
+// a whole model with this before deciding how to share a budget between its
+// meshes, then hand the result back so it is computed once.
+export function surfaceCost(geometry, matrixWorld) {
+  return price(geometry, matrixWorld);
+}
+function price(geometry, matrixWorld) {
+  const attribute = geometry.attributes.position;
+  const sourceCount = (geometry.index?.count || attribute.count) / 3;
+  const va = new THREE.Vector3(),
+    vb = new THREE.Vector3();
+  const distance = (a, b) => {
+    va.fromArray(a).applyMatrix4(matrixWorld);
+    vb.fromArray(b).applyMatrix4(matrixWorld);
+    return va.distanceToSquared(vb);
+  };
+  const positionOf = (i) => [
+    attribute.getX(i),
+    attribute.getY(i),
+    attribute.getZ(i),
+  ];
+  const half = (a, b) => a.map((x, i) => (x + b[i]) / 2);
+  const costs = [];
+  for (let face = 0; face < sourceCount; face++) {
+    const corners = [0, 1, 2].map((k) =>
+      positionOf(
+        geometry.index ? geometry.index.getX(face * 3 + k) : face * 3 + k,
+      ),
+    );
+    let count = 0;
+    const stack = [{ p: corners, depth: 0 }];
+    while (stack.length) {
+      const { p, depth } = stack.pop();
+      const lengths = [
+        distance(p[0], p[1]),
+        distance(p[1], p[2]),
+        distance(p[2], p[0]),
+      ];
+      const longest = Math.max(...lengths);
+      if (longest > EDGE ** 2 && depth < MAX_DEPTH) {
+        const a = lengths.indexOf(longest),
+          b = (a + 1) % 3,
+          c = (a + 2) % 3,
+          m = half(p[a], p[b]);
+        stack.push(
+          { p: [m, p[b], p[c]], depth: depth + 1 },
+          { p: [p[a], m, p[c]], depth: depth + 1 },
+        );
+      } else count++;
+    }
+    costs.push(count);
+  }
+  return costs;
+}
+export function reviewSurface(
+  geometry,
+  matrixWorld,
+  budget = 600000,
+  costs = null,
+) {
   const sourceCount =
     (geometry.index?.count || geometry.attributes.position.count) / 3;
   const names = Object.keys(geometry.attributes).filter(
@@ -62,45 +123,8 @@ export function reviewSurface(geometry, matrixWorld, budget = 600000) {
     [0, 1, 2].map((k) =>
       geometry.index ? geometry.index.getX(face * 3 + k) : face * 3 + k,
     );
-  // Price every face first, using positions only: the same split predicate and
-  // the same first-longest-edge choice, without reading or interpolating any
-  // other attribute. Only then is it known whether the budget binds at all.
-  const positionOf = (i) => [
-    geometry.attributes.position.getX(i),
-    geometry.attributes.position.getY(i),
-    geometry.attributes.position.getZ(i),
-  ];
-  const half = (a, b) => a.map((x, i) => (x + b[i]) / 2);
-  const fullCost = (corners) => {
-    let count = 0;
-    const stack = [{ p: corners, depth: 0 }];
-    while (stack.length) {
-      const { p, depth } = stack.pop();
-      const lengths = [
-        length(p[0], p[1]),
-        length(p[1], p[2]),
-        length(p[2], p[0]),
-      ];
-      const longest = Math.max(...lengths);
-      if (longest > EDGE ** 2 && depth < MAX_DEPTH) {
-        const a = lengths.indexOf(longest),
-          b = (a + 1) % 3,
-          c = (a + 2) % 3,
-          m = half(p[a], p[b]);
-        stack.push(
-          { p: [m, p[b], p[c]], depth: depth + 1 },
-          { p: [p[a], m, p[c]], depth: depth + 1 },
-        );
-      } else count++;
-    }
-    return count;
-  };
-  const costs = [];
-  let wanted = 0;
-  for (let face = 0; face < sourceCount; face++) {
-    costs.push(fullCost(vertexIds(face).map(positionOf)));
-    wanted += costs[face];
-  }
+  const perFace = costs ?? price(geometry, matrixWorld);
+  const wanted = perFace.reduce((n, c) => n + c, 0);
   // A single global counter spent the budget on whichever faces the index
   // buffer happened to list first, so on a large model the leading faces were
   // subdivided hundreds of times over while the rest stayed raw triangles and
@@ -108,7 +132,7 @@ export function reviewSurface(geometry, matrixWorld, budget = 600000) {
   // whole model genuinely does not fit.
   const rationed = wanted > budget;
   const caps = rationed
-    ? costs.map((cost) => Math.max(1, Math.floor((budget * cost) / wanted)))
+    ? perFace.map((cost) => Math.max(1, Math.floor((budget * cost) / wanted)))
     : null;
   for (let face = 0; face < sourceCount; face++) {
     const vertices = vertexIds(face).map(read);
