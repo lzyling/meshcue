@@ -40,6 +40,140 @@ const annotations = [
   },
 ];
 
+test("managed outbox survives Gateway outage and service restart, and cannot redirect a later batch across /new", async (t) => {
+  const frozen = { ...origin, sessionId: "fixture-generation" };
+  const f = await startReview(t, { origin: frozen, managed: true });
+  const model = await f.publish();
+  const owner = { versionId: model.id, clientId: "outbox-owner" };
+  assert.equal(
+    (
+      await f.api("ready", {
+        method: "POST",
+        body: { ...owner, sha256: model.sha256, meshes: [mesh] },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await f.api("review/begin", { method: "POST", body: owner })).status,
+    200,
+  );
+  const draft = await f.api("draft", {
+    method: "PUT",
+    body: { ...owner, revision: 0, annotations, camera: null },
+  });
+  const log = path.join(f.dir, "fake-gateway.json");
+  fs.writeFileSync(
+    log,
+    JSON.stringify({ calls: [], messages: [], offline: true }),
+  );
+  const submitted = {
+    ...owner,
+    revision: draft.body.revision,
+    submissionId: "outbox-batch-one",
+  };
+  assert.equal(
+    (await f.api("feedback", { method: "POST", body: submitted })).status,
+    502,
+  );
+  assert.equal(
+    (await f.ipc("/submissions/outbox-batch-one")).body.status,
+    "unconfirmed",
+  );
+  const payload = (item) =>
+    Object.fromEntries(
+      [
+        "id",
+        "versionId",
+        "revision",
+        "createdAt",
+        "reviewId",
+        "bindingId",
+        "origin",
+        "model",
+        "annotations",
+        "camera",
+        "meshManifest",
+      ].map((key) => [key, item[key]]),
+    );
+  const immutable = payload(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(f.dir, "submissions/outbox-batch-one.json"),
+        "utf8",
+      ),
+    ),
+  );
+  await f.restart();
+  const gateway = JSON.parse(fs.readFileSync(log, "utf8"));
+  gateway.offline = false;
+  fs.writeFileSync(log, JSON.stringify(gateway));
+  let batch;
+  for (let i = 0; i < 40; i++) {
+    batch = (await f.ipc("/submissions/outbox-batch-one")).body;
+    if (batch.status === "accepted") break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.equal(batch.status, "accepted");
+  assert.deepEqual(
+    payload(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(f.dir, "submissions/outbox-batch-one.json"),
+          "utf8",
+        ),
+      ),
+    ),
+    immutable,
+  );
+  assert.equal(
+    (await f.api("feedback", { method: "POST", body: submitted })).status,
+    200,
+  );
+  let state = JSON.parse(fs.readFileSync(log, "utf8"));
+  assert.equal(state.calls.filter((c) => c.method === "chat.send").length, 1);
+  const send = state.calls.find((c) => c.method === "chat.send").params;
+  assert.equal(send.sessionId, "fixture-generation");
+  assert.equal(send.originatingThreadId, "41");
+  assert.equal(send.queueMode, "collect");
+  state.sessions = { [frozen.sessionKey]: "unrelated-new-task" };
+  fs.writeFileSync(log, JSON.stringify(state));
+  const changed = await f.api("draft", {
+    method: "PUT",
+    body: {
+      ...owner,
+      revision: draft.body.revision,
+      annotations,
+      camera: null,
+    },
+  });
+  assert.equal(
+    (
+      await f.api("feedback", {
+        method: "POST",
+        body: {
+          ...owner,
+          revision: changed.body.revision,
+          submissionId: "outbox-batch-two",
+        },
+      })
+    ).status,
+    502,
+  );
+  assert.equal(
+    (await f.ipc("/submissions/outbox-batch-two")).body.origin.sessionId,
+    "fixture-generation",
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(log, "utf8")).calls.filter(
+      (c) => c.method === "chat.send",
+    ).length,
+    1,
+  );
+  fs.writeFileSync(path.join(f.dir, "disabled.json"), "{}");
+  assert.equal((await f.api("draft", { method: "PUT", body: {} })).status, 503);
+});
+
 test(
   "explicit real LAN listener requires authorization even when the test-only access override is off",
   { skip: !process.env.REVIEW_TEST_LAN_HOST },

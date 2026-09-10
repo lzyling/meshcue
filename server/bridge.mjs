@@ -37,8 +37,33 @@ export class OpenClawBridge {
     return data;
   }
   async send(message, id) {
+    let fence = {};
+    if (this.origin?.sessionId) {
+      const history = await this.call("chat.history", {
+        sessionKey: this.sessionKey,
+        limit: 1,
+        maxBytes: 2000,
+      });
+      const info = history.sessionInfo || history;
+      if (
+        (history.sessionId || info.sessionId) !== this.origin.sessionId ||
+        !Object.hasOwn(info, "activeLeafEntryId")
+      ) {
+        throw new Error(
+          "原會話已變更或宿主無法核對；提交保留，沒有轉送到新任務。",
+        );
+      }
+      // Host revalidates both under the admission writer barrier. A check then
+      // an unfenced send would still race /new. Never use steer here.
+      fence = {
+        sessionId: this.origin.sessionId,
+        expectedLeafEntryId: info.activeLeafEntryId,
+        queueMode: "collect",
+      };
+    }
     return this.call("chat.send", {
       ...deliveryParams(this.origin),
+      ...fence,
       message,
       idempotencyKey: id,
     });

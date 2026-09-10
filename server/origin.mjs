@@ -11,6 +11,7 @@ export const originSchema = z.discriminatedUnion("channel", [
     .object({
       harness: z.literal("openclaw").default("openclaw"),
       sessionKey: text,
+      sessionId: text.optional(),
       channel: z.literal("webchat"),
     })
     .strict(),
@@ -18,6 +19,7 @@ export const originSchema = z.discriminatedUnion("channel", [
     .object({
       harness: z.literal("openclaw").default("openclaw"),
       sessionKey: text,
+      sessionId: text.optional(),
       channel: z.literal("telegram"),
       target: z.string().regex(/^-?\d+$/),
       accountId: text,

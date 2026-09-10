@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { listenerConfig } from "../server/network.mjs";
+import { readInstance, INTEGRATION_API } from "../server/instance.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = path.resolve(
   process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
@@ -14,6 +15,7 @@ const configFile = path.join(runtime, "config.json");
 const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))
   : {};
+const instance = readInstance(config);
 const network = listenerConfig(
   process.env.REVIEW_HOST || config.host || "127.0.0.1",
 );
@@ -24,7 +26,15 @@ async function health() {
       signal: AbortSignal.timeout(2000),
     });
     const data = await response.json();
-    return data.app === "3d-agent-review" ? data : null;
+    if (data.app !== "3d-agent-review") return null;
+    if (
+      instance &&
+      (data.instance?.id !== instance.id ||
+        data.instance?.projectId !== instance.projectId ||
+        data.integrationApi !== INTEGRATION_API)
+    )
+      return null;
+    return data;
   } catch {
     return null;
   }

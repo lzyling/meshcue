@@ -380,17 +380,23 @@ export class ReviewAccess {
   }
 }
 
-export function sessionCookie(headers) {
+function checkCookieName(name) {
+  if (!/^review_access(?:_[a-f0-9]{32})?$/.test(name)) throw new AccessError();
+  return name;
+}
+
+export function sessionCookie(headers, name = "review_access") {
+  const prefix = `${checkCookieName(name)}=`;
   const values = (headers.cookie || "")
     .split(";")
     .map((x) => x.trim())
-    .filter((x) => x.startsWith("review_access="));
+    .filter((x) => x.startsWith(prefix));
   if (values.length !== 1) return null;
-  const value = values[0].slice("review_access=".length);
+  const value = values[0].slice(prefix.length);
   return valid(value) ? value : null;
 }
 
-export function accessCookie(value, maxAge) {
+export function accessCookie(value, maxAge, name = "review_access") {
   if (!valid(value)) throw new AccessError();
-  return `review_access=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.max(0, Math.floor(maxAge / 1000))}`;
+  return `${checkCookieName(name)}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.max(0, Math.floor(maxAge / 1000))}`;
 }

@@ -3,11 +3,19 @@ import path from "node:path";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { agentSocketPath, readInstance } from "../../server/instance.mjs";
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function startReview(
   t,
-  { protectedAccess = false, origin, host = "127.0.0.1" } = {},
+  {
+    protectedAccess = false,
+    origin,
+    host = "127.0.0.1",
+    instance,
+    workspace,
+    managed = false,
+  } = {},
 ) {
   const repo = process.cwd();
   fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
@@ -19,8 +27,10 @@ export async function startReview(
     path.join(bin, "openclaw"),
   );
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
-  if (origin)
-    fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify({ origin }));
+  fs.writeFileSync(
+    path.join(dir, "config.json"),
+    JSON.stringify({ origin, instance, managed }),
+  );
   let port = "0";
   const launch = () =>
     spawn(process.execPath, ["server/index.mjs"], {
@@ -30,9 +40,11 @@ export async function startReview(
         PORT: port,
         REVIEW_HOST: host,
         REVIEW_DATA_DIR: dir,
+        ...(workspace ? { REVIEW_WORKSPACE: workspace } : {}),
         REVIEW_MEDIA_DIR: path.join(dir, "models"),
         REVIEW_SESSION_KEY: origin ? "" : "test-internal-http-session",
         REVIEW_BRIDGE: "on",
+        REVIEW_OUTBOX_MS: "1000",
         REVIEW_ACCESS: protectedAccess ? "required" : "",
         REVIEW_ALLOWED_HOSTS: "review.test",
         REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
@@ -61,7 +73,14 @@ export async function startReview(
     return new Promise((resolve, reject) => {
       const req = http.request(
         {
-          socketPath: path.join(dir, "agent.sock"),
+          socketPath: agentSocketPath(
+            dir,
+            readInstance(
+              JSON.parse(
+                fs.readFileSync(path.join(dir, "config.json"), "utf8"),
+              ),
+            ),
+          ),
           path: route,
           method: body === undefined ? "GET" : "POST",
           headers: { "Content-Type": "application/json" },

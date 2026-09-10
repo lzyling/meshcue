@@ -9,7 +9,16 @@ const state = fs.existsSync(file)
   ? JSON.parse(fs.readFileSync(file, "utf8"))
   : { calls: [], messages: [] };
 state.calls.push({ method, params });
+fs.writeFileSync(file, JSON.stringify(state));
+if (state.offline) throw new Error("Fixture Gateway is offline");
+const sessionId = state.sessions?.[params.sessionKey] || "fixture-generation";
+const leaf = `leaf-${state.messages.length}`;
 if (method === "chat.send") {
+  if (
+    params.sessionId &&
+    (params.sessionId !== sessionId || params.expectedLeafEntryId !== leaf)
+  )
+    throw new Error("Fixture rejects stale session or leaf");
   if (
     params.deliver !== false &&
     !(
@@ -58,6 +67,8 @@ if (method === "chat.send") {
         (m) => m.sessionKey === params.sessionKey,
       ),
       inFlightRun: null,
+      sessionId,
+      sessionInfo: { activeLeafEntryId: leaf },
     }),
   );
 } else throw new Error("Unexpected test method");

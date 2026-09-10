@@ -231,9 +231,31 @@ export class ReviewStore {
     this.save();
     return structuredClone(draft);
   }
-  bindOrigin(value) {
+  bindOrigin(value, { resumeGeneration = false } = {}) {
     const origin = normalizeOrigin(value);
     if (isDeepStrictEqual(origin, this.state.reviewOrigin)) return;
+    const withoutGeneration = (o) =>
+      o &&
+      Object.fromEntries(
+        Object.entries(o).filter(([key]) => key !== "sessionId"),
+      );
+    if (
+      resumeGeneration &&
+      origin?.sessionId &&
+      isDeepStrictEqual(
+        withoutGeneration(origin),
+        withoutGeneration(this.state.reviewOrigin),
+      )
+    ) {
+      const previous = this.state.reviewOrigin;
+      this.state.reviewOrigin = origin;
+      if (isDeepStrictEqual(this.state.pendingOrigin, previous))
+        this.state.pendingOrigin = structuredClone(origin);
+      // Explicit continuation of this project, not a new review. Browser trust,
+      // tab ownership and drafts remain; immutable old batches keep old origins.
+      this.save();
+      return;
+    }
     const d = this.state.draft;
     if (
       this.state.lock ||

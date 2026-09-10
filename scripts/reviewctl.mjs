@@ -3,8 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { lanAddresses } from "../server/network.mjs";
+import { agentSocketPath, readInstance } from "../server/instance.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const workspace = path.resolve(repo, "../..");
+const workspace = fs.realpathSync(
+  path.resolve(process.env.REVIEW_WORKSPACE || path.resolve(repo, "../..")),
+);
 const [command, ...args] = process.argv.slice(2);
 if (command === "network") {
   console.log(JSON.stringify({ interfaces: lanAddresses() }));
@@ -60,10 +63,14 @@ else if (command === "read") {
   throw new Error(
     "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo",
   );
-const socketPath = path.join(
-  path.resolve(process.env.REVIEW_DATA_DIR || path.join(repo, "runtime")),
-  "agent.sock",
+const runtime = path.resolve(
+  process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
 );
+const configPath = path.join(runtime, "config.json");
+const config = fs.existsSync(configPath)
+  ? JSON.parse(fs.readFileSync(configPath, "utf8"))
+  : {};
+const socketPath = agentSocketPath(runtime, readInstance(config));
 function call(route, payload) {
   return new Promise((resolve, reject) => {
     const req = http.request(

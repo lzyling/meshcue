@@ -11,10 +11,17 @@ import { OpenClawBridge } from "./bridge.mjs";
 import { originSchema, normalizeOrigin } from "./origin.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import {
+  readInstance,
+  instanceCookieName,
+  agentSocketPath,
+  prepareSocketDirectory,
+  INTEGRATION_API,
+} from "./instance.mjs";
+import {
   ReviewAccess,
   AccessError,
-  sessionCookie,
-  accessCookie,
+  sessionCookie as parseSessionCookie,
+  accessCookie as formatAccessCookie,
   browserInfo,
 } from "./access.mjs";
 
@@ -22,7 +29,9 @@ export const repo = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-export const workspace = path.resolve(repo, "../..");
+export const workspace = fs.realpathSync(
+  path.resolve(process.env.REVIEW_WORKSPACE || path.resolve(repo, "../..")),
+);
 const runtime = path.resolve(
   process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
 );
@@ -55,6 +64,36 @@ const configFile = path.join(runtime, "config.json");
 const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))
   : {};
+const instance = readInstance(config);
+const managedEnabled = () =>
+  !config.managed ||
+  (!fs.existsSync(path.join(runtime, "disabled.json")) &&
+    (!config.installRoot ||
+      fs.existsSync(path.join(config.installRoot, "openclaw.plugin.json"))));
+const cookieName = instanceCookieName(instance);
+function sessionCookie(headers) {
+  const scoped = parseSessionCookie(headers, cookieName);
+  if (scoped || !instance || config.legacyCookieMigration !== true)
+    return scoped;
+  if (
+    (headers.cookie || "")
+      .split(";")
+      .some((x) => x.trim().startsWith(`${cookieName}=`))
+  )
+    return null;
+  const legacy = parseSessionCookie(headers);
+  if (!legacy) return null;
+  // Migration is opt-in and can only exchange a verifier owned by this runtime.
+  try {
+    access.authenticate(legacy);
+    return legacy;
+  } catch {
+    return null;
+  }
+}
+function accessCookie(value, maxAge) {
+  return formatAccessCookie(value, maxAge, cookieName);
+}
 const legacyOrigin = normalizeOrigin(
   process.env.REVIEW_SESSION_KEY || config.origin || config.sessionKey || null,
 );
@@ -107,6 +146,13 @@ app.disable("x-powered-by");
 app.set("case sensitive routing", true);
 app.set("strict routing", true);
 app.use((req, res, next) => {
+  if (!["GET", "HEAD"].includes(req.method) && !managedEnabled())
+    return res
+      .status(503)
+      .json({
+        error: "MeshCue 擴充已停用；草稿保留，請在原會話接續。",
+        code: "INTEGRATION_DISABLED",
+      });
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
   if (req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
@@ -381,6 +427,8 @@ app.get("/api/health", (req, res) =>
     app: "3d-agent-review", // Stable service identity for pre-rename launchers.
     product: "MeshCue",
     version: "0.4.0",
+    integrationApi: INTEGRATION_API,
+    instance,
     pid: process.pid,
     accessRequired,
   }),
@@ -485,13 +533,25 @@ app.post("/api/feedback", async (req, res) => {
   }
   if (item.status === "accepted")
     return res.json({ ...item, annotations: undefined });
+  res.json(await deliverFeedback(item));
+});
+function deliverFeedback(item) {
+  if (!managedEnabled())
+    throw new ReviewError(
+      "擴充已停用，提交仍保留。",
+      503,
+      "INTEGRATION_DISABLED",
+    );
   if (!feedbackFlights.has(item.id)) {
     feedbackFlights.set(
       item.id,
       (async () => {
         const localFile = path.join(runtime, "submissions", `${item.id}.json`);
         const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
-        const readCommand = `REVIEW_DATA_DIR=${shellQuote(runtime)} node ${shellQuote(path.join(repo, "scripts/reviewctl.mjs"))} read ${shellQuote(item.id)}`;
+        const readCommand =
+          config.managed && config.projectPath
+            ? `meshcue 工具 ${JSON.stringify({ action: "read", project: config.projectPath, submissionId: item.id })}`
+            : `REVIEW_DATA_DIR=${shellQuote(runtime)} node ${shellQuote(path.join(repo, "scripts/reviewctl.mjs"))} read ${shellQuote(item.id)}`;
         const summary = item.annotations
           .map((a) =>
             a.type === "pin"
@@ -500,7 +560,10 @@ app.post("/api/feedback", async (req, res) => {
           )
           .join("\n");
         const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 ${readCommand} 讀取本次實例的完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
-        store.submissionStatus(item.id, "sending");
+        store.submissionStatus(item.id, "sending", {
+          lastAttemptAt: Date.now(),
+          attempts: (item.attempts || 0) + 1,
+        });
         try {
           const bridge = bridgeFor(store.submissionOrigin(item));
           const result = await bridge.send(message, `3d-feedback-${item.id}`);
@@ -528,6 +591,9 @@ app.post("/api/feedback", async (req, res) => {
         } catch {
           store.submissionStatus(item.id, "unconfirmed", {
             error: "尚未確認交到 OpenClaw；標注已保存在本機。",
+            nextAttemptAt:
+              Date.now() +
+              Math.min(300000, 1000 * 2 ** Math.min(item.attempts || 1, 8)),
           });
           throw new ReviewError(
             "未能確認送達；標注已保存。恢復連線後可用同一提交重試，不會重建標記。",
@@ -538,8 +604,35 @@ app.post("/api/feedback", async (req, res) => {
       })().finally(() => feedbackFlights.delete(item.id)),
     );
   }
-  res.json(await feedbackFlights.get(item.id));
-});
+  return feedbackFlights.get(item.id);
+}
+// Only managed integration instances own an automatic durable outbox. Legacy
+// trial behavior stays unchanged. Each batch keeps its frozen origin and key.
+let drainingOutbox = false;
+const outboxTimer = config.managed
+  ? setInterval(
+      async () => {
+        if (drainingOutbox || !managedEnabled()) return;
+        const next = store.state.submissions.find(
+          (item) =>
+            item.status !== "accepted" &&
+            !feedbackFlights.has(item.id) &&
+            (item.nextAttemptAt || 0) <= Date.now(),
+        );
+        if (!next) return;
+        drainingOutbox = true;
+        try {
+          await deliverFeedback(next);
+        } catch {
+          /* persisted retry status is the receipt */
+        } finally {
+          drainingOutbox = false;
+        }
+      },
+      Math.max(1000, Number(process.env.REVIEW_OUTBOX_MS) || 30000),
+    )
+  : null;
+outboxTimer?.unref();
 app.get("/api/submissions/:id", (req, res) => {
   const submissionId = id.parse(req.params.id);
   const file = path.join(runtime, "submissions", `${submissionId}.json`);
@@ -576,7 +669,10 @@ agentApp.get("/status", (req, res) =>
     ...stateFor("", true),
     viewerReceipts: store.state.viewerReceipts || {},
     origin: store.state.reviewOrigin,
+    instance,
+    integrationApi: INTEGRATION_API,
     pendingOrigin: store.state.pendingOrigin,
+    codeRoot: repo,
     pending: store.state.pending,
     network: {
       host: network.host,
@@ -632,8 +728,11 @@ agentApp.get("/access/browsers", (req, res) =>
   res.json({ browsers: access.metadata().browsers }),
 );
 agentApp.post("/origin", (req, res) => {
-  const p = z.object({ origin: originSchema }).strict().parse(req.body);
-  store.bindOrigin(p.origin);
+  const p = z
+    .object({ origin: originSchema, resumeGeneration: z.boolean().optional() })
+    .strict()
+    .parse(req.body);
+  store.bindOrigin(p.origin, { resumeGeneration: p.resumeGeneration });
   res.json({
     origin: store.state.reviewOrigin,
     reviewId: store.state.reviewId,
@@ -683,7 +782,8 @@ function errorHandler(err, req, res, next) {
   });
 }
 agentApp.use(errorHandler);
-const socketPath = path.join(runtime, "agent.sock");
+const socketPath = agentSocketPath(runtime, instance);
+prepareSocketDirectory(socketPath, instance);
 if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const agentServer = http.createServer(agentApp);
 agentServer.listen(socketPath, () => fs.chmodSync(socketPath, 0o600));
