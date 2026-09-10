@@ -41,7 +41,7 @@ app.innerHTML = `
    <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>＋ 新區域</button></div>
    <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">−</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
    <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
-   <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span>模型載入完成後就可以開始標記</span></div>
+   <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span id="loading-hint">模型載入完成後就可以開始標記</span></div>
    <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
   </div>
   <div id="pending-banner" class="pending-banner" hidden><span>新模型已準備好，暫時唔會更換你正標記嘅版本。</span></div>
@@ -123,6 +123,8 @@ async function api(path, data, method = "POST") {
           });
       } else {
         $("#loading-text").textContent = err.message;
+        $("#loading-hint").textContent =
+          "已連接工作台；授權完成前不會載入模型。";
         $("#loading .spinner").hidden = true;
       }
       updateButtons();
@@ -420,7 +422,9 @@ function updateButtons() {
   $("#undo").disabled = !ready || !undoStack.length || foreign || submitting;
   $("#redo").disabled = !ready || !redoStack.length || foreign || submitting;
   $("#review-status").textContent = accessBlocked
-    ? "授權已失效 · 草稿仍保留"
+    ? loadedId && initialDraftRestored
+      ? "授權已失效 · 草稿仍保留"
+      : "尚未取得審閱權限"
     : state?.locked
       ? state.owned
         ? "審閱中 · 模型已鎖定"
@@ -798,6 +802,7 @@ async function loadActive(fullState) {
   $("#loading").hidden = false;
   $("#loading .spinner").hidden = false;
   $("#loading-text").textContent = "載入並核對模型版本";
+  $("#loading-hint").textContent = "模型載入完成後就可以開始標記";
   $("#save-status").textContent = "核對中…";
   try {
     const stats = await viewer.load(
@@ -883,7 +888,9 @@ async function readState() {
       ? "請返回原對話"
       : "連線暫停";
     $("#save-status").textContent = accessBlocked
-      ? "授權已失效 · 草稿仍保留"
+      ? loadedId && initialDraftRestored
+        ? "授權已失效 · 草稿仍保留"
+        : "尚未取得審閱權限"
       : "服務暫時離線";
     updateButtons();
   }
