@@ -355,7 +355,7 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   expect(sent.params.message).toContain("不是編號點標籤");
   expect(sent.params.deliver).toBe(false);
   expect(s.meshManifest.meshes[0].surfaceAlgorithm).toBe(
-    "midpoint-v2-edge0.07-rationed",
+    "midpoint-v3-edge0.07-rationed",
   );
   expect(s.model.sha256).toHaveLength(64);
   expect(await page.evaluate(() => window.__reviewDiagnostics().locked)).toBe(

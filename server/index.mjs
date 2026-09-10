@@ -331,7 +331,7 @@ function saveManifest(versionId, meshes) {
           name: z.string().max(200),
           triangles: z.number().int().positive().max(MAX_TRIANGLES),
           sourceTriangles: z.number().int().positive().max(MAX_TRIANGLES),
-          surfaceAlgorithm: z.literal("midpoint-v2-edge0.07-rationed"),
+          surfaceAlgorithm: z.literal("midpoint-v3-edge0.07-rationed"),
           matrixWorld: z.array(z.number().finite()).length(16),
         })
         .strict(),
@@ -825,13 +825,24 @@ agentApp.post("/echo", (req, res) => {
 function errorHandler(err, req, res, next) {
   const schemaError = err instanceof z.ZodError;
   const status = schemaError ? 400 : err.status || 500;
-  // 4xx are the documented contract and already fully described in the body.
-  // A 5xx is the only case where the cause exists nowhere else.
+  // A ReviewError's 4xx is the documented contract and its message reaches the
+  // client intact. A schema rejection does not: the client is told only that the
+  // input was malformed, so the rejected field exists nowhere but here.
   if (status >= 500)
     log.error("http", "request failed", {
       method: req.method,
       path: req.path,
       ...errorDetail(err),
+    });
+  else if (schemaError)
+    log.warn("http", "request rejected by schema", {
+      method: req.method,
+      path: req.path,
+      issues: err.issues.map((i) => ({
+        path: i.path.join("."),
+        code: i.code,
+        message: i.message,
+      })),
     });
   res.status(status).json({
     error: schemaError

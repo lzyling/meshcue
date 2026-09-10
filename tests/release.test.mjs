@@ -19,6 +19,10 @@ function fixture(t, { id = "meshcue", extra = {} } = {}) {
   };
   fs.mkdirSync(runtime, { recursive: true });
   write("openclaw.plugin.json", JSON.stringify({ id, version: "0.0.0-test" }));
+  write(
+    "package.json",
+    JSON.stringify({ name: "@meshcue/openclaw", version: "0.0.0-test" }),
+  );
   write("runtime/server.mjs", "export const server = 1;\n");
   write("AGENT-INTERFACE.md", "# interface\n");
   write("web/index.html", "<!doctype html><title>MeshCue</title>");
@@ -34,6 +38,18 @@ test("a cached release is content addressed, reusable and complete", (t) => {
   assert.match(first.id, /^[a-f0-9]{64}$/);
   assert.equal(fs.existsSync(first.serverEntry), true);
   assert.equal(fs.existsSync(path.join(first.distRoot, "index.html")), true);
+  // The server derives its version from this file instead of restating it. A
+  // release that left it behind started and served, but reported "unknown" from
+  // inside a numbered package — the drift the derivation was meant to end.
+  assert.equal(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(path.dirname(first.serverEntry), "..", "package.json"),
+        "utf8",
+      ),
+    ).version,
+    "0.0.0-test",
+  );
   // No staging directory may survive next to the cache.
   assert.deepEqual(fs.readdirSync(path.join(f.runtime, "releases")), [
     first.id,

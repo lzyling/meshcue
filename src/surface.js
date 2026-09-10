@@ -6,7 +6,7 @@ import * as THREE from "three";
 // Bumped when the emitted triangles change: annotations index into them, so a
 // stale browser tab must be refused by saveManifest rather than quietly record
 // marks against a tessellation the server no longer produces.
-export const SURFACE_ALGORITHM = "midpoint-v2-edge0.07-rationed";
+export const SURFACE_ALGORITHM = "midpoint-v3-edge0.07-rationed";
 const EDGE = 0.07;
 const MAX_DEPTH = 12;
 // What a full, unrationed subdivision of each source face would cost, using
@@ -131,8 +131,18 @@ export function reviewSurface(
   // the brush snapped across them. Ration per face instead, and only when the
   // whole model genuinely does not fit.
   const rationed = wanted > budget;
+  // Only the surplus above one triangle per face is divisible: a face can never
+  // emit less than the triangle it already is. Rationing the whole cost instead
+  // overran the budget on a mixed mesh, because every face priced below a single
+  // triangle's share still took a whole one — 91968 faces of a real part came
+  // back 938 triangles over the cap and the server rejected the manifest.
+  const spare = Math.max(0, budget - sourceCount);
+  const surplus = rationed ? perFace.map((cost) => cost - 1) : null;
+  const demand = rationed ? surplus.reduce((n, x) => n + x, 0) : 0;
   const caps = rationed
-    ? perFace.map((cost) => Math.max(1, Math.floor((budget * cost) / wanted)))
+    ? surplus.map((x) =>
+        demand > 0 ? 1 + Math.floor((spare * x) / demand) : 1,
+      )
     : null;
   for (let face = 0; face < sourceCount; face++) {
     const vertices = vertexIds(face).map(read);

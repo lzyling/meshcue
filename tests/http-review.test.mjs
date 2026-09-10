@@ -22,7 +22,7 @@ const mesh = {
   name: "isolated",
   triangles: 1,
   sourceTriangles: 1,
-  surfaceAlgorithm: "midpoint-v2-edge0.07-rationed",
+  surfaceAlgorithm: "midpoint-v3-edge0.07-rationed",
   matrixWorld: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
 };
 const annotations = [

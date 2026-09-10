@@ -309,6 +309,11 @@ export class ModelViewer {
       (n, o) => n + o.geometry.attributes.position.count / 3,
       0,
     );
+    // The rationing above is what keeps this true. Say so here anyway: without
+    // it an over-budget manifest reaches the server, which can only answer with
+    // the generic schema rejection and leaves the viewer with no explanation.
+    if (total > MAX_REVIEW_TRIANGLES)
+      throw new Error("審閱網格超出 60 萬面上限，請先簡化模型。");
     this.model = model;
     this.grid.position.y = (-size.y * scale) / 2 - 0.025;
     this.home();

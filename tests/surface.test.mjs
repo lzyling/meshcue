@@ -37,6 +37,33 @@ function slab(cells, span) {
   geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normal, 3));
   return geometry;
 }
+// A real part is not uniform: a CAD export is a handful of large flat faces
+// carrying a mass of small facets. Every fairness case below used identical
+// faces, where a face's share is never below one triangle — the shape that hides
+// a rationing overrun.
+function mixed(smallCount, largeCount, span) {
+  const position = [],
+    normal = [];
+  const face = (x, y, e, z) => {
+    for (const [a, b] of [
+      [0, 0],
+      [e, 0],
+      [0, e],
+    ]) {
+      position.push(x + a, y + b, z);
+      normal.push(0, 0, 1);
+    }
+  };
+  for (let i = 0; i < smallCount; i++) face(i * 0.002, 0, 0.001, 0);
+  for (let i = 0; i < largeCount; i++) face(i * span * 2, 0, span, 1);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(position, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normal, 3));
+  return geometry;
+}
 const identity = new THREE.Matrix4();
 function perSourceFace(geometry) {
   const counts = new Map();
@@ -97,6 +124,38 @@ test("rationing never runs a face below its own source triangle", () => {
   const result = reviewSurface(geometry, identity, source);
   assert.equal(result.userData.sourceFaces.length, source);
   assert.deepEqual(new Set(perSourceFace(result)), new Set([1]));
+});
+
+test("rationing a mixed mesh never emits more than the budget", () => {
+  // The budget is a hard contract: the server rejects a manifest above the cap
+  // with a generic schema error, so an overrun reaches the user as a model that
+  // will not load and an error naming nothing. A part of 91968 faces came back
+  // 938 triangles over, because each face too cheap to earn a whole triangle
+  // still took one and nothing paid for the difference.
+  const geometry = mixed(2000, 4, 24);
+  const source = geometry.attributes.position.count / 3;
+  const wanted = surfaceCost(geometry, identity).reduce((n, c) => n + c, 0);
+  assert.equal(wanted > source, true, "the fixture is not worth rationing");
+
+  for (const budget of [
+    source,
+    source + 1,
+    Math.floor(wanted / 4),
+    wanted - 1,
+  ]) {
+    const result = reviewSurface(geometry, identity, budget);
+    const emitted = result.userData.sourceFaces.length;
+    assert.equal(
+      emitted <= budget,
+      true,
+      `budget ${budget} overrun by ${emitted - budget}`,
+    );
+    assert.equal(
+      perSourceFace(result).length,
+      source,
+      "a source face emitted nothing",
+    );
+  }
 });
 
 test("the price of a mesh matches what an unrationed pass emits", () => {

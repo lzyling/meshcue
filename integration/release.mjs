@@ -25,6 +25,9 @@ export function cacheRelease(installRoot, runtime) {
   const wanted = [
     "runtime/server.mjs",
     "AGENT-INTERFACE.md",
+    // The server derives its version from this rather than restating it, so a
+    // release without it reports "unknown" from inside a numbered package.
+    "package.json",
     ...files(path.join(installRoot, "web")).map((p) => path.join("web", p)),
   ];
   const hash = crypto.createHash("sha256"),
