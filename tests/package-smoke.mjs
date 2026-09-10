@@ -80,6 +80,25 @@ const projects = ["projects/bracket-a", "projects/bracket-b"];
 try {
   const info = await call({ action: "inspect" });
   assert.equal(info.context.sessionGeneration, true);
+  // Sizing has to work from the installed bundle before any project exists,
+  // because its whole purpose is to run before a caller commits to a review.
+  const sized = await call({ action: "precheck", file: "part.stl" });
+  assert.equal(sized.verdict, "ok");
+  assert.equal(sized.triangles, 1);
+  assert.equal(sized.limits.maxTriangles, 600000);
+  const over = Buffer.alloc(84 + 700000 * 50);
+  over.writeUInt32LE(700000, 80);
+  fs.writeFileSync(path.join(workspace, "over.stl"), over);
+  const rejected = await call({ action: "precheck", file: "over.stl" });
+  assert.equal(rejected.verdict, "reject");
+  assert.equal(rejected.triangles, 700000);
+  assert.ok(700000 * rejected.simplify.requiredRatio <= 600000);
+  fs.rmSync(path.join(workspace, "over.stl"));
+  assert.equal(
+    fs.existsSync(path.join(workspace, "projects/meshcue-state/registry.json")),
+    false,
+    "precheck must not register a project or start an instance",
+  );
   const results = [];
   for (const project of projects)
     results.push(
@@ -244,6 +263,7 @@ try {
       installedRoot: path.relative(repo, root),
       cases: [
         "public SDK factory",
+        "instance-free model precheck",
         "bundled server and frontend",
         "two actual Chromium tabs",
         "independent cookies",

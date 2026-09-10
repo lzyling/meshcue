@@ -12,10 +12,32 @@ disableTypes(
 
 export const MAX_BYTES = 80 * 1024 * 1024;
 export const MAX_TRIANGLES = 600000;
+export const MAX_TEXTURE_PIXELS = 33554432;
+// The review tessellation shares MAX_TRIANGLES across every source face, and a
+// face can never emit fewer than the triangle it already is. So a model of N
+// source faces has MAX_TRIANGLES - N triangles left to spend on subdivision:
+// past half the cap that spare drops below one per face, flat spans stop being
+// refined, and the brush starts snapping across them. Publishing still succeeds
+// there — nothing rejects it — which is exactly why callers need the number.
+export const DEGRADE_TRIANGLES = MAX_TRIANGLES / 2;
+const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+// Every limit message states the measured value beside the cap, and carries it
+// as a number too. Without it a caller is told to "simplify" with no way to
+// know by how much, and its only recourse is to guess a decimation ratio and
+// republish until one happens to fit.
+function limitError(message, code, measured) {
+  const error = new ReviewError(message, 400, code);
+  error.measured = measured;
+  return error;
+}
 
 export function inspectModel(buffer, format) {
   if (!buffer.length || buffer.length > MAX_BYTES)
-    throw new ReviewError("模型須小於 80 MB。", 400, "MODEL_LIMIT");
+    throw limitError(
+      `模型須小於 ${mb(MAX_BYTES)}；此檔為 ${mb(buffer.length)}。`,
+      "MODEL_LIMIT",
+      { bytes: buffer.length },
+    );
   if (format === "glb") {
     if (
       buffer.length < 20 ||
@@ -119,12 +141,12 @@ export function inspectModel(buffer, format) {
       if (
         dimensions.width > 8192 ||
         dimensions.height > 8192 ||
-        texturePixels > 33554432
+        texturePixels > MAX_TEXTURE_PIXELS
       )
-        throw new ReviewError(
-          "貼圖解碼量超出初版上限；請縮小貼圖（建議 4K 或以下）。",
-          400,
+        throw limitError(
+          `貼圖解碼量超出初版上限；單張上限 8192×8192、合計上限 ${MAX_TEXTURE_PIXELS} 像素，此模型已達 ${texturePixels}。請縮小貼圖（建議 4K 或以下）。`,
           "TEXTURE_LIMIT",
+          { texturePixels },
         );
     }
     if (
@@ -150,10 +172,10 @@ export function inspectModel(buffer, format) {
       }
     }
     if (!triangles || triangles > MAX_TRIANGLES)
-      throw new ReviewError(
-        "模型上限為 60 萬三角面，請先簡化。",
-        400,
+      throw limitError(
+        `模型上限為 ${MAX_TRIANGLES} 三角面；此模型有 ${triangles}，請先簡化至 ${MAX_TRIANGLES} 以下（建議 ${DEGRADE_TRIANGLES} 以下以保留標注精度）。`,
         "MODEL_LIMIT",
+        { triangles },
       );
     return { triangles, format, texturePixels };
   }
@@ -163,10 +185,12 @@ export function inspectModel(buffer, format) {
         ? buffer.readUInt32LE(80)
         : (buffer.toString("utf8").match(/facet\s+normal/gi) || []).length;
     if (!triangles || triangles > MAX_TRIANGLES)
-      throw new ReviewError(
-        "STL 無法辨識或超過 60 萬三角面。",
-        400,
+      throw limitError(
+        triangles
+          ? `模型上限為 ${MAX_TRIANGLES} 三角面；此 STL 有 ${triangles}，請先簡化至 ${MAX_TRIANGLES} 以下（建議 ${DEGRADE_TRIANGLES} 以下以保留標注精度）。`
+          : "STL 無法辨識。",
         "MODEL_LIMIT",
+        { triangles },
       );
     return { triangles, format };
   }
@@ -180,8 +204,15 @@ export function importModel(
   const actual = fs.realpathSync(path.resolve(workspace, file));
   if (!actual.startsWith(workspace + path.sep))
     throw new ReviewError("模型必須位於目前 workspace。", 400, "PATH_OUTSIDE");
-  if (!fs.statSync(actual).isFile() || fs.statSync(actual).size > MAX_BYTES)
-    throw new ReviewError("模型須小於 80 MB。", 400, "MODEL_LIMIT");
+  const stat = fs.statSync(actual);
+  if (!stat.isFile())
+    throw new ReviewError("模型路徑不是檔案。", 400, "MODEL_LIMIT");
+  if (stat.size > MAX_BYTES)
+    throw limitError(
+      `模型須小於 ${mb(MAX_BYTES)}；此檔為 ${mb(stat.size)}。`,
+      "MODEL_LIMIT",
+      { bytes: stat.size },
+    );
   const buffer = fs.readFileSync(actual),
     format = path.extname(actual).slice(1).toLowerCase();
   const metadata = inspectModel(buffer, format);

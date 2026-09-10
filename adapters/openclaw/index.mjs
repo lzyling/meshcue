@@ -6,6 +6,7 @@ import {
   InstanceManager,
   pauseRegistered,
 } from "../../integration/manager.mjs";
+import { precheckModel } from "../../integration/precheck.mjs";
 
 // Read at call time, not discovery, and never restated: a hardcoded copy here
 // disagreed with the manifest and with the version the server reported.
@@ -39,7 +40,7 @@ const parameters = {
   properties: {
     action: {
       type: "string",
-      enum: ["inspect", "open", "status", "read", "echo", "stop"],
+      enum: ["inspect", "precheck", "open", "status", "read", "echo", "stop"],
     },
     project: {
       type: "string",
@@ -49,7 +50,7 @@ const parameters = {
     file: {
       type: "string",
       description:
-        "Existing GLB or STL source, relative to this workspace. open imports/publishes it.",
+        "Existing GLB or STL source, relative to this workspace. open imports/publishes it; precheck only measures it. Hard limits are 600000 triangles and 80 MB; past 300000 triangles the review mesh runs out of subdivision budget and the brush stops following strokes on flat spans.",
     },
     name: { type: "string" },
     version: { type: "string" },
@@ -76,7 +77,7 @@ const parameters = {
   required: ["action"],
 };
 const description =
-  "Open or continue browser-based 3D model review in the current conversation; publish GLB/STL drafts, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. inspect is read-only. Never finish a user's review automatically.";
+  "Open or continue browser-based 3D model review in the current conversation; publish GLB/STL drafts, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MB, and annotation precision already degrades above 300000 triangles: run precheck on the file before every open, and when its verdict is reject or degraded, simplify the model and say so before publishing. inspect and precheck are read-only. Never finish a user's review automatically.";
 
 const managers = new Map();
 const plugin = defineToolPlugin({
@@ -121,6 +122,12 @@ const plugin = defineToolPlugin({
                   integrationVersion: installedVersion(api.rootDir),
                   context: contextSummary(ctx),
                 };
+              // Sizing a file needs the workspace root and nothing else. Going
+              // through InstanceManager would start or adopt a project instance
+              // just to read a header, which is exactly what a caller wants to
+              // avoid before it knows the model can be reviewed at all.
+              else if (params.action === "precheck")
+                result = precheckModel(ctx, params.file);
               else {
                 const manager = new InstanceManager(ctx, {
                   installRoot: api.rootDir,
