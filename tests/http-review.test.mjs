@@ -75,6 +75,123 @@ async function grant(f) {
   assert.equal(redeemed.headers.get("set-cookie").includes("HttpOnly"), true);
   return cookie;
 }
+
+test("host-admitted TCP peer collects one HttpOnly session without URL or body credentials; spoofed peers and cross-origin claims fail", async (t) => {
+  const f = await startReview(t, { origin, protectedAccess: true });
+  assert.equal(
+    (await f.ipc("/access/admit", { address: "127.0.0.1" })).status,
+    409,
+  );
+  const model = await f.publish();
+  assert.equal(
+    (await f.ipc("/access/admit", { address: "8.8.8.8" })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await f.api("access/admit", {
+        method: "POST",
+        body: { address: "127.0.0.1" },
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await f.ipc("/access/admit", { address: "192.168.1.22" })).status,
+    200,
+  );
+  assert.equal(
+    (
+      await f.api("access/claim", {
+        method: "POST",
+        body: {},
+        headers: {
+          "X-Forwarded-For": "192.168.1.22",
+          "X-Real-IP": "192.168.1.22",
+          Forwarded: "for=192.168.1.22",
+        },
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await f.api("access/claim", {
+        method: "POST",
+        body: { address: "192.168.1.22" },
+      })
+    ).status,
+    400,
+  );
+  const issued = await f.ipc("/access/admit", { address: "127.0.0.1" });
+  assert.equal(issued.status, 200);
+  assert.deepEqual(Object.keys(issued.body).sort(), [
+    "address",
+    "expiresAt",
+    "singleUse",
+  ]);
+  for (const headers of [
+    { Origin: "http://evil.invalid" },
+    { "Sec-Fetch-Site": "cross-site" },
+    { "X-Review-Client": "" },
+  ])
+    assert.equal(
+      (await f.api("access/claim", { method: "POST", body: {}, headers }))
+        .status,
+      403,
+    );
+  for (const route of ["access/claim/", "ACCESS/claim"])
+    assert.equal(
+      (await f.api(route, { method: "POST", body: {} })).status,
+      401,
+    );
+  assert.equal((await f.api("access/claim")).status, 401);
+  const claimed = await f.api("access/claim", {
+    method: "POST",
+    body: {},
+    headers: { Origin: f.url },
+  });
+  assert.equal(claimed.status, 200);
+  assert.deepEqual(Object.keys(claimed.body).sort(), [
+    "authorized",
+    "expiresAt",
+  ]);
+  assert.equal(claimed.headers.get("cache-control"), "no-store");
+  const header = claimed.headers.get("set-cookie");
+  assert.equal(
+    header.includes("HttpOnly") && header.includes("SameSite=Strict"),
+    true,
+  );
+  const cookie = header.split(";")[0];
+  assert.equal(
+    (await f.api("access/claim", { method: "POST", body: {} })).status,
+    401,
+  );
+  const retained = await f.api("access/claim", {
+    method: "POST",
+    body: {},
+    cookie,
+  });
+  assert.equal(retained.status, 200);
+  assert.equal(retained.body.expiresAt, claimed.body.expiresAt);
+  assert.equal(
+    retained.headers.get("set-cookie").split(";")[0] === cookie,
+    true,
+  );
+  assert.equal((await f.api(`models/${model.filename}`)).status, 401);
+  assert.equal(
+    (await f.api(`models/${model.filename}`, { cookie })).status,
+    200,
+  );
+  assert.equal((await f.ipc("/status")).body.access.sessions, 1);
+  await createFeedback(f, model, "address-owner", cookie);
+  const calls = JSON.parse(
+    fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"),
+  ).calls;
+  const message = calls.find((call) => call.method === "chat.send").params
+    .message;
+  assert.equal(message.includes(`REVIEW_DATA_DIR='${f.dir}'`), true);
+});
 async function createFeedback(f, model, clientId, cookie) {
   const owner = { versionId: model.id, clientId };
   assert.equal(

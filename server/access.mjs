@@ -1,4 +1,15 @@
 import crypto from "node:crypto";
+import net from "node:net";
+import { privateIPv4 } from "./network.mjs";
+
+function peerAddress(value) {
+  const address =
+    typeof value === "string" ? value.replace(/^::ffff:/i, "") : "";
+  return net.isIP(address) === 4 &&
+    (privateIPv4(address) || address.startsWith("127."))
+    ? address
+    : null;
+}
 
 const digest = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -16,8 +27,8 @@ export class AccessError extends Error {
   }
 }
 
-// Credentials never persist. Issuance is local IPC only, for an eventual
-// protected host adapter; no CLI, log or share-URL serialization is provided.
+// Credentials never persist. The address-bound admission adapter exposes only
+// metadata to the host; the browser receives its session via HttpOnly cookie.
 export class ReviewAccess {
   constructor({
     scope,
@@ -35,6 +46,11 @@ export class ReviewAccess {
   }
   sweep() {
     const scope = this.scope();
+    if (
+      this.grant &&
+      (this.grant.expiresAt <= this.now() || this.grant.scope !== scope)
+    )
+      this.grant = null;
     for (const [key, item] of this.sessions)
       if (item.expiresAt <= this.now() || item.scope !== scope)
         this.sessions.delete(key);
@@ -52,6 +68,37 @@ export class ReviewAccess {
     };
     return { value, expiresAt: this.grant.expiresAt };
   }
+  admitAddress(value) {
+    const address = peerAddress(value);
+    if (!address)
+      throw new AccessError(
+        "請指定已核對的內網 IPv4 位址。",
+        400,
+        "BAD_ADDRESS",
+      );
+    this.sweep();
+    this.grant = {
+      address,
+      scope: this.scope(),
+      expiresAt: this.now() + this.grantMs,
+    };
+    return { address, expiresAt: this.grant.expiresAt, singleUse: true };
+  }
+  claimAddress(peer, existing) {
+    this.sweep();
+    // An already admitted browser is idempotent and never extends its deadline
+    // or consumes a newly issued admission intended for another browser.
+    try {
+      const item = this.authenticate(existing);
+      return { value: existing, expiresAt: item.expiresAt };
+    } catch {
+      /* needs a new admission */
+    }
+    const grant = this.grant;
+    if (!grant?.address || peerAddress(peer) !== grant.address)
+      throw new AccessError();
+    return this.accept(grant);
+  }
   authenticate(value) {
     this.sweep();
     if (!valid(value)) throw new AccessError();
@@ -65,6 +112,7 @@ export class ReviewAccess {
     if (
       !valid(value) ||
       !grant ||
+      !grant.hash ||
       grant.expiresAt <= this.now() ||
       grant.scope !== this.scope() ||
       !crypto.timingSafeEqual(
@@ -77,6 +125,9 @@ export class ReviewAccess {
         401,
         "ACCESS_EXPIRED",
       );
+    return this.accept(grant, existing);
+  }
+  accept(grant, existing) {
     // Renewing an entrance must not replace a live browser's edit identity.
     let item;
     try {
@@ -133,6 +184,13 @@ export class ReviewAccess {
         !!this.grant &&
         this.grant.expiresAt > this.now() &&
         this.grant.scope === this.scope(),
+      admission: this.grant?.address
+        ? {
+            address: this.grant.address,
+            expiresAt: this.grant.expiresAt,
+            singleUse: true,
+          }
+        : null,
       sessions: this.sessions.size,
       grantMinutes: this.grantMs / 60_000,
       sessionMinutes: this.sessionMs / 60_000,

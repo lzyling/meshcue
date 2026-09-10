@@ -9,7 +9,7 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
 import { originSchema, normalizeOrigin } from "./origin.mjs";
-import { listenerConfig } from "./network.mjs";
+import { listenerConfig, privateIPv4 } from "./network.mjs";
 import {
   ReviewAccess,
   AccessError,
@@ -116,6 +116,20 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "16mb" }));
+app.post("/api/access/claim", (req, res) => {
+  if (!accessRequired) throw new AccessError("此入口不使用遠端授權。", 409);
+  z.object({}).strict().parse(req.body);
+  // Never use req.ip, forwarded headers or a browser-supplied address here.
+  const session = access.claimAddress(
+    req.socket.remoteAddress,
+    sessionCookie(req.headers),
+  );
+  res.setHeader(
+    "Set-Cookie",
+    accessCookie(session.value, session.expiresAt - Date.now()),
+  );
+  res.json({ authorized: true, expiresAt: session.expiresAt });
+});
 app.post("/api/access/exchange", (req, res) => {
   if (!accessRequired) throw new AccessError("此入口不使用遠端授權。", 409);
   const p = z
@@ -442,6 +456,8 @@ app.post("/api/feedback", async (req, res) => {
       item.id,
       (async () => {
         const localFile = path.join(runtime, "submissions", `${item.id}.json`);
+        const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+        const readCommand = `REVIEW_DATA_DIR=${shellQuote(runtime)} node ${shellQuote(path.join(repo, "scripts/reviewctl.mjs"))} read ${shellQuote(item.id)}`;
         const summary = item.annotations
           .map((a) =>
             a.type === "pin"
@@ -449,7 +465,7 @@ app.post("/api/feedback", async (req, res) => {
               : `${a.color} 塗抹區域（區域識別 ${a.id}）：${["brush-v1", "source-v1"].includes(a.coverage) ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
           )
           .join("\n");
-        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 node ${path.join(repo, "scripts/reviewctl.mjs")} read ${item.id} 讀取完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
+        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 ${readCommand} 讀取本次實例的完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
         store.submissionStatus(item.id, "sending");
         try {
           const bridge = bridgeFor(store.submissionOrigin(item));
@@ -555,6 +571,19 @@ agentApp.post("/access/issue", (req, res) => {
   // Host IPC response only. reviewctl deliberately has no grant-printing command.
   res.setHeader("Cache-Control", "no-store");
   res.json(access.issue());
+});
+agentApp.post("/access/admit", (req, res) => {
+  if (!accessRequired || !store.state.active)
+    throw new AccessError("尚未準備受保護審閱。", 409);
+  const p = z
+    .object({ address: z.string().max(64) })
+    .strict()
+    .parse(req.body);
+  // Loopback admissions are for protected local fixtures, not LAN delivery.
+  if (network.lan && !privateIPv4(p.address))
+    throw new AccessError("請指定已核對的內網 IPv4 位址。", 400, "BAD_ADDRESS");
+  res.setHeader("Cache-Control", "no-store");
+  res.json(access.admitAddress(p.address));
 });
 agentApp.post("/access/revoke", (req, res) => {
   access.revoke();

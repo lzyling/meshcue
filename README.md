@@ -8,7 +8,7 @@
 
 **2026-09-10：已在 `feat/v0.4-lan-delivery` 实现 0.4 候选，尚未覆盖正式服务或用户数据。** 新增逐轮原会话绑定、Telegram 显式话题回传、普通内网 HTTP 的 UUID／SHA 兼容、具体私网网卡监听、短期授权与跨话题隔离。隔离浏览器已跑通真实参数改模及新版再审；验收细节及尚待端上核实的项目见 [0.4 结果](ITERATION-V04-RESULTS.md)。
 
-一键授权入口的宿主投递仍未接好；没有配对／确认替代步骤，也没有打印访问凭证的命令。不能把候选代码完成说成 Windows 已能从 Telegram 一键使用。
+已补[内网定向入场适配](LAN-ADMISSION.md)：Agent 为已核对的客户端 IPv4 创建15分钟一次性许可，普通网页自动领取60分钟 HttpOnly 会话，没有 token 输入或 Mac 配对步骤。Windows 已确认内网页面连通，实际模型操作及真实 Telegram 回传仍待端上验收；不能把 Mac 隔离验证扩大为 Windows 已通过。
 
 ## 0.3 交付基线（历史）
 
@@ -56,7 +56,7 @@ npm run serve:status
 
 首次启动从忽略的 `runtime/config.json` 的 `origin`（旧版为 `sessionKey`）导入来源，随后固定到审阅状态和提交快照；改启动配置不会重定向旧批次。新来源由 Agent 用 `reviewctl bind` 或 `publish --origin` 绑定，见 [Agent 接口](AGENT-INTERFACE.md)。本项目不保存、展示或索取 Gateway 凭据，CLI 沿用主机配置。媒体放在 workspace 的 `media/3d/3d-agent-review/`，不会进源代码仓库。
 
-内网接口发现：`node scripts/reviewctl.mjs network`。`REVIEW_HOST=lan` 只在唯一首选私网网卡时选址，否则要求显式指定已配置的私网 IPv4；不监听 `0.0.0.0` 或公网地址。内网模式强制授权，**尚无已交付的宿主授权入口适配器，不要将监听成功当作用户入口可用**。撤销浏览器授权可用 `node scripts/reviewctl.mjs revoke`，不改变模型或草稿锁。
+内网接口发现：`node scripts/reviewctl.mjs network`。`REVIEW_HOST=lan` 只在唯一首选私网网卡时选址，否则要求显式指定已配置的私网 IPv4；不监听 `0.0.0.0` 或公网地址。内网模式强制授权；Agent 按[定向入场操作](LAN-ADMISSION.md)核对目标并签发，不能把监听成功当作用户入口可用。撤销浏览器授权可用 `node scripts/reviewctl.mjs revoke`，不改变模型或草稿锁。
 
 ## 验证与文档
 

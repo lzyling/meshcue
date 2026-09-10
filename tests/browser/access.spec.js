@@ -89,6 +89,48 @@ async function currentDownload(page) {
   return fs.readFileSync(await download.path());
 }
 
+test("ordinary link automatically claims a host-admitted peer and loads, marks, restores and downloads without token input", async ({
+  page,
+  context,
+}) => {
+  await page.goto(browserUrl);
+  await expect(page.locator("#loading-text")).toContainText("原對話");
+  await f.ipc("/access/admit", { address: "192.168.1.22" });
+  const rejected = await page.waitForResponse((r) =>
+    r.url().endsWith("/api/access/claim"),
+  );
+  expect(rejected.status()).toBe(401);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().versionId),
+  ).toBeNull();
+  await f.ipc("/access/admit", { address: "127.0.0.1" });
+  await expect(page.locator("#loading")).toBeHidden();
+  expect(page.url()).toBe(`${browserUrl}/`);
+  expect(await page.evaluate(() => isSecureContext)).toBe(false);
+  expect(
+    await page.evaluate(() => document.cookie.includes("review_access")),
+  ).toBe(false);
+  expect(
+    (await context.cookies()).some(
+      (c) =>
+        c.name === "review_access" && c.httpOnly && c.sameSite === "Strict",
+    ),
+  ).toBe(true);
+  const initial = (await f.ipc("/status")).body;
+  expect(initial.access.sessions).toBe(1);
+  expect(initial.access.grantActive).toBe(false);
+  await mark(page);
+  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await f.ipc("/access/admit", { address: "192.168.1.23" });
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
+  expect(sha(await currentDownload(page))).toBe(initial.active.sha256);
+  expect((await f.ipc("/status")).body.access.sessions).toBe(1);
+});
+
 test("protected LAN HTTP: marked region, explicit topic receipt, real geometry revision and new review", async ({
   page,
   context,
@@ -191,7 +233,7 @@ test("protected LAN HTTP: marked region, explicit topic receipt, real geometry r
   ).toEqual(submission.annotations);
 });
 
-test("authorization loss stops editing, keeps unsynced draft through refresh and never imports it into another topic", async ({
+test("authorization loss stops editing, auto-claim recovers unsynced draft in place and never imports it into another topic", async ({
   page,
   context,
 }) => {
@@ -210,8 +252,12 @@ test("authorization loss stops editing, keeps unsynced draft through refresh and
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(before.annotations);
   await page.unroute("**/api/draft");
-  await authorize(context);
-  await page.reload();
+  // Real address-bound bootstrap recovers this open page, without fixture
+  // cookie injection or a reload that could hide an ownership race.
+  await f.ipc("/access/admit", { address: "127.0.0.1" });
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().accessBlocked))
+    .toBe(false);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#save-status")).toHaveText("草稿已保存");
   expect(

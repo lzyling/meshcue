@@ -84,7 +84,9 @@ let pollFlight = null,
   echoId = null;
 let recoveryBlocked = false,
   recoveryUrl = null,
-  accessBlocked = false;
+  accessBlocked = false,
+  accessRecoveryNeeded = false,
+  loadedReceipt = null;
 const clone = (x) => structuredClone(x);
 async function api(path, data, method = "POST") {
   const options =
@@ -325,7 +327,10 @@ function onPaint(patches) {
   changed();
 }
 const viewer = new ModelViewer($("#viewer"), {
-  onReady: (data) => api("ready", { ...owner(), ...data }),
+  onReady: async (data) => {
+    await api("ready", { ...owner(), ...data });
+    loadedReceipt = data;
+  },
   onEdit: beginEdit,
   onPin,
   onPaint,
@@ -775,6 +780,7 @@ async function loadActive(fullState) {
   if (!model) return;
   loadedId = model.id;
   loadedReviewId = fullState.reviewId;
+  loadedReceipt = null;
   labelCursor = 0;
   echoId = null;
   relocatingId = null;
@@ -849,11 +855,37 @@ function sameValue(left, right) {
 }
 async function readState() {
   try {
-    const incoming = await api(
-      `state?clientId=${encodeURIComponent(clientId)}`,
-    );
-    accessBlocked = false;
     if (loadFlight || beginFlight || saveFlight || submitting) return;
+    const statePath = `state?clientId=${encodeURIComponent(clientId)}`;
+    let incoming;
+    try {
+      incoming = await api(statePath);
+    } catch (e) {
+      if (e.code !== "ACCESS_REQUIRED") throw e;
+      // The host must already have admitted this TCP peer. No credential is
+      // supplied by JavaScript or the URL; the response sets an HttpOnly cookie.
+      await api("access/claim", {});
+      accessRecoveryNeeded = true;
+      incoming = await api(statePath);
+    }
+    if (loadFlight || beginFlight || saveFlight || submitting) return;
+    if (
+      accessRecoveryNeeded &&
+      loadedReceipt &&
+      incoming.active?.id === loadedId &&
+      incoming.reviewId === loadedReviewId
+    ) {
+      // Re-associate only this verified model/tab, then recover its draft using
+      // the existing revision/conflict checks. Never claim a foreign edit lock.
+      await api("ready", { ...owner(), ...loadedReceipt });
+      incoming = await api(`${statePath}&full=1`);
+      state = incoming;
+      await restoreDraft(incoming.draft);
+      renderAnnotations();
+    }
+    accessBlocked = false;
+    const recovered = accessRecoveryNeeded;
+    accessRecoveryNeeded = false;
     if (
       incoming.active?.id !== loadedId ||
       incoming.reviewId !== loadedReviewId
@@ -876,6 +908,8 @@ async function readState() {
         $("#loading .spinner").hidden = true;
       }
     } else state = incoming;
+    if (recovered && state?.owned && editSeq > savedSeq && !recoveryBlocked)
+      await flushDraft();
     $(".connection-dot").classList.add("online");
     $("#connection-status").textContent = incoming.bridgeEnabled
       ? "回傳原會話"

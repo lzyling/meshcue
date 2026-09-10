@@ -37,6 +37,11 @@ if (command === "publish") {
 } else if (command === "revoke") {
   endpoint = "/access/revoke";
   body = {};
+} else if (command === "admit") {
+  if (!args[0] || args.length !== 1)
+    throw new Error("Usage: admit <verified-LAN-IPv4>");
+  endpoint = "/access/admit";
+  body = { address: args[0] };
 } else if (command === "status") endpoint = "/status";
 else if (command === "submissions") endpoint = "/submissions";
 else if (command === "read") {
@@ -51,7 +56,7 @@ else if (command === "read") {
   endpoint = "/echo";
 } else
   throw new Error(
-    "Commands: publish, bind, status, network, revoke, submissions, read, echo",
+    "Commands: publish, bind, status, network, admit, revoke, submissions, read, echo",
   );
 const socketPath = path.join(
   path.resolve(process.env.REVIEW_DATA_DIR || path.join(repo, "runtime")),

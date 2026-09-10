@@ -97,6 +97,63 @@ test("ambiguous cookies and unauthenticated client ownership never establish acc
   assert.equal(access.metadata().sessions, 0);
 });
 
+test("address admission is one-use, private, rotated and scoped; active cookies keep their identity and deadline", () => {
+  let time = 0,
+    scope = "address-review";
+  const access = new ReviewAccess({ scope: () => scope, now: () => time });
+  for (const address of ["", "0.0.0.0", "8.8.8.8", "192.168.1.2/24", "::1"])
+    assert.throws(() => access.admitAddress(address), { code: "BAD_ADDRESS" });
+  const issued = access.admitAddress("192.168.1.22");
+  assert.deepEqual(Object.keys(issued).sort(), [
+    "address",
+    "expiresAt",
+    "singleUse",
+  ]);
+  assert.equal(issued.expiresAt, 15 * 60_000);
+  assert.throws(() => access.claimAddress("192.168.1.23"), {
+    code: "ACCESS_REQUIRED",
+  });
+  time = issued.expiresAt;
+  assert.throws(() => access.claimAddress("192.168.1.22"), {
+    code: "ACCESS_REQUIRED",
+  });
+  access.admitAddress("192.168.1.22");
+  access.admitAddress("192.168.1.23");
+  assert.throws(() => access.claimAddress("192.168.1.22"));
+  const session = access.claimAddress("::ffff:192.168.1.23");
+  assert.equal(session.expiresAt - time, 60 * 60_000);
+  access.claimClient(access.authenticate(session.value), "existing-editor");
+  assert.throws(() => access.claimAddress("192.168.1.23"));
+  assert.equal(access.metadata().grantActive, false);
+
+  const admission = access.admitAddress("192.168.1.22");
+  time += 1000;
+  const retained = access.claimAddress("192.168.1.23", session.value);
+  assert.equal(retained.value === session.value, true);
+  assert.equal(retained.expiresAt, session.expiresAt);
+  assert.equal(
+    access.ownsClient(access.authenticate(session.value), "existing-editor"),
+    true,
+  );
+  assert.deepEqual(access.metadata().admission, admission);
+  assert.equal(access.metadata().sessions, 1);
+  access.issue();
+  assert.throws(() => access.claimAddress("192.168.1.22"));
+  const generic = access.issue();
+  access.admitAddress("192.168.1.22");
+  assert.throws(() => access.redeem(generic.value), { code: "ACCESS_EXPIRED" });
+  scope = "another-review";
+  assert.throws(() => access.claimAddress("192.168.1.22", session.value));
+  access.admitAddress("192.168.1.22");
+  access.revoke();
+  assert.throws(() => access.claimAddress("192.168.1.22"));
+  assert.equal(access.metadata().grantActive, false);
+  access.admitAddress("192.168.1.22");
+  const finalSession = access.claimAddress("192.168.1.22");
+  time = finalSession.expiresAt;
+  assert.throws(() => access.claimAddress("192.168.1.22", finalSession.value));
+});
+
 test("LAN address selection requires a concrete local private interface and does not guess among networks", () => {
   const iface = {
     lo0: [{ address: "127.0.0.1", family: "IPv4", internal: true }],
