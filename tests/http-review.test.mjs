@@ -576,3 +576,28 @@ test("HTTP authorization protects models and writes, enforces client ownership, 
     null,
   );
 });
+
+test("a crash-truncated instance lock does not permanently block startup, and a live one still does", async (t) => {
+  const f = await startReview(t);
+  const model = await f.publish();
+  const lock = path.join(f.dir, "instance.lock");
+  const live = JSON.parse(fs.readFileSync(lock, "utf8"));
+  assert.equal(live.pid > 0, true);
+
+  // A second process must still refuse while the first one is running.
+  assert.throws(
+    () => fs.writeFileSync(lock, "{}", { flag: "wx" }),
+    { code: "EEXIST" },
+    "the live lock is not exclusive",
+  );
+
+  // Crashing between creating and filling the lock used to leave a zero-byte
+  // file that made every later start throw before any handler could run.
+  await f.restart(() => fs.writeFileSync(lock, ""));
+  const health = (await f.api("health")).body;
+  assert.equal(health.ok, true);
+  assert.equal(health.pid !== live.pid, true);
+  assert.equal(JSON.parse(fs.readFileSync(lock, "utf8")).pid, health.pid);
+  // Recovery must not have disturbed the review the service was holding.
+  assert.equal((await f.api("state")).body.active.id, model.id);
+});

@@ -230,9 +230,22 @@ test("browser verifiers and edit identity survive restart; grants and raw creden
   const rebound = new ReviewAccess(options);
   assert.equal(rebound.metadata().sessions, 0);
   assert.throws(() => rebound.authenticate(other.value));
+  // An unreadable store is set aside rather than fatal: refusing to construct
+  // strands the drafts and the review this service is already holding. The
+  // damaged bytes are still never overwritten, and no browser is trusted.
   fs.writeFileSync(file, '{"damaged":');
-  assert.throws(() => new ReviewAccess(options), /原檔未覆寫/);
-  assert.equal(fs.readFileSync(file, "utf8"), '{"damaged":');
+  const recovered = new ReviewAccess(options);
+  assert.equal(recovered.metadata().sessions, 0);
+  assert.throws(() => recovered.authenticate(other.value));
+  assert.equal(fs.existsSync(file), false);
+  const quarantined = fs
+    .readdirSync(path.dirname(file))
+    .filter((name) => name.startsWith(`${path.basename(file)}.unreadable-`));
+  assert.equal(quarantined.length, 1);
+  assert.equal(
+    fs.readFileSync(path.join(path.dirname(file), quarantined[0]), "utf8"),
+    '{"damaged":',
+  );
 });
 
 test("LAN address selection requires a concrete local private interface and does not guess among networks", () => {

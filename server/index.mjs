@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
+import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
 import { originSchema, normalizeOrigin } from "./origin.mjs";
@@ -43,24 +44,23 @@ const mediaDir = path.resolve(
 fs.mkdirSync(runtime, { recursive: true });
 const instanceFile = path.join(runtime, "instance.lock");
 if (fs.existsSync(instanceFile)) {
-  const previous = JSON.parse(fs.readFileSync(instanceFile, "utf8"));
-  let live = false;
-  try {
-    process.kill(previous.pid, 0);
-    live = true;
-  } catch {}
-  if (live) throw new Error("此審閱服務已在運行，請勿重複啟動。");
+  const previous = readLock(instanceFile);
+  if (processAlive(previous?.pid))
+    throw new Error("此審閱服務已在運行，請勿重複啟動。");
+  if (!previous)
+    log.warn("service", "discarding an unreadable instance lock", {
+      file: instanceFile,
+    });
   fs.unlinkSync(instanceFile);
 }
-const instanceHandle = fs.openSync(instanceFile, "wx", 0o600);
-fs.writeFileSync(instanceHandle, JSON.stringify({ pid: process.pid }));
-fs.closeSync(instanceHandle);
-process.on("exit", () => {
-  try {
-    if (JSON.parse(fs.readFileSync(instanceFile, "utf8")).pid === process.pid)
-      fs.unlinkSync(instanceFile);
-  } catch {}
-});
+try {
+  claimLock(instanceFile, { startedAt: Date.now() });
+} catch (error) {
+  if (error.code === "EEXIST")
+    throw new Error("此審閱服務已在運行，請勿重複啟動。");
+  throw error;
+}
+process.on("exit", () => releaseLock(instanceFile));
 const configFile = path.join(runtime, "config.json");
 const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))

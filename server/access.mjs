@@ -127,8 +127,28 @@ export class ReviewAccess {
         }
       }
       this.lastSaved = saved;
-    } catch {
-      throw new Error("瀏覽器授權記錄無法讀取；原檔未覆寫。");
+    } catch (error) {
+      // Losing remembered browsers costs one re-admission. Refusing to start
+      // costs the whole review, including drafts nobody can reach afterwards.
+      // Move the original aside rather than overwrite it, then start empty.
+      this.sessions.clear();
+      this.clients.clear();
+      this.lastSaved = null;
+      const quarantine = `${this.file}.unreadable-${Date.now()}`;
+      try {
+        fs.renameSync(this.file, quarantine);
+      } catch (renameError) {
+        log.error("access", "unreadable browser store could not be set aside", {
+          file: this.file,
+          ...errorDetail(renameError),
+        });
+        throw new Error("瀏覽器授權記錄無法讀取；原檔未覆寫。");
+      }
+      log.error(
+        "access",
+        "browser authorization store was unreadable and has been set aside; known browsers must be admitted again",
+        { quarantine, ...errorDetail(error) },
+      );
     }
     this.sweep();
   }

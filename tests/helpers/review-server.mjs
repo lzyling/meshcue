@@ -123,8 +123,9 @@ export async function startReview(
   const status = await waitReady();
   port = String(status.body.network.port);
   const url = `http://${status.body.network.host}:${status.body.network.port}`;
-  async function restart() {
+  async function restart(whileStopped) {
     await stopChild();
+    await whileStopped?.();
     child = launch();
     await waitReady();
   }

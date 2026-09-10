@@ -7,6 +7,12 @@ import { isDeepStrictEqual } from "node:util";
 import { atomicJson } from "../server/store.mjs";
 import { log, errorDetail } from "../server/log.mjs";
 import {
+  claimLock,
+  readLock,
+  releaseLock,
+  processAlive,
+} from "../server/lockfile.mjs";
+import {
   agentSocketPath,
   readInstance,
   INTEGRATION_API,
@@ -23,14 +29,7 @@ import {
 } from "./context.mjs";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
+const alive = (pid) => processAlive(pid);
 export async function ipc(runtime, instance, route, body) {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -69,20 +68,17 @@ export async function ipc(runtime, instance, route, body) {
 async function locked(file, fn) {
   for (let i = 0; i < 100; i++) {
     try {
-      fs.writeFileSync(file, JSON.stringify({ pid: process.pid }), {
-        flag: "wx",
-        mode: 0o600,
-      });
+      claimLock(file);
       break;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      let owner;
-      try {
-        owner = JSON.parse(fs.readFileSync(file, "utf8"));
-      } catch {
-        /* incomplete owner file: wait */
-      }
-      if (owner?.pid && !alive(owner.pid)) {
+      const owner = readLock(file);
+      // claimLock never publishes partial content, so an unreadable holder is
+      // debris rather than a live claim: waiting on it would block the project
+      // for good instead of for a moment.
+      if (!owner)
+        log.warn("integration", "discarding an unreadable lock", { file });
+      if (!owner || !alive(owner.pid)) {
         fs.unlinkSync(file);
         continue;
       }
@@ -93,7 +89,7 @@ async function locked(file, fn) {
   try {
     return await fn();
   } finally {
-    fs.unlinkSync(file);
+    releaseLock(file);
   }
 }
 
@@ -229,10 +225,12 @@ export class InstanceManager {
       `http://${state.network.host}:${state.network.port}/api/health`,
       { signal: AbortSignal.timeout(2000) },
     ).then((r) => r.json());
-    const owner = JSON.parse(
-      fs.readFileSync(path.join(p.runtime, "instance.lock"), "utf8"),
-    );
-    if (health.instance?.id !== config.instance.id || health.pid !== owner.pid)
+    const owner = readLock(path.join(p.runtime, "instance.lock"));
+    if (
+      !owner ||
+      health.instance?.id !== config.instance.id ||
+      health.pid !== owner.pid
+    )
       fail("WRONG_INSTANCE", "進程身份不符；沒有停止。");
     await ipc(p.runtime, config.instance, "/maintenance", {
       instanceId: config.instance.id,
@@ -300,14 +298,11 @@ export class InstanceManager {
       if (error.code === "WRONG_INSTANCE") throw error;
     }
     const runFile = path.join(p.runtime, "instance.lock");
-    if (fs.existsSync(runFile)) {
-      const owner = JSON.parse(fs.readFileSync(runFile, "utf8"));
-      if (owner.pid && alive(owner.pid))
-        fail(
-          "INSTANCE_BUSY",
-          "項目進程仍在運行但未通過健康檢查；沒有重複啟動或殺掉進程。",
-        );
-    }
+    if (alive(readLock(runFile)?.pid))
+      fail(
+        "INSTANCE_BUSY",
+        "項目進程仍在運行但未通過健康檢查；沒有重複啟動或殺掉進程。",
+      );
     if (
       !fs.existsSync(release.serverEntry) ||
       !fs.existsSync(path.join(release.distRoot, "index.html"))
@@ -443,10 +438,7 @@ export class InstanceManager {
         } catch (error) {
           if (error.code === "WRONG_INSTANCE") throw error;
           const lockFile = path.join(p.runtime, "instance.lock");
-          if (
-            fs.existsSync(lockFile) &&
-            alive(JSON.parse(fs.readFileSync(lockFile, "utf8")).pid)
-          )
+          if (alive(readLock(lockFile)?.pid))
             fail(
               "INSTANCE_UNVERIFIED",
               "項目進程仍存在，但未通過身份檢查；沒有宣稱停止或殺掉進程。",
