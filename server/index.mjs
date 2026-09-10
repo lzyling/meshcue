@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
+import { log, errorDetail } from "./log.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
 import { originSchema, normalizeOrigin } from "./origin.mjs";
@@ -583,12 +584,21 @@ function deliverFeedback(item) {
               store.submissionStatus(item.id, "accepted", {
                 deliveredAt: Date.now(),
               });
-          } catch {
-            /* Acceptance is real, but delivery remains unconfirmed. */
+          } catch (error) {
+            // Acceptance is real, but delivery remains unconfirmed.
+            log.warn("feedback", "accepted but delivery unconfirmed", {
+              submissionId: item.id,
+              ...errorDetail(error),
+            });
           }
           const { annotations, ...receipt } = item;
           return receipt;
-        } catch {
+        } catch (error) {
+          log.error("feedback", "delivery to the origin session failed", {
+            submissionId: item.id,
+            attempts: (item.attempts || 0) + 1,
+            ...errorDetail(error),
+          });
           store.submissionStatus(item.id, "unconfirmed", {
             error: "尚未確認交到 OpenClaw；標注已保存在本機。",
             nextAttemptAt:
@@ -624,7 +634,7 @@ const outboxTimer = config.managed
         try {
           await deliverFeedback(next);
         } catch {
-          /* persisted retry status is the receipt */
+          /* deliverFeedback already logged the cause; status is the receipt */
         } finally {
           drainingOutbox = false;
         }
@@ -798,6 +808,14 @@ agentApp.post("/echo", (req, res) => {
 function errorHandler(err, req, res, next) {
   const schemaError = err instanceof z.ZodError;
   const status = schemaError ? 400 : err.status || 500;
+  // 4xx are the documented contract and already fully described in the body.
+  // A 5xx is the only case where the cause exists nowhere else.
+  if (status >= 500)
+    log.error("http", "request failed", {
+      method: req.method,
+      path: req.path,
+      ...errorDetail(err),
+    });
   res.status(status).json({
     error: schemaError
       ? "輸入資料格式不正確。"
@@ -826,7 +844,13 @@ app.get("/{*path}", (req, res) =>
 app.use(errorHandler);
 const port = Number(process.env.PORT || 43173);
 const server = app.listen(port, network.host, () =>
-  console.log(`MeshCue listening on ${network.host}:${server.address().port}`),
+  log.info("service", "MeshCue listening", {
+    host: network.host,
+    port: server.address().port,
+    pid: process.pid,
+    instance: instance?.id,
+    accessRequired,
+  }),
 );
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { privateIPv4 } from "./network.mjs";
+import { log, errorDetail } from "./log.mjs";
 
 function peerAddress(value) {
   const address =
@@ -150,7 +151,11 @@ export class ReviewAccess {
       });
       fs.renameSync(temporary, this.file);
       this.lastSaved = data;
-    } catch {
+    } catch (error) {
+      log.error("access", "browser authorization store write failed", {
+        browsers: this.sessions.size,
+        ...errorDetail(error),
+      });
       if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
       // Keep a failed durable mutation consistent with the last saved state.
       this.sessions.clear();

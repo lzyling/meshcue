@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { atomicJson } from "../server/store.mjs";
+import { log, errorDetail } from "../server/log.mjs";
 import {
   agentSocketPath,
   readInstance,
@@ -181,7 +182,11 @@ export class InstanceManager {
             disabledAt: Date.now(),
             instanceId: config.instance.id,
           });
-      } catch {
+      } catch (error) {
+        log.warn("integration", "could not pause a managed project", {
+          project: p.project,
+          ...errorDetail(error),
+        });
         unavailable.push(p.project);
       }
     }
@@ -241,7 +246,12 @@ export class InstanceManager {
       await ipc(p.runtime, config.instance, "/maintenance", {
         instanceId: config.instance.id,
         release: true,
-      }).catch(() => {});
+      }).catch((releaseError) =>
+        log.warn("integration", "could not release the maintenance pause", {
+          project: p.project,
+          ...errorDetail(releaseError),
+        }),
+      );
       throw error;
     }
   }
@@ -576,7 +586,11 @@ export function pauseRegistered(workspace, installRoot) {
         disabledAt: Date.now(),
         instanceId: item.instanceId,
       });
-    } catch {
+    } catch (error) {
+      log.warn("integration", "could not pause a registered project", {
+        project: item.project,
+        ...errorDetail(error),
+      });
       unavailable.push(item.project);
     }
   }

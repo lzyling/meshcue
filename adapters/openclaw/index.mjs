@@ -126,6 +126,11 @@ const plugin = defineToolPlugin({
                 details: result,
               };
             } catch (error) {
+              // The structured result reaches the model; the host log is the
+              // only place the stack survives for an operator.
+              api.logger?.warn?.(
+                `MeshCue ${params.action || "?"} failed: ${error.code || "UNAVAILABLE"} ${error.message}`,
+              );
               const result = {
                 ok: false,
                 code: error.code || "UNAVAILABLE",
@@ -167,7 +172,10 @@ plugin.register = (api) => {
         for (const workspace of workspaces) {
           try {
             unavailable += pauseRegistered(workspace, api.rootDir).length;
-          } catch {
+          } catch (error) {
+            api.logger?.warn?.(
+              `MeshCue disable: registry unreadable for ${workspace}: ${error.message}`,
+            );
             unavailable++;
           }
         }

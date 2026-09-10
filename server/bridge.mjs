@@ -32,8 +32,19 @@ export class OpenClawBridge {
       },
     );
     const data = JSON.parse(stdout);
-    if (data.error || data.ok === false)
-      throw new Error("OpenClaw 未接納請求。");
+    if (data.error || data.ok === false) {
+      // Keep the host's own reason: this is the only place it exists, and the
+      // caller converts it to a fixed user-facing message anyway.
+      const reason =
+        typeof data.error === "string"
+          ? data.error
+          : JSON.stringify(data.error ?? data);
+      const failure = new Error(
+        `OpenClaw 未接納請求：${String(reason).slice(0, 300)}`,
+      );
+      failure.method = method;
+      throw failure;
+    }
     return data;
   }
   async send(message, id) {
