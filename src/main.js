@@ -1,3 +1,4 @@
+import { newId } from "./browser-crypto.js";
 import "./style.css";
 import { ModelViewer } from "./viewer.js";
 import {
@@ -53,8 +54,7 @@ app.innerHTML = `
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
-const clientId =
-  sessionStorage.getItem("3d-review-client") || crypto.randomUUID();
+const clientId = sessionStorage.getItem("3d-review-client") || newId();
 sessionStorage.setItem("3d-review-client", clientId);
 const colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 let color = colors[0];
@@ -187,7 +187,7 @@ async function beginEdit() {
 function onPin(pin) {
   if (annotations.length >= 200) return toast("本輪最多 200 個標記。");
   const item = {
-    id: crypto.randomUUID(),
+    id: newId(),
     type: "pin",
     label: nextLabel(),
     color,
@@ -276,7 +276,7 @@ function onPaint(patches) {
   if (!region) {
     if (annotations.length >= 200) return;
     region = {
-      id: crypto.randomUUID(),
+      id: newId(),
       type: "region",
       label: regionName({ color }),
       color,
@@ -702,7 +702,7 @@ async function restoreDraft(draft) {
   const backup = { versionId: loadedId, ...cached };
   showRecovery(backup);
   try {
-    const key = `${draftKey()}-recovery-${crypto.randomUUID()}`;
+    const key = `${draftKey()}-recovery-${newId()}`;
     localStorage.setItem(key, JSON.stringify(backup));
     localStorage.setItem(`${draftKey()}-recovery-latest`, key);
     cacheDraft();
@@ -870,7 +870,7 @@ $("#submit-feedback").addEventListener("click", async () => {
     submissionKey ||=
       state?.submissions?.findLast(
         (s) => s.versionId === loadedId && s.revision === revision,
-      )?.id || crypto.randomUUID();
+      )?.id || newId();
     const result = await api("feedback", {
       ...owner(),
       revision,

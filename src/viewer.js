@@ -1,3 +1,4 @@
+import { modelDigest } from "./browser-crypto.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -204,11 +205,7 @@ export class ModelViewer {
     const response = await fetch(url);
     if (!response.ok) throw new Error("模型檔案讀取失敗。");
     const data = await response.arrayBuffer();
-    const hash = [
-      ...new Uint8Array(await crypto.subtle.digest("SHA-256", data)),
-    ]
-      .map((x) => x.toString(16).padStart(2, "0"))
-      .join("");
+    const hash = await modelDigest(data);
     if (hash !== model.sha256)
       throw new Error("模型檔案與 Agent 指定版本不符，已停止標注。");
     if (epoch !== this.loadingEpoch) return;

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
+import { originSchema, normalizeOrigin } from "./origin.mjs";
 
 export const repo = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -46,15 +47,24 @@ const configFile = path.join(runtime, "config.json");
 const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))
   : {};
-const bridge = new OpenClawBridge(
-  process.env.REVIEW_SESSION_KEY || config.sessionKey || "",
-  {
-    enabled:
-      process.env.REVIEW_BRIDGE !== "off" &&
-      !!(process.env.REVIEW_SESSION_KEY || config.sessionKey),
-  },
+const legacyOrigin = normalizeOrigin(
+  process.env.REVIEW_SESSION_KEY || config.origin || config.sessionKey || null,
 );
-const store = new ReviewStore(runtime);
+const store = new ReviewStore(runtime, { legacyOrigin });
+const bridges = new Map();
+function bridgeFor(origin) {
+  const key = JSON.stringify(origin);
+  if (!bridges.has(key)) {
+    if (bridges.size >= 32) bridges.delete(bridges.keys().next().value);
+    bridges.set(
+      key,
+      new OpenClawBridge(origin, {
+        enabled: process.env.REVIEW_BRIDGE !== "off",
+      }),
+    );
+  }
+  return bridges.get(key);
+}
 const app = express();
 app.disable("x-powered-by");
 app.use((req, res, next) => {
@@ -134,7 +144,7 @@ function stateFor(clientId, full = false) {
     };
   return {
     ...state,
-    bridgeEnabled: bridge.enabled,
+    bridgeEnabled: bridgeFor(store.state.reviewOrigin).enabled,
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
   };
 }
@@ -331,9 +341,10 @@ app.post("/api/feedback", async (req, res) => {
               : `${a.color} 塗抹區域（區域識別 ${a.id}）：${["brush-v1", "source-v1"].includes(a.coverage) ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
           )
           .join("\n");
-        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 node ${path.join(repo, "scripts/reviewctl.mjs")} read ${item.id} 讀取完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。不要發 Telegram 或其他外部訊息。使用者尚未結束審閱，不能強行替換模型。`;
+        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 node ${path.join(repo, "scripts/reviewctl.mjs")} read ${item.id} 讀取完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
         store.submissionStatus(item.id, "sending");
         try {
+          const bridge = bridgeFor(store.submissionOrigin(item));
           const result = await bridge.send(message, `3d-feedback-${item.id}`);
           store.submissionStatus(item.id, "accepted", {
             runId: result.runId || null,
@@ -405,6 +416,8 @@ agentApp.get("/status", (req, res) =>
   res.json({
     ...stateFor("", true),
     viewerReceipts: store.state.viewerReceipts || {},
+    origin: store.state.reviewOrigin,
+    pendingOrigin: store.state.pendingOrigin,
   }),
 );
 agentApp.post("/publish", (req, res) => {
@@ -415,10 +428,19 @@ agentApp.post("/publish", (req, res) => {
       version: z.string().max(80).optional(),
       source: z.string().optional(),
       units: z.string().max(30).optional(),
+      origin: originSchema.optional(),
     })
     .parse(req.body);
   const model = importModel(p, { workspace, mediaDir });
-  res.json(store.publish(model));
+  res.json(store.publish(model, p.origin));
+});
+agentApp.post("/origin", (req, res) => {
+  const p = z.object({ origin: originSchema }).strict().parse(req.body);
+  store.bindOrigin(p.origin);
+  res.json({
+    origin: store.state.reviewOrigin,
+    reviewId: store.state.reviewId,
+  });
 });
 agentApp.get("/submissions", (req, res) => res.json(store.state.submissions));
 agentApp.get("/submissions/:id", (req, res) => {

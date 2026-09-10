@@ -8,6 +8,13 @@ const [command, ...args] = process.argv.slice(2);
 const options = {};
 for (let i = 1; i < args.length; i += 2)
   options[args[i].replace(/^--/, "")] = args[i + 1];
+function readWorkspaceJson(name) {
+  const file = fs.realpathSync(path.resolve(name || ""));
+  const relative = path.relative(workspace, file);
+  if (relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("操作資料必須在工作區內。");
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
 let endpoint, body;
 if (command === "publish") {
   if (!args[0])
@@ -16,8 +23,12 @@ if (command === "publish") {
     );
   endpoint = "/publish";
   body = { file: path.relative(workspace, path.resolve(args[0])), ...options };
+  if (body.origin) body.origin = readWorkspaceJson(body.origin);
   if (body.source)
     body.source = path.relative(workspace, path.resolve(body.source));
+} else if (command === "bind") {
+  endpoint = "/origin";
+  body = { origin: readWorkspaceJson(args[0]) };
 } else if (command === "status") endpoint = "/status";
 else if (command === "submissions") endpoint = "/submissions";
 else if (command === "read") {
@@ -30,7 +41,8 @@ else if (command === "read") {
     throw new Error("回顯資料必須在工作區內。");
   body = JSON.parse(fs.readFileSync(file, "utf8"));
   endpoint = "/echo";
-} else throw new Error("Commands: publish, status, submissions, read, echo");
+} else
+  throw new Error("Commands: publish, bind, status, submissions, read, echo");
 const socketPath = path.join(
   path.resolve(process.env.REVIEW_DATA_DIR || path.join(repo, "runtime")),
   "agent.sock",

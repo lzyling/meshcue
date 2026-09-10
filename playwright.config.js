@@ -11,7 +11,11 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1440, height: 1000 },
     launchOptions: {
-      args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+      args: [
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--host-resolver-rules=MAP review.test 127.0.0.1",
+      ],
     },
     trace: "off",
   },

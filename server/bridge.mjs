@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { normalizeOrigin, deliveryParams } from "./origin.mjs";
 const exec = promisify(execFile);
 
 export class OpenClawBridge {
   constructor(sessionKey, { enabled = true } = {}) {
-    this.sessionKey = sessionKey;
-    this.enabled = enabled;
+    this.origin = normalizeOrigin(sessionKey);
+    this.sessionKey = this.origin?.sessionKey;
+    this.enabled = enabled && !!this.origin;
     this.cached = null;
     this.pending = null;
     this.visibleMessages = new Map();
@@ -36,10 +38,9 @@ export class OpenClawBridge {
   }
   async send(message, id) {
     return this.call("chat.send", {
-      sessionKey: this.sessionKey,
+      ...deliveryParams(this.origin),
       message,
       idempotencyKey: id,
-      deliver: false,
     });
   }
   async history(since = 0) {

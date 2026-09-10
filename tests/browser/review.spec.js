@@ -7,6 +7,7 @@ import * as THREE from "three";
 
 const repo = process.cwd(),
   url = "http://127.0.0.1:43174";
+const browserUrl = process.env.REVIEW_BROWSER_ORIGIN || url;
 let child, dir, env;
 async function request(method, route, body) {
   const res = await fetch(`${url}/api/${route}`, {
@@ -15,6 +16,17 @@ async function request(method, route, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: res.status, data: await res.json() };
+}
+function fetchThroughFixture(route) {
+  // route.fetch uses Node DNS, not Chromium's host-resolver mapping. Keep the
+  // browser origin/Host while reaching the isolated loopback fixture directly.
+  const target = new URL(route.request().url());
+  const host = target.host;
+  target.hostname = "127.0.0.1";
+  return route.fetch({
+    url: target.href,
+    headers: { ...route.request().headers(), host },
+  });
 }
 function publish(file = "parametric-bracket.glb", version = "v1") {
   return JSON.parse(
@@ -34,7 +46,7 @@ function publish(file = "parametric-bracket.glb", version = "v1") {
   );
 }
 async function ready(page) {
-  await page.goto(url);
+  await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
     page.getByRole("button", { name: "檢視及標籤", exact: true }),
@@ -232,7 +244,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   await ready(page);
   await pin(page);
   const other = await context.newPage();
-  await other.goto(url);
+  await other.goto(browserUrl);
   await expect(other.locator("#loading")).toBeHidden();
   await expect(other.locator("#resume-banner")).toBeVisible();
   await expect(
@@ -460,7 +472,7 @@ test("an accepted feedback response lost in transit can be retried after refresh
   await page.route("**/api/feedback", async (r) => {
     if (!lost) {
       lost = true;
-      await r.fetch();
+      await fetchThroughFixture(r);
       await r.abort();
     } else await r.continue();
   });
@@ -548,7 +560,7 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
   await page.route("**/api/draft", async (route) => {
     writes.push(route.request().postDataJSON());
     if (writes.length === 1) {
-      await route.fetch();
+      await fetchThroughFixture(route);
       return route.abort();
     }
     return route.continue();
@@ -574,7 +586,7 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
   await ready(page);
   let writes = 0;
   await page.route("**/api/draft", async (route) => {
-    if (++writes === 1) await route.fetch();
+    if (++writes === 1) await fetchThroughFixture(route);
     return route.abort();
   });
   await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
@@ -636,7 +648,7 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
   );
   await page.close();
   const replacement = await context.newPage();
-  await replacement.goto(url);
+  await replacement.goto(browserUrl);
   await expect(replacement.locator("#loading")).toBeHidden();
   await expect(replacement.locator("#resume-banner")).toBeVisible();
   await replacement.waitForTimeout(31000);
@@ -1251,4 +1263,25 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(annotations);
+});
+
+test("LAN HTTP: real insecure origin can verify models, create IDs and save annotations", async ({
+  page,
+}) => {
+  test.skip(!process.env.REVIEW_BROWSER_ORIGIN, "LAN origin run only");
+  await ready(page);
+  const capabilities = await page.evaluate(() => ({
+    secure: isSecureContext,
+    uuid: typeof crypto.randomUUID,
+    digest: typeof crypto.subtle?.digest,
+  }));
+  expect(capabilities).toEqual({
+    secure: false,
+    uuid: "undefined",
+    digest: "undefined",
+  });
+  await pin(page);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator("#annotation-count")).toHaveText("1");
 });

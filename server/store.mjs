@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { normalizeOrigin } from "./origin.mjs";
 
 export class ReviewError extends Error {
   constructor(message, status = 409, code = "CONFLICT") {
@@ -17,7 +18,7 @@ export function atomicJson(file, value) {
   fs.renameSync(tmp, file);
 }
 export class ReviewStore {
-  constructor(dir) {
+  constructor(dir, { legacyOrigin = null } = {}) {
     this.dir = dir;
     this.file = path.join(dir, "state.json");
     this.state = fs.existsSync(this.file)
@@ -43,6 +44,21 @@ export class ReviewStore {
     ]) {
       if (model) this.state.models[model.id] ||= model;
     }
+    // Freeze legacy routing once, separately from immutable submission files.
+    // A subsequent config edit must never redirect an old submission retry.
+    if (!Object.hasOwn(this.state, "reviewOrigin"))
+      this.state.reviewOrigin = normalizeOrigin(legacyOrigin);
+    this.state.reviewId ||= crypto.randomUUID();
+    if (!Object.hasOwn(this.state, "pendingOrigin"))
+      this.state.pendingOrigin = this.state.pending
+        ? structuredClone(this.state.reviewOrigin)
+        : null;
+    if (!Object.hasOwn(this.state, "legacySubmissionOrigins"))
+      this.state.legacySubmissionOrigins = Object.fromEntries(
+        this.state.submissions
+          .filter((item) => !Object.hasOwn(item, "origin"))
+          .map((item) => [item.id, normalizeOrigin(legacyOrigin)]),
+      );
     this.save();
   }
   save() {
@@ -52,13 +68,16 @@ export class ReviewStore {
     const s = this.state;
     return {
       generation: s.generation,
+      reviewId: s.reviewId,
       active: s.active,
       pending: s.pending,
       locked: !!s.lock,
       owned: s.lock?.clientId === clientId,
       draft: s.draft,
       echo: s.echo?.versionId === s.active?.id ? s.echo : null,
-      submissions: s.submissions.slice(-20).map(({ annotations, ...x }) => x),
+      submissions: s.submissions
+        .slice(-20)
+        .map(({ annotations, origin, ...x }) => x),
       messages: s.messages.slice(-60),
       startedAt: s.startedAt,
     };
@@ -152,16 +171,52 @@ export class ReviewStore {
     this.save();
     return structuredClone(draft);
   }
-  publish(model) {
+  bindOrigin(value) {
+    const origin = normalizeOrigin(value);
+    if (isDeepStrictEqual(origin, this.state.reviewOrigin)) return;
+    const d = this.state.draft;
+    if (
+      this.state.lock ||
+      (d &&
+        (d.annotations.length || d.submittedRevision != null) &&
+        d.submittedRevision !== d.revision)
+    )
+      throw new ReviewError(
+        "請先完成原會話的審閱；綁定與草稿沒有被改動。",
+        423,
+        "ORIGIN_BUSY",
+      );
+    this.state.reviewOrigin = origin;
+    this.state.reviewId = crypto.randomUUID();
+    this.state.generation += 1;
+    this.save();
+  }
+  submissionOrigin(item) {
+    return Object.hasOwn(item, "origin")
+      ? item.origin
+      : (this.state.legacySubmissionOrigins[item.id] ?? null);
+  }
+  publish(model, value = this.state.reviewOrigin) {
     const s = this.state;
-    if (s.active?.id === model.id || s.pending?.id === model.id)
+    const origin = normalizeOrigin(value);
+    if (s.active?.id === model.id || s.pending?.id === model.id) {
+      const existing =
+        s.pending?.id === model.id ? s.pendingOrigin : s.reviewOrigin;
+      if (!isDeepStrictEqual(origin, existing))
+        throw new ReviewError(
+          "此模型已有原會話綁定，請先完成該輪審閱。",
+          423,
+          "ORIGIN_BUSY",
+        );
       return {
         status: s.pending?.id === model.id ? "queued" : "active",
         model,
       };
+    }
     s.models[model.id] = structuredClone(model);
     if (s.lock) {
       s.pending = model;
+      s.pendingOrigin = origin;
       this.save();
       return {
         status: "queued",
@@ -171,6 +226,9 @@ export class ReviewStore {
     }
     s.active = model;
     s.pending = null;
+    s.pendingOrigin = null;
+    s.reviewOrigin = origin;
+    s.reviewId = crypto.randomUUID();
     const draft = this.freshDraft(model.id);
     s.draft = draft.revision ? draft : null;
     s.generation += 1;
@@ -196,6 +254,8 @@ export class ReviewStore {
       revision,
       createdAt: Date.now(),
       status: "saved",
+      reviewId: this.state.reviewId,
+      origin: structuredClone(this.state.reviewOrigin),
       model: structuredClone(this.state.active),
       annotations: structuredClone(d.annotations),
       camera: d.camera,
@@ -262,6 +322,9 @@ export class ReviewStore {
     if (s.pending) {
       s.active = s.pending;
       s.pending = null;
+      s.reviewOrigin = s.pendingOrigin;
+      s.pendingOrigin = null;
+      s.reviewId = crypto.randomUUID();
       const draft = this.freshDraft(s.active.id);
       s.draft = draft.revision ? draft : null;
       s.generation += 1;

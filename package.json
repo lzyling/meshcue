@@ -17,6 +17,7 @@
     "format:check": "prettier --check src server scripts tests index.html vite.config.js playwright.config.js package.json"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "express": "^5.1.0",
     "image-size": "^2.0.2",
     "three": "^0.180.0",
