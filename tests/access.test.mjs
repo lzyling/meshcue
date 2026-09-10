@@ -4,6 +4,42 @@ import { ReviewAccess, sessionCookie } from "../server/access.mjs";
 import { listenerConfig, lanAddresses } from "../server/network.mjs";
 import { inspectModel } from "../server/models.mjs";
 
+test("confirmed admission rules expire at 15 minutes and keep the original 60-minute browser deadline on reissue", () => {
+  const minute = 60_000;
+  let time = 0;
+  const access = new ReviewAccess({
+    scope: () => "confirmed-review",
+    now: () => time,
+  });
+  const expired = access.issue();
+  time += 15 * minute;
+  assert.throws(() => access.redeem(expired.value), { code: "ACCESS_EXPIRED" });
+
+  const admission = access.issue();
+  time += 15 * minute - 1;
+  const session = access.redeem(admission.value);
+  const deadline = session.expiresAt;
+  assert.equal(deadline - time, 60 * minute);
+  assert.throws(() => access.redeem(admission.value), {
+    code: "ACCESS_EXPIRED",
+  });
+  access.claimClient(access.authenticate(session.value), "editing-tab");
+
+  time = deadline - 1;
+  const reissued = access.issue();
+  assert.equal(
+    access.ownsClient(access.authenticate(session.value), "editing-tab"),
+    true,
+  );
+  const retained = access.redeem(reissued.value, session.value);
+  assert.equal(retained.value === session.value, true);
+  assert.equal(retained.expiresAt, deadline);
+  time = deadline;
+  assert.throws(() => access.authenticate(session.value), {
+    code: "ACCESS_REQUIRED",
+  });
+});
+
 test("fresh one-use grants revoke old admission but preserve an already active editing session", () => {
   let time = 100,
     scope = "review-a";
