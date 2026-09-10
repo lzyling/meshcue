@@ -4,8 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const output = path.resolve(repo, "../../media/3d/3d-agent-review/samples");
-fs.mkdirSync(output, { recursive: true });
 globalThis.FileReader = class {
   readAsArrayBuffer(blob) {
     blob.arrayBuffer().then((data) => {
@@ -26,6 +24,11 @@ const args = Object.fromEntries(
     return all;
   }, []),
 );
+const output = path.resolve(
+  repo,
+  args.output || "../../media/3d/3d-agent-review/samples",
+);
+fs.mkdirSync(output, { recursive: true });
 const holeRadius = Number(args["hole-radius"] || 0.19);
 if (!Number.isFinite(holeRadius) || holeRadius < 0.05 || holeRadius > 0.4)
   throw new Error("hole-radius must be between 0.05 and 0.4");

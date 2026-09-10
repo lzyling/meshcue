@@ -10,8 +10,17 @@ const state = fs.existsSync(file)
   : { calls: [], messages: [] };
 state.calls.push({ method, params });
 if (method === "chat.send") {
-  if (params.deliver !== false)
-    throw new Error("External delivery must always be false");
+  if (
+    params.deliver !== false &&
+    !(
+      params.deliver === true &&
+      params.originatingChannel === "telegram" &&
+      params.originatingTo === "-100000001" &&
+      params.originatingAccountId === "test" &&
+      ["41", "42"].includes(params.originatingThreadId)
+    )
+  )
+    throw new Error("Unexpected route in isolated Gateway fixture");
   const old = state.messages.find(
     (m) => m.idempotencyKey === params.idempotencyKey,
   );
@@ -19,12 +28,14 @@ if (method === "chat.send") {
     const timestamp = Date.now();
     state.messages.push({
       role: "user",
+      sessionKey: params.sessionKey,
       timestamp,
       idempotencyKey: params.idempotencyKey,
       content: [{ type: "text", text: params.message }],
     });
     state.messages.push({
       role: "assistant",
+      sessionKey: params.sessionKey,
       timestamp: timestamp + 1,
       idempotencyKey: `reply-${params.idempotencyKey}`,
       content: [
@@ -41,5 +52,12 @@ if (method === "chat.send") {
   );
 } else if (method === "chat.history") {
   fs.writeFileSync(file, JSON.stringify(state));
-  console.log(JSON.stringify({ messages: state.messages, inFlightRun: null }));
+  console.log(
+    JSON.stringify({
+      messages: state.messages.filter(
+        (m) => m.sessionKey === params.sessionKey,
+      ),
+      inFlightRun: null,
+    }),
+  );
 } else throw new Error("Unexpected test method");

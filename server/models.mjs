@@ -1,8 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { imageSize } from "image-size";
+import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError } from "./store.mjs";
+
+// Also disable decoder fallback: a malformed RIFF header must not reach a
+// different format's parser after the supported-format signature check.
+disableTypes(
+  imageTypes.filter((type) => !["png", "jpg", "webp"].includes(type)),
+);
 
 export const MAX_BYTES = 80 * 1024 * 1024;
 export const MAX_TRIANGLES = 600000;
@@ -83,6 +89,24 @@ export function inspectModel(buffer, format) {
       }
       let dimensions;
       try {
+        // Only supported web texture decoders are reachable. image-size 2.0.2
+        // has known ICNS/JXL/HEIF parser DoS issues and no patched release yet.
+        const png =
+          bytes.length >= 8 &&
+          bytes
+            .subarray(0, 8)
+            .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+        const jpeg =
+          bytes.length >= 3 &&
+          bytes[0] === 255 &&
+          bytes[1] === 216 &&
+          bytes[2] === 255;
+        const webp =
+          bytes.length >= 12 &&
+          bytes.toString("ascii", 0, 4) === "RIFF" &&
+          bytes.toString("ascii", 8, 12) === "WEBP";
+        if (!png && !jpeg && !webp)
+          throw new Error("Unsupported texture decoder");
         dimensions = imageSize(bytes);
       } catch {
         throw new ReviewError(

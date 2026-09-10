@@ -82,8 +82,10 @@ test.beforeEach(async () => {
     ...process.env,
     PORT: "43174",
     REVIEW_DATA_DIR: dir,
+    REVIEW_MEDIA_DIR: path.join(dir, "models"),
     REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
+    REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_FAKE_GATEWAY_LOG: path.join(dir, "fake-gateway.json"),
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
   };
@@ -706,12 +708,12 @@ test("a truly divergent cached draft is durably backed up before new edits can r
     )
     .toBe(2);
   await expect(page.locator("#save-status")).toHaveText("草稿已保存");
-  const backup = await page.evaluate((versionId) => {
+  const backup = await page.evaluate(() => {
     const key = localStorage.getItem(
-      `3d-review-draft-${versionId}-recovery-latest`,
+      `${window.__reviewDiagnostics().draftCacheKey}-recovery-latest`,
     );
     return JSON.parse(localStorage.getItem(key));
-  }, before.versionId);
+  });
   expect(backup.versionId).toBe(before.versionId);
   expect(backup.annotations[0].color).toBe(before.annotations[0].color);
   expect(backup.pendingWrite.annotations).toEqual(backup.annotations);

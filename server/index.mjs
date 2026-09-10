@@ -9,6 +9,13 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
 import { originSchema, normalizeOrigin } from "./origin.mjs";
+import { listenerConfig } from "./network.mjs";
+import {
+  ReviewAccess,
+  AccessError,
+  sessionCookie,
+  accessCookie,
+} from "./access.mjs";
 
 export const repo = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -65,12 +72,42 @@ function bridgeFor(origin) {
   }
   return bridges.get(key);
 }
+const network = listenerConfig(
+  process.env.REVIEW_HOST || config.host || "127.0.0.1",
+);
+const accessRequired = network.lan || process.env.REVIEW_ACCESS === "required";
+const access = new ReviewAccess({ scope: () => store.state.bindingId });
+const allowedHosts = new Set([
+  network.host,
+  "localhost",
+  "127.0.0.1",
+  ...(config.allowedHosts || []),
+  ...(process.env.REVIEW_ALLOWED_HOSTS || "").split(",").filter(Boolean),
+]);
 const app = express();
 app.disable("x-powered-by");
+// Keep route matching identical to the authorization boundary below.
+app.set("case sensitive routing", true);
+app.set("strict routing", true);
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
   if (req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
+  let hostname;
+  try {
+    hostname = new URL(`http://${req.headers.host}`).hostname;
+  } catch {
+    /* rejected below */
+  }
+  if (!allowedHosts.has(hostname))
+    throw new AccessError("請使用核對過的工作台入口。", 421, "BAD_HOST");
+  if (
+    !["GET", "HEAD"].includes(req.method) &&
+    ((req.headers.origin &&
+      req.headers.origin !== `http://${req.headers.host}`) ||
+      req.headers["sec-fetch-site"] === "cross-site")
+  )
+    throw new AccessError("此請求不是來自目前工作台。", 403, "BAD_ORIGIN");
   if (
     !["GET", "HEAD"].includes(req.method) &&
     req.headers["x-review-client"] !== "1"
@@ -79,6 +116,60 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "16mb" }));
+app.post("/api/access/exchange", (req, res) => {
+  if (!accessRequired) throw new AccessError("此入口不使用遠端授權。", 409);
+  const p = z
+    .object({ grant: z.string().max(128) })
+    .strict()
+    .parse(req.body);
+  const session = access.redeem(p.grant, sessionCookie(req.headers));
+  res.setHeader(
+    "Set-Cookie",
+    accessCookie(session.value, session.expiresAt - Date.now()),
+  );
+  res.json({ authorized: true, expiresAt: session.expiresAt });
+});
+app.use((req, res, next) => {
+  if (
+    !accessRequired ||
+    !req.path.startsWith("/api/") ||
+    req.path === "/api/health"
+  )
+    return next();
+  req.reviewAccess = access.authenticate(sessionCookie(req.headers));
+  if (!["GET", "HEAD"].includes(req.method) && req.body?.clientId !== undefined)
+    access.claimClient(req.reviewAccess, req.body.clientId);
+  if (
+    req.method === "GET" &&
+    req.path === "/api/state" &&
+    !access.ownsClient(req.reviewAccess, req.query.clientId)
+  )
+    req.reviewClientId = "";
+  else req.reviewClientId = String(req.query.clientId || "");
+  if (
+    req.path.startsWith("/api/models/") ||
+    req.path.startsWith("/api/download/")
+  ) {
+    const filename = req.path.split("/").pop();
+    if (!store.modelInBinding(filename))
+      throw new AccessError("找不到此輪審閱模型。", 404, "NOT_FOUND");
+  }
+  if (req.path.startsWith("/api/submissions/")) {
+    const item = store.state.submissions.find(
+      (s) => s.id === req.path.split("/").pop(),
+    );
+    if (!item || !store.submissionInBinding(item))
+      throw new AccessError("找不到此輪提交。", 404, "NOT_FOUND");
+  }
+  if (req.path === "/api/feedback") {
+    const item = store.state.submissions.find(
+      (s) => s.id === req.body?.submissionId,
+    );
+    if (item && !store.submissionInBinding(item))
+      throw new AccessError("提交不屬於此輪審閱。", 403, "WRONG_REVIEW");
+  }
+  next();
+});
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 const vec3 = z.tuple([
   z.number().finite(),
@@ -252,17 +343,28 @@ app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
     app: "3d-agent-review",
-    version: "0.3.0",
+    version: "0.4.0",
     pid: process.pid,
+    accessRequired,
   }),
 );
 app.get("/api/state", (req, res) =>
-  res.json(stateFor(String(req.query.clientId || ""), req.query.full === "1")),
+  res.json(
+    stateFor(
+      req.reviewClientId ?? String(req.query.clientId || ""),
+      req.query.full === "1",
+    ),
+  ),
 );
 app.get("/api/models/:filename", (req, res) => {
   if (!/^[a-f0-9]{64}\.(glb|stl)$/.test(req.params.filename))
     throw new ReviewError("找不到模型。", 404);
-  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.setHeader(
+    "Cache-Control",
+    accessRequired
+      ? "private, no-store"
+      : "public, max-age=31536000, immutable",
+  );
   res.sendFile(req.params.filename, { root: mediaDir });
 });
 app.post("/api/ready", (req, res) => {
@@ -310,6 +412,12 @@ app.put("/api/draft", (req, res) => {
 app.post("/api/review/finish", (req, res) => {
   const p = owner.parse(req.body);
   store.finish(p.versionId, p.clientId);
+  if (req.reviewAccess && req.reviewAccess.scope !== store.state.bindingId)
+    throw new AccessError(
+      "此輪審閱已完成，請返回原對話取得下一輪入口。",
+      409,
+      "REVIEW_FINISHED",
+    );
   res.json(stateFor(p.clientId, true));
 });
 const feedbackFlights = new Map();
@@ -418,6 +526,13 @@ agentApp.get("/status", (req, res) =>
     viewerReceipts: store.state.viewerReceipts || {},
     origin: store.state.reviewOrigin,
     pendingOrigin: store.state.pendingOrigin,
+    pending: store.state.pending,
+    network: {
+      host: network.host,
+      port: server.address()?.port,
+      lan: network.lan,
+    },
+    access: { ...access.metadata(), required: accessRequired },
   }),
 );
 agentApp.post("/publish", (req, res) => {
@@ -433,6 +548,17 @@ agentApp.post("/publish", (req, res) => {
     .parse(req.body);
   const model = importModel(p, { workspace, mediaDir });
   res.json(store.publish(model, p.origin));
+});
+agentApp.post("/access/issue", (req, res) => {
+  if (!accessRequired || !store.state.active)
+    throw new AccessError("尚未準備受保護審閱。", 409);
+  // Host IPC response only. reviewctl deliberately has no grant-printing command.
+  res.setHeader("Cache-Control", "no-store");
+  res.json(access.issue());
+});
+agentApp.post("/access/revoke", (req, res) => {
+  access.revoke();
+  res.json({ revoked: true });
 });
 agentApp.post("/origin", (req, res) => {
   const p = z.object({ origin: originSchema }).strict().parse(req.body);
@@ -502,8 +628,10 @@ app.get("/{*path}", (req, res) =>
 );
 app.use(errorHandler);
 const port = Number(process.env.PORT || 43173);
-const server = app.listen(port, "127.0.0.1", () =>
-  console.log(`3D review listening on 127.0.0.1:${port}`),
+const server = app.listen(port, network.host, () =>
+  console.log(
+    `3D review listening on ${network.host}:${server.address().port}`,
+  ),
 );
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {

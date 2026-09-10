@@ -2,9 +2,14 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { lanAddresses } from "../server/network.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = path.resolve(repo, "../..");
 const [command, ...args] = process.argv.slice(2);
+if (command === "network") {
+  console.log(JSON.stringify({ interfaces: lanAddresses() }));
+  process.exit(0);
+}
 const options = {};
 for (let i = 1; i < args.length; i += 2)
   options[args[i].replace(/^--/, "")] = args[i + 1];
@@ -29,6 +34,9 @@ if (command === "publish") {
 } else if (command === "bind") {
   endpoint = "/origin";
   body = { origin: readWorkspaceJson(args[0]) };
+} else if (command === "revoke") {
+  endpoint = "/access/revoke";
+  body = {};
 } else if (command === "status") endpoint = "/status";
 else if (command === "submissions") endpoint = "/submissions";
 else if (command === "read") {
@@ -42,7 +50,9 @@ else if (command === "read") {
   body = JSON.parse(fs.readFileSync(file, "utf8"));
   endpoint = "/echo";
 } else
-  throw new Error("Commands: publish, bind, status, submissions, read, echo");
+  throw new Error(
+    "Commands: publish, bind, status, network, revoke, submissions, read, echo",
+  );
 const socketPath = path.join(
   path.resolve(process.env.REVIEW_DATA_DIR || path.join(repo, "runtime")),
   "agent.sock",

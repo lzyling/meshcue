@@ -23,7 +23,7 @@ const icon = (name) =>
     check: "✓",
   })[name] || name;
 app.innerHTML = `
-<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>形體審閱</strong><span>OpenClaw · 3D Review</span></div><span class="prototype">試用版 0.3</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
+<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>形體審閱</strong><span>OpenClaw · 3D Review</span></div><span class="prototype">試用版 0.4</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="模型審閱">
   <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
@@ -60,6 +60,7 @@ const colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 let color = colors[0];
 let state = null,
   loadedId = null,
+  loadedReviewId = null,
   annotations = [],
   selectedId = null,
   mode = "orbit",
@@ -82,7 +83,8 @@ let pollFlight = null,
   relocatingId = null,
   echoId = null;
 let recoveryBlocked = false,
-  recoveryUrl = null;
+  recoveryUrl = null,
+  accessBlocked = false;
 const clone = (x) => structuredClone(x);
 async function api(path, data, method = "POST") {
   const options =
@@ -106,6 +108,25 @@ async function api(path, data, method = "POST") {
   if (!res.ok) {
     const err = new Error(json.error || "操作未完成。");
     err.code = json.code;
+    if (res.status === 401 || json.code === "REVIEW_FINISHED") {
+      accessBlocked = true;
+      clearTimeout(saveTimer);
+      if (loadedId && initialDraftRestored) {
+        cacheDraft();
+        if (editSeq > savedSeq)
+          showRecovery({
+            versionId: loadedId,
+            reviewId: loadedReviewId,
+            annotations,
+            camera: viewer.cameraState(),
+            revision,
+          });
+      } else {
+        $("#loading-text").textContent = err.message;
+        $("#loading .spinner").hidden = true;
+      }
+      updateButtons();
+    }
     throw err;
   }
   return json;
@@ -120,7 +141,7 @@ function owner() {
   return { versionId: loadedId, clientId };
 }
 function draftKey() {
-  return `3d-review-draft-${loadedId}`;
+  return `3d-review-draft-${loadedId}-${loadedReviewId}`;
 }
 function cacheDraft() {
   if (recoveryBlocked) return;
@@ -168,7 +189,13 @@ function changed() {
   updateButtons();
 }
 async function beginEdit() {
-  if (!loadedId || !viewer.enabled || submitting || recoveryBlocked)
+  if (
+    !loadedId ||
+    !viewer.enabled ||
+    submitting ||
+    recoveryBlocked ||
+    accessBlocked
+  )
     return false;
   if (beginFlight) return beginFlight;
   beginFlight = (async () => {
@@ -374,7 +401,8 @@ async function flushDraft() {
   if (editSeq > savedSeq) return flushDraft();
 }
 function updateButtons() {
-  const ready = !!loadedId && viewer.enabled && !recoveryBlocked,
+  const ready =
+      !!loadedId && viewer.enabled && !recoveryBlocked && !accessBlocked,
     foreign = state?.locked && !state?.owned;
   $("#submit-feedback").disabled =
     !ready ||
@@ -391,14 +419,16 @@ function updateButtons() {
       state?.draft?.submittedRevision !== revision);
   $("#undo").disabled = !ready || !undoStack.length || foreign || submitting;
   $("#redo").disabled = !ready || !redoStack.length || foreign || submitting;
-  $("#review-status").textContent = state?.locked
-    ? state.owned
-      ? "審閱中 · 模型已鎖定"
-      : "其他視窗審閱中"
-    : "目前版本 · 可以開始標記";
+  $("#review-status").textContent = accessBlocked
+    ? "授權已失效 · 草稿仍保留"
+    : state?.locked
+      ? state.owned
+        ? "審閱中 · 模型已鎖定"
+        : "其他視窗審閱中"
+      : "目前版本 · 可以開始標記";
   updateReceipt();
   $("#pending-banner").hidden = !state?.pending;
-  $("#resume-banner").hidden = !foreign;
+  $("#resume-banner").hidden = !foreign || accessBlocked;
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => (b.disabled = !ready || foreign || submitting));
@@ -654,13 +684,36 @@ async function restoreDraft(draft) {
   let cached;
   try {
     cached = JSON.parse(localStorage.getItem(draftKey()));
+    if (!cached && state.legacyDraftCache)
+      cached = JSON.parse(localStorage.getItem(`3d-review-draft-${loadedId}`));
     const backupKey = localStorage.getItem(`${draftKey()}-recovery-latest`);
     if (backupKey) {
       const backup = JSON.parse(localStorage.getItem(backupKey));
       if (backup) showRecovery(backup);
     }
   } catch {}
-  if (!cached?.dirty || (state.locked && !state.owned)) return;
+  if (!cached?.dirty) return;
+  if (state.locked && !state.owned) {
+    // The initial poll predates /ready. After renewed browser authorization,
+    // /ready has now associated this tab with its new session: recheck before
+    // deciding the cached draft belongs to a foreign editing window.
+    const latest = await api(
+      `state?clientId=${encodeURIComponent(clientId)}&full=1`,
+    );
+    if (latest.active?.id !== loadedId || latest.reviewId !== loadedReviewId)
+      throw new Error("審閱已變更，本機未同步草稿仍保留。");
+    state = latest;
+    draft = latest.draft;
+    annotations = clone(draft?.annotations || []);
+    labelCursor = Math.max(
+      draft?.labelCursor || 0,
+      ...annotations
+        .filter((a) => a.type === "pin")
+        .map((a) => letterNumber(a.label)),
+    );
+    revision = draft?.revision || 0;
+    if (!state.owned) return;
+  }
   // Re-acquiring ownership can return a newer server draft than the first poll.
   if (!state.owned) {
     state = await api("review/begin", owner());
@@ -717,6 +770,7 @@ async function loadActive(fullState) {
   const model = fullState.active;
   if (!model) return;
   loadedId = model.id;
+  loadedReviewId = fullState.reviewId;
   labelCursor = 0;
   echoId = null;
   relocatingId = null;
@@ -793,8 +847,12 @@ async function readState() {
     const incoming = await api(
       `state?clientId=${encodeURIComponent(clientId)}`,
     );
+    accessBlocked = false;
     if (loadFlight || beginFlight || saveFlight || submitting) return;
-    if (incoming.active?.id !== loadedId) {
+    if (
+      incoming.active?.id !== loadedId ||
+      incoming.reviewId !== loadedReviewId
+    ) {
       if (loadedId && editSeq > savedSeq) {
         toast("偵測到版本不同，已保留當前草稿，停止自動換版。");
         return;
@@ -821,8 +879,13 @@ async function readState() {
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
-    $("#connection-status").textContent = "連線暫停";
-    $("#save-status").textContent = "服務暫時離線";
+    $("#connection-status").textContent = accessBlocked
+      ? "請返回原對話"
+      : "連線暫停";
+    $("#save-status").textContent = accessBlocked
+      ? "授權已失效 · 草稿仍保留"
+      : "服務暫時離線";
+    updateButtons();
   }
 }
 function updateReceipt() {
@@ -941,12 +1004,16 @@ window.addEventListener("beforeunload", (e) => {
 await pollState();
 setInterval(pollState, 2200);
 setInterval(() => {
-  if (state?.owned) api("review/heartbeat", { clientId }).catch(() => {});
+  if (state?.owned && !accessBlocked)
+    api("review/heartbeat", { clientId }).catch(() => {});
 }, 10000);
 
 // Read-only diagnostics for browser acceptance checks; never mutate review state.
 window.__reviewDiagnostics = () => ({
   versionId: loadedId,
+  reviewId: loadedReviewId,
+  draftCacheKey: draftKey(),
+  accessBlocked,
   revision,
   annotationCount: annotations.length,
   labelCursor,

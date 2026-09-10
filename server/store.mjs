@@ -48,7 +48,12 @@ export class ReviewStore {
     // A subsequent config edit must never redirect an old submission retry.
     if (!Object.hasOwn(this.state, "reviewOrigin"))
       this.state.reviewOrigin = normalizeOrigin(legacyOrigin);
-    this.state.reviewId ||= crypto.randomUUID();
+    if (!this.state.reviewId) {
+      this.state.reviewId = crypto.randomUUID();
+      // Only the pre-0.4 active review may import a model-only browser cache.
+      if (this.state.active)
+        this.state.legacyDraftReviewId = this.state.reviewId;
+    }
     if (!Object.hasOwn(this.state, "pendingOrigin"))
       this.state.pendingOrigin = this.state.pending
         ? structuredClone(this.state.reviewOrigin)
@@ -59,7 +64,53 @@ export class ReviewStore {
           .filter((item) => !Object.hasOwn(item, "origin"))
           .map((item) => [item.id, normalizeOrigin(legacyOrigin)]),
       );
+    this.state.bindingId ||= crypto.randomUUID();
+    this.state.modelBindings ||= {};
+    this.state.legacySubmissionBindings ||= Object.fromEntries(
+      this.state.submissions
+        .filter((item) => !item.bindingId)
+        .map((item) => [
+          item.id,
+          isDeepStrictEqual(
+            this.submissionOrigin(item),
+            this.state.reviewOrigin,
+          )
+            ? this.state.bindingId
+            : null,
+        ]),
+    );
+    if (this.state.active)
+      this.registerModelBinding(this.state.active.id, this.state.bindingId);
+    if (this.state.pending) {
+      this.state.pendingBindingId ||= isDeepStrictEqual(
+        this.state.pendingOrigin,
+        this.state.reviewOrigin,
+      )
+        ? this.state.bindingId
+        : crypto.randomUUID();
+      this.registerModelBinding(
+        this.state.pending.id,
+        this.state.pendingBindingId,
+      );
+    }
     this.save();
+  }
+  registerModelBinding(modelId, bindingId) {
+    const bindings = (this.state.modelBindings[modelId] ||= []);
+    if (!bindings.includes(bindingId)) bindings.push(bindingId);
+  }
+  modelInBinding(filename) {
+    return Object.values(this.state.models).some(
+      (model) =>
+        model.filename === filename &&
+        this.state.modelBindings[model.id]?.includes(this.state.bindingId),
+    );
+  }
+  submissionInBinding(item) {
+    return (
+      (item.bindingId ?? this.state.legacySubmissionBindings[item.id]) ===
+      this.state.bindingId
+    );
   }
   save() {
     atomicJson(this.file, this.state);
@@ -69,13 +120,22 @@ export class ReviewStore {
     return {
       generation: s.generation,
       reviewId: s.reviewId,
+      legacyDraftCache: s.legacyDraftReviewId === s.reviewId,
       active: s.active,
-      pending: s.pending,
+      pending: s.pendingBindingId === s.bindingId ? s.pending : null,
       locked: !!s.lock,
       owned: s.lock?.clientId === clientId,
       draft: s.draft,
-      echo: s.echo?.versionId === s.active?.id ? s.echo : null,
+      echo:
+        s.echo?.versionId === s.active?.id &&
+        s.submissions.some(
+          (item) =>
+            item.id === s.echo.submissionId && this.submissionInBinding(item),
+        )
+          ? s.echo
+          : null,
       submissions: s.submissions
+        .filter((item) => this.submissionInBinding(item))
         .slice(-20)
         .map(({ annotations, origin, ...x }) => x),
       messages: s.messages.slice(-60),
@@ -188,6 +248,12 @@ export class ReviewStore {
       );
     this.state.reviewOrigin = origin;
     this.state.reviewId = crypto.randomUUID();
+    this.state.bindingId = crypto.randomUUID();
+    this.state.echo = null;
+    if (this.state.active) {
+      this.registerModelBinding(this.state.active.id, this.state.bindingId);
+      this.state.draft = this.freshDraft(this.state.active.id);
+    }
     this.state.generation += 1;
     this.save();
   }
@@ -214,9 +280,14 @@ export class ReviewStore {
       };
     }
     s.models[model.id] = structuredClone(model);
+    const bindingId = isDeepStrictEqual(origin, s.reviewOrigin)
+      ? s.bindingId
+      : crypto.randomUUID();
+    this.registerModelBinding(model.id, bindingId);
     if (s.lock) {
       s.pending = model;
       s.pendingOrigin = origin;
+      s.pendingBindingId = bindingId;
       this.save();
       return {
         status: "queued",
@@ -228,6 +299,8 @@ export class ReviewStore {
     s.pending = null;
     s.pendingOrigin = null;
     s.reviewOrigin = origin;
+    s.bindingId = bindingId;
+    s.pendingBindingId = null;
     s.reviewId = crypto.randomUUID();
     const draft = this.freshDraft(model.id);
     s.draft = draft.revision ? draft : null;
@@ -255,6 +328,7 @@ export class ReviewStore {
       createdAt: Date.now(),
       status: "saved",
       reviewId: this.state.reviewId,
+      bindingId: this.state.bindingId,
       origin: structuredClone(this.state.reviewOrigin),
       model: structuredClone(this.state.active),
       annotations: structuredClone(d.annotations),
@@ -269,7 +343,11 @@ export class ReviewStore {
     const s = this.state.submissions.find((x) => x.id === id);
     if (!s) throw new ReviewError("找不到提交。", 404);
     Object.assign(s, { status }, extra);
-    if (status === "accepted" && this.state.draft?.versionId === s.versionId)
+    if (
+      status === "accepted" &&
+      this.submissionInBinding(s) &&
+      this.state.draft?.versionId === s.versionId
+    )
       this.state.draft.submittedRevision = Math.max(
         this.state.draft.submittedRevision ?? -1,
         s.revision,
@@ -293,7 +371,8 @@ export class ReviewStore {
     const submission = this.state.submissions.find(
       (s) => s.id === submissionId && s.versionId === versionId,
     );
-    if (!submission) throw new ReviewError("找不到對應提交。", 404);
+    if (!submission || !this.submissionInBinding(submission))
+      throw new ReviewError("找不到此輪對應提交。", 404);
     this.state.echo = {
       id: crypto.randomUUID(),
       submissionId,
@@ -323,6 +402,8 @@ export class ReviewStore {
       s.active = s.pending;
       s.pending = null;
       s.reviewOrigin = s.pendingOrigin;
+      s.bindingId = s.pendingBindingId;
+      s.pendingBindingId = null;
       s.pendingOrigin = null;
       s.reviewId = crypto.randomUUID();
       const draft = this.freshDraft(s.active.id);

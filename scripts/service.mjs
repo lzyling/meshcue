@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { listenerConfig } from "../server/network.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runtime = path.resolve(
   process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
@@ -9,9 +10,17 @@ const runtime = path.resolve(
 const port = Number(process.env.PORT || 43173),
   pidFile = path.join(runtime, "server.pid");
 const command = process.argv[2] || "status";
+const configFile = path.join(runtime, "config.json");
+const config = fs.existsSync(configFile)
+  ? JSON.parse(fs.readFileSync(configFile, "utf8"))
+  : {};
+const network = listenerConfig(
+  process.env.REVIEW_HOST || config.host || "127.0.0.1",
+);
+const url = `http://${network.host}:${port}/`;
 async function health() {
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
+    const response = await fetch(`${url}api/health`, {
       signal: AbortSignal.timeout(2000),
     });
     const data = await response.json();
@@ -40,7 +49,7 @@ async function stop() {
 }
 async function start() {
   if (await health()) {
-    console.log(`審閱服務已啟動：http://127.0.0.1:${port}/`);
+    console.log(`審閱服務已啟動：${url}`);
     return;
   }
   fs.mkdirSync(runtime, { recursive: true });
@@ -56,7 +65,7 @@ async function start() {
   fs.writeFileSync(pidFile, String(child.pid) + "\n", { mode: 0o600 });
   for (let i = 0; i < 60; i++) {
     if (await health()) {
-      console.log(`審閱服務已啟動：http://127.0.0.1:${port}/`);
+      console.log(`審閱服務已啟動：${url}`);
       return;
     }
     await new Promise((r) => setTimeout(r, 100));

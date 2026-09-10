@@ -89,6 +89,12 @@ test("legacy submission routing survives a config change without rewriting old J
   const item = submit(store);
   const legacy = structuredClone(store.state);
   delete legacy.reviewOrigin;
+  delete legacy.reviewId;
+  delete legacy.bindingId;
+  delete legacy.modelBindings;
+  delete legacy.legacySubmissionBindings;
+  delete legacy.submissions[0].bindingId;
+  delete legacy.submissions[0].reviewId;
   delete legacy.legacySubmissionOrigins;
   delete legacy.submissions[0].origin;
   fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(legacy));
@@ -96,6 +102,8 @@ test("legacy submission routing survives a config change without rewriting old J
   const unchanged = fs.readFileSync(file);
   const migrated = new ReviewStore(dir, { legacyOrigin: telegram });
   const again = new ReviewStore(dir, { legacyOrigin: next });
+  assert.equal(migrated.publicState("").legacyDraftCache, true);
+  assert.equal(again.publicState("").legacyDraftCache, true);
   assert.deepEqual(
     migrated.submissionOrigin(migrated.state.submissions[0]),
     telegram,
@@ -105,6 +113,10 @@ test("legacy submission routing survives a config change without rewriting old J
     telegram,
   );
   assert.deepEqual(fs.readFileSync(file), unchanged);
+  again.submissionStatus(item.id, "accepted");
+  again.finish(model.id, "client-origin");
+  again.bindOrigin(next);
+  assert.equal(again.publicState("").legacyDraftCache, false);
 });
 
 test("changing origin after a finished review never redirects an old idempotent retry", (t) => {
@@ -123,5 +135,6 @@ test("changing origin after a finished review never redirects an old idempotent 
     submissionId: item.id,
   });
   assert.deepEqual(store.submissionOrigin(retried), telegram);
-  assert.equal(store.publicState("").submissions[0].origin, undefined);
+  assert.equal(store.publicState("").submissions.length, 0);
+  assert.equal(store.state.draft.annotations.length, 0);
 });
