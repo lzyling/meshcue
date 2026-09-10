@@ -422,12 +422,25 @@ function validateAnnotations(versionId, annotations) {
       throw new ReviewError("本輪標注上限為 2 萬個審閱面，請分批提交。", 400);
   }
 }
+// Derived, never restated: a bundled server used to report the project's
+// version while the package it shipped in declared a different one.
+const version = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(repo, "package.json"), "utf8"))
+      .version;
+  } catch (error) {
+    log.warn("service", "version is unavailable from the package manifest", {
+      ...errorDetail(error),
+    });
+    return "unknown";
+  }
+})();
 app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
     app: "3d-agent-review", // Stable service identity for pre-rename launchers.
     product: "MeshCue",
-    version: "0.4.0",
+    version,
     integrationApi: INTEGRATION_API,
     instance,
     pid: process.pid,

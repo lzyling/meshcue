@@ -1,9 +1,22 @@
 // Native OpenClaw entry. No host-private imports or process work during discovery.
+import fs from "node:fs";
+import path from "node:path";
 import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import {
   InstanceManager,
   pauseRegistered,
 } from "../../integration/manager.mjs";
+
+// Read at call time, not discovery, and never restated: a hardcoded copy here
+// disagreed with the manifest and with the version the server reported.
+function installedVersion(root) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
+      .version;
+  } catch {
+    return "unknown";
+  }
+}
 export function contextSummary(ctx) {
   const delivery = ctx.deliveryContext;
   return {
@@ -105,7 +118,7 @@ const plugin = defineToolPlugin({
               if (params.action === "inspect")
                 result = {
                   product: "MeshCue",
-                  integrationVersion: "0.5.0-dev.1",
+                  integrationVersion: installedVersion(api.rootDir),
                   context: contextSummary(ctx),
                 };
               else {

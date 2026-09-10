@@ -53,6 +53,12 @@ await build({
   external: ["openclaw/*"],
   banner,
 });
+// The shipped web bundle must advertise the plugin version it travels with,
+// not the project's, which is what the bundled server reads from the copied
+// manifest below.
+const pluginManifest = JSON.parse(
+  fs.readFileSync(path.join(repo, "adapters/openclaw/package.json"), "utf8"),
+);
 execFileSync(
   process.execPath,
   [
@@ -61,13 +67,23 @@ execFileSync(
     "--outDir",
     path.join(out, "web"),
   ],
-  { cwd: repo, stdio: "pipe" },
+  {
+    cwd: repo,
+    stdio: "pipe",
+    env: { ...process.env, MESHCUE_VERSION: pluginManifest.version },
+  },
 );
-for (const name of ["package.json", "openclaw.plugin.json"])
-  fs.copyFileSync(
-    path.join(repo, "adapters/openclaw", name),
-    path.join(out, name),
-  );
+for (const name of ["package.json", "openclaw.plugin.json"]) {
+  const source = path.join(repo, "adapters/openclaw", name);
+  // Two declarations of the same version can drift, and the bundled server
+  // reads one of them at runtime. Refuse to ship a package that disagrees.
+  const declared = JSON.parse(fs.readFileSync(source, "utf8")).version;
+  if (declared !== pluginManifest.version)
+    throw new Error(
+      `${name} declares version ${declared} but the package declares ${pluginManifest.version}.`,
+    );
+  fs.copyFileSync(source, path.join(out, name));
+}
 fs.copyFileSync(
   path.join(repo, "AGENT-INTERFACE.md"),
   path.join(out, "AGENT-INTERFACE.md"),

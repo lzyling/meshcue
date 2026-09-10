@@ -186,7 +186,12 @@ test(
     const status = (await f.ipc("/status")).body;
     assert.equal(status.network.lan, true);
     assert.equal(status.access.required, true);
-    assert.equal((await f.api("health")).body.version, "0.4.0");
+    // Derived from the package manifest, not restated: a second copy here
+    // would keep passing while a shipped bundle advertised a different number.
+    assert.equal(
+      (await f.api("health")).body.version,
+      JSON.parse(fs.readFileSync("package.json", "utf8")).version,
+    );
     assert.equal((await f.api(`models/${model.filename}`)).status, 401);
     const cookie = await grant(f);
     assert.equal(
