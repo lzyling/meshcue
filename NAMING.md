@@ -30,3 +30,11 @@ Mesh指3D模型网格，Cue指修改提示与指引。品牌不绑定OpenClaw、
 仓库建议名 `meshcue`。用户正在自行创建；在收到实际仓库地址前，不猜测owner、不设置remote、不推送。
 
 项目级SSH访问使用独立GitHub Deploy Key；提交给用户的是公钥，添加到仓库 **Settings → Deploy keys**，不是提交到仓库文件或Actions secret。Mac端私钥使用系统钥匙串保管，不进入源码／日志／聊天；这把key与工作台浏览器授权完全无关。
+
+## 本次验证与试用更新
+
+- 命名源码／文档提交 `2c2ff84`，分支仍为 `feat/v0.4-lan-delivery`，main与rc.1标签不移动；历史侧栏改动未混入。
+- 改名后核心／真实HTTP／私网测试52/52；定向浏览器回归2/2，覆盖普通入口自动领取、标记／恢复／下载以及长期授权跨进程重启与重开标签页。没有为品牌文案新增重复测试，也没有冒称这次重跑全部37个浏览器用例。
+- 构建／格式／diff通过，新前端资产 `index-DQjVz5J6.js`。仅更新独立43176试用实例，静态目录 `tmp/windows-lan-test/dist-meshcue`；正式runtime/dist和Gateway未操作。
+- 17:25实时核对新PID60706、health产品名MeshCue，原浏览器记录与两个视窗保持，仍30天闲置到期，未签发或撤销任何入场许可。state与停止时最新检查点完全一致，模型与审阅ID不变；匿名state401。
+- 正式2,133项基线文件SHA相同，旧目录兼容链接有效。证据在 `tmp/meshcue-naming/`，包含核心／浏览器日志及部署状态；无用户凭据。
