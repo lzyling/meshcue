@@ -25,9 +25,9 @@ Mesh指3D模型网格，Cue指修改提示与指引。品牌不绑定OpenClaw、
 - 已有 `media/3d/3d-agent-review/` 媒体目录及模型记录中的旧路径继续可用，不移动或复制用户原始模型。
 - 已有内网网址、端口、Telegram来源绑定和30天闲置授权规则不变。不创建新授权范围，不撤销浏览器或清锁。
 
-## GitHub准备
+## GitHub仓库
 
-仓库建议名 `meshcue`。用户正在自行创建；在收到实际仓库地址前，不猜测owner、不设置remote、不推送。
+Kelven已创建正式仓库 [lzyling/meshcue](https://github.com/lzyling/meshcue)，并在2026-09-10提供实际地址。`origin` 为 `git@github.com:lzyling/meshcue.git`；首次同步以当前0.4候选建立 `main`，保留开发分支、完整项目历史和原 `v0.4.0-rc.1` 标签。分支用途与数据边界见 [README](README.md#版本与数据边界)。
 
 项目级SSH访问使用独立GitHub Deploy Key；提交给用户的是公钥，添加到仓库 **Settings → Deploy keys**，不是提交到仓库文件或Actions secret。Mac端私钥使用系统钥匙串保管，不进入源码／日志／聊天；这把key与工作台浏览器授权完全无关。
 
