@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { OpenClawBridge } from "../server/bridge.mjs";
 
 const message = (id, timestamp, text = id) => ({
@@ -81,4 +84,71 @@ test("history pagination is bounded even with only tools and repeated cursors", 
   const result = await bridge.history(0);
   assert.equal(calls, 3);
   assert.deepEqual(result.messages, []);
+});
+
+test("a refused call keeps the host's typed reason instead of just the exit code", async (t) => {
+  // The CLI prints its reason on stdout and only then exits non-zero. execFile
+  // rejects on the exit code first, so the reason used to be dropped: an
+  // admin-scope refusal retried eighteen times and logged "Command failed"
+  // every time, with the answer sitting unread on stdout.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-refusal-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const stub = path.join(dir, "openclaw");
+  fs.writeFileSync(
+    stub,
+    `#!/usr/bin/env node\nconsole.log(JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message: "originating route fields require admin scope" } }));\nprocess.exit(1);\n`,
+    { mode: 0o700 },
+  );
+  const previous = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${previous}`;
+  t.after(() => {
+    process.env.PATH = previous;
+  });
+  const bridge = new OpenClawBridge("refusal-session");
+  await assert.rejects(bridge.call("chat.send", { message: "x" }), (error) => {
+    assert.match(error.message, /admin scope/);
+    assert.match(error.message, /INVALID_REQUEST/);
+    return true;
+  });
+});
+
+test("a refused call with no parsable payload still fails loudly", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-refusal-raw-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const stub = path.join(dir, "openclaw");
+  fs.writeFileSync(
+    stub,
+    `#!/usr/bin/env node\nprocess.stderr.write("boom\\n");\nprocess.exit(1);\n`,
+    { mode: 0o700 },
+  );
+  const previous = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${previous}`;
+  t.after(() => {
+    process.env.PATH = previous;
+  });
+  const bridge = new OpenClawBridge("refusal-session");
+  // No payload to preserve, so the original spawn failure must survive rather
+  // than be swallowed or reported as an accepted send.
+  await assert.rejects(bridge.call("chat.send", { message: "x" }));
+});
+
+test("a zero-exit payload that carries no error is still accepted", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-accept-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const stub = path.join(dir, "openclaw");
+  fs.writeFileSync(
+    stub,
+    `#!/usr/bin/env node\nconsole.log(JSON.stringify({ status: "started", runId: "r1" }));\n`,
+    { mode: 0o700 },
+  );
+  const previous = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${previous}`;
+  t.after(() => {
+    process.env.PATH = previous;
+  });
+  const bridge = new OpenClawBridge("accept-session");
+  assert.deepEqual(await bridge.call("chat.send", { message: "x" }), {
+    status: "started",
+    runId: "r1",
+  });
 });

@@ -44,7 +44,7 @@ function submit(store, id = "submission-origin") {
   });
 }
 
-test("Telegram replies use explicit destination/account/topic; internal origins never inherit delivery", async () => {
+test("Telegram replies route by the batch's own session and never override the host's destination", async () => {
   for (const origin of [internal, telegram, next]) {
     const bridge = new OpenClawBridge(origin);
     let sent;
@@ -54,12 +54,21 @@ test("Telegram replies use explicit destination/account/topic; internal origins 
     };
     await bridge.send("test message", "idempotent-origin");
     assert.equal(sent.method, "chat.send");
+    // sessionKey is the route. Each origin carries its own, so a batch frozen
+    // against one topic can never be delivered into another.
     assert.equal(sent.params.sessionKey, origin.sessionKey);
     assert.equal(sent.params.deliver, origin.channel === "telegram");
-    assert.equal(sent.params.originatingThreadId, origin.threadId);
-    assert.equal(sent.params.originatingTo, origin.target);
-    assert.equal(sent.params.originatingAccountId, origin.accountId);
+    // Naming the destination instead is an admin-scoped override the Gateway
+    // refuses outright. Sending one stalled every real Telegram round.
+    for (const key of [
+      "originatingChannel",
+      "originatingTo",
+      "originatingAccountId",
+      "originatingThreadId",
+    ])
+      assert.equal(sent.params[key], undefined, `${key} must not be sent`);
   }
+  assert.notEqual(telegram.sessionKey, next.sessionKey);
   assert.throws(() => normalizeOrigin({ ...telegram, accountId: "" }));
   assert.throws(() =>
     normalizeOrigin({ ...internal, target: telegram.target }),

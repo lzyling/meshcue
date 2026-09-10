@@ -131,7 +131,7 @@ test("ordinary link automatically claims a host-admitted peer and loads, marks, 
   expect((await f.ipc("/status")).body.access.sessions).toBe(1);
 });
 
-test("protected LAN HTTP: marked region, explicit topic receipt, real geometry revision and new review", async ({
+test("protected LAN HTTP: marked region, session-routed receipt, real geometry revision and new review", async ({
   page,
   context,
 }) => {
@@ -159,9 +159,12 @@ test("protected LAN HTTP: marked region, explicit topic receipt, real geometry r
     fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"),
   ).calls;
   const delivery = calls.find((c) => c.method === "chat.send").params;
-  expect(delivery.originatingThreadId).toBe("41");
+  // sessionKey is the route. Naming the destination with originating* fields
+  // instead is an admin-scoped override the real Gateway refuses outright.
   expect(delivery.sessionKey).toBe(origin.sessionKey);
   expect(delivery.deliver).toBe(true);
+  expect(delivery.originatingThreadId).toBeUndefined();
+  expect(delivery.originatingTo).toBeUndefined();
   expect(
     (
       await f.ipc("/read", {

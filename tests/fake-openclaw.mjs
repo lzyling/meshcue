@@ -19,16 +19,34 @@ if (method === "chat.send") {
     (params.sessionId !== sessionId || params.expectedLeafEntryId !== leaf)
   )
     throw new Error("Fixture rejects stale session or leaf");
-  if (
-    params.deliver !== false &&
-    !(
-      params.deliver === true &&
-      params.originatingChannel === "telegram" &&
-      params.originatingTo === "-100000001" &&
-      params.originatingAccountId === "test" &&
-      ["41", "42"].includes(params.originatingThreadId)
-    )
-  )
+  // Mirror the real Gateway: caller-supplied route fields are an admin-scoped
+  // override, refused with a typed reason on stdout and a non-zero exit. This
+  // fixture used to require exactly those fields, so the suite stayed green on
+  // a contract the host has never accepted and a real Telegram round could not
+  // deliver at all. Reproduce the refusal here instead, including the shape the
+  // reason arrives in, so neither the fields nor the discarded reason can come
+  // back unnoticed.
+  const override = [
+    "originatingChannel",
+    "originatingTo",
+    "originatingAccountId",
+    "originatingThreadId",
+  ].filter((key) => params[key] !== undefined);
+  if (override.length) {
+    console.log(
+      JSON.stringify({
+        ok: false,
+        error: {
+          type: "gateway_request_error",
+          code: "INVALID_REQUEST",
+          message: "originating route fields require admin scope",
+          retryable: false,
+        },
+      }),
+    );
+    process.exit(1);
+  }
+  if (params.deliver !== false && params.deliver !== true)
     throw new Error("Unexpected route in isolated Gateway fixture");
   const old = state.messages.find(
     (m) => m.idempotencyKey === params.idempotencyKey,

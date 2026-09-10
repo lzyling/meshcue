@@ -134,7 +134,8 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
   assert.equal(state.calls.filter((c) => c.method === "chat.send").length, 1);
   const send = state.calls.find((c) => c.method === "chat.send").params;
   assert.equal(send.sessionId, "fixture-generation");
-  assert.equal(send.originatingThreadId, "41");
+  assert.equal(send.sessionKey, frozen.sessionKey);
+  assert.equal(send.originatingThreadId, undefined);
   assert.equal(send.queueMode, "collect");
   state.sessions = { [frozen.sessionKey]: "unrelated-new-task" };
   fs.writeFileSync(log, JSON.stringify(state));
@@ -431,9 +432,17 @@ test("real HTTP submission preserves explicit topic route and does not route old
     JSON.parse(fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"));
   const send = log().calls.find((c) => c.method === "chat.send").params;
   assert.equal(send.deliver, true);
-  assert.equal(send.originatingThreadId, "41");
-  assert.equal(send.originatingTo, origin.target);
-  assert.equal(send.originatingAccountId, "test");
+  // The batch's own sessionKey is the whole route; naming the destination
+  // explicitly is an admin-scoped override the real Gateway refuses.
+  assert.equal(send.sessionKey, origin.sessionKey);
+  assert.notEqual(origin.sessionKey, nextOrigin.sessionKey);
+  for (const key of [
+    "originatingChannel",
+    "originatingTo",
+    "originatingAccountId",
+    "originatingThreadId",
+  ])
+    assert.equal(send[key], undefined, `${key} must not be sent`);
   assert.equal(send.message.includes("不要發 Telegram"), false);
   assert.equal((await f.ipc("/origin", { origin: nextOrigin })).status, 423);
   assert.equal(

@@ -42,14 +42,15 @@ export function deliveryParams(value) {
   if (!origin) throw new Error("此批提交未綁定原會話，沒有發送到其他位置。");
   if (origin.channel === "webchat")
     return { sessionKey: origin.sessionKey, deliver: false };
-  // These are explicit, admin-scoped chat.send route fields in OpenClaw 9.2.
-  // Never infer an external destination from mutable session delivery history.
-  return {
-    sessionKey: origin.sessionKey,
-    deliver: true,
-    originatingChannel: "telegram",
-    originatingTo: origin.target,
-    originatingAccountId: origin.accountId,
-    ...(origin.threadId ? { originatingThreadId: origin.threadId } : {}),
-  };
+  // The host resolves the destination from the session itself. Naming it here
+  // with originating* route fields is an admin-scoped override that a normal
+  // operator client cannot use — the Gateway answers "originating route fields
+  // require admin scope" and the whole review round stalls unconfirmed. MeshCue
+  // never needed the override: sessionKey already identifies the exact channel,
+  // chat and topic this batch was bound to, and the caller cannot widen that.
+  // The frozen target/accountId/threadId stay on the stored origin as a record
+  // of where the batch was bound, not as a delivery instruction. Generation
+  // safety comes from the sessionId check and expectedLeafEntryId fence in
+  // OpenClawBridge.send, which are unaffected.
+  return { sessionKey: origin.sessionKey, deliver: true };
 }

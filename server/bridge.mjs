@@ -14,25 +14,40 @@ export class OpenClawBridge {
   }
   async call(method, params) {
     if (!this.enabled) throw new Error("此測試服務未啟用 OpenClaw 連線。");
-    const { stdout } = await exec(
-      "openclaw",
-      [
-        "gateway",
-        "call",
-        method,
-        "--params",
-        JSON.stringify(params),
-        "--json",
-        "--timeout",
-        "20000",
-      ],
-      {
-        timeout: 25000,
-        maxBuffer: 4 * 1024 * 1024,
-      },
-    );
-    const data = JSON.parse(stdout);
-    if (data.error || data.ok === false) {
+    const argv = [
+      "gateway",
+      "call",
+      method,
+      "--params",
+      JSON.stringify(params),
+      "--json",
+      "--timeout",
+      "20000",
+    ];
+    const options = { timeout: 25000, maxBuffer: 4 * 1024 * 1024 };
+    let stdout;
+    let refused = false;
+    try {
+      ({ stdout } = await exec("openclaw", argv, options));
+    } catch (error) {
+      // A refused call still prints its typed reason on stdout and only then
+      // exits non-zero. execFile rejects on the exit code before any of that is
+      // read, so the reason used to be discarded and every retry rediscovered
+      // nothing: an admin-scope rejection stalled a whole review round while
+      // the log said only "Command failed". Keep the payload when there is one.
+      if (typeof error.stdout !== "string" || !error.stdout.trim()) throw error;
+      stdout = error.stdout;
+      refused = true;
+    }
+    let data;
+    try {
+      data = JSON.parse(stdout);
+    } catch {
+      throw new Error(`OpenClaw 回應無法解析：${String(stdout).slice(0, 300)}`);
+    }
+    // A non-zero exit is a failure even if the payload does not say so, so it
+    // can never be read back as an accepted send.
+    if (refused || data.error || data.ok === false) {
       // Keep the host's own reason: this is the only place it exists, and the
       // caller converts it to a fixed user-facing message anyway.
       const reason =
