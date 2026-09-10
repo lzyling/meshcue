@@ -32,7 +32,7 @@ async function health() {
 async function stop() {
   const current = await health();
   if (!current) {
-    console.log("審閱服務未在此連接埠運行。");
+    console.log("MeshCue 審閱服務未在此連接埠運行。");
     return;
   }
   if (
@@ -49,7 +49,7 @@ async function stop() {
 }
 async function start() {
   if (await health()) {
-    console.log(`審閱服務已啟動：${url}`);
+    console.log(`MeshCue 審閱服務已啟動：${url}`);
     return;
   }
   fs.mkdirSync(runtime, { recursive: true });
@@ -65,7 +65,7 @@ async function start() {
   fs.writeFileSync(pidFile, String(child.pid) + "\n", { mode: 0o600 });
   for (let i = 0; i < 60; i++) {
     if (await health()) {
-      console.log(`審閱服務已啟動：${url}`);
+      console.log(`MeshCue 審閱服務已啟動：${url}`);
       return;
     }
     await new Promise((r) => setTimeout(r, 100));

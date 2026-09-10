@@ -23,7 +23,7 @@ const icon = (name) =>
     check: "✓",
   })[name] || name;
 app.innerHTML = `
-<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>形體審閱</strong><span>OpenClaw · 3D Review</span></div><span class="prototype">試用版 0.4</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
+<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>MeshCue</strong><span>3D 模型審閱與標注</span></div><span class="prototype">試用版 0.4</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="模型審閱">
   <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
@@ -673,7 +673,7 @@ function showRecovery(backup) {
     new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }),
   );
   $("#download-recovery").href = recoveryUrl;
-  $("#download-recovery").download = `3d-review-${loadedId}-unsynced.json`;
+  $("#download-recovery").download = `meshcue-${loadedId}-unsynced.json`;
   $("#recovery-banner").hidden = false;
 }
 async function restoreDraft(draft) {

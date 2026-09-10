@@ -1,4 +1,6 @@
-# 产品定位补充：Agent 通用 3D 审阅与标注工具
+# MeshCue · 产品定位
+
+**2026-09-10 17:14正式定名：MeshCue。** 仓库名及包名 `meshcue`，中文说明“面向Agent协作的3D模型审阅与标注工作台”；不绑定OpenClaw或Telegram品牌。完整命名与兼容范围见 [NAMING.md](NAMING.md)。下文按日期保留产品方向的讨论背景，当前实施状态以 [结果记录](ITERATION-V04-RESULTS.md) 及 [长期授权](BROWSER-TRUST.md) 为准。
 
 确认日期：2026-09-09。Kelven 确认通用工具定位，要求可适配不同 Agent harness；本次补充定位文件，不启动新的接口开发或平台部署。
 
@@ -83,6 +85,6 @@ Kelven 随后明确同意按这个定位推进后续设计：用户体验像「�
 
 ## 名称与管理
 
-对外描述采用「Agent 通用 3D 审阅与标注工具」；现有项目代号及目录 `3d-agent-review` 保留。「OpenClaw 3D 模型审阅工作台」是早期项目名和首个适配实例的称呼，不再代表仅供 OpenClaw 使用。
+正式产品名为 **MeshCue**，对外描述采用“面向Agent协作的3D模型审阅与标注工作台”，仓库与包名为 `meshcue`。本机目录改为 `projects/meshcue/`，`projects/3d-agent-review` 作为兼容链接保留，既有模型路径和浏览器缓存不改写。「OpenClaw 3D模型审阅工作台」和 `3d-agent-review` 保留为历史称呼及兼容标识，不再作为产品品牌。
 
 本文件补充并优先解释旧文档中的 OpenClaw 专属措辞；既有交互要求和数据保护规则不变。此轮只写定位，不新增 MCP、Skill、平台安装或服务变更。

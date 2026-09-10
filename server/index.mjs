@@ -378,7 +378,8 @@ function validateAnnotations(versionId, annotations) {
 app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
-    app: "3d-agent-review",
+    app: "3d-agent-review", // Stable service identity for pre-rename launchers.
+    product: "MeshCue",
     version: "0.4.0",
     pid: process.pid,
     accessRequired,
@@ -543,7 +544,7 @@ app.get("/api/submissions/:id", (req, res) => {
   const submissionId = id.parse(req.params.id);
   const file = path.join(runtime, "submissions", `${submissionId}.json`);
   if (!fs.existsSync(file)) throw new ReviewError("找不到提交。", 404);
-  res.download(`${submissionId}.json`, `3d-review-${submissionId}.json`, {
+  res.download(`${submissionId}.json`, `meshcue-${submissionId}.json`, {
     root: path.join(runtime, "submissions"),
   });
 });
@@ -699,9 +700,7 @@ app.get("/{*path}", (req, res) =>
 app.use(errorHandler);
 const port = Number(process.env.PORT || 43173);
 const server = app.listen(port, network.host, () =>
-  console.log(
-    `3D review listening on ${network.host}:${server.address().port}`,
-  ),
+  console.log(`MeshCue listening on ${network.host}:${server.address().port}`),
 );
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {

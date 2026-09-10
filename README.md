@@ -1,4 +1,10 @@
-# Agent 通用 3D 模型审阅工作台
+# MeshCue
+
+**在模型上标清楚，让 Agent 改明白。**
+
+Browser-based 3D review and annotation for agent-assisted modeling.
+
+面向 Agent 协作的 3D 模型审阅与标注工作台。2026-09-10由Kelven确认正式名称 **MeshCue**，仓库名及包名统一为 `meshcue`；原开发代号为 `3d-agent-review`。命名与旧路径兼容说明见 [正式命名](NAMING.md)。
 
 **产品定位：在标准浏览器中使用的通用 3D 审阅与标注工具。** 面向不同 Agent harness，OpenClaw 为首个 Agent 适配平台。当前是独立本地网页程序配 OpenClaw 自订接线，尚未封装为 MCP 或正式 Skill，也未完成跨平台解耦。见 [定位说明](POSITIONING.md) 与 [2026-09-10 入口决策](BROWSER-ACCESS-DECISION.md)。
 
