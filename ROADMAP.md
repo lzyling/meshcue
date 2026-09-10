@@ -2,7 +2,7 @@
 
 ## 最新：0.5 整合安装与新会话入口开发中（2026-09-10 19:47获准）
 
-Kelven 已批准实施 [OpenClaw 整合交付计划](INTEGRATION-DELIVERY-PLAN.md)。程序层的项目隔离、工具／回传与完整资源归档已在隔离环境验证；Skill 已由 Workshop 形成待审稿，尚待发布确认。**实际冷会话选择与 Windows／Telegram 真人闭环未完成，正式服务没有升级。** 详细代码、验证结果、安装方式调整和剩余出口见 [实施与验收记录](INTEGRATION-IMPLEMENTATION.md)。
+Kelven 已批准实施 [OpenClaw 整合交付计划](INTEGRATION-DELIVERY-PLAN.md)，21:12进一步明确批准Skill发布。程序层的项目隔离、工具／回传与完整资源归档已在隔离环境验证；Skill的Workshop apply被宿主拒绝（signed plugin approval owner is unavailable），并非等待用户确认。**实际冷会话选择与 Windows／Telegram 真人闭环未完成，正式服务没有升级。** 详细代码、验证结果、安装方式调整和剩余出口见 [实施与验收记录](INTEGRATION-IMPLEMENTATION.md)。
 
 0.4 的内网试用、长期授权、更名与 GitHub 接入已经完成；最新既有代码基线为 `8da32db`，实际 Windows 标记→真实 Telegram→改模再审仍待验收。下方「无远程／未推送／入口未交付」等按日期保留为历史状态，不从中恢复旧待办。当前 43176、正式旧数据及侧栏未提交改动继续保留。
 
