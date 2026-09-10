@@ -1,0 +1,340 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import http from "node:http";
+import crypto from "node:crypto";
+import {
+  InstanceManager,
+  ipc,
+  pauseRegistered,
+} from "../integration/manager.mjs";
+import { trustedOrigin } from "../integration/context.mjs";
+import { ReviewStore } from "../server/store.mjs";
+import { OpenClawBridge } from "../server/bridge.mjs";
+
+const repo = process.cwd();
+const stl =
+  "solid t\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid t\n";
+const origin = {
+  harness: "openclaw",
+  sessionKey: "fixture",
+  sessionId: "generation-one",
+  channel: "webchat",
+};
+test("future data schema fails closed without rewriting state", (t) => {
+  fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
+  const dir = fs.mkdtempSync(path.join(repo, "tmp", "future-state-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const text = JSON.stringify({
+    schemaVersion: 900,
+    untouched: "future payload",
+  });
+  fs.writeFileSync(path.join(dir, "state.json"), text);
+  assert.throws(
+    () => new ReviewStore(dir),
+    (error) => error.code === "STATE_VERSION",
+  );
+  assert.equal(fs.readFileSync(path.join(dir, "state.json"), "utf8"), text);
+});
+function setup(t) {
+  fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
+  const workspace = fs.mkdtempSync(
+    path.join(repo, "tmp", "managed workspace "),
+  );
+  fs.mkdirSync(path.join(workspace, "web"));
+  fs.writeFileSync(
+    path.join(workspace, "web/index.html"),
+    "<!doctype html><title>fixture</title>",
+  );
+  fs.writeFileSync(path.join(workspace, "part.stl"), stl);
+  fs.writeFileSync(
+    path.join(workspace, "openclaw.plugin.json"),
+    JSON.stringify({ id: "meshcue" }),
+  );
+  const ctx = {
+    workspaceDir: workspace,
+    fsPolicy: { workspaceOnly: true },
+    agentId: "fixture",
+    sessionKey: origin.sessionKey,
+    sessionId: origin.sessionId,
+    messageChannel: "webchat",
+  };
+  const options = {
+    installRoot: workspace,
+    serverEntry: path.join(repo, "server/index.mjs"),
+    distRoot: path.join(workspace, "web"),
+    environment: { REVIEW_BRIDGE: "off" },
+  };
+  const manager = new InstanceManager(ctx, options);
+  const projects = [];
+  t.after(async () => {
+    for (const project of projects) {
+      try {
+        const p = manager.project(project);
+        const lock = JSON.parse(
+          fs.readFileSync(path.join(p.runtime, "instance.lock"), "utf8"),
+        );
+        process.kill(lock.pid, "SIGTERM");
+      } catch {}
+    }
+    await new Promise((r) => setTimeout(r, 120));
+    fs.rmSync(workspace, { recursive: true, force: true });
+  });
+  async function open(project, args = {}) {
+    projects.push(project);
+    return manager.execute({
+      action: "open",
+      project,
+      file: "part.stl",
+      host: "127.0.0.1",
+      confirmedClientAddress: "127.0.0.1",
+      ...args,
+    });
+  }
+  return { workspace, ctx, manager, options, open };
+}
+
+test("trusted Telegram context normalizes encoded destinations and refuses missing or mismatched routes", () => {
+  const ctx = {
+    sessionKey: "agent:fixture:telegram:group:-100000001:topic:41",
+    sessionId: "generation-one",
+    deliveryContext: {
+      channel: "telegram",
+      to: "telegram:-100000001:topic:41",
+      accountId: "test",
+      threadId: 41,
+    },
+  };
+  assert.deepEqual(trustedOrigin(ctx), {
+    harness: "openclaw",
+    sessionKey: ctx.sessionKey,
+    sessionId: ctx.sessionId,
+    channel: "telegram",
+    target: "-100000001",
+    accountId: "test",
+    threadId: "41",
+  });
+  assert.throws(() => trustedOrigin({ ...ctx, sessionId: undefined }), /代際/);
+  assert.throws(
+    () =>
+      trustedOrigin({
+        ...ctx,
+        deliveryContext: { ...ctx.deliveryContext, threadId: 42 },
+      }),
+    /一致/,
+  );
+});
+
+test("concurrent prepare is idempotent; independent projects persist identity and do not move occupied ports", async (t) => {
+  const f = setup(t);
+  const [a, same, b] = await Promise.all([
+    f.open("projects/a"),
+    f.open("projects/a"),
+    f.open("projects/b"),
+  ]);
+  assert.equal(a.url, same.url);
+  assert.equal(a.instanceId, same.instanceId);
+  assert.notEqual(a.url, b.url);
+  assert.notEqual(a.instanceId, b.instanceId);
+  assert.equal(
+    (await f.manager.execute({ action: "stop", project: "projects/a" }))
+      .stopped,
+    true,
+  );
+  const hijack = http.createServer((_req, res) => res.end("not MeshCue"));
+  await new Promise((r) =>
+    hijack.listen(Number(new URL(a.url).port), "127.0.0.1", r),
+  );
+  t.after(() => hijack.close());
+  await assert.rejects(
+    f.open("projects/a"),
+    (error) => error.code === "START_FAILED",
+  );
+  assert.equal(hijack.listening, true);
+  await new Promise((r) => hijack.close(r));
+  const resumed = await f.open("projects/a");
+  assert.equal(resumed.url, a.url);
+  assert.equal(resumed.instanceId, a.instanceId);
+  assert.equal(
+    (await f.manager.execute({ action: "status", project: "projects/b" }))
+      .active.id,
+    b.active.id,
+  );
+});
+
+test("/new requires explicit continuation and retains locked draft plus browser scope; another topic cannot take a busy review", async (t) => {
+  const f = setup(t);
+  await f.open("projects/a");
+  const p = f.manager.project("projects/a");
+  const config = JSON.parse(
+    fs.readFileSync(path.join(p.runtime, "config.json"), "utf8"),
+  );
+  const state = await f.manager.execute({
+    action: "status",
+    project: "projects/a",
+  });
+  const browserScope = state.access.scope;
+  const next = new InstanceManager(
+    { ...f.ctx, sessionId: "generation-two" },
+    f.options,
+  );
+  await assert.rejects(
+    next.execute({ action: "open", project: "projects/a" }),
+    (e) => e.code === "RESUME_REQUIRED",
+  );
+  await next.execute({ action: "open", project: "projects/a", resume: true });
+  const after = await next.execute({ action: "status", project: "projects/a" });
+  assert.equal(after.origin.sessionId, "generation-two");
+  assert.equal(after.access.scope, browserScope);
+  assert.equal(after.reviewId, state.reviewId);
+  assert.equal(
+    (await ipc(p.runtime, config.instance, "/status")).origin.sessionId,
+    "generation-two",
+  );
+  // ReviewStore covers a locked explicit continuation without bypassing a cross-topic lock.
+  const storeDir = path.join(f.workspace, "store-fixture");
+  const store = new ReviewStore(storeDir, { legacyOrigin: origin });
+  store.state.lock = { clientId: "owner" };
+  store.state.draft = { annotations: [{ type: "pin" }], revision: 3 };
+  const before = structuredClone(store.state.draft);
+  store.bindOrigin(
+    { ...origin, sessionId: "generation-two" },
+    { resumeGeneration: true },
+  );
+  assert.deepEqual(store.state.draft, before);
+  assert.equal(store.state.lock.clientId, "owner");
+  assert.throws(
+    () =>
+      store.bindOrigin(
+        { ...origin, sessionKey: "other-topic" },
+        { resumeGeneration: true },
+      ),
+    /原會話/,
+  );
+});
+
+test("maintenance fences new writes and an unsubmitted deletion blocks shutdown", async (t) => {
+  const f = setup(t);
+  const opened = await f.open("projects/a");
+  const p = f.manager.project("projects/a");
+  const config = JSON.parse(
+    fs.readFileSync(path.join(p.runtime, "config.json"), "utf8"),
+  );
+  await assert.rejects(
+    f.manager.stopOwned(p, config, {
+      locked: false,
+      draft: { annotations: [], submittedRevision: 1, revision: 2 },
+    }),
+    (e) => e.code === "REVIEW_BUSY",
+  );
+  assert.equal(
+    (await f.manager.execute({ action: "status", project: "projects/a" }))
+      .active.id,
+    opened.active.id,
+  );
+  await ipc(p.runtime, config.instance, "/maintenance", {
+    instanceId: config.instance.id,
+  });
+  assert.equal(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+  await ipc(p.runtime, config.instance, "/maintenance", {
+    instanceId: config.instance.id,
+    release: true,
+  });
+  assert.notEqual(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+});
+
+test("fresh-process disable skips a stale registration and still pauses other projects", async (t) => {
+  const f = setup(t);
+  await f.open("projects/a");
+  const b = await f.open("projects/b");
+  const file = path.join(f.workspace, "projects/meshcue-state/registry.json");
+  const registry = JSON.parse(fs.readFileSync(file, "utf8"));
+  Object.values(registry.projects).find(
+    (p) => p.project === "projects/a",
+  ).runtime = "projects/removed/.meshcue";
+  fs.writeFileSync(file, JSON.stringify(registry));
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), [
+    "projects/a",
+  ]);
+  assert.equal(
+    (await fetch(`${b.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+});
+
+test("filesystem boundary rejects escaping symlinks and narrow-scope creation before writing", async (t) => {
+  const f = setup(t);
+  fs.mkdirSync(path.join(f.workspace, "projects"));
+  const outside = fs.mkdtempSync(path.join(repo, "tmp", "outside-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  fs.symlinkSync(outside, path.join(f.workspace, "projects/escape"));
+  await assert.rejects(f.open("projects/escape"), /符號連結/);
+  assert.deepEqual(fs.readdirSync(outside), []);
+  fs.mkdirSync(path.join(f.workspace, "projects/allowed"));
+  const narrow = new InstanceManager(
+    {
+      ...f.ctx,
+      fsPolicy: {
+        workspaceOnly: true,
+        root: path.join(f.workspace, "projects/allowed"),
+      },
+    },
+    f.options,
+  );
+  await assert.rejects(
+    narrow.execute({
+      action: "open",
+      project: "projects/disallowed",
+      file: "part.stl",
+    }),
+    /權限/,
+  );
+  assert.equal(
+    fs.existsSync(path.join(f.workspace, "projects/disallowed")),
+    false,
+  );
+});
+
+test("async bridge fences admission to the frozen generation and rejects unavailable host CAS", async () => {
+  const bridge = new OpenClawBridge(origin);
+  const calls = [];
+  bridge.call = async (method, params) => {
+    calls.push({ method, params });
+    return method === "chat.history"
+      ? {
+          sessionId: origin.sessionId,
+          sessionInfo: { activeLeafEntryId: "leaf-42" },
+        }
+      : { runId: "accepted" };
+  };
+  await bridge.send("test", "batch-1");
+  assert.deepEqual(calls[1].params, {
+    sessionKey: origin.sessionKey,
+    deliver: false,
+    sessionId: origin.sessionId,
+    expectedLeafEntryId: "leaf-42",
+    queueMode: "collect",
+    message: "test",
+    idempotencyKey: "batch-1",
+  });
+  bridge.call = async (method) => {
+    assert.equal(method, "chat.history");
+    return {
+      sessionId: "replacement",
+      sessionInfo: { activeLeafEntryId: "leaf-43" },
+    };
+  };
+  await assert.rejects(bridge.send("test", "batch-1"), /原會話/);
+  bridge.call = async (method) => {
+    assert.equal(method, "chat.history");
+    return { sessionId: origin.sessionId };
+  };
+  await assert.rejects(bridge.send("test", "batch-1"), /宿主/);
+});

@@ -1,0 +1,28 @@
+{
+  "id": "meshcue",
+  "name": "MeshCue",
+  "version": "0.5.0-dev.1",
+  "description": "3D model review, annotation and model iteration in the originating conversation",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "clientAddress": {
+        "type": "string",
+        "description": "Optional previously user-confirmed LAN browser device address, not a global browser credential."
+      },
+      "listenHost": {
+        "type": "string",
+        "description": "Optional verified local listener address; defaults to automatic private LAN selection."
+      }
+    }
+  },
+  "contracts": {
+    "tools": [
+      "meshcue"
+    ]
+  }
+}

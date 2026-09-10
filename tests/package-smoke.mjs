@@ -1,0 +1,277 @@
+// Installed-package acceptance, not a substitute for a real model-runtime turn.
+// Host supplies its public SDK; no private OpenClaw implementation imports.
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createRequire, registerHooks } from "node:module";
+import { execFileSync } from "node:child_process";
+import assert from "node:assert/strict";
+import { chromium } from "@playwright/test";
+
+const root = fs.realpathSync(process.argv[2]);
+const globalModules = execFileSync("npm", ["root", "-g"], {
+  encoding: "utf8",
+}).trim();
+const hostRequire = createRequire(
+  path.join(globalModules, "openclaw/package.json"),
+);
+registerHooks({
+  resolve(specifier, ctx, next) {
+    return specifier.startsWith("openclaw/plugin-sdk/")
+      ? {
+          url: pathToFileURL(hostRequire.resolve(specifier)).href,
+          shortCircuit: true,
+        }
+      : next(specifier, ctx);
+  },
+});
+const repo = process.cwd();
+assert.equal(
+  root.startsWith(path.join(repo, "tmp") + path.sep),
+  true,
+  "Fault injection only accepts an isolated installation under project tmp/",
+);
+const workspace = fs.mkdtempSync(path.join(repo, "tmp", "package acceptance "));
+const ctx = {
+  workspaceDir: workspace,
+  fsPolicy: { workspaceOnly: true },
+  agentId: "package-test",
+  sessionKey: "package-fixture",
+  sessionId: "fixture-generation",
+  messageChannel: "webchat",
+};
+let factory, lifecycle;
+const plugin = (await import(pathToFileURL(path.join(root, "index.mjs"))))
+  .default;
+plugin.register({
+  rootDir: root,
+  source: path.join(root, "index.mjs"),
+  config: { agents: { defaults: { workspace } } },
+  pluginConfig: { listenHost: "127.0.0.1", clientAddress: "127.0.0.1" },
+  registerTool(value) {
+    factory = value;
+  },
+  lifecycle: {
+    registerRuntimeLifecycle(value) {
+      lifecycle = value;
+    },
+  },
+});
+assert.equal(typeof factory, "function");
+const tool = factory(ctx);
+const call = async (params) => {
+  const result = await tool.execute("package-smoke", params);
+  assert.notEqual(result.isError, true, result.content?.[0]?.text);
+  return result.details;
+};
+fs.writeFileSync(
+  path.join(workspace, "part.stl"),
+  "solid part\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 10 0 0\nvertex 0 10 0\nendloop\nendfacet\nendsolid part\n",
+);
+let browser;
+const serviceFile = path.join(root, "runtime/server.mjs");
+const originalService = fs.readFileSync(serviceFile);
+const projects = ["projects/bracket-a", "projects/bracket-b"];
+try {
+  const info = await call({ action: "inspect" });
+  assert.equal(info.context.sessionGeneration, true);
+  const results = [];
+  for (const project of projects)
+    results.push(
+      await call({
+        action: "open",
+        project,
+        file: "part.stl",
+        name: "Archive fixture",
+        version: "v1",
+      }),
+    );
+  assert.notEqual(results[0].url, results[1].url);
+  assert.notEqual(results[0].instanceId, results[1].instanceId);
+  browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const context = await browser.newContext();
+  const pages = [];
+  for (const result of results) {
+    const page = await context.newPage();
+    pages.push(page);
+    await page.goto(result.url);
+    await page.waitForFunction(async () => {
+      const response = await fetch("/api/state");
+      if (!response.ok) return false;
+      const state = await response.json();
+      return Boolean(state.active);
+    });
+    await page.waitForSelector("canvas");
+  }
+  // All cookies belong to the same host, despite two ports. Browser itself,
+  // not a hand-composed header, must preserve both remembered identities.
+  const cookies = await context.cookies();
+  assert.equal(
+    cookies.filter((c) => c.name.startsWith("review_access_")).length,
+    2,
+  );
+  for (const page of pages) {
+    await page.reload();
+    assert.equal(
+      await page.evaluate(async () => (await fetch("/api/state")).status),
+      200,
+    );
+  }
+  for (const project of projects) {
+    const status = await call({ action: "status", project });
+    assert.equal(status.codeRoot.startsWith(workspace), true);
+    assert.match(status.releaseId, /^[a-f0-9]{64}$/);
+    assert.equal(status.access.browsers.length, 1);
+    assert.ok(
+      Object.keys(status.viewerReceipts).length,
+      "real browser must report model readiness",
+    );
+  }
+  lifecycle.cleanup({ reason: "disable" });
+  for (const page of pages)
+    assert.equal(
+      await page.evaluate(
+        async () =>
+          (
+            await fetch("/api/draft", {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Review-Client": "1",
+              },
+              body: "{}",
+            })
+          ).status,
+      ),
+      503,
+    );
+  // A new plugin process can find durable registrations too. Gateway restart
+  // does not stop model services, and an explicit open resumes paused writes.
+  await call({ action: "open", project: projects[0] });
+  assert.notEqual(
+    await pages[0].evaluate(
+      async () =>
+        (
+          await fetch("/api/draft", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Review-Client": "1",
+            },
+            body: "{}",
+          })
+        ).status,
+    ),
+    503,
+  );
+  const beforeUpgrade = await call({ action: "status", project: projects[0] });
+  const clientId = Object.keys(beforeUpgrade.viewerReceipts)[0];
+  const owner = { clientId, versionId: beforeUpgrade.active.id };
+  const browserPost = (route, body) =>
+    pages[0].evaluate(
+      async ({ route, body }) => {
+        const response = await fetch(`/api/${route}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Review-Client": "1",
+          },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, body: await response.json() };
+      },
+      { route, body },
+    );
+  assert.equal((await browserPost("review/begin", owner)).status, 200);
+  fs.writeFileSync(
+    serviceFile,
+    "throw new Error('isolated broken release');\n",
+  );
+  const busy = await tool.execute("upgrade-busy", {
+    action: "open",
+    project: projects[0],
+  });
+  assert.equal(busy.details.code, "REVIEW_BUSY");
+  assert.equal((await browserPost("review/finish", owner)).status, 200);
+  const rollback = await tool.execute("upgrade-failure", {
+    action: "open",
+    project: projects[0],
+  });
+  assert.equal(rollback.details.code, "UPGRADE_ROLLED_BACK");
+  const recovered = await call({ action: "status", project: projects[0] });
+  assert.equal(recovered.releaseId, beforeUpgrade.releaseId);
+  assert.equal(recovered.network.port, beforeUpgrade.network.port);
+  assert.equal(
+    recovered.access.browsers[0].id,
+    beforeUpgrade.access.browsers[0].id,
+  );
+  await pages[0].reload();
+  assert.equal(
+    await pages[0].evaluate(async () => (await fetch("/api/state")).status),
+    200,
+  );
+  fs.writeFileSync(
+    serviceFile,
+    Buffer.concat([
+      originalService,
+      Buffer.from("\n// isolated valid upgrade fixture\n"),
+    ]),
+  );
+  await call({ action: "open", project: projects[0] });
+  const upgraded = await call({ action: "status", project: projects[0] });
+  assert.notEqual(upgraded.releaseId, beforeUpgrade.releaseId);
+  assert.equal(upgraded.network.port, beforeUpgrade.network.port);
+  assert.equal(
+    upgraded.access.browsers[0].id,
+    beforeUpgrade.access.browsers[0].id,
+  );
+  const manifest = path.join(root, "openclaw.plugin.json");
+  const removedManifest = path.join(root, "openclaw.plugin.test-backup.json");
+  fs.renameSync(manifest, removedManifest);
+  try {
+    assert.equal((await browserPost("review/begin", owner)).status, 503);
+  } finally {
+    fs.renameSync(removedManifest, manifest);
+  }
+  console.log(
+    JSON.stringify({
+      ok: true,
+      installedRoot: path.relative(repo, root),
+      cases: [
+        "public SDK factory",
+        "bundled server and frontend",
+        "two actual Chromium tabs",
+        "independent cookies",
+        "verified model receipts",
+        "disable and resume",
+        "busy upgrade protection",
+        "failed upgrade rollback",
+        "valid upgrade without logout",
+        "uninstall freezes writes",
+      ],
+      realAgentTurn: false,
+      windowsValidated: false,
+    }),
+  );
+} finally {
+  fs.writeFileSync(serviceFile, originalService);
+  await browser?.close();
+  // Only fixture processes whose private instance records live under our new workspace.
+  const registry = path.join(workspace, "projects/meshcue-state/registry.json");
+  if (fs.existsSync(registry))
+    for (const record of Object.values(
+      JSON.parse(fs.readFileSync(registry, "utf8")).projects,
+    )) {
+      try {
+        const owner = JSON.parse(
+          fs.readFileSync(
+            path.join(workspace, record.runtime, "instance.lock"),
+            "utf8",
+          ),
+        );
+        process.kill(owner.pid, "SIGTERM");
+      } catch {}
+    }
+  await new Promise((r) => setTimeout(r, 150));
+  fs.rmSync(workspace, { recursive: true, force: true });
+}

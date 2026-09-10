@@ -34,6 +34,12 @@ export class ReviewStore {
           messages: [],
           startedAt: Date.now(),
         };
+    if (this.state.schemaVersion !== 1)
+      throw new ReviewError(
+        "此資料版本未受支援；未遷移或覆蓋現有資料。",
+        409,
+        "STATE_VERSION",
+      );
     // Keep immutable published assets downloadable even when an unsubmitted
     // view has not yet observed a newer active version.
     this.state.models ||= {};

@@ -1,0 +1,18 @@
+{
+  "name": "@meshcue/openclaw",
+  "version": "0.5.0-dev.1",
+  "private": true,
+  "type": "module",
+  "description": "MeshCue browser review and annotation integration for OpenClaw",
+  "openclaw": {
+    "extensions": [
+      "./index.mjs"
+    ],
+    "install": {
+      "minHostVersion": ">=2026.9.2"
+    },
+    "compat": {
+      "pluginApi": ">=2026.9.2"
+    }
+  }
+}

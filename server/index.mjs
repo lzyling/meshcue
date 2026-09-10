@@ -65,9 +65,11 @@ const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))
   : {};
 const instance = readInstance(config);
+let maintenanceUntil = 0;
 const managedEnabled = () =>
   !config.managed ||
-  (!fs.existsSync(path.join(runtime, "disabled.json")) &&
+  (Date.now() >= maintenanceUntil &&
+    !fs.existsSync(path.join(runtime, "disabled.json")) &&
     (!config.installRoot ||
       fs.existsSync(path.join(config.installRoot, "openclaw.plugin.json"))));
 const cookieName = instanceCookieName(instance);
@@ -147,12 +149,10 @@ app.set("case sensitive routing", true);
 app.set("strict routing", true);
 app.use((req, res, next) => {
   if (!["GET", "HEAD"].includes(req.method) && !managedEnabled())
-    return res
-      .status(503)
-      .json({
-        error: "MeshCue 擴充已停用；草稿保留，請在原會話接續。",
-        code: "INTEGRATION_DISABLED",
-      });
+    return res.status(503).json({
+      error: "MeshCue 擴充已停用；草稿保留，請在原會話接續。",
+      code: "INTEGRATION_DISABLED",
+    });
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
   if (req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
@@ -673,6 +673,7 @@ agentApp.get("/status", (req, res) =>
     integrationApi: INTEGRATION_API,
     pendingOrigin: store.state.pendingOrigin,
     codeRoot: repo,
+    releaseId: process.env.REVIEW_RELEASE_ID || null,
     pending: store.state.pending,
     network: {
       host: network.host,
@@ -682,6 +683,31 @@ agentApp.get("/status", (req, res) =>
     access: { ...access.metadata(), required: accessRequired },
   }),
 );
+agentApp.post("/maintenance", (req, res) => {
+  if (!config.managed || req.body.instanceId !== instance?.id)
+    throw new ReviewError("服務身份不符。", 409, "WRONG_INSTANCE");
+  if (req.body.release === true) {
+    maintenanceUntil = 0;
+    return res.json({ paused: false });
+  }
+  const d = store.state.draft;
+  if (
+    store.state.lock ||
+    (d &&
+      (d.annotations.length || d.submittedRevision != null) &&
+      d.submittedRevision !== d.revision)
+  )
+    throw new ReviewError(
+      "使用者尚在審閱；未停止或升級服務。",
+      423,
+      "REVIEW_BUSY",
+    );
+  // Check and pause in the same event-loop turn: a browser cannot acquire a
+  // new review between the manager's status check and the verified shutdown.
+  // A crashed manager cannot leave the old service paused indefinitely.
+  maintenanceUntil = Date.now() + 15000;
+  res.json({ paused: true });
+});
 agentApp.post("/publish", (req, res) => {
   const p = z
     .object({
