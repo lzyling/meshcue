@@ -1,12 +1,12 @@
-# Agent 操作接口 · 0.3 候选（发布前仍以运行版本为准）
+# Agent 操作接口 · 0.4 候选（发布前仍以运行版本为准）
 
-这是当前项目的接口说明，不是系统技能，不改变用户授权范围。所有命令在本项目目录执行；模型实际文件必须在 workspace 内。服务只监听本机，模型发布通过本地 Unix socket，不开放给浏览器任意改版本。
+这是当前项目的接口说明，不是系统技能，不改变用户授权范围。所有命令在本项目目录执行；模型实际文件必须在 workspace 内。服务默认监听本机，内网模式只绑定核对过的私网 IPv4 且强制授权；模型发布通过本地 Unix socket，不开放给浏览器任意改版本。
 
 ## 显示入口与会话接线（2026-09-10 更新）
 
 给用户提供工作台 URL，由用户自己的 Chrome／Safari 等标准浏览器直接打开。当前同机入口为 <http://127.0.0.1:43173/>；不要指引在 OpenClaw／Codex 等内置浏览器或 Portal 中操作，不为模型显示添加宿主补丁、导航例外或要求 Gateway 重启。
 
-09-10 13:46 新增 Windows → MacBook Pro 内网访问与每次发放更换的临时授权要求（R31），**尚未实现**。当前仍只监听回环地址，不能把替换成内网 IP 的字符串当作已可用入口，也不能直接改监听后裸露模型／标注接口。用户愿意聊天接收临时 token，但当前宿主禁止将访问凭证放入聊天或 URL；13:54 用户再次明确点链接即进入，不增加配对／确认，配对建议已撤下；用户要求已定但当前适配交付限制未解决，不反复要求确认。不能生成／显示真实 token 或间接绕过投递限制，不将本地 Agent socket 开放到内网。详见 [入口决策](BROWSER-ACCESS-DECISION.md)。
+09-10 13:46 新增 Windows → MacBook Pro 内网访问与每次发放更换的临时授权要求（R31），14:18 获准实施。0.4 已实现内网监听与授权核心，真实网卡的隔离 HTTP 测试通过，**一键入口的宿主投递及 Windows 实机验收尚未完成**。不能把替换成内网 IP 的字符串当作已可用入口。用户要求点链接即进入、不增加配对／确认；配对建议已撤下，当前宿主仍禁止聊天／URL 传递访问凭证。本地 Agent socket 不开放到内网。详见 [0.4 结果](ITERATION-V04-RESULTS.md) 与 [入口决策](BROWSER-ACCESS-DECISION.md)。
 
 Control UI 仍可作为原会话的聊天界面，但不再是模型容器。以下模型发布、标注读取、回执和理解回显接口保留；跨 harness 工具适配方向不变，原会话绑定、版本锁和不可变提交仍须遵守。标准浏览器会话与原 Agent 会话分离，不等于回传目标可由用户任意改写。当前接口仍是本机 OpenClaw 自订接线，不因文档更新而变为通用 MCP。详见 [入口决策](BROWSER-ACCESS-DECISION.md)。
 
@@ -17,6 +17,26 @@ node scripts/reviewctl.mjs status
 ```
 
 返回当前模型、待交付模型、版本锁、草稿及已加载回执 `viewerReceipts`。`active` 是服务选定的模型，不等于用户已成功看见；回执的 `versionId`、`sha256` 与 `loadedAt` 才能证明查看器完成该次载入核对。不要擅自删除 lock、draft 或 state.json 解锁。
+
+0.4 另返回 `origin`／`pendingOrigin`、`network` 和不含凭据的 `access` 元数据。当前正式0.3仍有未提交草稿与锁，不能把更换聊天入口当作迁移旧审阅的授权。
+
+## 绑定原会话与授权边界（0.4）
+
+在工作区内准备来源 JSON，仅含经可信会话上下文核对的路由元数据：`harness: "openclaw"`、`sessionKey`、`channel: "telegram"`、数值字符串 `target`、`accountId`，以及群话题的数值字符串 `threadId`。私聊省略 `threadId`；webchat 只需 `harness`、`sessionKey`、`channel: "webchat"`。不是访问凭据，不从模型或浏览器传入的说明猜测收件人。
+
+```sh
+node scripts/reviewctl.mjs bind tmp/origin.json
+node scripts/reviewctl.mjs publish tmp/new-model.glb --origin tmp/origin.json --version v2
+node scripts/reviewctl.mjs network
+```
+
+活跃锁或未提交草稿阻止 `bind`。新模型可附带新来源排队，但只有用户明确结束原审阅才激活；旧提交始终使用创建时来源重试，不随新配置改投。更换来源会开始独立草稿、撤回旧浏览器权限，历史批次不改写；同来源的新模型继续保留浏览器授权。
+
+内网模式设 `REVIEW_HOST=lan` 或经核对的本机私网 IPv4。多首选网卡时不猜测，不接受全网卡／公网地址。所有模型、状态、标注、回执和下载受授权保护；首页壳及不含模型数据的 health 可公开。
+
+授权核心：入场许可15分钟、单次使用；每次新发放立即作废上一个未使用许可，已进入的浏览器不被踢出；浏览器会话绝对有效期60分钟，授权轮换不续期、不清草稿、不解除审阅锁。进程重启／显式撤销／来源更换使相应授权失效。授权仅存在内存；会话 cookie 为 HttpOnly／SameSite=Strict，当前 HTTP LAN 不是 TLS。
+
+本机私有 IPC 保留给未来宿主适配器的发行接口；**没有输出凭据的 CLI、URL 参数或产品配对表单，也没有已交付的用户授权入口**。不要直接调用后把发行响应打印到会话或文件。测试经内存内宿主夹具注入授权，不代表一键产品入口完成。`node scripts/reviewctl.mjs revoke` 可撤销授权，保留审阅数据。
 
 ## 发布 GLB 或 STL
 
@@ -32,8 +52,8 @@ node scripts/reviewctl.mjs publish ../../media/3d/3d-agent-review/samples/bunny-
 参数化样例由可编辑脚本生成，单位仅为「模型单位」，不是已标定毫米尺寸。可验证修改闭环：
 
 ```sh
-node scripts/generate-samples.mjs --hole-radius 0.23 --bracket-name parametric-bracket-v2.glb
-node scripts/reviewctl.mjs publish ../../media/3d/3d-agent-review/samples/parametric-bracket-v2.glb --name '雙孔支架' --version v2 --source scripts/generate-samples.mjs --units '模型單位'
+node scripts/generate-samples.mjs --output tmp/modified-sample --hole-radius 0.23 --bracket-name parametric-bracket-v2.glb
+node scripts/reviewctl.mjs publish tmp/modified-sample/parametric-bracket-v2.glb --name '雙孔支架' --version v2 --source scripts/generate-samples.mjs --units '模型單位'
 ```
 
 这个参数是半径。只在用户要求修改孔径等对应授权下改动；不要把上面的示例值当成用户意图。
@@ -70,7 +90,7 @@ node scripts/reviewctl.mjs read <submission-id>
 
 ## 对话及投递状态
 
-网页不显示／读取聊天历史、不提供聊天输入；旧 `/api/chat` 返回 410。标注提交仍调用 `chat.send`，使用服务端已绑定的原会话和 `deliver:false`。2026-09-10 开发讨论已迁至 Telegram Coding（topic 22249），用户明确要求从该对话收到可打开的预览网址，不必进入 Control UI；旧“只回 Control UI、不发 Telegram”的会话限定已被取代。目标审阅应绑定发起的同一话题，但聊天入口变化不等于运行绑定已迁移；实施时须核对实际配置、原有审阅及提交，再验证新提交与 Agent 回复准确回到本话题。当前尚未修改绑定或完成此路由验收，不直接把既有 `deliver:false` 的 Control UI 行为当作 Telegram 可见回复已接通。
+网页不显示／读取聊天历史、不提供聊天输入；旧 `/api/chat` 返回 410。0.4 标注提交调用 `chat.send`，使用该批次冻结的来源：webchat 为 `deliver:false`；Telegram 为 `deliver:true` 加明确的 `originatingChannel`／`originatingTo`／`originatingAccountId`／`originatingThreadId`，不从可变历史推断。字段与 OpenClaw 9.2 本地协议源码核对，使用主机既有 admin CLI，不更改 Gateway 权限。隔离双话题测试通过；真实 Telegram 可见回复还需端上验收。当前旧审阅的正式绑定未迁移。
 
 `accepted` 仅表示 Gateway 接纳，不代表送达或已读。后端在提交后进行一次有界原会话历史核实；只有找到该批次的真实用户提交消息才写入 `deliveredAt`。网页不显示或持续轮询聊天历史。`readAt` 只来自 Agent 明确读取。界面分别显示保存／送达／读取；旧批次回执不覆盖后来未提交改动，删除全部标记同样需要手动提交更新。发送未确认时保留原提交 ID；重试使用同一幂等键。
 
