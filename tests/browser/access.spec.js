@@ -216,11 +216,18 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
     origin,
   });
   expect(published.status).toBe(200);
-  expect(published.body.status).toBe("queued");
+  expect(published.body.status).toBe("active");
+  // The new model takes the screen straight away; the marked one is a tab, and
+  // going back to it still downloads that version's own bytes.
+  await expect(page.locator("#model-version")).toHaveText("v2-hole-0.28");
+  await expect(page.locator("#loading")).toBeHidden();
+  await page
+    .locator(`.version-tab[data-version-id="${initial.active.id}"]`)
+    .click();
   await expect(page.locator("#pending-banner")).toBeVisible();
   expect(sha(await currentDownload(page))).toBe(initial.active.sha256);
-  expect((await f.ipc("/status")).body.locked).toBe(true);
   await page.locator("#finish-review").click();
+  await page.getByRole("button", { name: "睇最新版本", exact: true }).click();
   await expect(page.locator("#model-version")).toHaveText("v2-hole-0.28");
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#echo-panel")).toBeHidden();
@@ -269,6 +276,7 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
   await page.locator("#submit-feedback").click();
   await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
   await page.locator("#finish-review").click();
+  // Finishing clears presence, so the project reads as free to the Agent.
   await expect
     .poll(async () => (await f.ipc("/status")).body.locked)
     .toBe(false);

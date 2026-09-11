@@ -481,7 +481,9 @@ app.post("/api/ready", (req, res) => {
     })
     .parse(req.body);
   store.assertVersion(p.versionId);
-  if (p.sha256 !== store.state.active.sha256)
+  // Verify against the version actually being looked at. Checking the active
+  // one instead made every older tab fail its own integrity check.
+  if (p.sha256 !== store.state.models[p.versionId].sha256)
     throw new ReviewError("載入檔案與 Agent 交付不符。", 409, "HASH_MISMATCH");
   saveManifest(p.versionId, p.meshes);
   store.recordViewerReceipt(p.clientId, {
@@ -516,7 +518,9 @@ app.put("/api/draft", (req, res) => {
   validateAnnotations(p.versionId, p.annotations);
   const draft = store.updateDraft(p);
   rememberUse(req, res);
-  res.json(draft);
+  // Permissions travel with the save so the first mark does not leave the
+  // buttons disabled until the next poll, and the page never has to guess.
+  res.json({ ...draft, capabilities: store.capabilities(p.clientId, p.versionId) });
 });
 app.post("/api/review/finish", async (req, res) => {
   const p = owner.parse(req.body);

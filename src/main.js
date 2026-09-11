@@ -27,6 +27,7 @@ app.innerHTML = `
 <main class="workspace">
  <section class="review-panel" aria-label="模型審閱">
   <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
+  <div id="version-tabs" class="version-tabs" role="tablist" aria-label="模型版本" hidden></div>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
@@ -44,13 +45,13 @@ app.innerHTML = `
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span id="loading-hint">模型載入完成後就可以開始標記</span></div>
    <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
   </div>
-  <div id="pending-banner" class="pending-banner" hidden><span>新模型已準備好，暫時唔會更換你正標記嘅版本。</span></div>
-  <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗持有審閱草稿。</span><button id="resume-review" class="quiet">接續已保存草稿</button></div>
+  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">睇最新版本</button></div>
+  <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗都開住呢一版。</span><button id="resume-review" class="quiet">繼續喺呢部機標記</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>本機另有未同步草稿，已保留，未覆蓋目前版本。</span><a id="download-recovery">下載草稿備份</a></div>
   <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><a id="download-model" class="secondary-button" hidden>下載當前版本</a><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="關閉">×</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>標注期間模型會鎖住。完成本輪、標記已提交後，撳「結束本輪審閱」，Agent 才可以交付新版。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="關閉">×</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>頂部標籤列出 Agent 交付過嘅每一個版本。撳任何一個都可以睇返，亦可以直接喺舊版本上標記同提交 —— 每個版本有自己嘅草稿，換版唔會影響其他版本。Agent 收到嘅標記會註明係針對邊一版。</p><p>標完一版撳「結束本輪審閱」，仲未提交嘅標記會一併封存交畀 Agent；之後再標記就會自動重新開始。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -60,6 +61,11 @@ const colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 let color = colors[0];
 let state = null,
   loadedId = null,
+  // Which version the reviewer chose to look at, and whether they are still
+  // following whatever the Agent puts on screen. Picking an older tab pins the
+  // view; picking the current one hands the choice back to the Agent.
+  viewingId = null,
+  followActive = true,
   loadedReviewId = null,
   annotations = [],
   selectedId = null,
@@ -393,6 +399,10 @@ async function flushDraft() {
         annotations: undefined,
         annotationCount: annotations.length,
       };
+      // Refresh permissions on the same round trip. Otherwise the first mark
+      // leaves the buttons grey until the next poll, and re-deriving them here
+      // would put the decision back in the browser, where it went wrong.
+      if (draft.capabilities) state.capabilities = draft.capabilities;
       cacheDraft();
       $("#save-status").textContent =
         editSeq === savedSeq ? "草稿已保存" : "保存中…";
@@ -408,42 +418,46 @@ async function flushDraft() {
   if (editSeq > savedSeq) return flushDraft();
 }
 function updateButtons() {
+  // The server decides what is permitted and says why when it is not. The page
+  // only adds what the server cannot know: whether this tab has finished saving.
+  const can = state?.capabilities || {};
   const ready =
       !!loadedId && viewer.enabled && !recoveryBlocked && !accessBlocked,
-    foreign = state?.locked && !state?.owned;
+    settled = editSeq === savedSeq && !saveFlight,
+    busy = submitting || !ready;
+  // Marks this tab has not managed to save yet still count as something to hand
+  // over — submitting flushes first. Requiring the server to have seen them
+  // would disable the button during exactly the outage it exists to survive.
   $("#submit-feedback").disabled =
-    !ready ||
-    foreign ||
-    (!annotations.length && !state?.draft?.submittedRevision) ||
-    submitting;
-  $("#finish-review").disabled =
-    !ready ||
-    !state?.owned ||
-    editSeq !== savedSeq ||
-    submitting ||
-    !!saveFlight ||
-    ((annotations.length > 0 || state?.draft?.submittedRevision != null) &&
-      state?.draft?.submittedRevision !== revision);
-  $("#undo").disabled = !ready || !undoStack.length || foreign || submitting;
-  $("#redo").disabled = !ready || !redoStack.length || foreign || submitting;
+    busy || !can.canEdit || (!can.canSubmit && !annotations.length);
+  $("#finish-review").disabled = busy || !can.canFinish || !settled;
+  $("#undo").disabled = busy || !undoStack.length;
+  $("#redo").disabled = busy || !redoStack.length;
   $("#review-status").textContent = accessBlocked
     ? loadedId && initialDraftRestored
       ? "授權已失效 · 草稿仍保留"
       : "尚未取得審閱權限"
-    : state?.locked
-      ? state.owned
-        ? "審閱中 · 模型已鎖定"
-        : "其他視窗審閱中"
-      : "目前版本 · 可以開始標記";
+    : !ready
+      ? "載入模型"
+      : !followActive
+        ? "較早版本 · 一樣可以標記"
+        : state?.locked
+          ? "另一個視窗都開住呢一版"
+          : can.blockedReason || "目前版本 · 可以開始標記";
   updateReceipt();
-  $("#pending-banner").hidden = !state?.pending;
-  $("#resume-banner").hidden = !foreign || accessBlocked;
+  renderVersions();
+  const newer = !followActive && state?.active;
+  $("#pending-banner").hidden = !newer;
+  if (newer)
+    $("#pending-text").textContent =
+      `你正在睇較早版本；Agent 目前展示 ${state.active.version || state.active.name}。`;
+  $("#resume-banner").hidden = !state?.locked || accessBlocked;
   document
     .querySelectorAll("[data-mode]")
-    .forEach((b) => (b.disabled = !ready || foreign || submitting));
+    .forEach((b) => (b.disabled = busy || !can.canEdit));
   document
     .querySelectorAll(".delete-annotation, .edit-action")
-    .forEach((b) => (b.disabled = !ready || foreign || submitting));
+    .forEach((b) => (b.disabled = busy || !can.canEdit));
 }
 function renderAnnotations() {
   if (renderFrame) return;
@@ -701,30 +715,12 @@ async function restoreDraft(draft) {
       if (backup) showRecovery(backup);
     }
   } catch {}
-  if (!cached?.dirty) return;
-  if (state.locked && !state.owned) {
-    // The initial poll predates /ready. After renewed browser authorization,
-    // /ready has now associated this tab with its new session: recheck before
-    // deciding the cached draft belongs to a foreign editing window.
-    const latest = await api(
-      `state?clientId=${encodeURIComponent(clientId)}&full=1`,
-    );
-    if (latest.active?.id !== loadedId || latest.reviewId !== loadedReviewId)
-      throw new Error("審閱已變更，本機未同步草稿仍保留。");
-    state = latest;
-    draft = latest.draft;
-    annotations = clone(draft?.annotations || []);
-    labelCursor = Math.max(
-      draft?.labelCursor || 0,
-      ...annotations
-        .filter((a) => a.type === "pin")
-        .map((a) => letterNumber(a.label)),
-    );
-    revision = draft?.revision || 0;
-    if (!state.owned) return;
-  }
-  // Re-acquiring ownership can return a newer server draft than the first poll.
-  if (!state.owned) {
+  // Take the round before anything can return early, and take it unconditionally.
+  // This used to sit below the clean-cache exit and behind an ownership test, so
+  // a reviewer whose draft was fully saved never claimed it back and had no way
+  // to reach it: no banner, no button, and the page offered no explanation.
+  // Claiming also returns a draft newer than the poll this load started from.
+  try {
     state = await api("review/begin", owner());
     draft = state.draft;
     annotations = clone(draft?.annotations || []);
@@ -735,7 +731,10 @@ async function restoreDraft(draft) {
         .map((a) => letterNumber(a.label)),
     );
     revision = draft?.revision || 0;
+  } catch (e) {
+    if (e.code !== "NOT_READY") throw e;
   }
+  if (!cached?.dirty) return;
   const uncertainWriteMatches =
     cached.pendingWrite?.revision === revision - 1 &&
     sameValue(
@@ -780,9 +779,87 @@ async function restoreDraft(draft) {
   }
 }
 
-async function loadActive(fullState) {
-  const model = fullState.active;
+// Tabs are the whole point of keeping every version: a marking made against an
+// earlier model stays a first-class act instead of something the reviewer has
+// to describe in prose. Each tab carries its own draft, so switching is free.
+function renderVersions() {
+  const bar = $("#version-tabs");
+  const versions = state?.versions || [];
+  bar.hidden = versions.length < 2;
+  if (bar.hidden) {
+    bar.textContent = "";
+    return;
+  }
+  const signature = versions
+    .map(
+      (v) =>
+        `${v.id}:${v.active}:${v.annotations}:${v.unsubmitted}:${v.submissions}:${v.busy}:${v.id === viewingId}`,
+    )
+    .join("|");
+  if (bar.dataset.signature === signature) return;
+  bar.dataset.signature = signature;
+  bar.textContent = "";
+  for (const v of versions) {
+    const tab = document.createElement("button");
+    tab.className = "version-tab";
+    tab.type = "button";
+    tab.role = "tab";
+    tab.dataset.versionId = v.id;
+    tab.setAttribute("aria-selected", String(v.id === viewingId));
+    if (v.id === viewingId) tab.classList.add("selected");
+    if (v.active) tab.classList.add("current");
+    const marks = v.annotations || v.submissions;
+    tab.title = [
+      v.name,
+      v.version,
+      `${(v.triangles || 0).toLocaleString()} 面`,
+      v.active ? "Agent 目前展示" : "較早版本",
+      v.submissions ? `${v.submissions} 批已提交` : null,
+      v.busy ? "另一個視窗開住" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const caption = document.createElement("span");
+    caption.textContent = v.label || v.version || v.name || "版本";
+    tab.append(caption);
+    if (marks) {
+      const badge = document.createElement("em");
+      badge.className = v.unsubmitted ? "badge unsent" : "badge";
+      badge.textContent = String(marks);
+      tab.append(badge);
+    }
+    tab.addEventListener("click", () => selectVersion(v.id));
+    bar.append(tab);
+  }
+}
+async function selectVersion(id) {
+  if (!id || id === viewingId || loadFlight || submitting) return;
+  // Claim the load slot before the first await. The poll starts its own load
+  // whenever the Agent's version differs, and two loads racing each other end
+  // as a hash mismatch: bytes from one model checked against another's digest.
+  loadFlight = (async () => {
+    if (editSeq > savedSeq) await flushDraft().catch((e) => toast(e.message));
+    viewingId = id;
+    // Choosing the version the Agent is showing hands the choice back to it.
+    followActive = id === state?.active?.id;
+    const full = await api(
+      `state?clientId=${encodeURIComponent(clientId)}&versionId=${encodeURIComponent(id)}&full=1`,
+    );
+    state = full;
+    await loadVersion(full);
+  })();
+  try {
+    await loadFlight;
+  } finally {
+    loadFlight = null;
+    renderVersions();
+    updateButtons();
+  }
+}
+async function loadVersion(fullState) {
+  const model = fullState.model || fullState.active;
   if (!model) return;
+  viewingId = fullState.viewing || model.id;
   loadedId = model.id;
   loadedReviewId = fullState.reviewId;
   loadedReceipt = null;
@@ -861,7 +938,9 @@ function sameValue(left, right) {
 async function readState() {
   try {
     if (loadFlight || beginFlight || saveFlight || submitting) return;
-    const statePath = `state?clientId=${encodeURIComponent(clientId)}`;
+    const statePath =
+      `state?clientId=${encodeURIComponent(clientId)}` +
+      (viewingId ? `&versionId=${encodeURIComponent(viewingId)}` : "");
     const wasBlocked = accessBlocked;
     let incoming;
     try {
@@ -895,21 +974,23 @@ async function readState() {
     accessBlocked = false;
     const recovered = accessRecoveryNeeded;
     accessRecoveryNeeded = false;
-    if (
-      incoming.active?.id !== loadedId ||
-      incoming.reviewId !== loadedReviewId
-    ) {
+    // Follow whatever the Agent puts on screen, unless the reviewer pinned an
+    // earlier tab. Their own choice outranks the Agent's; an unsynced draft
+    // outranks both, because reloading the viewer would discard it.
+    const wanted = followActive ? incoming.active?.id : viewingId;
+    if (wanted !== loadedId || incoming.reviewId !== loadedReviewId) {
       if (loadedId && editSeq > savedSeq) {
         toast("偵測到版本不同，已保留當前草稿，停止自動換版。");
         return;
       }
       const full = await api(
-        `state?clientId=${encodeURIComponent(clientId)}&full=1`,
+        `state?clientId=${encodeURIComponent(clientId)}&full=1` +
+          (wanted ? `&versionId=${encodeURIComponent(wanted)}` : ""),
       );
       if (beginFlight || saveFlight || submitting || editSeq > savedSeq) return;
       state = full;
-      if (full.active) {
-        loadFlight = loadActive(full);
+      if (full.model || full.active) {
+        loadFlight = loadVersion(full);
         await loadFlight;
         loadFlight = null;
       } else {
@@ -1013,8 +1094,13 @@ $("#finish-review").addEventListener("click", async () => {
   updateButtons();
   try {
     await flushDraft();
-    state = await api("review/finish", owner());
-    toast("本輪審閱已結束，已提交標記仍有保存。");
+    const result = await api("review/finish", owner());
+    state = result;
+    toast(
+      result.sealed
+        ? "本輪已結束；仲未提交嘅標記已經一併封存交畀 Agent。"
+        : "本輪審閱已結束，已提交標記仍有保存。",
+    );
   } catch (e) {
     toast(e.message);
   } finally {
@@ -1022,6 +1108,9 @@ $("#finish-review").addEventListener("click", async () => {
     updateButtons();
     await pollState();
   }
+});
+$("#go-active").addEventListener("click", () => {
+  if (state?.active?.id) selectVersion(state.active.id).catch((e) => toast(e.message));
 });
 $("#resume-review").addEventListener("click", async () => {
   if (submitting) return;
@@ -1099,7 +1188,7 @@ for (const event of ["pointerdown", "wheel", "keydown"])
 document.addEventListener("visibilitychange", noteActivity);
 setInterval(() => {
   if (state?.owned && !accessBlocked)
-    api("review/heartbeat", { clientId }).catch(() => {});
+    api("review/heartbeat", { clientId, versionId: loadedId }).catch(() => {});
 }, 10000);
 
 // Read-only diagnostics for browser acceptance checks; never mutate review state.
@@ -1117,4 +1206,15 @@ window.__reviewDiagnostics = () => ({
   viewer: viewer.stats(),
   locked: state?.locked,
   owned: state?.owned,
+  viewing: viewingId,
+  followActive,
+  capabilities: state?.capabilities || null,
+  versions: (state?.versions || []).map((v) => ({
+    id: v.id,
+    version: v.version,
+    active: v.active,
+    annotations: v.annotations,
+    unsubmitted: v.unsubmitted,
+    submissions: v.submissions,
+  })),
 });

@@ -326,6 +326,9 @@ export class ReviewStore {
       legacyDraftCache: s.legacyDraftReviewId === s.reviewId,
       active: s.active,
       viewing,
+      // The complete record for the version being looked at, which is not
+      // always the one the Agent is showing. The page loads this one.
+      model: viewing ? s.models[viewing] : null,
       versions: this.versions(clientId),
       // Who is here, not who may act: capabilities answer that now.
       locked: !!presence && presence.clientId !== clientId,

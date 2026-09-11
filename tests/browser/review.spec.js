@@ -191,7 +191,7 @@ test("brush produces real face sets; undo, redo, delete and refresh retain the c
     .toBe(0);
 });
 
-test("new Agent model waits through editing and submission until the user ends the review", async ({
+test("a new Agent model takes the screen at once and the marked one stays a tab", async ({
   page,
 }) => {
   await ready(page);
@@ -199,35 +199,42 @@ test("new Agent model waits through editing and submission until the user ends t
   const original = await page.evaluate(
     () => window.__reviewDiagnostics().versionId,
   );
-  const queued = publish("bunny-figurine.glb", "v2");
-  expect(queued.status).toBe("queued");
+  const next = publish("bunny-figurine.glb", "v2");
+  expect(next.status).toBe("active");
+  // Presentation is the Agent's to drive. The reviewer loses nothing by it:
+  // the marked version keeps its own draft and is one tab away.
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(next.model.id);
+  await expect(page.locator("#version-tabs")).toBeVisible();
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(0);
+  await page.locator(`.version-tab[data-version-id="${original}"]`).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(original);
   await expect(page.locator("#pending-banner")).toBeVisible();
   expect(
-    await page.evaluate(() => window.__reviewDiagnostics().versionId),
-  ).toBe(original);
-  await expect(
-    page.getByRole("button", { name: "結束本輪審閱", exact: true }),
-  ).toBeDisabled();
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
   await page.getByRole("button", { name: /交畀 Agent/ }).click();
   await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().versionId),
-  ).toBe(original);
   const log = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   );
   const send = log.calls.find((c) => c.method === "chat.send");
   expect(send.params.deliver).toBe(false);
+  // The batch names the version it was made against, which is the whole point
+  // of being able to go back: an older marking is not an ambiguous one.
   expect(send.params.message).toContain(original);
   expect(send.params.message).toContain("不等於修改指令");
   await page.getByRole("button", { name: "結束本輪審閱", exact: true }).click();
+  await expect(page.locator("#loading")).toBeHidden();
+  await page.getByRole("button", { name: "睇最新版本", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
-    .toBe(queued.model.id);
-  await expect(page.locator("#loading")).toBeHidden();
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
-  ).toBe(0);
+    .toBe(next.model.id);
   const state = await request("GET", "state");
   expect(state.data.submissions).toHaveLength(1);
   expect(state.data.submissions[0].versionId).toBe(original);
@@ -248,14 +255,34 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   const other = await context.newPage();
   await other.goto(browserUrl);
   await expect(other.locator("#loading")).toBeHidden();
-  await expect(other.locator("#resume-banner")).toBeVisible();
+  // A second tab is never locked out — it picks up the same draft and may mark.
+  // Clobbering is prevented by the draft revision check, which is the only
+  // guard that actually knows whether two edits conflict.
   await expect(
     other.getByRole("button", { name: "檢視及標籤", exact: true }),
-  ).toBeDisabled();
-  await other
-    .getByRole("button", { name: "接續已保存草稿", exact: true })
-    .click();
-  await expect(other.locator("#toast")).toContainText("原視窗仍在線");
+  ).toBeEnabled();
+  await expect
+    .poll(() => other.evaluate(() => window.__reviewDiagnostics().owned))
+    .toBe(true);
+  expect(
+    await other.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
+  // The tab that lost presence is told another window is here.
+  await expect(page.locator("#resume-banner")).toBeVisible();
+  await other.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  const q = await point(other, 12, 12);
+  await other.mouse.dblclick(q.x, q.y);
+  await expect
+    .poll(() =>
+      other.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  await expect(other.locator("#save-status")).toHaveText("草稿已保存");
+  const saved = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  expect(saved.drafts[saved.active.id].annotations).toHaveLength(2);
+  expect(saved.drafts[saved.active.id].revision).toBe(2);
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
@@ -358,9 +385,14 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
     "midpoint-v3-edge0.07-rationed",
   );
   expect(s.model.sha256).toHaveLength(64);
+  // Only tab present, so nothing reads as held by someone else; the round is
+  // still open, which capabilities report rather than the presence flag.
   expect(await page.evaluate(() => window.__reviewDiagnostics().locked)).toBe(
-    true,
+    false,
   );
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().capabilities.canFinish),
+  ).toBe(true);
 });
 
 test("rejected geometry and stale revisions never replace valid saved annotations", async ({
@@ -497,7 +529,7 @@ test("an accepted feedback response lost in transit can be retried after refresh
   expect(log.calls.filter((c) => c.method === "chat.send")).toHaveLength(1);
   const s = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"));
   expect(s.submissions).toHaveLength(1);
-  expect(s.draft.annotations).toHaveLength(1);
+  expect(s.drafts[s.active.id].annotations).toHaveLength(1);
 });
 
 test("review page has no conversation copy, history polling or second message input", async ({
@@ -584,8 +616,8 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
   const saved = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
   );
-  expect(saved.draft.annotations).toHaveLength(2);
-  expect(saved.draft.revision).toBe(2);
+  expect(saved.drafts[saved.active.id].annotations).toHaveLength(2);
+  expect(saved.drafts[saved.active.id].revision).toBe(2);
 });
 
 test("refresh recovers newer local edits after an acknowledged-on-server draft lost its response", async ({
@@ -621,8 +653,8 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
   const saved = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
   );
-  expect(saved.draft.annotations).toEqual(before);
-  expect(saved.draft.revision).toBe(2);
+  expect(saved.drafts[saved.active.id].annotations).toEqual(before);
+  expect(saved.drafts[saved.active.id].revision).toBe(2);
 });
 
 test("a failed model download automatically retries and only enables editing after a verified load", async ({
@@ -658,11 +690,12 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
   const replacement = await context.newPage();
   await replacement.goto(browserUrl);
   await expect(replacement.locator("#loading")).toBeHidden();
-  await expect(replacement.locator("#resume-banner")).toBeVisible();
-  await replacement.waitForTimeout(31000);
-  await replacement
-    .getByRole("button", { name: "接續已保存草稿", exact: true })
-    .click();
+  // No banner and no waiting out a stale lock: the round was never withheld,
+  // so the new tab takes it on load and its unsynced local draft still wins.
+  await expect(replacement.locator("#resume-banner")).toBeHidden();
+  await expect
+    .poll(() => replacement.evaluate(() => window.__reviewDiagnostics().owned))
+    .toBe(true);
   await expect(replacement.locator("#save-status")).toHaveText("草稿已保存");
   expect(
     await replacement.evaluate(() => window.__reviewDiagnostics().annotations),
@@ -670,7 +703,7 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
   const saved = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
   );
-  expect(saved.draft.annotations).toEqual(before);
+  expect(saved.drafts[saved.active.id].annotations).toEqual(before);
   await replacement.close();
 });
 
@@ -1075,7 +1108,18 @@ test("iteration: current-version download is original bytes, including after neu
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().viewer.neutral),
   ).toBe(true);
-  publish("bunny-figurine.glb", "pending");
+  const next = publish("bunny-figurine.glb", "newer");
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(next.model.id);
+  // Going back to the marked version must download that version's bytes, not
+  // whichever one the Agent happens to be showing.
+  await page
+    .locator(`.version-tab[data-version-id="${stateBefore.active.id}"]`)
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(stateBefore.active.id);
   const pending = page.waitForEvent("download");
   await page.locator("#download-model").click();
   const download = await pending;
@@ -1085,7 +1129,9 @@ test("iteration: current-version download is original bytes, including after neu
     stateBefore.active.sha256,
   );
   expect(download.suggestedFilename()).toContain(stateBefore.active.version);
-  expect((await request("GET", "state")).data.locked).toBe(true);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
 });
 
 test("iteration: superseded unsubmitted model remains downloadable from the current view", async ({
