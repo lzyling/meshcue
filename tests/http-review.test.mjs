@@ -76,10 +76,24 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
     (await f.api("feedback", { method: "POST", body: submitted })).status,
     502,
   );
-  assert.equal(
-    (await f.ipc("/submissions/outbox-batch-one")).body.status,
-    "unconfirmed",
-  );
+  const failed = (await f.ipc("/submissions/outbox-batch-one")).body;
+  assert.equal(failed.status, "unconfirmed");
+  // The reason the host gave is the only thing that makes a stuck outbox
+  // diagnosable, and it used to exist solely as a log line. Whatever shape the
+  // failure took, it reaches the batch as a code and a sentence.
+  assert.ok(failed.lastError?.code, "a failed batch must record why");
+  assert.ok(failed.lastError.message);
+  // execFile names the whole command in its message, and for chat.send that
+  // includes the annotation text. server.log outlives the review and is not
+  // access controlled, so the payload must not survive into any record of the
+  // failure.
+  for (const text of [failed.lastError.message, failed.error])
+    for (const secret of ["--params", "審閱標記提交", "chat.send"])
+      assert.equal(
+        String(text).includes(secret),
+        false,
+        `delivery failures must not carry ${secret}`,
+      );
   const payload = (item) =>
     Object.fromEntries(
       [
@@ -615,4 +629,75 @@ test("a crash-truncated instance lock does not permanently block startup, and a 
   assert.equal(JSON.parse(fs.readFileSync(lock, "utf8")).pid, health.pid);
   // Recovery must not have disturbed the review the service was holding.
   assert.equal((await f.api("state")).body.active.id, model.id);
+});
+
+// An outbox that retries forever is the right design: the failure that stalled
+// a real round was fixed in code and the queue healed itself on the next pass.
+// What it must never do is retry in silence, which is how a broken delivery
+// went unnoticed for eight hours and a hundred and thirty attempts.
+test("a repeatedly refused batch says so in its own status and recovers cleanly", async (t) => {
+  const frozen = { ...origin, sessionId: "fixture-generation" };
+  const f = await startReview(t, {
+    origin: frozen,
+    managed: true,
+    stallAfter: 2,
+  });
+  const model = await f.publish();
+  const owner = { versionId: model.id, clientId: "stall-owner" };
+  await f.api("ready", {
+    method: "POST",
+    body: { ...owner, sha256: model.sha256, meshes: [mesh] },
+  });
+  await f.api("review/begin", { method: "POST", body: owner });
+  const draft = await f.api("draft", {
+    method: "PUT",
+    body: { ...owner, revision: 0, annotations, camera: null },
+  });
+  const log = path.join(f.dir, "fake-gateway.json");
+  fs.writeFileSync(
+    log,
+    JSON.stringify({ calls: [], messages: [], offline: true }),
+  );
+  assert.equal(
+    (
+      await f.api("feedback", {
+        method: "POST",
+        body: {
+          ...owner,
+          revision: draft.body.revision,
+          submissionId: "stalling-batch",
+        },
+      })
+    ).status,
+    502,
+  );
+  let batch;
+  for (let i = 0; i < 40; i++) {
+    batch = (await f.ipc("/submissions/stalling-batch")).body;
+    if (batch.status === "stalled") break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.equal(batch.status, "stalled");
+  assert.ok(batch.stalledAt);
+  assert.ok(batch.attempts >= 2);
+  // The Agent's own view has to carry it too: the channel that would report the
+  // failure in words is exactly the channel that is failing.
+  const stuck = (await f.ipc("/status")).body.outbox;
+  assert.equal(stuck.pending, 1);
+  assert.equal(stuck.stalled, 1);
+  assert.ok(stuck.lastError?.code);
+  // Stalled is a description, not a stop: the queue keeps trying, and a batch
+  // that gets through stops claiming a failure it no longer has.
+  const gateway = JSON.parse(fs.readFileSync(log, "utf8"));
+  gateway.offline = false;
+  fs.writeFileSync(log, JSON.stringify(gateway));
+  for (let i = 0; i < 40; i++) {
+    batch = (await f.ipc("/submissions/stalling-batch")).body;
+    if (batch.status === "accepted") break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.equal(batch.status, "accepted");
+  assert.equal(batch.lastError, null);
+  assert.equal(batch.stalledAt, null);
+  assert.equal((await f.ipc("/status")).body.outbox.pending, 0);
 });

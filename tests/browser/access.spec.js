@@ -280,6 +280,24 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
   await expect
     .poll(async () => (await f.ipc("/status")).body.locked)
     .toBe(false);
+  expect(
+    (
+      await f.ipc("/origin", {
+        origin: {
+          ...origin,
+          sessionKey: "test-browser-topic-42",
+          threadId: "42",
+        },
+      })
+    ).status,
+  ).toBe(200);
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().accessBlocked))
+    .toBe(true);
+  // Keep an old unsynced cache deliberately: a later topic uses the same GLB.
+  // Seed it only once losing authorization has stopped the page from writing
+  // this key; doing it earlier let an ordinary cache write replace the unsynced
+  // payload, so the case this protects was never actually under test.
   // Keep an old unsynced cache deliberately: a later topic uses the same GLB.
   await page.evaluate(
     ({ key, notes }) => {
@@ -297,20 +315,6 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
     },
     { key: before.draftCacheKey, notes: before.annotations },
   );
-  expect(
-    (
-      await f.ipc("/origin", {
-        origin: {
-          ...origin,
-          sessionKey: "test-browser-topic-42",
-          threadId: "42",
-        },
-      })
-    ).status,
-  ).toBe(200);
-  await expect
-    .poll(() => page.evaluate(() => window.__reviewDiagnostics().accessBlocked))
-    .toBe(true);
   await authorize(context);
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
@@ -319,6 +323,8 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
   expect(current.reviewId).not.toBe(before.reviewId);
   expect(current.annotationCount).toBe(0);
   expect(current.dirty).toBe(false);
+  // Unsynced work outlives the review it belongs to, and is still never
+  // imported into the new one: the two assertions above are what prove that.
   expect(
     await page.evaluate(
       (key) => !!localStorage.getItem(key),

@@ -48,20 +48,23 @@ const ctx = {
 let factory, lifecycle;
 const plugin = (await import(pathToFileURL(path.join(root, "index.mjs"))))
   .default;
-plugin.register({
-  rootDir: root,
-  source: path.join(root, "index.mjs"),
-  config: { agents: { defaults: { workspace } } },
-  pluginConfig: { listenHost: "127.0.0.1", clientAddress: "127.0.0.1" },
-  registerTool(value) {
-    factory = value;
-  },
-  lifecycle: {
-    registerRuntimeLifecycle(value) {
-      lifecycle = value;
+// Registration is what a Gateway start does, so the test can replay one.
+const registerPlugin = () =>
+  plugin.register({
+    rootDir: root,
+    source: path.join(root, "index.mjs"),
+    config: { agents: { defaults: { workspace } } },
+    pluginConfig: { listenHost: "127.0.0.1", clientAddress: "127.0.0.1" },
+    registerTool(value) {
+      factory = value;
     },
-  },
-});
+    lifecycle: {
+      registerRuntimeLifecycle(value) {
+        lifecycle = value;
+      },
+    },
+  });
+registerPlugin();
 assert.equal(typeof factory, "function");
 const tool = factory(ctx);
 const call = async (params) => {
@@ -188,6 +191,45 @@ try {
     ),
     503,
   );
+  // A Gateway shutdown reaches a plugin as a disable, so a restart used to
+  // strand every open review behind a 503 that only an Agent action could
+  // lift. Registering again is the whole proof that the extension is enabled,
+  // and it has to be enough on its own: no open, no tool call, no reload.
+  lifecycle.cleanup({ reason: "disable" });
+  registerPlugin();
+  for (const page of pages)
+    assert.notEqual(
+      await page.evaluate(
+        async () =>
+          (
+            await fetch("/api/draft", {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Review-Client": "1",
+              },
+              body: "{}",
+            })
+          ).status,
+      ),
+      503,
+      "registering again must clear a pause left by the previous process",
+    );
+  // The reason exists precisely so a live plugin is not torn down; acting on it
+  // would pause instances that stay reachable across the reload.
+  lifecycle.cleanup({ reason: "restart" });
+  const registered = JSON.parse(
+    fs.readFileSync(
+      path.join(workspace, "projects/meshcue-state/registry.json"),
+      "utf8",
+    ),
+  );
+  for (const item of Object.values(registered.projects))
+    assert.equal(
+      fs.existsSync(path.join(workspace, item.runtime, "disabled.json")),
+      false,
+      "a restart must not pause a managed instance",
+    );
   const beforeUpgrade = await call({ action: "status", project: projects[0] });
   const clientId = Object.keys(beforeUpgrade.viewerReceipts)[0];
   const owner = { clientId, versionId: beforeUpgrade.active.id };

@@ -8,6 +8,7 @@ import {
   InstanceManager,
   ipc,
   pauseRegistered,
+  resumeRegistered,
 } from "../integration/manager.mjs";
 import { trustedOrigin } from "../integration/context.mjs";
 import { ReviewStore } from "../server/store.mjs";
@@ -283,6 +284,51 @@ test("fresh-process disable skips a stale registration and still pauses other pr
   ]);
   assert.equal(
     (await fetch(`${b.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+});
+
+// The host reports a Gateway shutdown as a disable, so every restart paused the
+// live review and left lifting it to an Agent action the reviewer had to ask
+// for. Coming back is itself the proof that the extension is enabled.
+test("a registration after a shutdown-shaped disable resumes the paused projects", async (t) => {
+  const f = setup(t);
+  const opened = await f.open("projects/a");
+  const other = await f.open("projects/b");
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+  assert.deepEqual(resumeRegistered(f.workspace, f.options.installRoot), []);
+  for (const instance of [opened, other])
+    assert.notEqual(
+      (await fetch(`${instance.url}api/draft`, { method: "PUT" })).status,
+      503,
+    );
+  for (const project of ["projects/a", "projects/b"])
+    assert.equal(
+      fs.existsSync(
+        path.join(f.manager.project(project).runtime, "disabled.json"),
+      ),
+      false,
+    );
+});
+
+// Resuming is scoped exactly like pausing: another MeshCue install's projects
+// are not this install's to un-pause, however stale their marker looks.
+test("resume leaves projects registered to another install root paused", async (t) => {
+  const f = setup(t);
+  const opened = await f.open("projects/a");
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), []);
+  const file = path.join(f.workspace, "projects/meshcue-state/registry.json");
+  const registry = JSON.parse(fs.readFileSync(file, "utf8"));
+  for (const item of Object.values(registry.projects))
+    item.installRoot = "/somewhere/else/meshcue";
+  fs.writeFileSync(file, JSON.stringify(registry));
+  assert.deepEqual(resumeRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(
+    (await fetch(`${opened.url}api/draft`, { method: "PUT" })).status,
     503,
   );
 });

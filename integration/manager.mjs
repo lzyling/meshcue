@@ -30,6 +30,52 @@ import {
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const alive = (pid) => processAlive(pid);
+// The child inherits this descriptor for its whole run, so rotation can only
+// happen between runs. One generation back is enough to keep the log of the
+// release that just failed while bounding a project at twice the cap.
+export const LOG_LIMIT = 5 * 1024 * 1024;
+// A release id is the content hash of the installed package, so anything that
+// is not one is not ours to delete. Never widen this to "whatever is in there".
+const RELEASE_ID = /^[0-9a-f]{64}$/;
+export function pruneReleases(runtime, keep) {
+  const directory = path.join(runtime, "releases");
+  const kept = new Set(keep.filter(Boolean));
+  let entries;
+  try {
+    entries = fs.readdirSync(directory);
+  } catch {
+    return [];
+  }
+  const removed = [];
+  for (const id of entries) {
+    if (kept.has(id) || !RELEASE_ID.test(id)) continue;
+    try {
+      fs.rmSync(scopedPath(runtime, `releases/${id}`, { directory: true }), {
+        recursive: true,
+        force: true,
+      });
+      removed.push(id);
+    } catch (error) {
+      log.warn("integration", "could not remove a superseded release", {
+        release: id,
+        ...errorDetail(error),
+      });
+    }
+  }
+  return removed;
+}
+function rotateLog(runtime) {
+  const file = path.join(runtime, "server.log");
+  try {
+    if (fs.statSync(file).size >= LOG_LIMIT) fs.renameSync(file, `${file}.1`);
+  } catch (error) {
+    if (error.code !== "ENOENT")
+      log.warn("integration", "could not rotate the service log", {
+        ...errorDetail(error),
+      });
+  }
+  return file;
+}
 export async function ipc(runtime, instance, route, body) {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -278,6 +324,11 @@ export class InstanceManager {
       const state = await this.launch(p, config, release);
       if (release.id) config.lastGoodRelease = release.id;
       atomicJson(path.join(p.runtime, "config.json"), config);
+      // Each release is a full copy of the runtime, and nothing ever removed
+      // the superseded ones: a project accumulated a few megabytes per upgrade
+      // for the lifetime of the review. Only the running one and the rollback
+      // target are ever launched again.
+      pruneReleases(p.runtime, [release.id, previous.lastGoodRelease]);
       return state;
     } catch (error) {
       if (previous.lastGoodRelease && previous.lastGoodRelease !== release.id) {
@@ -329,7 +380,7 @@ export class InstanceManager {
       }
     }
     atomicJson(path.join(p.runtime, "config.json"), config);
-    const log = fs.openSync(path.join(p.runtime, "server.log"), "a", 0o600);
+    const log = fs.openSync(rotateLog(p.runtime), "a", 0o600);
     const child = spawn(process.execPath, [release.serverEntry], {
       cwd: release.root,
       detached: true,
@@ -599,7 +650,10 @@ export class InstanceManager {
 
 // Disable may execute in a fresh Gateway process, not in the worker that used
 // the tool. Resolve durable, workspace-local records rather than in-memory PIDs.
-export function pauseRegistered(workspace, installRoot) {
+// Pausing and resuming share this walk so they can never disagree about which
+// projects this install is allowed to touch, or about how a runtime directory
+// proves it still belongs to the instance the registry recorded.
+function eachRegistered(workspace, installRoot, verb, act) {
   const root = fs.realpathSync(workspace);
   const file = path.join(root, "projects/meshcue-state/registry.json");
   if (!fs.existsSync(file)) return [];
@@ -617,12 +671,9 @@ export function pauseRegistered(workspace, installRoot) {
       );
       if (config.instance?.id !== item.instanceId)
         throw new Error("Instance changed");
-      atomicJson(path.join(runtime, "disabled.json"), {
-        disabledAt: Date.now(),
-        instanceId: item.instanceId,
-      });
+      act(runtime, item);
     } catch (error) {
-      log.warn("integration", "could not pause a registered project", {
+      log.warn("integration", `could not ${verb} a registered project`, {
         project: item.project,
         ...errorDetail(error),
       });
@@ -630,4 +681,25 @@ export function pauseRegistered(workspace, installRoot) {
     }
   }
   return unavailable;
+}
+export function pauseRegistered(workspace, installRoot) {
+  return eachRegistered(workspace, installRoot, "pause", (runtime, item) =>
+    atomicJson(path.join(runtime, "disabled.json"), {
+      disabledAt: Date.now(),
+      instanceId: item.instanceId,
+    }),
+  );
+}
+// A Gateway shutdown reaches a plugin as a disable: the host picks the "restart"
+// reason only when the plugin is still present in the next registry, and a
+// process that is going away has no next registry. So the marker cannot be
+// avoided at pause time — but it does not have to be. Loading at all proves the
+// extension is enabled, which makes any marker left by the previous process
+// stale regardless of which of the two wrote it. A plugin that really was
+// disabled never registers again, so its marker is never reached here.
+export function resumeRegistered(workspace, installRoot) {
+  return eachRegistered(workspace, installRoot, "resume", (runtime) => {
+    const marker = path.join(runtime, "disabled.json");
+    if (fs.existsSync(marker)) fs.unlinkSync(marker);
+  });
 }

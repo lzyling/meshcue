@@ -1347,3 +1347,53 @@ test("LAN HTTP: real insecure origin can verify models, create IDs and save anno
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#annotation-count")).toHaveText("1");
 });
+
+test("switching versions reports its own cost, sweeps dead draft caches and keeps recovery backups", async ({
+  page,
+}) => {
+  await ready(page);
+  const first = await page.evaluate(
+    () => window.__reviewDiagnostics().versionId,
+  );
+  const next = publish("bunny-figurine.glb", "v2");
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(next.model.id);
+  // Every version keeps its own cached draft and every new review generation
+  // starts another set, so the keys only accumulate — and running out of quota
+  // is what puts the page into the mode that stops editing to protect an
+  // unsynced draft. A cache the server already holds costs a reload to rebuild;
+  // one with unsaved work, and any backup written because work was at risk,
+  // has to survive however stale it looks.
+  const seeded = await page.evaluate(
+    (live) => {
+      const spent = `3d-review-draft-oldversion-${live.reviewId}`;
+      const unsynced = "3d-review-draft-oldversion-earlier-review";
+      localStorage.setItem(spent, JSON.stringify({ dirty: false }));
+      localStorage.setItem(unsynced, JSON.stringify({ dirty: true }));
+      localStorage.setItem(`${live.draftCacheKey}-recovery-kept`, "{}");
+      return { spent, unsynced, kept: `${live.draftCacheKey}-recovery-kept` };
+    },
+    await page.evaluate(() => window.__reviewDiagnostics()),
+  );
+  await page.locator(`.version-tab[data-version-id="${first}"]`).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(first);
+  expect(
+    await page.evaluate((k) => localStorage.getItem(k), seeded.spent),
+  ).toBeNull();
+  for (const key of [seeded.unsynced, seeded.kept])
+    expect(
+      await page.evaluate((k) => localStorage.getItem(k), key),
+    ).not.toBeNull();
+  // Rationing the subdivision budget produces no error and no visible defect
+  // until a brush skips a whole flat panel, so the page has to be able to say
+  // it. These fixtures fit, and claiming otherwise would be the worse failure.
+  const precision = await page.evaluate(
+    () => window.__reviewDiagnostics().precision,
+  );
+  expect(precision.rationed).toBe(false);
+  expect(precision.wanted).toBeLessThanOrEqual(precision.budget);
+  await expect(page.locator("#precision-banner")).toBeHidden();
+});

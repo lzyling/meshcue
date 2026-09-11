@@ -5,6 +5,7 @@ import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import {
   InstanceManager,
   pauseRegistered,
+  resumeRegistered,
 } from "../../integration/manager.mjs";
 import { precheckModel } from "../../integration/precheck.mjs";
 
@@ -194,42 +195,62 @@ const plugin = defineToolPlugin({
     }),
   ],
 });
+// Every agent may point at its own workspace, and each workspace keeps its own
+// project registry, so both halves of the pause lifecycle have to walk all of
+// them rather than assume the default one.
+function configuredWorkspaces(api) {
+  return new Set(
+    [
+      api.config.agents?.defaults?.workspace,
+      ...Object.values(api.config.agents?.entries || {}).map(
+        (agent) => agent.workspace,
+      ),
+    ].filter(Boolean),
+  );
+}
+function sweepRegistrations(api, verb, sweep) {
+  let unavailable = 0;
+  for (const workspace of configuredWorkspaces(api)) {
+    try {
+      unavailable += sweep(workspace, api.rootDir).length;
+    } catch (error) {
+      api.logger?.warn?.(
+        `MeshCue ${verb}: registry unreadable for ${workspace}: ${error.message}`,
+      );
+      unavailable++;
+    }
+  }
+  if (unavailable)
+    api.logger?.warn(
+      `MeshCue ${verb}: ${unavailable} unavailable registrations; other instances were processed.`,
+    );
+}
 // Preserve the SDK's static metadata while adding the supported cleanup hook.
 const registerTools = plugin.register;
 plugin.register = (api) => {
   registerTools(api);
+  // Registering is itself the proof that this extension is enabled, so any
+  // pause marker a previous process left behind is stale. Clearing it here is
+  // what keeps a Gateway restart from stranding a live review behind a 503 that
+  // only an Agent action could lift: the host cannot tell MeshCue that a
+  // shutdown was a restart, but MeshCue can tell that it came back.
+  sweepRegistrations(api, "resume", resumeRegistered);
   api.lifecycle.registerRuntimeLifecycle({
     id: "meshcue-instances",
     description:
       "Pause managed review writes when the extension is disabled; keep drafts and outbox.",
     cleanup({ reason }) {
-      if (reason === "disable") {
-        let unavailable = 0;
-        for (const manager of new Set(managers.values()))
-          unavailable += manager.pauseOwned().length;
-        const workspaces = new Set(
-          [
-            api.config.agents?.defaults?.workspace,
-            ...Object.values(api.config.agents?.entries || {}).map(
-              (agent) => agent.workspace,
-            ),
-          ].filter(Boolean),
+      // "restart" means the plugin is still in the next registry, so the
+      // instances stay reachable and pausing them would only cost a reload.
+      if (reason !== "disable") return;
+      let unavailable = 0;
+      for (const manager of new Set(managers.values()))
+        unavailable += manager.pauseOwned().length;
+      if (unavailable)
+        api.logger?.warn(
+          `MeshCue disable: ${unavailable} managed instances could not be paused.`,
         );
-        for (const workspace of workspaces) {
-          try {
-            unavailable += pauseRegistered(workspace, api.rootDir).length;
-          } catch (error) {
-            api.logger?.warn?.(
-              `MeshCue disable: registry unreadable for ${workspace}: ${error.message}`,
-            );
-            unavailable++;
-          }
-        }
-        if (unavailable)
-          api.logger?.warn(
-            `MeshCue disable: ${unavailable} unavailable registrations; other instances were processed.`,
-          );
-      }
+      sweepRegistrations(api, "disable", pauseRegistered);
       // Gateway restart is deliberately not a model-service restart. Reset is
       // handled by each batch's generation CAS, not by deleting browser data.
     },

@@ -228,6 +228,11 @@ a {
 .version-tab:hover {
   border-color: #5d7a6c;
 }
+/* A switch already in flight swallows any further click; look that way too. */
+.version-tabs.busy {
+  pointer-events: none;
+  opacity: 0.55;
+}
 .version-tab.current {
   border-color: #6ab398;
 }
@@ -577,6 +582,12 @@ a {
   border-radius: 8px;
   gap: 15px;
   line-height: 1.6;
+}
+/* Losing work is the fear a delivery failure triggers, and nothing here is
+   lost. Warn without borrowing the colour an unrecoverable error would use. */
+.pending-banner.warn {
+  background: #402c1f;
+  color: #f0cdae;
 }
 .loading-overlay {
   position: absolute;

@@ -3,6 +3,33 @@ import { promisify } from "node:util";
 import { normalizeOrigin, deliveryParams } from "./origin.mjs";
 const exec = promisify(execFile);
 
+// Every failure out of call() carries the host's own two fields, so a caller
+// never has to parse prose to find out what went wrong or whether to retry.
+function hostFailure(method, { code, message }) {
+  const failure = new Error(`OpenClaw 未接納請求：${message}`);
+  failure.method = method;
+  failure.hostError = { code, message: String(message).slice(0, 300) };
+  return failure;
+}
+// execFile puts the whole command line in its message, and for chat.send that
+// line contains the annotation text. A review's log file outlives the review
+// and is not access controlled, so the payload must not reach it: report the
+// spawn failure by its own fields instead.
+function spawnFailure(method, error) {
+  const reason = error.killed
+    ? "呼叫超時"
+    : error.code === "ENOENT"
+      ? "找不到 openclaw 指令"
+      : `openclaw 結束碼 ${error.code ?? "?"}`;
+  const detail = String(error.stderr || "")
+    .trim()
+    .slice(0, 200);
+  return hostFailure(method, {
+    code: error.killed ? "TIMEOUT" : `SPAWN_${error.code ?? "FAILED"}`,
+    message: detail ? `${reason}：${detail}` : reason,
+  });
+}
+
 export class OpenClawBridge {
   constructor(sessionKey, { enabled = true } = {}) {
     this.origin = normalizeOrigin(sessionKey);
@@ -35,7 +62,8 @@ export class OpenClawBridge {
       // read, so the reason used to be discarded and every retry rediscovered
       // nothing: an admin-scope rejection stalled a whole review round while
       // the log said only "Command failed". Keep the payload when there is one.
-      if (typeof error.stdout !== "string" || !error.stdout.trim()) throw error;
+      if (typeof error.stdout !== "string" || !error.stdout.trim())
+        throw spawnFailure(method, error);
       stdout = error.stdout;
       refused = true;
     }
@@ -43,22 +71,28 @@ export class OpenClawBridge {
     try {
       data = JSON.parse(stdout);
     } catch {
-      throw new Error(`OpenClaw 回應無法解析：${String(stdout).slice(0, 300)}`);
+      throw hostFailure(method, {
+        code: "UNPARSEABLE_RESPONSE",
+        message: `回應無法解析：${String(stdout).slice(0, 200)}`,
+      });
     }
     // A non-zero exit is a failure even if the payload does not say so, so it
     // can never be read back as an accepted send.
     if (refused || data.error || data.ok === false) {
-      // Keep the host's own reason: this is the only place it exists, and the
-      // caller converts it to a fixed user-facing message anyway.
-      const reason =
-        typeof data.error === "string"
-          ? data.error
-          : JSON.stringify(data.error ?? data);
-      const failure = new Error(
-        `OpenClaw 未接納請求：${String(reason).slice(0, 300)}`,
-      );
-      failure.method = method;
-      throw failure;
+      // Keep the host's own reason: this is the only place it exists, and every
+      // layer above needs it to be the same two fields whatever shape it took.
+      const raw = data.error;
+      throw hostFailure(method, {
+        code:
+          (typeof raw === "object" && raw?.code) ||
+          (data.ok === false ? "REFUSED" : "UNKNOWN"),
+        message:
+          typeof raw === "string"
+            ? raw
+            : typeof raw?.message === "string"
+              ? raw.message
+              : JSON.stringify(raw ?? data).slice(0, 300),
+      });
     }
     return data;
   }

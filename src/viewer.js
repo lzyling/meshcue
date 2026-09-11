@@ -18,6 +18,16 @@ THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 const V = THREE.Vector3;
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
+// Let the browser actually paint before a long synchronous block starts. One
+// animation frame only schedules the work; the second is what proves it ran.
+// Off-screen callers — the geometry tests drive this same load path in Node —
+// have nothing to paint, so they just need the turn of the event loop.
+const nextPaint = () =>
+  new Promise((resolve) =>
+    typeof requestAnimationFrame === "function"
+      ? requestAnimationFrame(() => requestAnimationFrame(resolve))
+      : setTimeout(resolve, 0),
+  );
 export class ModelViewer {
   constructor(
     container,
@@ -207,7 +217,7 @@ export class ModelViewer {
     this.occlusionValid = false;
     this.renderer.renderLists.dispose();
   }
-  async load(model, url) {
+  async load(model, url, onStage = () => {}) {
     const epoch = ++this.loadingEpoch;
     this.enabled = false;
     this.clearModel();
@@ -281,6 +291,14 @@ export class ModelViewer {
     );
     const demand = extra.reduce((n, x) => n + x, 0);
     const spare = MAX_REVIEW_TRIANGLES - sourceTotal;
+    // Subdividing and building bounds trees is one synchronous block: whatever
+    // is on screen when it starts stays frozen there until it ends, animations
+    // included. Version tabs turn that from a one-time cost at open into a cost
+    // per switch, so name it rather than leaving a stalled spinner. Two frames,
+    // because one only schedules the paint and the second proves it happened.
+    onStage(`重新計算審閱網格（${sourceTotal.toLocaleString()} 面）`);
+    await nextPaint();
+    if (epoch !== this.loadingEpoch) return;
     const originals = new Set();
     try {
       source.forEach((o, i) => {
@@ -328,7 +346,17 @@ export class ModelViewer {
     }));
     await this.onReady({ sha256: hash, meshes: manifest });
     if (epoch === this.loadingEpoch) this.enabled = true;
-    return { triangles: total, meshes: this.meshes.length };
+    return {
+      triangles: total,
+      meshes: this.meshes.length,
+      // Running out of budget is silent by construction: the model loads, the
+      // brush works, and only the large flat spans stop following a stroke. The
+      // numbers that prove it exist right here and nowhere else afterwards.
+      rationed: demand > spare,
+      wanted: sourceTotal + demand,
+      budget: MAX_REVIEW_TRIANGLES,
+      sourceTriangles: sourceTotal,
+    };
   }
   rayAt(x, y) {
     // Input can arrive before the next render after orbit/home changes.

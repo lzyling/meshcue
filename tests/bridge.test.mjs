@@ -107,7 +107,13 @@ test("a refused call keeps the host's typed reason instead of just the exit code
   const bridge = new OpenClawBridge("refusal-session");
   await assert.rejects(bridge.call("chat.send", { message: "x" }), (error) => {
     assert.match(error.message, /admin scope/);
-    assert.match(error.message, /INVALID_REQUEST/);
+    // Two fields rather than prose to grep: the outbox stores them on the batch
+    // so the page and the Agent can state the cause, and a caller that wants to
+    // branch on the code should not have to parse a sentence for it.
+    assert.deepEqual(error.hostError, {
+      code: "INVALID_REQUEST",
+      message: "originating route fields require admin scope",
+    });
     return true;
   });
 });

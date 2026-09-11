@@ -15,6 +15,7 @@ export async function startReview(
     instance,
     workspace,
     managed = false,
+    stallAfter,
   } = {},
 ) {
   const repo = process.cwd();
@@ -45,6 +46,7 @@ export async function startReview(
         REVIEW_SESSION_KEY: origin ? "" : "test-internal-http-session",
         REVIEW_BRIDGE: "on",
         REVIEW_OUTBOX_MS: "1000",
+        ...(stallAfter ? { REVIEW_STALL_AFTER: String(stallAfter) } : {}),
         REVIEW_ACCESS: protectedAccess ? "required" : "",
         REVIEW_ALLOWED_HOSTS: "review.test",
         REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),

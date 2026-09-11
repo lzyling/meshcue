@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { cacheRelease, cachedRelease } from "../integration/release.mjs";
+import { pruneReleases } from "../integration/manager.mjs";
 
 // The version cache is what an upgrade rolls back to. Nothing here was covered,
 // so a package that had been altered on disk could have been launched anyway.
@@ -104,4 +105,29 @@ test("a package that is not MeshCue, or not plain files, does not start", (t) =>
   assert.throws(() => cacheRelease(linked.install, linked.runtime), {
     code: "PACKAGE_INVALID",
   });
+});
+
+// Every upgrade copies a whole runtime into releases/ and nothing removed the
+// old ones, so a project grew a few megabytes per version for the life of the
+// review. Only the running release and the rollback target are ever launched.
+test("superseded releases are removed, and only real release ids are touched", (t) => {
+  const f = fixture(t);
+  const current = cacheRelease(f.install, f.runtime).id;
+  f.write("runtime/server.mjs", "export const server = 2;\n");
+  const upgraded = cacheRelease(f.install, f.runtime).id;
+  f.write("runtime/server.mjs", "export const server = 3;\n");
+  const newest = cacheRelease(f.install, f.runtime).id;
+  assert.equal(new Set([current, upgraded, newest]).size, 3);
+  // Anything in here that is not a content hash was not put there by us.
+  const foreign = path.join(f.runtime, "releases", "not-a-release-id");
+  fs.mkdirSync(foreign, { recursive: true });
+  assert.deepEqual(pruneReleases(f.runtime, [newest, upgraded]), [current]);
+  assert.deepEqual(
+    fs.readdirSync(path.join(f.runtime, "releases")).sort(),
+    [...[newest, upgraded].sort(), "not-a-release-id"].sort(),
+  );
+  // The one still running has to survive a keep list with holes in it.
+  assert.deepEqual(pruneReleases(f.runtime, [newest, undefined]), [upgraded]);
+  assert.equal(cachedRelease(f.runtime, newest).id, newest);
+  assert.equal(fs.existsSync(foreign), true);
 });

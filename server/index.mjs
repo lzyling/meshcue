@@ -566,6 +566,36 @@ app.post("/api/feedback", async (req, res) => {
     return res.json({ ...item, annotations: undefined });
   res.json(await deliverFeedback(item));
 });
+// Roughly ninety minutes on the backoff curve: long enough that a Gateway
+// restart or a brief outage never raises it, short enough that a reviewer is
+// still in front of the page when it does.
+const STALL_AFTER = Math.max(1, Number(process.env.REVIEW_STALL_AFTER) || 20);
+// One failing send used to write a full record on every retry, so a single
+// stuck batch produced a couple of hundred identical multi-line entries. Report
+// each distinct cause once, then stay quiet about it until it changes.
+const loggedCauses = new Map();
+function logDeliveryFailure(submissionId, attempts, cause, error) {
+  const signature = `${cause.code} ${cause.message}`;
+  if (loggedCauses.get(submissionId) === signature) {
+    if (attempts % 10 === 0)
+      log.warn("feedback", "delivery still failing for the same reason", {
+        submissionId,
+        attempts,
+        code: cause.code,
+      });
+    return;
+  }
+  loggedCauses.set(submissionId, signature);
+  log.error("feedback", "delivery to the origin session failed", {
+    submissionId,
+    attempts,
+    code: cause.code,
+    reason: cause.message,
+    // A host rejection is fully described by its own fields; only an unexpected
+    // throw needs a stack, and errorDetail is what keeps that bounded.
+    ...(error.hostError ? {} : errorDetail(error)),
+  });
+}
 function deliverFeedback(item) {
   if (!managedEnabled())
     throw new ReviewError(
@@ -598,9 +628,12 @@ function deliverFeedback(item) {
         try {
           const bridge = bridgeFor(store.submissionOrigin(item));
           const result = await bridge.send(message, `3d-feedback-${item.id}`);
+          loggedCauses.delete(item.id);
           store.submissionStatus(item.id, "accepted", {
             runId: result.runId || null,
             acceptedAt: Date.now(),
+            lastError: null,
+            stalledAt: null,
           });
           try {
             const history = await bridge.history(item.createdAt - 5000);
@@ -624,17 +657,32 @@ function deliverFeedback(item) {
           const { annotations, ...receipt } = item;
           return receipt;
         } catch (error) {
-          log.error("feedback", "delivery to the origin session failed", {
-            submissionId: item.id,
-            attempts: (item.attempts || 0) + 1,
-            ...errorDetail(error),
-          });
-          store.submissionStatus(item.id, "unconfirmed", {
-            error: "尚未確認交到 OpenClaw；標注已保存在本機。",
-            nextAttemptAt:
-              Date.now() +
-              Math.min(300000, 1000 * 2 ** Math.min(item.attempts || 1, 8)),
-          });
+          // Already counted when this attempt moved to "sending"; the old log
+          // line added one again and reported a number the batch never held.
+          const attempts = item.attempts || 0;
+          const cause = error.hostError || {
+            code: error.code || "UNKNOWN",
+            message: String(error.message || error).slice(0, 300),
+          };
+          logDeliveryFailure(item.id, attempts, cause, error);
+          // The outbox retries forever by design — the failure that stalled a
+          // real round was fixed in code, and the queue healed itself on the
+          // next pass. Retrying is not the problem; doing it silently was. Past
+          // the stall mark the batch says so in its own status, so the page and
+          // the Agent can surface it instead of only the log knowing.
+          store.submissionStatus(
+            item.id,
+            attempts >= STALL_AFTER ? "stalled" : "unconfirmed",
+            {
+              error: "尚未確認交到 OpenClaw；標注已保存在本機。",
+              lastError: { ...cause, at: Date.now() },
+              stalledAt:
+                attempts >= STALL_AFTER ? item.stalledAt || Date.now() : null,
+              nextAttemptAt:
+                Date.now() +
+                Math.min(300000, 1000 * 2 ** Math.min(item.attempts || 1, 8)),
+            },
+          );
           throw new ReviewError(
             "未能確認送達；標注已保存。恢復連線後可用同一提交重試，不會重建標記。",
             502,
@@ -704,9 +752,41 @@ app.all("/api/chat", (req, res) =>
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
 const agentApp = express();
 agentApp.use(express.json({ limit: "16mb" }));
+// A batch nobody can deliver is invisible from the chat side: the one channel
+// that would report it is the one that is broken. Summarize it where the Agent
+// already looks, so it can say so in words instead of the reviewer noticing
+// hours later that the product never reacted.
+function outboxSummary() {
+  const queued = store.state.submissions.filter(
+    (item) => item.status !== "accepted",
+  );
+  const stalled = queued.filter((item) => item.status === "stalled");
+  const worst = stalled[0] || queued[0] || null;
+  return {
+    pending: queued.length,
+    stalled: stalled.length,
+    oldestAt: queued.length
+      ? Math.min(...queued.map((item) => item.createdAt || Date.now()))
+      : null,
+    attempts: worst?.attempts || 0,
+    lastError: worst?.lastError || null,
+  };
+}
 agentApp.get("/status", (req, res) =>
   res.json({
     ...stateFor("", true),
+    outbox: outboxSummary(),
+    // Version tabs mean no published model is ever deleted, which is the point
+    // — an older one stays markable. The cost is that a long project grows one
+    // model file per revision with nothing watching. Report it from the sizes
+    // already recorded rather than walking the directory on every poll.
+    storage: {
+      models: Object.keys(store.state.models).length,
+      bytes: Object.values(store.state.models).reduce(
+        (sum, model) => sum + (model.bytes || 0),
+        0,
+      ),
+    },
     viewerReceipts: store.state.viewerReceipts || {},
     origin: store.state.reviewOrigin,
     instance,

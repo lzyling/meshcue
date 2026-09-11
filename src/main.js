@@ -48,6 +48,8 @@ app.innerHTML = `
   <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">睇最新版本</button></div>
   <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗都開住呢一版。</span><button id="resume-review" class="quiet">繼續喺呢部機標記</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>本機另有未同步草稿，已保留，未覆蓋目前版本。</span><a id="download-recovery">下載草稿備份</a></div>
+  <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
+  <div id="precision-banner" class="pending-banner" hidden><span id="precision-text"></span></div>
   <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><a id="download-model" class="secondary-button" hidden>下載當前版本</a><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
@@ -87,6 +89,7 @@ let undoStack = [],
 let pollFlight = null,
   labelCursor = 0,
   relocatingId = null,
+  loadedPrecision = null,
   echoId = null;
 let recoveryBlocked = false,
   recoveryUrl = null,
@@ -150,8 +153,33 @@ function toast(text) {
 function owner() {
   return { versionId: loadedId, clientId };
 }
+const DRAFT_PREFIX = "3d-review-draft-";
 function draftKey() {
-  return `3d-review-draft-${loadedId}-${loadedReviewId}`;
+  return `${DRAFT_PREFIX}${loadedId}-${loadedReviewId}`;
+}
+// Every version keeps its own cached draft, and a new review generation starts
+// another set, so the keys only ever accumulate. Exhausting the quota is not
+// cosmetic here: it is exactly what puts the page into the mode that stops
+// editing to protect an unsynced draft. Age cannot decide what goes — an older
+// review's draft is precisely what "草稿保留，請在原會話接續" promises to keep.
+// Being unsynced can: a cache that matches what the server already holds costs
+// a reload to rebuild and nothing to lose. Recovery backups are never touched;
+// they exist because something was already at risk.
+function sweepDraftCache() {
+  const mine = draftKey();
+  const spent = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(DRAFT_PREFIX) || key === mine) continue;
+    if (key.slice(DRAFT_PREFIX.length).includes("-recovery-")) continue;
+    try {
+      if (JSON.parse(localStorage.getItem(key))?.dirty === true) continue;
+    } catch {
+      // Unreadable is not recoverable either way, and it still costs quota.
+    }
+    spent.push(key);
+  }
+  for (const key of spent) localStorage.removeItem(key);
 }
 function cacheDraft() {
   if (recoveryBlocked) return;
@@ -834,6 +862,10 @@ function renderVersions() {
 }
 async function selectVersion(id) {
   if (!id || id === viewingId || loadFlight || submitting) return;
+  // Switching costs a full re-tessellation, and the guard above silently drops
+  // anything clicked during one. Make the strip look as unavailable as it is,
+  // so the clicks are not made in the first place.
+  $("#version-tabs").classList.add("busy");
   // Claim the load slot before the first await. The poll starts its own load
   // whenever the Agent's version differs, and two loads racing each other end
   // as a hash mismatch: bytes from one model checked against another's digest.
@@ -852,6 +884,7 @@ async function selectVersion(id) {
     await loadFlight;
   } finally {
     loadFlight = null;
+    $("#version-tabs").classList.remove("busy");
     renderVersions();
     updateButtons();
   }
@@ -862,6 +895,7 @@ async function loadVersion(fullState) {
   viewingId = fullState.viewing || model.id;
   loadedId = model.id;
   loadedReviewId = fullState.reviewId;
+  sweepDraftCache();
   loadedReceipt = null;
   labelCursor = 0;
   echoId = null;
@@ -896,10 +930,14 @@ async function loadVersion(fullState) {
     const stats = await viewer.load(
       model,
       endpoint(`api/models/${model.filename}`),
+      (stage) => {
+        $("#loading-text").textContent = stage;
+      },
     );
     if (!stats) return;
     $("#model-info").textContent =
       `${model.triangles.toLocaleString()} 面 · ${model.format.toUpperCase()} · ${model.units}`;
+    updatePrecision(stats);
     await restoreDraft(fullState.draft);
     initialDraftRestored = true;
     renderAnnotations();
@@ -1005,6 +1043,7 @@ async function readState() {
       ? "回傳原會話"
       : "本機審閱";
     updateEcho(incoming);
+    updateOutbox(incoming);
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
@@ -1034,6 +1073,39 @@ function updateReceipt() {
     (editSeq > savedSeq || revision !== last.revision
       ? "；另有尚未提交改動"
       : "");
+}
+// Hitting the subdivision budget produces no error and no visible defect until
+// the reviewer tries to paint a large flat face and the brush jumps a whole
+// panel at a time — which looks exactly like a bug that was fixed for a
+// different reason. Say it up front, in the wording precheck already uses on
+// the Agent side, so both halves of the conversation name the same thing.
+function updatePrecision(stats) {
+  loadedPrecision = stats || null;
+  const short = stats?.rationed;
+  $("#precision-banner").hidden = !short;
+  if (!short) return;
+  $("#precision-text").textContent =
+    `呢個模型嘅面數已經食晒審閱網格嘅上限（要 ${stats.wanted.toLocaleString()} 個三角形，得 ${stats.budget.toLocaleString()}）。` +
+    `大平面唔會再細分，畫筆喺𠮶啲面上會一整片咁跳；細節位唔受影響。想要更準嘅筆觸，叫 Agent 用低啲嘅弦高重新匯出。`;
+}
+// The one channel that would report a delivery failure is the channel that is
+// failing, so the reviewer is the only person present to tell. A single missed
+// attempt is a blip the retry covers; from the second one the page says so and
+// keeps saying it, with the host's own reason rather than a generic apology.
+function updateOutbox(incoming) {
+  const stuck = (incoming.submissions || []).filter(
+    (item) => item.status !== "accepted" && (item.attempts || 0) >= 2,
+  );
+  $("#outbox-banner").hidden = !stuck.length;
+  if (!stuck.length) return;
+  const stalled = stuck.filter((item) => item.status === "stalled");
+  const worst = stalled[0] || stuck[0];
+  const reason = worst.lastError?.message
+    ? `原因：${worst.lastError.message}`
+    : "原因未明";
+  $("#outbox-text").textContent = stalled.length
+    ? `${stuck.length} 批標記一直送唔到 Agent（已重試 ${worst.attempts} 次，仍會繼續）。${reason}。標記已保存喺本機，請喺原會話講一聲。`
+    : `${stuck.length} 批標記未送到 Agent，正在重試（第 ${worst.attempts} 次）。${reason}。標記已保存，唔使重新標。`;
 }
 function updateEcho(incoming) {
   const echo = incoming.echo;
@@ -1197,6 +1269,7 @@ window.__reviewDiagnostics = () => ({
   versionId: loadedId,
   reviewId: loadedReviewId,
   draftCacheKey: draftKey(),
+  precision: loadedPrecision,
   accessBlocked,
   revision,
   annotationCount: annotations.length,
