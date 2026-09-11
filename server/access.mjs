@@ -89,14 +89,14 @@ export class ReviewAccess {
     grantMs = 15 * 60_000,
     sessionMs = 30 * 24 * 60 * 60_000,
     file = null,
-    protectedClient = () => null,
+    protectedClients = () => [],
   } = {}) {
     this.scope = scope;
     this.now = now;
     this.grantMs = grantMs;
     this.sessionMs = sessionMs;
     this.file = file;
-    this.protectedClient = protectedClient;
+    this.protectedClients = protectedClients;
     this.grant = null;
     this.sessions = new Map();
     this.clients = new Map();
@@ -329,10 +329,11 @@ export class ReviewAccess {
       );
     if (owner) return;
     // Remembering a browser for months must not exhaust a lifetime tab quota.
-    // Retire the oldest association, but never the active/draft lock owner.
+    // Retire the oldest association, but never a tab present on some version.
     if (item.clients.size >= 64) {
+      const protectedIds = this.protectedClients();
       const retired = [...item.clients].find(
-        (id) => id !== this.protectedClient(),
+        (id) => !protectedIds.includes(id),
       );
       item.clients.delete(retired);
       this.clients.delete(retired);

@@ -40,7 +40,18 @@ const parameters = {
   properties: {
     action: {
       type: "string",
-      enum: ["inspect", "precheck", "open", "status", "read", "echo", "stop"],
+      enum: [
+        "inspect",
+        "precheck",
+        "open",
+        "status",
+        "activate",
+        "read",
+        "echo",
+        "finish",
+        "unlock",
+        "stop",
+      ],
     },
     project: {
       type: "string",
@@ -55,6 +66,21 @@ const parameters = {
     name: { type: "string" },
     version: { type: "string" },
     units: { type: "string" },
+    label: {
+      type: "string",
+      description:
+        "Short tab caption for this version, e.g. v0.2. Defaults to the version string, which the workstation truncates.",
+    },
+    versionId: {
+      type: "string",
+      description:
+        "Published version to act on, from status.versions. Omit to use the one on screen.",
+    },
+    activate: {
+      type: "boolean",
+      description:
+        "Default true: open shows the newly published version. False publishes it as a selectable tab without changing what the reviewer is looking at.",
+    },
     resume: {
       type: "boolean",
       description:
@@ -77,7 +103,7 @@ const parameters = {
   required: ["action"],
 };
 const description =
-  "Open or continue browser-based 3D model review in the current conversation; publish GLB/STL drafts, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MB, and annotation precision already degrades above 300000 triangles: run precheck on the file before every open, and when its verdict is reject or degraded, simplify the model and say so before publishing. inspect and precheck are read-only. Never finish a user's review automatically.";
+  "Open or continue browser-based 3D model review in the current conversation; publish GLB/STL drafts, choose which published version the reviewer sees, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MB, and annotation precision already degrades above 300000 triangles: run precheck on the file before every open, and when its verdict is reject or degraded, simplify the model and say so before publishing. Every published version stays selectable and annotatable, so activate switches the display freely and never discards a draft; status lists versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and check whether a marking made against an older version still applies to the current one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
 
 const managers = new Map();
 const plugin = defineToolPlugin({

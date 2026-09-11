@@ -122,7 +122,8 @@ const accessRequired = network.lan || process.env.REVIEW_ACCESS === "required";
 const access = new ReviewAccess({
   scope: () => store.state.bindingId,
   file: accessRequired ? path.join(runtime, "browser-access.json") : null,
-  protectedClient: () => store.state.lock?.clientId || null,
+  protectedClients: () =>
+    Object.values(store.state.presence).map((p) => p.clientId),
 });
 function rememberUse(req, res) {
   if (!accessRequired) return;
@@ -306,8 +307,8 @@ const draftSchema = owner.extend({
   annotations: z.array(annotation).max(200),
   camera,
 });
-function stateFor(clientId, full = false) {
-  const state = store.publicState(clientId);
+function stateFor(clientId, full = false, versionId) {
+  const state = store.publicState(clientId, versionId);
   delete state.messages;
   if (!full && state.draft)
     state.draft = {
@@ -452,6 +453,7 @@ app.get("/api/state", (req, res) =>
     stateFor(
       req.reviewClientId ?? String(req.query.clientId || ""),
       req.query.full === "1",
+      req.query.versionId ? String(req.query.versionId) : undefined,
     ),
   ),
 );
@@ -496,18 +498,18 @@ app.post("/api/review/begin", (req, res) => {
     throw new ReviewError("請等模型完成載入及版本核對。", 409, "NOT_READY");
   store.acquire(p.versionId, p.clientId);
   rememberUse(req, res);
-  res.json(stateFor(p.clientId, true));
+  res.json(stateFor(p.clientId, true, p.versionId));
 });
 app.post("/api/review/heartbeat", (req, res) => {
-  const p = z.object({ clientId: id }).parse(req.body);
-  store.heartbeat(p.clientId);
+  const p = z.object({ clientId: id, versionId: id.optional() }).parse(req.body);
+  if (p.versionId) store.heartbeat(p.clientId, p.versionId);
   res.json({ ok: true });
 });
 app.post("/api/review/resume", (req, res) => {
   const p = owner.parse(req.body);
   store.resume(p.versionId, p.clientId);
   rememberUse(req, res);
-  res.json(stateFor(p.clientId, true));
+  res.json(stateFor(p.clientId, true, p.versionId));
 });
 app.put("/api/draft", (req, res) => {
   const p = draftSchema.parse(req.body);
@@ -516,33 +518,41 @@ app.put("/api/draft", (req, res) => {
   rememberUse(req, res);
   res.json(draft);
 });
-app.post("/api/review/finish", (req, res) => {
+app.post("/api/review/finish", async (req, res) => {
   const p = owner.parse(req.body);
-  store.finish(p.versionId, p.clientId);
-  if (req.reviewAccess && req.reviewAccess.scope !== store.state.bindingId)
-    throw new AccessError(
-      "此輪審閱已完成，請返回原對話取得下一輪入口。",
-      409,
-      "REVIEW_FINISHED",
-    );
+  const { sealed } = store.finish(p.versionId, p.clientId);
   rememberUse(req, res);
-  res.json(stateFor(p.clientId, true));
+  const state = stateFor(p.clientId, true, p.versionId);
+  if (!sealed) return res.json(state);
+  // Finishing must not fail on delivery. The sealed batch is already durable
+  // and the outbox retries it; a Gateway outage cannot reopen a closed round.
+  try {
+    await deliverFeedback(attachManifest(sealed));
+  } catch (error) {
+    log.warn("review", "sealed batch is queued but not yet delivered", {
+      submissionId: sealed.id,
+      ...errorDetail(error),
+    });
+  }
+  res.json({ ...state, sealed: sealed.id });
 });
 const feedbackFlights = new Map();
+function attachManifest(item) {
+  if (item.meshManifest) return item;
+  item.meshManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(runtime, "manifests", `${item.versionId}.json`),
+      "utf8",
+    ),
+  );
+  store.submissionStatus(item.id, item.status);
+  return item;
+}
 app.post("/api/feedback", async (req, res) => {
   const p = owner
     .extend({ revision: z.number().int().min(0), submissionId: id })
     .parse(req.body);
-  let item = store.createSubmission(p);
-  if (!item.meshManifest) {
-    item.meshManifest = JSON.parse(
-      fs.readFileSync(
-        path.join(runtime, "manifests", `${p.versionId}.json`),
-        "utf8",
-      ),
-    );
-    store.submissionStatus(item.id, item.status);
-  }
+  const item = attachManifest(store.createSubmission(p));
   if (item.status === "accepted")
     return res.json({ ...item, annotations: undefined });
   res.json(await deliverFeedback(item));
@@ -692,10 +702,8 @@ agentApp.get("/status", (req, res) =>
     origin: store.state.reviewOrigin,
     instance,
     integrationApi: INTEGRATION_API,
-    pendingOrigin: store.state.pendingOrigin,
     codeRoot: repo,
     releaseId: process.env.REVIEW_RELEASE_ID || null,
-    pending: store.state.pending,
     network: {
       host: network.host,
       port: server.address()?.port,
@@ -711,15 +719,15 @@ agentApp.post("/maintenance", (req, res) => {
     maintenanceUntil = 0;
     return res.json({ paused: false });
   }
-  const d = store.state.draft;
-  if (
-    store.state.lock ||
-    (d &&
-      (d.annotations.length || d.submittedRevision != null) &&
-      d.submittedRevision !== d.revision)
-  )
+  // Drafts are durable and keyed by version, so a restart costs a reload, not
+  // work. Only a reviewer marking right now is worth interrupting for, and the
+  // caller can still say so explicitly instead of being refused outright.
+  const busy = Object.keys(store.state.presence).filter((versionId) =>
+    store.livePresence(versionId),
+  );
+  if (busy.length && req.body.force !== true)
     throw new ReviewError(
-      "使用者尚在審閱；未停止或升級服務。",
+      "使用者正在標記；未停止或升級服務。草稿已保存，可稍後重試或明確強制。",
       423,
       "REVIEW_BUSY",
     );
@@ -737,14 +745,47 @@ agentApp.post("/publish", (req, res) => {
       version: z.string().max(80).optional(),
       source: z.string().optional(),
       units: z.string().max(30).optional(),
+      label: z.string().max(24).optional(),
       origin: originSchema.optional(),
+      activate: z.boolean().optional(),
     })
     // Strict like every other write route: a caller that misnames a field must
     // hear about it rather than have the model published under a default.
     .strict()
     .parse(req.body);
   const model = importModel(p, { workspace, mediaDir });
-  res.json(store.publish(model, p.origin));
+  if (p.label) model.label = p.label;
+  res.json(store.publish(model, p.origin, { activate: p.activate !== false }));
+});
+// Presentation is the Agent's to drive: it decides which version the reviewer
+// is looking at. Every version keeps its own draft, so switching costs nothing
+// and needs no permission from whoever has the page open.
+agentApp.post("/activate", (req, res) => {
+  const p = z.object({ versionId: id }).strict().parse(req.body);
+  res.json({ active: store.activate(p.versionId) });
+});
+agentApp.post("/finish", (req, res) => {
+  const p = z
+    .object({ versionId: id.optional() })
+    .strict()
+    .parse(req.body);
+  const versionId = p.versionId || store.state.active?.id;
+  if (!versionId) throw new ReviewError("尚未有可結束的版本。", 409, "NO_MODEL");
+  const { sealed } = store.finish(versionId, null);
+  if (sealed) deliverFeedback(attachManifest(sealed)).catch(() => {});
+  res.json({ versionId, sealed: sealed?.id || null });
+});
+// A tab that stopped reporting must never keep anyone out. Presence is only a
+// hint, but clearing it explicitly is still the honest way to say "carry on".
+agentApp.post("/unlock", (req, res) => {
+  const p = z
+    .object({ versionId: id.optional() })
+    .strict()
+    .parse(req.body);
+  const cleared = p.versionId ? [p.versionId] : Object.keys(store.state.presence);
+  for (const versionId of cleared) delete store.state.presence[versionId];
+  store.save();
+  res.json({ cleared });
 });
 agentApp.post("/access/issue", (req, res) => {
   if (!accessRequired || !store.state.active)
@@ -825,9 +866,9 @@ agentApp.post("/echo", (req, res) => {
 function errorHandler(err, req, res, next) {
   const schemaError = err instanceof z.ZodError;
   const status = schemaError ? 400 : err.status || 500;
-  // A ReviewError's 4xx is the documented contract and its message reaches the
-  // client intact. A schema rejection does not: the client is told only that the
-  // input was malformed, so the rejected field exists nowhere but here.
+  // A 4xx reaches the client as one transient line in the page and is then
+  // gone. Nothing else records it, so a reviewer reporting "the button does
+  // nothing" left no trace at all to work from. Every rejection is logged.
   if (status >= 500)
     log.error("http", "request failed", {
       method: req.method,
@@ -843,6 +884,14 @@ function errorHandler(err, req, res, next) {
         code: i.code,
         message: i.message,
       })),
+    });
+  else
+    log.warn("http", "request refused", {
+      method: req.method,
+      path: req.path,
+      status,
+      code: err.code || "ERROR",
+      message: err.message,
     });
   res.status(status).json({
     error: schemaError

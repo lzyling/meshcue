@@ -25,17 +25,18 @@ export class ReviewStore {
     this.state = fs.existsSync(this.file)
       ? JSON.parse(fs.readFileSync(this.file, "utf8"))
       : {
-          schemaVersion: 1,
+          schemaVersion: 2,
           generation: 0,
           active: null,
-          pending: null,
-          lock: null,
-          draft: null,
+          models: {},
+          drafts: {},
+          presence: {},
+          echoes: {},
           submissions: [],
           messages: [],
           startedAt: Date.now(),
         };
-    if (this.state.schemaVersion !== 1)
+    if (![1, 2].includes(this.state.schemaVersion))
       throw new ReviewError(
         "此資料版本未受支援；未遷移或覆蓋現有資料。",
         409,
@@ -101,7 +102,52 @@ export class ReviewStore {
         this.state.pendingBindingId,
       );
     }
+    this.migrateToSchema2();
     this.save();
+  }
+  // Schema 1 held one draft, one lock, one echo and one queued model, so every
+  // one of them had to be surrendered before the next version could be shown.
+  // Schema 2 keys all four by version: switching what is displayed no longer
+  // destroys anything, which is what let the queue and its gate be removed.
+  migrateToSchema2() {
+    const s = this.state;
+    s.models ||= {};
+    s.modelOrigins ||= {};
+    s.drafts ||= {};
+    s.presence ||= {};
+    s.echoes ||= {};
+    if (s.schemaVersion === 2) return;
+    for (const [id, model] of Object.entries(s.models))
+      s.modelOrigins[id] ||= structuredClone(
+        model.id === s.pending?.id ? s.pendingOrigin : s.reviewOrigin,
+      );
+    if (s.draft?.versionId) s.drafts[s.draft.versionId] = s.draft;
+    if (s.lock?.versionId)
+      s.presence[s.lock.versionId] = {
+        clientId: s.lock.clientId,
+        touchedAt: s.lock.touchedAt,
+      };
+    if (s.echo?.versionId) s.echoes[s.echo.versionId] = s.echo;
+    // A queued model was already published; it just had nowhere to go. Keep it
+    // as an ordinary version so it is immediately selectable instead of lost.
+    if (s.pending) {
+      s.models[s.pending.id] ||= structuredClone(s.pending);
+      s.modelOrigins[s.pending.id] ||= structuredClone(s.pendingOrigin);
+    }
+    for (const key of [
+      "draft",
+      "lock",
+      "echo",
+      "pending",
+      "pendingOrigin",
+      "pendingBindingId",
+    ])
+      delete s[key];
+    s.schemaVersion = 2;
+    log.warn("store", "migrated review state to schema 2", {
+      versions: Object.keys(s.models).length,
+      drafts: Object.keys(s.drafts).length,
+    });
   }
   registerModelBinding(modelId, bindingId) {
     const bindings = (this.state.modelBindings[modelId] ||= []);
@@ -162,9 +208,10 @@ export class ReviewStore {
     // One entry per tab, and a browser stays remembered for a month. Bound it
     // the way browser client associations already are, and never drop the
     // receipt the current review lock depends on to resume.
-    const ids = Object.keys(receipts).filter(
-      (id) => id !== this.state.lock?.clientId,
+    const held = new Set(
+      Object.values(this.state.presence).map((p) => p.clientId),
     );
+    const ids = Object.keys(receipts).filter((id) => !held.has(id));
     if (ids.length > 64)
       for (const id of ids
         .sort(
@@ -175,24 +222,126 @@ export class ReviewStore {
     this.save();
     return receipts[clientId];
   }
-  publicState(clientId) {
+  versionInBinding(versionId) {
+    return !!(
+      this.state.models[versionId] &&
+      this.state.modelBindings[versionId]?.includes(this.state.bindingId)
+    );
+  }
+  // Every version this review has published, oldest first. The workstation
+  // shows them as tabs, so a marking made against an older model stays a
+  // first-class act instead of something the reviewer has to describe in prose.
+  versions(clientId) {
     const s = this.state;
+    return Object.values(s.models)
+      .filter((model) => this.versionInBinding(model.id))
+      .sort((a, b) => (a.publishedAt || 0) - (b.publishedAt || 0))
+      .map((model) => {
+        const draft = s.drafts[model.id];
+        const presence = this.livePresence(model.id);
+        return {
+          id: model.id,
+          name: model.name,
+          version: model.version,
+          label: model.label || null,
+          triangles: model.triangles,
+          bytes: model.bytes,
+          publishedAt: model.publishedAt,
+          active: s.active?.id === model.id,
+          annotations: draft?.annotations.length || 0,
+          unsubmitted: this.hasUnsubmitted(model.id),
+          submissions: s.submissions.filter(
+            (item) =>
+              item.versionId === model.id && this.submissionInBinding(item),
+          ).length,
+          busy: !!presence && presence.clientId !== clientId,
+        };
+      });
+  }
+  livePresence(versionId, within = 30000) {
+    const p = this.state.presence[versionId];
+    return p && Date.now() - p.touchedAt < within ? p : null;
+  }
+  // Rebinding this project to another conversation is the one act that really
+  // destroys: it resets the current version's draft and hides earlier batches.
+  // Unlike the review's own controls it therefore still waits — but on evidence
+  // that expires, so an abandoned tab cannot block it for longer than presence.
+  busyReason() {
+    const versions = Object.keys(this.state.models).filter((id) =>
+      this.versionInBinding(id),
+    );
+    if (versions.some((id) => this.livePresence(id)))
+      return "使用者正在標記；";
+    if (versions.some((id) => this.hasUnsubmitted(id)))
+      return "原會話仍有未交出的標記，請先在網頁提交或結束該版本；";
+    return null;
+  }
+  hasUnsubmitted(versionId) {
+    const d = this.state.drafts[versionId];
+    return !!(
+      d &&
+      (d.annotations.length || d.submittedRevision != null) &&
+      d.submittedRevision !== d.revision
+    );
+  }
+  // The workstation renders these; it never recomputes them. Two deadlocks came
+  // from the browser deciding on its own that an action was unavailable while
+  // the server would have allowed it, with no way for the reviewer to see why.
+  capabilities(clientId, versionId) {
+    const known = this.versionInBinding(versionId);
+    const draft = this.state.drafts[versionId];
+    const marked = !!(
+      draft &&
+      (draft.annotations.length || draft.submittedRevision != null)
+    );
+    if (!known)
+      return {
+        canEdit: false,
+        canSubmit: false,
+        canFinish: false,
+        blockedReason: "此版本不屬於目前審閱。",
+      };
+    const closed = !!draft?.closedAt;
+    return {
+      canEdit: true,
+      canSubmit: marked,
+      canFinish: marked && !closed,
+      blockedReason: !marked
+        ? "這一版尚未有標記。"
+        : closed
+          ? "這一版已結束；再標記即可重新開始。"
+          : null,
+    };
+  }
+  publicState(clientId, requested) {
+    const s = this.state;
+    const viewing = this.versionInBinding(requested)
+      ? requested
+      : (s.active?.id ?? null);
+    const echo = viewing ? s.echoes[viewing] : null;
+    const presence = viewing ? this.livePresence(viewing) : null;
     return {
       generation: s.generation,
       reviewId: s.reviewId,
       legacyDraftCache: s.legacyDraftReviewId === s.reviewId,
       active: s.active,
-      pending: s.pendingBindingId === s.bindingId ? s.pending : null,
-      locked: !!s.lock,
-      owned: s.lock?.clientId === clientId,
-      draft: s.draft,
+      viewing,
+      versions: this.versions(clientId),
+      // Who is here, not who may act: capabilities answer that now.
+      locked: !!presence && presence.clientId !== clientId,
+      owned: !!presence && presence.clientId === clientId,
+      presence: presence
+        ? { mine: presence.clientId === clientId, touchedAt: presence.touchedAt }
+        : null,
+      draft: viewing ? (s.drafts[viewing] ?? null) : null,
+      capabilities: this.capabilities(clientId, viewing),
       echo:
-        s.echo?.versionId === s.active?.id &&
+        echo &&
         s.submissions.some(
           (item) =>
-            item.id === s.echo.submissionId && this.submissionInBinding(item),
+            item.id === echo.submissionId && this.submissionInBinding(item),
         )
-          ? s.echo
+          ? echo
           : null,
       submissions: s.submissions
         .filter((item) => this.submissionInBinding(item))
@@ -203,11 +352,11 @@ export class ReviewStore {
     };
   }
   assertVersion(versionId) {
-    if (!this.state.active || this.state.active.id !== versionId)
+    if (!this.versionInBinding(versionId))
       throw new ReviewError(
-        "模型版本已變更，請等目前版本載入完成。",
+        "此模型版本不屬於目前審閱。",
         409,
-        "STALE_VERSION",
+        "UNKNOWN_VERSION",
       );
   }
   freshDraft(versionId) {
@@ -224,30 +373,25 @@ export class ReviewStore {
       camera: null,
       submittedRevision: null,
       labelCursor: 0,
+      closedAt: null,
     };
   }
-  acquire(versionId, clientId) {
+  // Presence, not a capability. Holding it grants nothing and lacking it
+  // forbids nothing; concurrent edits are still rejected by the draft revision
+  // check below, which is the only guard that actually prevents clobbering.
+  // Making it a capability is what locked a reviewer out of their own round.
+  claim(versionId, clientId) {
     this.assertVersion(versionId);
     const s = this.state;
-    if (s.lock && s.lock.clientId !== clientId)
-      throw new ReviewError(
-        "另一個視窗正在審閱；已保留草稿，請回到原視窗。",
-        423,
-        "LOCKED",
-      );
-    s.lock = { clientId, versionId, touchedAt: Date.now() };
-    s.draft ||= this.freshDraft(versionId);
-    this.save();
-    return this.publicState(clientId);
+    // The Agent acts without a tab. It must not be recorded as one.
+    if (clientId) s.presence[versionId] = { clientId, touchedAt: Date.now() };
+    s.drafts[versionId] ||= this.freshDraft(versionId);
+    return s.drafts[versionId];
   }
-  assertOwner(versionId, clientId) {
-    this.assertVersion(versionId);
-    if (this.state.lock?.clientId !== clientId)
-      throw new ReviewError(
-        "尚未取得此輪審閱權，草稿未被覆蓋。",
-        423,
-        "LOCKED",
-      );
+  acquire(versionId, clientId) {
+    this.claim(versionId, clientId);
+    this.save();
+    return this.publicState(clientId, versionId);
   }
   updateDraft({
     versionId,
@@ -257,8 +401,7 @@ export class ReviewStore {
     camera,
     labelCursor,
   }) {
-    this.assertOwner(versionId, clientId);
-    const draft = this.state.draft;
+    const draft = this.claim(versionId, clientId);
     // The server may have saved a PUT whose response was lost. Accept only
     // the identical immediately previous write; other stale edits still fail.
     if (
@@ -287,7 +430,8 @@ export class ReviewStore {
     draft.revision += 1;
     draft.annotations = annotations;
     draft.camera = camera;
-    this.state.lock.touchedAt = Date.now();
+    // Marking again reopens a finished version instead of requiring a new one.
+    draft.closedAt = null;
     this.save();
     return structuredClone(draft);
   }
@@ -309,32 +453,32 @@ export class ReviewStore {
     ) {
       const previous = this.state.reviewOrigin;
       this.state.reviewOrigin = origin;
-      if (isDeepStrictEqual(this.state.pendingOrigin, previous))
-        this.state.pendingOrigin = structuredClone(origin);
+      for (const [id, bound] of Object.entries(this.state.modelOrigins))
+        if (isDeepStrictEqual(bound, previous))
+          this.state.modelOrigins[id] = structuredClone(origin);
       // Explicit continuation of this project, not a new review. Browser trust,
       // tab ownership and drafts remain; immutable old batches keep old origins.
       this.save();
       return;
     }
-    const d = this.state.draft;
-    if (
-      this.state.lock ||
-      (d &&
-        (d.annotations.length || d.submittedRevision != null) &&
-        d.submittedRevision !== d.revision)
-    )
+    if (this.busyReason())
       throw new ReviewError(
-        "請先完成原會話的審閱；綁定與草稿沒有被改動。",
+        `${this.busyReason()}綁定與草稿沒有被改動。`,
         423,
         "ORIGIN_BUSY",
       );
     this.state.reviewOrigin = origin;
     this.state.reviewId = crypto.randomUUID();
     this.state.bindingId = crypto.randomUUID();
-    this.state.echo = null;
     if (this.state.active) {
       this.registerModelBinding(this.state.active.id, this.state.bindingId);
-      this.state.draft = this.freshDraft(this.state.active.id);
+      this.state.modelOrigins[this.state.active.id] = structuredClone(origin);
+      // A new conversation starts clean: the previous binding's drafts and
+      // echoes must not surface under it even though both index by version.
+      this.state.drafts[this.state.active.id] = this.freshDraft(
+        this.state.active.id,
+      );
+      delete this.state.echoes[this.state.active.id];
     }
     this.state.generation += 1;
     this.save();
@@ -344,61 +488,85 @@ export class ReviewStore {
       ? item.origin
       : (this.state.legacySubmissionOrigins[item.id] ?? null);
   }
-  publish(model, value = this.state.reviewOrigin) {
+  // Switching what is displayed is now free: every version keeps its own draft,
+  // presence and echo, so nothing is surrendered and nothing is destroyed. That
+  // is why publishing no longer queues behind the reviewer.
+  applyActive(versionId) {
+    const s = this.state;
+    const origin = s.modelOrigins[versionId] ?? s.reviewOrigin;
+    s.active = s.models[versionId];
+    if (isDeepStrictEqual(origin, s.reviewOrigin)) return;
+    // A different conversation owning this model is a different review: rebind
+    // so its batches, drafts and echoes never mix with the previous one.
+    s.reviewOrigin = origin;
+    s.bindingId = s.modelBindings[versionId].at(-1);
+    s.reviewId = crypto.randomUUID();
+    s.generation += 1;
+  }
+  activate(versionId) {
+    if (!this.state.models[versionId])
+      throw new ReviewError("此模型版本未發佈。", 409, "UNKNOWN_VERSION");
+    const foreign = !isDeepStrictEqual(
+      this.state.modelOrigins[versionId] ?? this.state.reviewOrigin,
+      this.state.reviewOrigin,
+    );
+    if (foreign && this.busyReason())
+      throw new ReviewError(
+        `${this.busyReason()}沒有更換目前模型。`,
+        423,
+        "ORIGIN_BUSY",
+      );
+    if (!foreign) this.assertVersion(versionId);
+    if (this.state.active?.id !== versionId) {
+      this.applyActive(versionId);
+      this.save();
+    }
+    return this.state.active;
+  }
+  publish(model, value = this.state.reviewOrigin, { activate = true } = {}) {
     const s = this.state;
     const origin = normalizeOrigin(value);
-    if (s.active?.id === model.id || s.pending?.id === model.id) {
-      const existing =
-        s.pending?.id === model.id ? s.pendingOrigin : s.reviewOrigin;
-      if (!isDeepStrictEqual(origin, existing))
+    const known = s.models[model.id];
+    if (known) {
+      if (!isDeepStrictEqual(origin, s.modelOrigins[model.id] ?? s.reviewOrigin))
         throw new ReviewError(
           "此模型已有原會話綁定，請先完成該輪審閱。",
           423,
           "ORIGIN_BUSY",
         );
+      if (activate) this.activate(model.id);
       return {
-        status: s.pending?.id === model.id ? "queued" : "active",
-        model,
+        status: s.active?.id === model.id ? "active" : "published",
+        model: known,
       };
     }
+    const mine = isDeepStrictEqual(origin, s.reviewOrigin);
     s.models[model.id] = structuredClone(model);
-    const bindingId = isDeepStrictEqual(origin, s.reviewOrigin)
-      ? s.bindingId
-      : crypto.randomUUID();
-    this.registerModelBinding(model.id, bindingId);
-    if (s.lock) {
-      s.pending = model;
-      s.pendingOrigin = origin;
-      s.pendingBindingId = bindingId;
-      this.save();
-      return {
-        status: "queued",
-        model,
-        reason: "使用者正在審閱，沒有更換目前模型。",
-      };
-    }
-    s.active = model;
-    s.pending = null;
-    s.pendingOrigin = null;
-    s.reviewOrigin = origin;
-    s.bindingId = bindingId;
-    s.pendingBindingId = null;
-    s.reviewId = crypto.randomUUID();
-    const draft = this.freshDraft(model.id);
-    s.draft = draft.revision ? draft : null;
-    s.generation += 1;
+    s.modelOrigins[model.id] = origin;
+    this.registerModelBinding(model.id, mine ? s.bindingId : crypto.randomUUID());
+    // Another conversation may always publish here, but taking over the screen
+    // would rebind the project and reset this review's draft. That one waits.
+    const blocked = !mine && this.busyReason();
+    if (activate && !blocked) this.applyActive(model.id);
     this.save();
-    return { status: "active", model };
+    if (blocked)
+      return { status: "published", model, reason: `${blocked}沒有更換目前模型。` };
+    return { status: activate ? "active" : "published", model };
   }
-  createSubmission({ versionId, clientId, revision, submissionId }) {
+  createSubmission({
+    versionId,
+    clientId,
+    revision,
+    submissionId,
+    sealed = false,
+  }) {
     const old = this.state.submissions.find((x) => x.id === submissionId);
     if (old) {
       if (old.versionId !== versionId || old.revision !== revision)
         throw new ReviewError("提交識別碼已用於另一份草稿。");
       return old;
     }
-    this.assertOwner(versionId, clientId);
-    const d = this.state.draft;
+    const d = this.claim(versionId, clientId);
     if (d.revision !== revision)
       throw new ReviewError("請等草稿保存完成後再提交。");
     if (!d.annotations.length && d.submittedRevision == null)
@@ -409,31 +577,39 @@ export class ReviewStore {
       revision,
       createdAt: Date.now(),
       status: "saved",
+      // A sealed batch was closed out for the reviewer rather than handed over
+      // by them. The Agent must confirm intent before treating it as a request.
+      sealed,
       reviewId: this.state.reviewId,
       bindingId: this.state.bindingId,
       origin: structuredClone(this.state.reviewOrigin),
-      model: structuredClone(this.state.active),
+      model: structuredClone(this.state.models[versionId]),
       annotations: structuredClone(d.annotations),
       camera: d.camera,
     };
     this.state.submissions.push(item);
+    this.markSubmitted(item);
     atomicJson(path.join(this.dir, "submissions", `${item.id}.json`), item);
     this.save();
     return item;
+  }
+  // Reaching the outbox is what the reviewer controls; delivery confirmation is
+  // not. Counting a revision as submitted only once the Gateway accepted it
+  // left a round unfinishable during any outage, with nothing on the page to
+  // explain why the button stayed disabled.
+  markSubmitted(item) {
+    const draft = this.state.drafts[item.versionId];
+    if (!draft || !this.submissionInBinding(item)) return;
+    draft.submittedRevision = Math.max(
+      draft.submittedRevision ?? -1,
+      item.revision,
+    );
   }
   submissionStatus(id, status, extra = {}) {
     const s = this.state.submissions.find((x) => x.id === id);
     if (!s) throw new ReviewError("找不到提交。", 404);
     Object.assign(s, { status }, extra);
-    if (
-      status === "accepted" &&
-      this.submissionInBinding(s) &&
-      this.state.draft?.versionId === s.versionId
-    )
-      this.state.draft.submittedRevision = Math.max(
-        this.state.draft.submittedRevision ?? -1,
-        s.revision,
-      );
+    this.markSubmitted(s);
     atomicJson(path.join(this.dir, "submissions", `${s.id}.json`), s);
     this.save();
     return s;
@@ -455,7 +631,7 @@ export class ReviewStore {
     );
     if (!submission || !this.submissionInBinding(submission))
       throw new ReviewError("找不到此輪對應提交。", 404);
-    this.state.echo = {
+    this.state.echoes[versionId] = {
       id: crypto.randomUUID(),
       submissionId,
       versionId,
@@ -465,60 +641,37 @@ export class ReviewStore {
       createdAt: Date.now(),
     };
     this.save();
-    return this.state.echo;
+    return this.state.echoes[versionId];
   }
-  finish(versionId, clientId) {
-    this.assertOwner(versionId, clientId);
-    const s = this.state;
-    const d = s.draft;
-    if (
-      (d.annotations.length || d.submittedRevision != null) &&
-      d.submittedRevision !== d.revision
-    )
-      throw new ReviewError(
-        "仲有未提交標注，請先提交；草稿已保留。",
-        409,
-        "UNSUBMITTED",
-      );
-    if (s.pending) {
-      s.active = s.pending;
-      s.pending = null;
-      s.reviewOrigin = s.pendingOrigin;
-      s.bindingId = s.pendingBindingId;
-      s.pendingBindingId = null;
-      s.pendingOrigin = null;
-      s.reviewId = crypto.randomUUID();
-      const draft = this.freshDraft(s.active.id);
-      s.draft = draft.revision ? draft : null;
-      s.generation += 1;
-    }
-    // Keep submitted markings when no new model exists. Starting another review preserves them.
-    s.lock = null;
+  // Finishing never refuses. Whatever is still in hand is sealed into a batch
+  // so it reaches the Agent, rather than stranding the round behind a button
+  // the reviewer has no way to satisfy. Markings stay on screen as the record.
+  finish(versionId, clientId, { submissionId } = {}) {
+    this.assertVersion(versionId);
+    const draft = this.state.drafts[versionId];
+    const sealed = this.hasUnsubmitted(versionId)
+      ? this.createSubmission({
+          versionId,
+          clientId,
+          revision: draft.revision,
+          submissionId: submissionId || crypto.randomUUID(),
+          sealed: true,
+        })
+      : null;
+    if (draft) draft.closedAt = Date.now();
+    delete this.state.presence[versionId];
     this.save();
-    return this.publicState(clientId);
+    return { state: this.publicState(clientId, versionId), sealed };
   }
   resume(versionId, clientId) {
-    this.assertVersion(versionId);
-    if (
-      this.state.lock &&
-      this.state.lock.clientId !== clientId &&
-      Date.now() - this.state.lock.touchedAt < 30000
-    )
-      throw new ReviewError(
-        "原視窗仍在線，請先關閉原視窗，30 秒後再接續。",
-        423,
-        "LOCKED",
-      );
-    this.state.lock = { versionId, clientId, touchedAt: Date.now() };
-    this.save();
-    return this.publicState(clientId);
+    return this.acquire(versionId, clientId);
   }
   // Liveness only, so it stays in memory. Every real edit persists touchedAt
   // through updateDraft, and after a restart nobody holds a live session
-  // anyway: an older timestamp only makes an explicit resume easier, and
-  // resume preserves the draft it takes over.
-  heartbeat(clientId) {
-    if (this.state.lock?.clientId === clientId)
-      this.state.lock.touchedAt = Date.now();
+  // anyway: a stale timestamp only makes the tab read as idle, and presence
+  // grants nothing that would need to be taken back.
+  heartbeat(clientId, versionId) {
+    const p = this.state.presence[versionId];
+    if (p?.clientId === clientId) p.touchedAt = Date.now();
   }
 }

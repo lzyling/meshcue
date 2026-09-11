@@ -175,7 +175,7 @@ test("browser verifiers and edit identity survive restart; grants and raw creden
     file,
     scope: () => scope,
     now: () => time,
-    protectedClient: () => "locked-tab",
+    protectedClients: () => ["locked-tab"],
   };
   const first = new ReviewAccess(options);
   const admission = first.issue();

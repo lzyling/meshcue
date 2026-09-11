@@ -51,44 +51,54 @@ function draft(store, annotations = pins, revision = 0) {
   });
 }
 
-test("publishing while editing queues the new model without changing geometry or draft, including after restart", (t) => {
+test("publishing while editing adds a version and leaves the marked one untouched, including after restart", (t) => {
   const { dir, store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
   draft(store);
-  assert.equal(store.publish(m2).status, "queued");
+  assert.equal(store.publish(m2).status, "active");
   const recovered = new ReviewStore(dir);
-  assert.equal(recovered.state.active.id, m1.id);
-  assert.equal(recovered.state.pending.id, m2.id);
-  assert.deepEqual(recovered.state.draft.annotations, pins);
-  assert.equal(recovered.state.lock.clientId, "client-a");
+  assert.equal(recovered.state.active.id, m2.id);
+  // The draft belongs to the version it was made on, not to "the review".
+  assert.deepEqual(recovered.state.drafts[m1.id].annotations, pins);
+  assert.equal(recovered.state.drafts[m2.id], undefined);
+  assert.equal(recovered.state.presence[m1.id].clientId, "client-a");
+  assert.deepEqual(
+    recovered.versions("client-a").map((v) => [v.id, v.active, v.annotations]),
+    [
+      [m1.id, false, 1],
+      [m2.id, true, 0],
+    ],
+  );
 });
-test("an old viewer cannot start edits after Agent publishes a new current version", (t) => {
+test("an older published version stays selectable and markable, but a foreign one does not", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.publish(m2);
+  store.acquire(m1.id, "client-a");
+  draft(store);
+  assert.equal(store.state.active.id, m2.id, "marking must not steal display");
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
   assert.throws(
-    () => store.acquire(m1.id, "client-a"),
-    (e) => e.code === "STALE_VERSION",
+    () => store.acquire("never-published", "client-a"),
+    (e) => e.code === "UNKNOWN_VERSION",
   );
-  assert.equal(store.state.lock, null);
 });
-test("a second tab and stale revision cannot overwrite an active draft", (t) => {
+test("a second tab may take over, and only a stale revision is refused", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
   draft(store);
-  assert.throws(
-    () => store.acquire(m1.id, "client-b"),
-    (e) => e.code === "LOCKED",
-  );
+  // Presence is advisory. Clobbering is prevented by the revision check, which
+  // is the guard that actually knows whether two edits conflict.
+  assert.doesNotThrow(() => store.acquire(m1.id, "client-b"));
   assert.throws(
     () => draft(store, [], 0),
     (e) => e.code === "STALE_DRAFT",
   );
-  assert.deepEqual(store.state.draft.annotations, pins);
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
 });
-test("submission is an immutable snapshot and does not release the model lock", (t) => {
+test("submission is an immutable snapshot and finishing seals whatever is left", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
@@ -100,16 +110,16 @@ test("submission is an immutable snapshot and does not release the model lock", 
     submissionId: "submission-one",
   });
   store.submissionStatus(item.id, "accepted", { runId: "run-one" });
-  assert.equal(store.publish(m2).status, "queued");
+  store.publish(m2);
   draft(store, [{ ...pins[0], label: "A" }], 1);
   assert.equal(item.annotations[0].label, "1");
-  assert.equal(store.state.active.id, m1.id);
-  assert.throws(
-    () => store.finish(m1.id, "client-a"),
-    (e) => e.code === "UNSUBMITTED",
-  );
+  const { sealed } = store.finish(m1.id, "client-a");
+  assert.equal(sealed.sealed, true, "the unsubmitted edit must reach the Agent");
+  assert.equal(sealed.annotations[0].label, "A");
+  assert.equal(item.annotations[0].label, "1");
+  assert.equal(store.state.active.id, m2.id, "finishing does not change display");
 });
-test("unconfirmed delivery cannot silently unlock or discard annotations", (t) => {
+test("unconfirmed delivery still lets the round be finished and keeps annotations", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
@@ -121,12 +131,13 @@ test("unconfirmed delivery cannot silently unlock or discard annotations", (t) =
     submissionId: "retry-one",
   });
   store.submissionStatus("retry-one", "unconfirmed");
-  store.publish(m2);
-  assert.throws(
-    () => store.finish(m1.id, "client-a"),
-    (e) => e.code === "UNSUBMITTED",
-  );
-  assert.deepEqual(store.state.draft.annotations, pins);
+  // Reaching the outbox is the reviewer's act; confirming delivery is not.
+  // Requiring confirmation here is what left a round with no way to end.
+  assert.equal(store.capabilities("client-a", m1.id).canFinish, true);
+  const { sealed } = store.finish(m1.id, "client-a");
+  assert.equal(sealed, null, "nothing was outstanding, so nothing was sealed");
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
+  assert.equal(store.capabilities("client-a", m1.id).canFinish, false);
 });
 test("retrying the same submission is idempotent and cannot silently change its source revision", (t) => {
   const { store } = fixture(t);
@@ -143,7 +154,7 @@ test("retrying the same submission is idempotent and cannot silently change its 
   assert.equal(store.state.submissions.length, 1);
   assert.throws(() => store.createSubmission({ ...p, revision: 0 }));
 });
-test("ending a submitted review activates pending model and retains old submission", (t) => {
+test("ending a version keeps its markings on screen and reopens on the next edit", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
@@ -155,26 +166,29 @@ test("ending a submitted review activates pending model and retains old submissi
     submissionId: "done",
   });
   store.submissionStatus("done", "accepted");
-  store.publish(m2);
   store.finish(m1.id, "client-a");
-  assert.equal(store.state.active.id, m2.id);
-  assert.equal(store.state.lock, null);
-  assert.equal(store.state.draft, null);
+  assert.equal(store.state.active.id, m1.id, "finishing is not a version switch");
+  assert.equal(store.state.presence[m1.id], undefined);
+  assert.ok(store.state.drafts[m1.id].closedAt);
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
   assert.deepEqual(store.state.submissions[0].annotations, pins);
+  assert.equal(store.capabilities("client-a", m1.id).canFinish, false);
+  draft(store, [{ ...pins[0], label: "B" }], 1);
+  assert.equal(store.state.drafts[m1.id].closedAt, null);
+  assert.equal(store.capabilities("client-a", m1.id).canFinish, true);
 });
-test("an abandoned tab can be resumed without dropping the draft, but a live owner is protected", (t) => {
+test("another tab takes over a version at any time without dropping the draft", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
   draft(store);
-  assert.throws(
-    () => store.resume(m1.id, "client-b"),
-    (e) => e.code === "LOCKED",
-  );
-  store.state.lock.touchedAt = Date.now() - 31000;
+  // A tab that stopped reporting must never be able to lock anyone out, and
+  // neither must a live one: presence records who is there, nothing more.
   store.resume(m1.id, "client-b");
-  assert.equal(store.state.lock.clientId, "client-b");
-  assert.deepEqual(store.state.draft.annotations, pins);
+  assert.equal(store.state.presence[m1.id].clientId, "client-b");
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
+  assert.equal(store.publicState("client-b", m1.id).locked, false);
+  assert.equal(store.publicState("client-a", m1.id).locked, true);
 });
 test("model import rejects corrupted GLB and invalid STL before publishing", () => {
   assert.throws(() => inspectModel(Buffer.from("not a glb"), "glb"));
@@ -237,7 +251,7 @@ test("a lost save response can be retried after restart without duplicating or o
   const saved = draft(store);
   const recovered = new ReviewStore(dir);
   assert.deepEqual(draft(recovered), saved);
-  assert.equal(recovered.state.draft.revision, 1);
+  assert.equal(recovered.state.drafts[m1.id].revision, 1);
   assert.throws(
     () => draft(recovered, [{ ...pins[0], label: "B" }]),
     (e) => e.code === "STALE_DRAFT",
@@ -247,7 +261,7 @@ test("a lost save response can be retried after restart without duplicating or o
     () => draft(recovered),
     (e) => e.code === "STALE_DRAFT",
   );
-  assert.equal(recovered.state.draft.annotations[0].label, "A");
+  assert.equal(recovered.state.drafts[m1.id].annotations[0].label, "A");
 });
 
 test("delayed acceptance of an earlier submission cannot regress a newer accepted revision", (t) => {
@@ -270,8 +284,8 @@ test("delayed acceptance of an earlier submission cannot regress a newer accepte
   });
   store.submissionStatus("newer", "accepted");
   store.submissionStatus("earlier", "accepted");
-  assert.equal(store.state.draft.submittedRevision, 2);
-  assert.doesNotThrow(() => store.finish(m1.id, "client-a"));
+  assert.equal(store.state.drafts[m1.id].submittedRevision, 2);
+  assert.equal(store.finish(m1.id, "client-a").sealed, null);
 });
 
 test("publishing a previously reviewed model cannot reuse an old submission revision", (t) => {
@@ -288,11 +302,18 @@ test("publishing a previously reviewed model cannot reuse an old submission revi
   store.submissionStatus("first-review", "accepted");
   store.publish(m2);
   store.finish(m1.id, "client-a");
-  store.publish(m1);
+  assert.equal(store.publish(m1).status, "active");
   const recovered = new ReviewStore(dir);
-  const baseline = recovered.publicState("client-a").draft;
+  // Re-publishing identical content is the same version, so its markings and
+  // its revision high-water are still there rather than silently reset.
+  const baseline = recovered.publicState("client-a", m1.id).draft;
   assert.equal(baseline.revision, 1);
-  assert.deepEqual(baseline.annotations, []);
+  assert.deepEqual(baseline.annotations, pins);
+  assert.ok(baseline.closedAt);
+  // A round that starts with no draft at all must still open above every
+  // revision already submitted, or a retry would collide with a new batch.
+  delete recovered.state.drafts[m1.id];
+  assert.equal(recovered.claim(m1.id, "client-a").revision, 1);
   recovered.acquire(m1.id, "client-a");
   const updated = draft(
     recovered,
@@ -313,13 +334,14 @@ test("publishing a previously reviewed model cannot reuse an old submission revi
     submissionId: "first-review",
   });
   assert.equal(oldRetry.annotations[0].label, "1");
-  assert.equal(recovered.state.draft.revision, 2);
-  assert.equal(recovered.state.draft.submittedRevision, null);
+  assert.equal(recovered.state.drafts[m1.id].revision, 2);
+  // The retry restores an old batch, not this draft's history: revision 1 of
+  // the reopened round is an empty baseline nobody ever handed over.
+  assert.equal(recovered.state.drafts[m1.id].submittedRevision, null);
   recovered.submissionStatus("first-review", "accepted");
-  assert.throws(
-    () => recovered.finish(m1.id, "client-a"),
-    (e) => e.code === "UNSUBMITTED",
-  );
+  // Revision 2 was never handed over, so finishing must seal it rather than
+  // treat the stale revision-1 retry as covering the newer edit.
+  assert.equal(recovered.finish(m1.id, "client-a").sealed.revision, 2);
 });
 
 test("actual viewer BVH raycasts keep point labels and painted patches attached to the correct source triangles", async () => {
@@ -397,9 +419,9 @@ test("letter high-water survives deletion and restart, while undo can restore th
   draft(store, [{ ...pins[0], label: "D" }]);
   draft(store, [], 1);
   const restored = new ReviewStore(dir);
-  assert.equal(restored.state.draft.labelCursor, 4);
+  assert.equal(restored.state.drafts[m1.id].labelCursor, 4);
   draft(restored, [{ ...pins[0], label: "D" }], 2);
-  assert.equal(restored.state.draft.labelCursor, 4);
+  assert.equal(restored.state.drafts[m1.id].labelCursor, 4);
 });
 test("Agent read and echo are version bound and do not overwrite annotations or release review", (t) => {
   const { store } = fixture(t);
@@ -423,10 +445,10 @@ test("Agent read and echo are version bound and do not overwrite annotations or 
     summary: "range",
     annotations: [],
   });
-  assert.equal(store.publicState("client-a").echo.revision, 1);
+  assert.equal(store.publicState("client-a", m1.id).echo.revision, 1);
   assert.deepEqual(submission.annotations, before);
-  assert.deepEqual(store.state.draft.annotations, before);
-  assert.ok(store.state.lock);
+  assert.deepEqual(store.state.drafts[m1.id].annotations, before);
+  assert.ok(store.state.presence[m1.id]);
   assert.throws(() =>
     store.setEcho({
       submissionId: submission.id,
@@ -436,7 +458,7 @@ test("Agent read and echo are version bound and do not overwrite annotations or 
     }),
   );
 });
-test("deleting all previously submitted notes remains an unsubmitted change until manually submitted", (t) => {
+test("deleting all previously submitted notes stays an unsubmitted change the Agent still receives", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
@@ -449,10 +471,7 @@ test("deleting all previously submitted notes remains an unsubmitted change unti
   });
   store.submissionStatus("old", "accepted");
   draft(store, [], 1);
-  assert.throws(
-    () => store.finish(m1.id, "client-a"),
-    (e) => e.code === "UNSUBMITTED",
-  );
+  assert.equal(store.hasUnsubmitted(m1.id), true);
   const replacement = store.createSubmission({
     versionId: m1.id,
     clientId: "client-a",
@@ -525,27 +544,27 @@ test("an upgrade from an inlined state.json keeps every annotation", (t) => {
   );
 });
 
-test("a lock heartbeat keeps liveness in memory without rewriting the history", (t) => {
+test("a presence heartbeat keeps liveness in memory without rewriting the history", (t) => {
   const { dir, store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
   const file = path.join(dir, "state.json");
   const before = fs.readFileSync(file, "utf8");
-  store.state.lock.touchedAt = 0;
-  store.heartbeat("client-a");
-  assert.equal(store.state.lock.touchedAt > 0, true);
+  store.state.presence[m1.id].touchedAt = 0;
+  store.heartbeat("client-a", m1.id);
+  assert.equal(store.state.presence[m1.id].touchedAt > 0, true);
   assert.equal(
     fs.readFileSync(file, "utf8"),
     before,
     "heartbeat wrote to disk",
   );
-  // A foreign window still cannot refresh a lock it does not hold.
-  store.state.lock.touchedAt = 0;
-  store.heartbeat("client-b");
-  assert.equal(store.state.lock.touchedAt, 0);
+  // A foreign window still cannot refresh presence it is not recorded under.
+  store.state.presence[m1.id].touchedAt = 0;
+  store.heartbeat("client-b", m1.id);
+  assert.equal(store.state.presence[m1.id].touchedAt, 0);
 });
 
-test("viewer receipts stay bounded and never evict the client holding the review", (t) => {
+test("viewer receipts stay bounded and never evict a client present on a version", (t) => {
   const { store } = fixture(t);
   store.publish(m1);
   store.acquire(m1.id, "client-a");
@@ -565,7 +584,7 @@ test("viewer receipts stay bounded and never evict the client holding the review
   assert.equal(
     receipts["client-a"]?.loadedAt,
     1,
-    "the lock holder's receipt was evicted and it can no longer begin",
+    "the present tab's receipt was evicted and it can no longer begin",
   );
   assert.equal(receipts["tab-199"].loadedAt, 299);
   assert.equal(receipts["tab-0"], undefined);

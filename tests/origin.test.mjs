@@ -75,21 +75,29 @@ test("Telegram replies route by the batch's own session and never override the h
   );
 });
 
-test("active review cannot be rebound; queued model keeps its own origin until finish", (t) => {
+test("a busy review cannot be rebound or taken over; another topic's model waits its turn", (t) => {
   const { dir, store } = fixture(t, telegram);
   store.publish(model);
   const item = submit(store);
   assert.throws(() => store.bindOrigin(next), { code: "ORIGIN_BUSY" });
-  const queued = { ...model, id: "origin-model-two", version: "v2" };
-  store.publish(queued, next);
+  const other = { ...model, id: "origin-model-two", version: "v2" };
+  // Another conversation may publish into this project at any time, but taking
+  // over the display would reset this review's draft, so that part waits.
+  assert.equal(store.publish(other, next).status, "published");
+  assert.throws(() => store.activate(other.id), { code: "ORIGIN_BUSY" });
   const recovered = new ReviewStore(dir, { legacyOrigin: internal });
   assert.deepEqual(recovered.state.reviewOrigin, telegram);
   assert.deepEqual(recovered.submissionOrigin(item), telegram);
+  assert.equal(recovered.state.active.id, model.id);
   recovered.submissionStatus(item.id, "accepted");
   recovered.finish(model.id, "client-origin");
+  // Presence is cleared by finishing, so the other conversation can take over
+  // — but only by asking, never as a side effect of the reviewer stopping.
+  assert.equal(recovered.state.active.id, model.id);
+  recovered.activate(other.id);
   assert.deepEqual(recovered.state.reviewOrigin, next);
   assert.deepEqual(recovered.submissionOrigin(item), telegram);
-  assert.equal(recovered.state.active.id, queued.id);
+  assert.equal(recovered.state.active.id, other.id);
 });
 
 test("legacy submission routing survives a config change without rewriting old JSON", (t) => {
@@ -145,5 +153,5 @@ test("changing origin after a finished review never redirects an old idempotent 
   });
   assert.deepEqual(store.submissionOrigin(retried), telegram);
   assert.equal(store.publicState("").submissions.length, 0);
-  assert.equal(store.state.draft.annotations.length, 0);
+  assert.equal(store.state.drafts[model.id].annotations.length, 0);
 });

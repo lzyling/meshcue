@@ -402,7 +402,8 @@ test("remembered browser survives a real process restart; only activity renews i
   const restored = await f.api("state?clientId=persisted-owner", { cookie });
   assert.equal(restored.status, 200);
   assert.equal(restored.body.owned, true);
-  assert.equal(restored.body.locked, true);
+  // "locked" now reports another tab being present, not that a round exists.
+  assert.equal(restored.body.locked, false);
   assert.equal(restored.body.reviewId, before.reviewId);
   assert.equal(restored.body.draft.revision, before.draft.revision);
   const status = (await f.ipc("/status")).body;

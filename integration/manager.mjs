@@ -213,16 +213,15 @@ export class InstanceManager {
       atomicJson(file, registry);
     });
   }
+  // Drafts survive a restart and are keyed by version, so an unfinished round
+  // is no longer a reason to refuse — that is what let a round nobody could
+  // finish block the upgrade that would have fixed it. Only somebody marking
+  // right now is worth stopping for, and that evidence expires on its own.
   async stopOwned(p, config, state) {
-    if (
-      state.locked ||
-      ((state.draft?.annotations?.length ||
-        state.draft?.submittedRevision != null) &&
-        state.draft.submittedRevision !== state.draft.revision)
-    )
+    if (state.locked)
       fail(
         "REVIEW_BUSY",
-        "使用者尚在審閱；未停止或升級服務，草稿已保留。請讓使用者在網頁提交並結束本輪，再重試。",
+        "使用者正在標記；未停止或升級服務，草稿已保存。請稍後重試。",
       );
     const health = await fetch(
       `http://${state.network.host}:${state.network.port}/api/health`,
@@ -511,7 +510,7 @@ export class InstanceManager {
           instanceId: config.instance.id,
           url: `http://${state.network.host}:${state.network.port}/`,
           active: state.active,
-          pending: state.pending,
+          versions: state.versions,
           publication: published?.status || "unchanged",
           admission,
           accessPolicy: "30 days inactive; renew on use",
@@ -550,6 +549,35 @@ export class InstanceManager {
           summary: input.summary,
           annotations: input.annotations || [],
         });
+      }
+      // Choosing what the reviewer sees is presentation, and presentation is
+      // the Agent's job. Every version keeps its own draft, so none of these
+      // can destroy work that was in progress on another one.
+      if (input.action === "activate") {
+        const versionId =
+          input.versionId ||
+          state.versions?.find((v) => v.version === input.version)?.id;
+        if (!versionId)
+          fail(
+            "VERSION_REQUIRED",
+            "請指定要展示的 versionId，或用 status 先列出可選版本。",
+          );
+        const result = await ipc(p.runtime, config.instance, "/activate", {
+          versionId,
+        });
+        return { project: p.project, active: result.active };
+      }
+      if (input.action === "finish") {
+        const result = await ipc(p.runtime, config.instance, "/finish", {
+          ...(input.versionId ? { versionId: input.versionId } : {}),
+        });
+        return { project: p.project, ...result };
+      }
+      if (input.action === "unlock") {
+        const result = await ipc(p.runtime, config.instance, "/unlock", {
+          ...(input.versionId ? { versionId: input.versionId } : {}),
+        });
+        return { project: p.project, ...result };
       }
       if (input.action === "stop") {
         await this.stopOwned(p, config, state);

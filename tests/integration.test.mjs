@@ -192,41 +192,59 @@ test("/new requires explicit continuation and retains locked draft plus browser 
     (await ipc(p.runtime, config.instance, "/status")).origin.sessionId,
     "generation-two",
   );
-  // ReviewStore covers a locked explicit continuation without bypassing a cross-topic lock.
+  // ReviewStore covers a busy explicit continuation without letting another
+  // topic take the project: continuing the same conversation keeps the marking
+  // in place, while a different one must wait for it to be handed over.
   const storeDir = path.join(f.workspace, "store-fixture");
   const store = new ReviewStore(storeDir, { legacyOrigin: origin });
-  store.state.lock = { clientId: "owner" };
-  store.state.draft = { annotations: [{ type: "pin" }], revision: 3 };
-  const before = structuredClone(store.state.draft);
+  const model = { id: "busy-model", version: "v1", sha256: "c".repeat(64) };
+  store.publish(model);
+  store.acquire(model.id, "owner");
+  store.updateDraft({
+    versionId: model.id,
+    clientId: "owner",
+    revision: 0,
+    annotations: [{ type: "pin", id: "p", label: "A" }],
+    camera: null,
+  });
+  const before = structuredClone(store.state.drafts[model.id]);
   store.bindOrigin(
     { ...origin, sessionId: "generation-two" },
     { resumeGeneration: true },
   );
-  assert.deepEqual(store.state.draft, before);
-  assert.equal(store.state.lock.clientId, "owner");
+  assert.deepEqual(store.state.drafts[model.id], before);
+  assert.equal(store.state.presence[model.id].clientId, "owner");
   assert.throws(
     () =>
       store.bindOrigin(
         { ...origin, sessionKey: "other-topic" },
         { resumeGeneration: true },
       ),
-    /原會話/,
+    /標記/,
   );
 });
 
-test("maintenance fences new writes and an unsubmitted deletion blocks shutdown", async (t) => {
+test("maintenance fences new writes; marking right now blocks shutdown but an unfinished round does not", async (t) => {
   const f = setup(t);
   const opened = await f.open("projects/a");
   const p = f.manager.project("projects/a");
   const config = JSON.parse(
     fs.readFileSync(path.join(p.runtime, "config.json"), "utf8"),
   );
+  // Someone marking at this moment is worth interrupting for.
+  await assert.rejects(
+    f.manager.stopOwned(p, config, { locked: true }),
+    (e) => e.code === "REVIEW_BUSY",
+  );
+  // An unfinished round is not: the draft is durable and keyed by version, so
+  // a restart costs a reload. Refusing here is what made an unfinishable round
+  // block the upgrade that would have fixed it.
   await assert.rejects(
     f.manager.stopOwned(p, config, {
       locked: false,
       draft: { annotations: [], submittedRevision: 1, revision: 2 },
     }),
-    (e) => e.code === "REVIEW_BUSY",
+    (e) => e.code !== "REVIEW_BUSY",
   );
   assert.equal(
     (await f.manager.execute({ action: "status", project: "projects/a" }))
