@@ -487,6 +487,11 @@ export class InstanceManager {
             version: input.version,
             units: input.units,
             origin,
+            // Publishing shows the new version by default, because showing it
+            // costs the reviewer nothing now. Saying otherwise adds a tab and
+            // leaves whatever they are looking at exactly where it is.
+            ...(input.label ? { label: input.label } : {}),
+            ...(input.activate === false ? { activate: false } : {}),
           });
         state = await this.status(p, config);
         if (!state.active)

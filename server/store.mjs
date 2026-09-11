@@ -270,8 +270,7 @@ export class ReviewStore {
     const versions = Object.keys(this.state.models).filter((id) =>
       this.versionInBinding(id),
     );
-    if (versions.some((id) => this.livePresence(id)))
-      return "使用者正在標記；";
+    if (versions.some((id) => this.livePresence(id))) return "使用者正在標記；";
     if (versions.some((id) => this.hasUnsubmitted(id)))
       return "原會話仍有未交出的標記，請先在網頁提交或結束該版本；";
     return null;
@@ -334,7 +333,10 @@ export class ReviewStore {
       locked: !!presence && presence.clientId !== clientId,
       owned: !!presence && presence.clientId === clientId,
       presence: presence
-        ? { mine: presence.clientId === clientId, touchedAt: presence.touchedAt }
+        ? {
+            mine: presence.clientId === clientId,
+            touchedAt: presence.touchedAt,
+          }
         : null,
       draft: viewing ? (s.drafts[viewing] ?? null) : null,
       capabilities: this.capabilities(clientId, viewing),
@@ -531,7 +533,9 @@ export class ReviewStore {
     const origin = normalizeOrigin(value);
     const known = s.models[model.id];
     if (known) {
-      if (!isDeepStrictEqual(origin, s.modelOrigins[model.id] ?? s.reviewOrigin))
+      if (
+        !isDeepStrictEqual(origin, s.modelOrigins[model.id] ?? s.reviewOrigin)
+      )
         throw new ReviewError(
           "此模型已有原會話綁定，請先完成該輪審閱。",
           423,
@@ -546,14 +550,21 @@ export class ReviewStore {
     const mine = isDeepStrictEqual(origin, s.reviewOrigin);
     s.models[model.id] = structuredClone(model);
     s.modelOrigins[model.id] = origin;
-    this.registerModelBinding(model.id, mine ? s.bindingId : crypto.randomUUID());
+    this.registerModelBinding(
+      model.id,
+      mine ? s.bindingId : crypto.randomUUID(),
+    );
     // Another conversation may always publish here, but taking over the screen
     // would rebind the project and reset this review's draft. That one waits.
     const blocked = !mine && this.busyReason();
     if (activate && !blocked) this.applyActive(model.id);
     this.save();
     if (blocked)
-      return { status: "published", model, reason: `${blocked}沒有更換目前模型。` };
+      return {
+        status: "published",
+        model,
+        reason: `${blocked}沒有更換目前模型。`,
+      };
     return { status: activate ? "active" : "published", model };
   }
   createSubmission({

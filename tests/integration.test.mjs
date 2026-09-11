@@ -392,3 +392,70 @@ test("async bridge fences admission to the frozen generation and rejects unavail
   };
   await assert.rejects(bridge.send("test", "batch-1"), /宿主/);
 });
+
+// Choosing what the reviewer is looking at is presentation, and presentation is
+// the Agent's job. Before this it had no action that could do it at all: the
+// only way to change versions was a button in a browser it does not control.
+test("the Agent can publish without taking the screen, then switch, finish and clear a stale tab", async (t) => {
+  const f = setup(t);
+  const first = await f.open("projects/a");
+  fs.writeFileSync(
+    path.join(f.workspace, "part-two.stl"),
+    stl.replace("vertex 1 0 0", "vertex 2 0 0"),
+  );
+  const quiet = await f.manager.execute({
+    action: "open",
+    project: "projects/a",
+    file: "part-two.stl",
+    version: "v2",
+    label: "v2",
+    activate: false,
+  });
+  assert.equal(quiet.publication, "published");
+  assert.equal(quiet.active.id, first.active.id, "the screen must not move");
+  assert.equal(quiet.versions.length, 2);
+
+  const second = quiet.versions.find((v) => v.id !== first.active.id);
+  const switched = await f.manager.execute({
+    action: "activate",
+    project: "projects/a",
+    versionId: second.id,
+  });
+  assert.equal(switched.active.id, second.id);
+  // Naming the version string works too, so the Agent need not track ids.
+  const back = await f.manager.execute({
+    action: "activate",
+    project: "projects/a",
+    version: first.active.version,
+  });
+  assert.equal(back.active.id, first.active.id);
+
+  // A tab that stopped reporting must never keep the Agent or anyone else out.
+  const cleared = await f.manager.execute({
+    action: "unlock",
+    project: "projects/a",
+    versionId: first.active.id,
+  });
+  assert.deepEqual(cleared.cleared, [first.active.id]);
+  const p = f.manager.project("projects/a");
+  const config = JSON.parse(
+    fs.readFileSync(path.join(p.runtime, "config.json"), "utf8"),
+  );
+  const live = JSON.parse(
+    fs.readFileSync(path.join(p.runtime, "state.json"), "utf8"),
+  );
+  assert.equal(live.presence[first.active.id], undefined);
+
+  const finished = await f.manager.execute({
+    action: "finish",
+    project: "projects/a",
+  });
+  assert.equal(finished.versionId, first.active.id);
+  assert.equal(finished.sealed, null, "nothing was marked, so nothing sealed");
+  const status = await f.manager.execute({
+    action: "status",
+    project: "projects/a",
+  });
+  assert.equal(status.versions.length, 2);
+  assert.equal(status.locked, false);
+});

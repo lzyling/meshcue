@@ -1110,7 +1110,8 @@ $("#finish-review").addEventListener("click", async () => {
   }
 });
 $("#go-active").addEventListener("click", () => {
-  if (state?.active?.id) selectVersion(state.active.id).catch((e) => toast(e.message));
+  if (state?.active?.id)
+    selectVersion(state.active.id).catch((e) => toast(e.message));
 });
 $("#resume-review").addEventListener("click", async () => {
   if (submitting) return;

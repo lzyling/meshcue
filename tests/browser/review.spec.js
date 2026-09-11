@@ -391,7 +391,9 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
     false,
   );
   expect(
-    await page.evaluate(() => window.__reviewDiagnostics().capabilities.canFinish),
+    await page.evaluate(
+      () => window.__reviewDiagnostics().capabilities.canFinish,
+    ),
   ).toBe(true);
 });
 

@@ -114,10 +114,18 @@ test("submission is an immutable snapshot and finishing seals whatever is left",
   draft(store, [{ ...pins[0], label: "A" }], 1);
   assert.equal(item.annotations[0].label, "1");
   const { sealed } = store.finish(m1.id, "client-a");
-  assert.equal(sealed.sealed, true, "the unsubmitted edit must reach the Agent");
+  assert.equal(
+    sealed.sealed,
+    true,
+    "the unsubmitted edit must reach the Agent",
+  );
   assert.equal(sealed.annotations[0].label, "A");
   assert.equal(item.annotations[0].label, "1");
-  assert.equal(store.state.active.id, m2.id, "finishing does not change display");
+  assert.equal(
+    store.state.active.id,
+    m2.id,
+    "finishing does not change display",
+  );
 });
 test("unconfirmed delivery still lets the round be finished and keeps annotations", (t) => {
   const { store } = fixture(t);
@@ -167,7 +175,11 @@ test("ending a version keeps its markings on screen and reopens on the next edit
   });
   store.submissionStatus("done", "accepted");
   store.finish(m1.id, "client-a");
-  assert.equal(store.state.active.id, m1.id, "finishing is not a version switch");
+  assert.equal(
+    store.state.active.id,
+    m1.id,
+    "finishing is not a version switch",
+  );
   assert.equal(store.state.presence[m1.id], undefined);
   assert.ok(store.state.drafts[m1.id].closedAt);
   assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
@@ -588,4 +600,141 @@ test("viewer receipts stay bounded and never evict a client present on a version
   );
   assert.equal(receipts["tab-199"].loadedAt, 299);
   assert.equal(receipts["tab-0"], undefined);
+});
+
+test("a schema 1 state migrates every draft, lock, echo and queued model", (t) => {
+  const { dir } = fixture(t);
+  // Exactly the shape 0.5 left behind: one draft, one lock, one echo and a
+  // model queued because the reviewer had not finished. Nothing may be lost.
+  const legacy = {
+    schemaVersion: 1,
+    generation: 3,
+    active: m1,
+    pending: m2,
+    lock: { clientId: "old-tab", versionId: m1.id, touchedAt: 1000 },
+    draft: {
+      versionId: m1.id,
+      revision: 4,
+      annotations: pins,
+      camera: null,
+      submittedRevision: null,
+      labelCursor: 1,
+    },
+    echo: { id: "echo-1", submissionId: "s1", versionId: m1.id, revision: 4 },
+    submissions: [],
+    messages: [],
+    startedAt: 1,
+  };
+  fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(legacy));
+  const store = new ReviewStore(dir);
+  assert.equal(store.state.schemaVersion, 2);
+  assert.deepEqual(store.state.drafts[m1.id].annotations, pins);
+  assert.equal(store.state.presence[m1.id].clientId, "old-tab");
+  assert.equal(store.state.echoes[m1.id].id, "echo-1");
+  // The queued model was already published; it becomes an ordinary selectable
+  // version instead of a slot that only a finished round could release.
+  assert.deepEqual(
+    store.versions("old-tab").map((v) => v.id),
+    [m1.id, m2.id],
+  );
+  assert.equal(store.state.active.id, m1.id);
+  for (const gone of ["draft", "lock", "echo", "pending"])
+    assert.equal(Object.hasOwn(store.state, gone), false, gone);
+  // Reloading the migrated file must be a no-op, not a second migration.
+  const again = new ReviewStore(dir);
+  assert.deepEqual(again.state.drafts[m1.id].annotations, pins);
+  assert.equal(again.state.schemaVersion, 2);
+});
+
+// Two deadlocks in one afternoon came from states nobody had enumerated: a
+// round that could not be finished while delivery was down, and a round with
+// no owner that no tab could take back. Enumerate them instead of guessing.
+test("every reachable review state has an exit and no exit discards an unsubmitted marking", (t) => {
+  const presences = ["none", "mine", "other-fresh", "other-stale"];
+  const drafts = ["empty", "unsubmitted", "submitted", "closed"];
+  const deliveries = ["accepted", "unconfirmed"];
+  let checked = 0;
+  for (const presence of presences)
+    for (const shape of drafts)
+      for (const delivery of deliveries) {
+        const { dir, store } = fixture(t);
+        store.publish(m1);
+        let submissionId = null;
+        if (shape !== "empty") {
+          store.acquire(m1.id, "client-a");
+          draft(store);
+          if (shape !== "unsubmitted") {
+            submissionId = `s-${presence}-${shape}-${delivery}`;
+            store.createSubmission({
+              versionId: m1.id,
+              clientId: "client-a",
+              revision: 1,
+              submissionId,
+            });
+            store.submissionStatus(submissionId, delivery);
+          }
+          if (shape === "closed") store.finish(m1.id, "client-a");
+        }
+        delete store.state.presence[m1.id];
+        if (presence === "mine")
+          store.state.presence[m1.id] = {
+            clientId: "client-a",
+            touchedAt: Date.now(),
+          };
+        if (presence === "other-fresh")
+          store.state.presence[m1.id] = {
+            clientId: "client-b",
+            touchedAt: Date.now(),
+          };
+        if (presence === "other-stale")
+          store.state.presence[m1.id] = {
+            clientId: "client-b",
+            touchedAt: Date.now() - 120000,
+          };
+        const label = `${presence}/${shape}/${delivery}`;
+        const before = store.hasUnsubmitted(m1.id)
+          ? structuredClone(store.state.drafts[m1.id].annotations)
+          : null;
+
+        // 1. A reviewer arriving at this state can always take the round.
+        assert.doesNotThrow(
+          () => store.acquire(m1.id, "client-a"),
+          `${label}: no tab could take this round`,
+        );
+        assert.equal(
+          store.capabilities("client-a", m1.id).canEdit,
+          true,
+          `${label}: editing was refused`,
+        );
+
+        // 2. Finishing always succeeds, whatever delivery did.
+        const { sealed } = store.finish(m1.id, "client-a");
+        assert.equal(
+          store.hasUnsubmitted(m1.id),
+          false,
+          `${label}: round still unfinished after finishing`,
+        );
+
+        // 3. Nothing unsubmitted vanished: it became a batch the Agent gets.
+        if (before)
+          assert.deepEqual(
+            sealed?.annotations,
+            before,
+            `${label}: an unsubmitted marking was lost`,
+          );
+
+        // 4. And the Agent can always move the project forward afterwards.
+        assert.doesNotThrow(
+          () => store.publish(m2),
+          `${label}: the Agent could not publish the next version`,
+        );
+        assert.equal(store.state.active.id, m2.id, label);
+        assert.deepEqual(
+          new ReviewStore(dir).state.drafts[m1.id].annotations,
+          store.state.drafts[m1.id].annotations,
+          `${label}: the marking did not survive a restart`,
+        );
+        checked++;
+      }
+  assert.equal(checked, 32);
 });

@@ -503,7 +503,9 @@ app.post("/api/review/begin", (req, res) => {
   res.json(stateFor(p.clientId, true, p.versionId));
 });
 app.post("/api/review/heartbeat", (req, res) => {
-  const p = z.object({ clientId: id, versionId: id.optional() }).parse(req.body);
+  const p = z
+    .object({ clientId: id, versionId: id.optional() })
+    .parse(req.body);
   if (p.versionId) store.heartbeat(p.clientId, p.versionId);
   res.json({ ok: true });
 });
@@ -520,7 +522,10 @@ app.put("/api/draft", (req, res) => {
   rememberUse(req, res);
   // Permissions travel with the save so the first mark does not leave the
   // buttons disabled until the next poll, and the page never has to guess.
-  res.json({ ...draft, capabilities: store.capabilities(p.clientId, p.versionId) });
+  res.json({
+    ...draft,
+    capabilities: store.capabilities(p.clientId, p.versionId),
+  });
 });
 app.post("/api/review/finish", async (req, res) => {
   const p = owner.parse(req.body);
@@ -769,12 +774,10 @@ agentApp.post("/activate", (req, res) => {
   res.json({ active: store.activate(p.versionId) });
 });
 agentApp.post("/finish", (req, res) => {
-  const p = z
-    .object({ versionId: id.optional() })
-    .strict()
-    .parse(req.body);
+  const p = z.object({ versionId: id.optional() }).strict().parse(req.body);
   const versionId = p.versionId || store.state.active?.id;
-  if (!versionId) throw new ReviewError("尚未有可結束的版本。", 409, "NO_MODEL");
+  if (!versionId)
+    throw new ReviewError("尚未有可結束的版本。", 409, "NO_MODEL");
   const { sealed } = store.finish(versionId, null);
   if (sealed) deliverFeedback(attachManifest(sealed)).catch(() => {});
   res.json({ versionId, sealed: sealed?.id || null });
@@ -782,11 +785,10 @@ agentApp.post("/finish", (req, res) => {
 // A tab that stopped reporting must never keep anyone out. Presence is only a
 // hint, but clearing it explicitly is still the honest way to say "carry on".
 agentApp.post("/unlock", (req, res) => {
-  const p = z
-    .object({ versionId: id.optional() })
-    .strict()
-    .parse(req.body);
-  const cleared = p.versionId ? [p.versionId] : Object.keys(store.state.presence);
+  const p = z.object({ versionId: id.optional() }).strict().parse(req.body);
+  const cleared = p.versionId
+    ? [p.versionId]
+    : Object.keys(store.state.presence);
   for (const versionId of cleared) delete store.state.presence[versionId];
   store.save();
   res.json({ cleared });
