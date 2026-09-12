@@ -1209,10 +1209,17 @@ dialog .muted {
   backface-visibility: hidden;
   box-shadow: none;
 }
+/* Sized for the longest side name any language has — ARRIÈRE and DESSOUS are
+   seven letters where 前 is one; orient-cube.js gives the type back when a word
+   needs it. Deliberately not `overflow: hidden`: that makes the plate its own
+   stacking context, drops it out of the cube's depth sort, and a whole face
+   stops taking clicks — the browser tests catch it, but it costs an hour. */
 .orient-face {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
+  padding: 0 2px;
+  white-space: nowrap;
 }
 /* Edges and corners are aim points, not labels: they stay quiet until the
    pointer is on them, so the cube still reads as six named sides. */

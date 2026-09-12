@@ -49,7 +49,7 @@ async function ready(page) {
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "檢視及標籤", exact: true }),
+    page.getByRole("button", { name: "Orbit and label", exact: true }),
   ).toBeEnabled();
 }
 async function point(page, dx = 0, dy = 0) {
@@ -60,7 +60,9 @@ async function point(page, dx = 0, dy = 0) {
   };
 }
 async function pin(page) {
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
   await expect
@@ -68,7 +70,7 @@ async function pin(page) {
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
 }
 
 test.beforeEach(async () => {
@@ -141,7 +143,7 @@ test("brush produces real face sets; undo, redo, delete and refresh retain the c
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page, -35, 0);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
@@ -153,25 +155,25 @@ test("brush produces real face sets; undo, redo, delete and refresh retain the c
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const painted = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
   expect(painted[0].type).toBe("region");
   expect(Object.values(painted[0].faces).flat().length).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "撤銷", exact: true }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(0);
-  await page.getByRole("button", { name: "重做", exact: true }).click();
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   expect(
@@ -183,7 +185,9 @@ test("brush produces real face sets; undo, redo, delete and refresh retain the c
     ),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "刪除紅色區域", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete red area", exact: true })
+    .click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -218,8 +222,10 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   const log = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   );
@@ -229,9 +235,13 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   // of being able to go back: an older marking is not an ambiguous one.
   expect(send.params.message).toContain(original);
   expect(send.params.message).toContain("不等於修改指令");
-  await page.getByRole("button", { name: "結束本輪審閱", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Finish this round", exact: true })
+    .click();
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: "睇最新版本", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Show the latest version", exact: true })
+    .click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
     .toBe(next.model.id);
@@ -259,7 +269,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   // Clobbering is prevented by the draft revision check, which is the only
   // guard that actually knows whether two edits conflict.
   await expect(
-    other.getByRole("button", { name: "檢視及標籤", exact: true }),
+    other.getByRole("button", { name: "Orbit and label", exact: true }),
   ).toBeEnabled();
   await expect
     .poll(() => other.evaluate(() => window.__reviewDiagnostics().owned))
@@ -269,7 +279,9 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   ).toBe(1);
   // The tab that lost presence is told another window is here.
   await expect(page.locator("#resume-banner")).toBeVisible();
-  await other.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await other
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const q = await point(other, 12, 12);
   await other.mouse.dblclick(q.x, q.y);
   await expect
@@ -277,7 +289,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
       other.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(2);
-  await expect(other.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(other.locator("#save-status")).toHaveText("Draft saved");
   const saved = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
   );
@@ -294,7 +306,7 @@ test("visible-only brush never selects the occluded mesh and its patches match t
 }) => {
   publish("occlusion-check.glb", "occlusion-test");
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -302,7 +314,7 @@ test("visible-only brush never selects the occluded mesh and its patches match t
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const d = await page.evaluate(() => window.__reviewDiagnostics());
   const a = d.annotations[0];
   const manifest = JSON.parse(
@@ -336,7 +348,9 @@ test("temporary save failure keeps local edits, then retries without losing the 
 }) => {
   await ready(page);
   await page.route("**/api/draft", (r) => r.abort());
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
   await expect
@@ -344,13 +358,15 @@ test("temporary save failure keeps local edits, then retries without losing the 
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   expect(await page.evaluate(() => window.__reviewDiagnostics().dirty)).toBe(
     true,
   );
   await page.unroute("**/api/draft");
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   const d = await page.evaluate(() => window.__reviewDiagnostics());
   expect(d.annotationCount).toBe(1);
   expect(d.dirty).toBe(false);
@@ -360,12 +376,14 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   const s = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"))
     .submissions[0];
   // state.json keeps the receipt; the annotations live only in the immutable
@@ -436,7 +454,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   await expect(page.locator("#brush-size")).toBeVisible();
   await page.screenshot({
     path: path.resolve(
@@ -518,13 +536,15 @@ test("an accepted feedback response lost in transit can be retried after refresh
       await r.abort();
     } else await r.continue();
   });
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
   await expect(page.locator("#toast")).toBeVisible();
   await page.unroute("**/api/feedback");
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   const log = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   );
@@ -576,14 +596,16 @@ test("drag rotates and single click does nothing; double click adds exactly one 
   const moved = await page.evaluate(() => window.__reviewDiagnostics());
   expect(moved.annotationCount).toBe(0);
   expect(moved.camera).not.toEqual(before);
-  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Reset the view", exact: true })
+    .click();
   await page.mouse.dblclick(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const saved = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.waitForTimeout(150);
   expect(
@@ -607,12 +629,14 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
     }
     return route.continue();
   });
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   await page.mouse.dblclick(p.x + 8, p.y + 8);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   expect(writes[1]).toEqual(writes[0]);
   expect(writes.at(-1).annotations).toHaveLength(2);
   const saved = JSON.parse(
@@ -631,24 +655,26 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
     if (++writes === 1) await fetchThroughFixture(route);
     return route.abort();
   });
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   await page.mouse.dblclick(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(2);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   const before = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
   await page.unroute("**/api/draft");
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(before);
@@ -681,10 +707,12 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   const before = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
@@ -698,7 +726,7 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
   await expect
     .poll(() => replacement.evaluate(() => window.__reviewDiagnostics().owned))
     .toBe(true);
-  await expect(replacement.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(replacement.locator("#save-status")).toHaveText("Draft saved");
   expect(
     await replacement.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(before);
@@ -714,10 +742,12 @@ test("a truly divergent cached draft is durably backed up before new edits can r
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.dblclick(p.x, p.y);
-  await expect(page.locator("#save-status")).toContainText("未同步");
+  await expect(page.locator("#save-status")).toContainText("Not synced");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   const clientId = await page.evaluate(() =>
     sessionStorage.getItem("3d-review-client"),
@@ -741,14 +771,16 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(different);
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   await page.mouse.dblclick(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(2);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const backup = await page.evaluate(() => {
     const key = localStorage.getItem(
       `${window.__reviewDiagnostics().draftCacheKey}-recovery-latest`,
@@ -771,11 +803,11 @@ test("small brush rendered pixels follow the circular cursor instead of filling 
 }) => {
   publish("occlusion-check.glb", "pixel-check");
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   await page.locator("#brush-size").fill("6");
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await page.mouse.move(5, 5);
   const png = await page.screenshot();
   const data = JSON.parse(
@@ -835,8 +867,10 @@ test("legacy pins and paint fixture restore unchanged alongside new precise stro
   ).toEqual(legacy.annotations);
   await expect(page.locator(".model-pin")).toHaveCount(2);
   await expect(page.locator(".annotation-badge").nth(2)).toHaveText("");
-  await page.getByRole("button", { name: "重設視角", exact: true }).click();
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Reset the view", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -844,7 +878,7 @@ test("legacy pins and paint fixture restore unchanged alongside new precise stro
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(4);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations.slice(0, 3)).toEqual(legacy.annotations);
   expect(after.annotations[3].coverage).toBe("source-v1");
@@ -878,19 +912,21 @@ test("narrow embedded review fixture remains interactive without a duplicated co
       frame.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await expect(frame.locator("#save-status")).toHaveText("草稿已保存");
-  await frame.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(frame.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(frame.locator("#save-status")).toHaveText("Draft saved");
+  await frame.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(frame.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
 });
 
 test("paint mode supports temporary Option navigation and does not consume point label numbers", async ({
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   await page.keyboard.down("Alt");
   await page.mouse.move(p.x, p.y);
@@ -901,8 +937,12 @@ test("paint mode supports temporary Option navigation and does not consume point
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations).toEqual(before.annotations);
   expect(after.camera).not.toEqual(before.camera);
-  await page.getByRole("button", { name: "重設視角", exact: true }).click();
-  await page.getByRole("button", { name: "檢視及標籤", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Reset the view", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
   await page.mouse.dblclick(p.x, p.y);
   await expect
     .poll(() =>
@@ -938,13 +978,15 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await pin(page);
   const first = await page.evaluate(() => window.__reviewDiagnostics());
   expect(first.annotations[0].label).toBe("A");
-  await page.getByRole("button", { name: "刪除標記 A", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete label A", exact: true })
+    .click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(0);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await pin(page);
@@ -956,7 +998,9 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.mouse.move(p.x + 40, p.y + 20, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "重設視角", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Reset the view", exact: true })
+    .click();
   const camera = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.locator(".annotation-select").click();
   const selectedCamera = await page.evaluate(
@@ -966,7 +1010,7 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
     selectedCamera[key].forEach((v, i) =>
       expect(v).toBeCloseTo(camera[key][i], 8),
     );
-  await page.getByRole("button", { name: "移動標籤 B", exact: true }).click();
+  await page.getByRole("button", { name: "Move label B", exact: true }).click();
   const target = await point(page, -25, 30);
   await page.mouse.click(target.x, target.y);
   await expect
@@ -977,7 +1021,7 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   expect(
     (await page.evaluate(() => window.__reviewDiagnostics().annotations[0])).id,
   ).toBe(second.annotations[0].id);
-  await page.getByRole("button", { name: "撤銷", exact: true }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
     .toEqual(second.annotations);
@@ -995,7 +1039,9 @@ test("iteration: bucket preview equals filled coverage and eraser is partial and
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "油漆桶模式", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.move(p.x, p.y);
   await expect
@@ -1010,24 +1056,24 @@ test("iteration: bucket preview equals filled coverage and eraser is partial and
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(0);
   await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const filled = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
   expect(filled[0].surfacePatches.length).toBe(count);
-  await page.getByRole("button", { name: "橡皮擦模式", exact: true }).click();
+  await page.getByRole("button", { name: "Eraser tool", exact: true }).click();
   await page.locator("#brush-size").fill("6");
   await page.mouse.click(p.x, p.y);
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
     .not.toEqual(filled);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const erased = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
   expect(erased).not.toEqual(filled);
   expect(erased[0].id).toBe(filled[0].id);
-  await page.getByRole("button", { name: "撤銷", exact: true }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(filled);
@@ -1037,14 +1083,16 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
-  await page.getByRole("button", { name: /交畀 Agent/ }).click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   await expect(page.locator("#feedback-status")).not.toContainText(
-    "Agent 已讀取",
+    "the Agent has read it",
   );
   const receipt = JSON.parse(
     fs.readFileSync(path.join(dir, "state.json"), "utf8"),
@@ -1060,7 +1108,9 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
     ["scripts/reviewctl.mjs", "read", submission.id],
     { cwd: repo, env, stdio: "pipe" },
   );
-  await expect(page.locator("#feedback-status")).toContainText("Agent 已讀取");
+  await expect(page.locator("#feedback-status")).toContainText(
+    "the Agent has read it",
+  );
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   const file = path.join(dir, "echo.json");
   fs.writeFileSync(
@@ -1299,7 +1349,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   await page.mouse.down();
   await page.mouse.move(p.x + 75, p.y, { steps: 10 });
   await page.mouse.up();
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),

@@ -293,23 +293,22 @@ export class ReviewStore {
       draft &&
       (draft.annotations.length || draft.submittedRevision != null)
     );
+    /* Named, not worded. This reaches the reviewer's screen, and the reviewer's
+       language is settled in the browser, not here — the service has no way to
+       know it and no business guessing. */
     if (!known)
       return {
         canEdit: false,
         canSubmit: false,
         canFinish: false,
-        blockedReason: "此版本不屬於目前審閱。",
+        blocked: "NOT_IN_REVIEW",
       };
     const closed = !!draft?.closedAt;
     return {
       canEdit: true,
       canSubmit: marked,
       canFinish: marked && !closed,
-      blockedReason: !marked
-        ? "這一版尚未有標記。"
-        : closed
-          ? "這一版已結束；再標記即可重新開始。"
-          : null,
+      blocked: !marked ? "NOT_MARKED" : closed ? "ROUND_CLOSED" : null,
     };
   }
   publicState(clientId, requested) {

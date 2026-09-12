@@ -1,13 +1,12 @@
 import { sha256 } from "@noble/hashes/sha2.js";
+import { t } from "./i18n/index.js";
 
 // getRandomValues is available on ordinary LAN HTTP origins; randomUUID and
 // subtle.digest are not. Keep secure randomness and the full SHA-256 check.
 export function newId(provider = globalThis.crypto) {
   if (typeof provider?.randomUUID === "function") return provider.randomUUID();
   if (typeof provider?.getRandomValues !== "function")
-    throw new Error(
-      "瀏覽器缺少安全隨機功能，請使用目前版本的 Chrome 或 Edge。",
-    );
+    throw new Error(t("conn.noSecureRandom"));
   const bytes = provider.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 15) | 64;
   bytes[8] = (bytes[8] & 63) | 128;

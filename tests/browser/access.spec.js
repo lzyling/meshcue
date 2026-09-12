@@ -57,12 +57,12 @@ async function ready(page, context) {
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "畫筆模式", exact: true }),
+    page.getByRole("button", { name: "Brush tool", exact: true }),
   ).toBeEnabled();
   expect(await page.evaluate(() => isSecureContext)).toBe(false);
 }
 async function mark(page) {
-  await page.getByRole("button", { name: "畫筆模式", exact: true }).click();
+  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect
@@ -94,7 +94,9 @@ test("ordinary link automatically claims a host-admitted peer and loads, marks, 
   context,
 }) => {
   await page.goto(browserUrl);
-  await expect(page.locator("#loading-text")).toContainText("原對話");
+  await expect(page.locator("#loading-text")).toContainText(
+    "original conversation",
+  );
   await f.ipc("/access/admit", { address: "192.168.1.22" });
   const rejected = await page.waitForResponse((r) =>
     r.url().endsWith("/api/access/claim"),
@@ -120,7 +122,7 @@ test("ordinary link automatically claims a host-admitted peer and loads, marks, 
   expect(initial.access.sessions).toBe(1);
   expect(initial.access.grantActive).toBe(false);
   await mark(page);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await f.ipc("/access/admit", { address: "192.168.1.23" });
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
@@ -138,7 +140,7 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   await ready(page, context);
   const initial = (await f.ipc("/status")).body;
   await mark(page);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   // New admissions rotate without revoking an already active editing browser.
   await f.ipc("/access/issue", {});
   await f.ipc("/access/issue", {});
@@ -148,9 +150,11 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
   await page.locator("#submit-feedback").click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   await expect(page.locator("#feedback-status")).not.toContainText(
-    "Agent 已讀取",
+    "the Agent has read it",
   );
   const submission = (await f.ipc("/submissions")).body[0];
   expect(submission.annotations[0].type).toBe("region");
@@ -173,7 +177,9 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
       })
     ).status,
   ).toBe(200);
-  await expect(page.locator("#feedback-status")).toContainText("Agent 已讀取");
+  await expect(page.locator("#feedback-status")).toContainText(
+    "the Agent has read it",
+  );
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   expect(
     (
@@ -227,7 +233,9 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   await expect(page.locator("#pending-banner")).toBeVisible();
   expect(sha(await currentDownload(page))).toBe(initial.active.sha256);
   await page.locator("#finish-review").click();
-  await page.getByRole("button", { name: "睇最新版本", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Show the latest version", exact: true })
+    .click();
   await expect(page.locator("#model-version")).toHaveText("v2-hole-0.28");
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#echo-panel")).toBeHidden();
@@ -237,7 +245,7 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   expect(current.annotationCount).toBe(0);
   expect(current.accessBlocked).toBe(false);
   await mark(page);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   expect(
     (await f.ipc(`/submissions/${submission.id}`)).body.annotations,
   ).toEqual(submission.annotations);
@@ -269,12 +277,14 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().accessBlocked))
     .toBe(false);
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(before.annotations);
   await page.locator("#submit-feedback").click();
-  await expect(page.locator("#feedback-status")).toContainText("已送到原會話");
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
   await page.locator("#finish-review").click();
   // Finishing clears presence, so the project reads as free to the Agent.
   await expect
@@ -337,7 +347,9 @@ test("an unauthenticated browser sees a clear entrance state and no model", asyn
   page,
 }) => {
   await page.goto(browserUrl);
-  await expect(page.locator("#loading-text")).toContainText("原對話");
+  await expect(page.locator("#loading-text")).toContainText(
+    "original conversation",
+  );
   await expect(page.locator("#loading .spinner")).toBeHidden();
   await expect(page.locator("#submit-feedback")).toBeDisabled();
   expect(
@@ -375,7 +387,7 @@ test("remembered browser survives service restart and tab reopening; passive pol
     (await f.ipc("/status")).body.access.browsers[0].lastUsedAt,
   ).toBeGreaterThan(first.lastUsedAt);
   await mark(page);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   await f.restart();
   await page.reload();
@@ -401,7 +413,7 @@ test("an editing tab recovers after a sibling tab collects their shared browser 
 }) => {
   await ready(page, context);
   await mark(page);
-  await expect(page.locator("#save-status")).toHaveText("草稿已保存");
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   const sibling = await context.newPage();
   await sibling.goto(browserUrl);

@@ -2,12 +2,19 @@ import { newId } from "./browser-crypto.js";
 import "./style.css";
 import { ModelViewer } from "./viewer.js";
 import { buildOrientCube, compassTransform } from "./orient-cube.js";
+import { t, currentLocale } from "./i18n/index.js";
 import {
   letterLabel,
   letterNumber,
   erasePatches,
   facesOf,
 } from "./annotation-edits.js";
+
+/* index.html ships with a fixed lang, because the language is not known until
+   the reviewer's own preferences have been read. Correcting it here is what
+   makes hyphenation, font selection and a screen reader's pronunciation match
+   the words actually on the page. */
+document.documentElement.lang = currentLocale();
 
 const $ = (selector) => document.querySelector(selector);
 const app = $("#app");
@@ -40,44 +47,72 @@ const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 </defs></svg>`;
 const icon = (name) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
+/* Catalogue text goes into markup, so it is escaped on the way in. Five
+   languages of apostrophes and quotation marks are not a place to rely on
+   nobody having typed an angle bracket. */
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+  );
+const T = (key, vars) => esc(t(key, vars));
+/* The service names its refusals and the browser is what has to say them out
+   loud, so a refusal the reader will see is looked up by code rather than
+   printed in whatever language the service happens to be written in. A code
+   with no entry yet falls back to the service's own words: half-translated is
+   poor, but silence in place of a reason is worse. This is the seam where the
+   rest of the service's browser-facing text will join. */
+const ERROR_KEYS = {
+  ACCESS_REQUIRED: "error.accessRequired",
+};
+const BLOCKED_KEYS = {
+  NOT_IN_REVIEW: "review.notInReview",
+  NOT_MARKED: "review.notMarked",
+  ROUND_CLOSED: "review.roundClosed",
+};
+const blockedText = (code) => (BLOCKED_KEYS[code] ? t(BLOCKED_KEYS[code]) : "");
+const serverMessage = (json) =>
+  (json?.code && ERROR_KEYS[json.code] && t(ERROR_KEYS[json.code])) ||
+  json?.error ||
+  t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
-<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>3D 模型審閱與標注</span></div><span class="prototype">試用版 ${__MESHCUE_VERSION__}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet icon-only" id="help-button" aria-label="使用說明">${icon("help")}</button></div></header>
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
- <section class="review-panel" aria-label="模型審閱">
-  <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
-  <div id="version-tabs" class="version-tabs" role="tablist" aria-label="模型版本" hidden></div>
+ <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
+  <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
+  <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
-   <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
-   <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">隱藏標注</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">素色檢視</button></div>
+   <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span><span class="scene-pill subtle" id="model-info"></span></div>
+   <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">${T("marks.hide")}</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">${T("view.plain")}</button></div>
    <div class="orient">
     <div class="orient-stage"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div></div>
-    <button class="orient-home quiet-dark" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
+    <button class="orient-home quiet-dark" id="home-view" title="${T("cube.homeTitle")}" aria-label="${T("cube.homeLabel")}">${icon("home")}</button>
    </div>
-   <div class="toolbar" role="toolbar" aria-label="模型操作工具">
-    <button data-mode="orbit" class="tool active" title="拖動旋轉，雙擊表面落標籤" aria-label="檢視及標籤">${icon("orbit")}<span>檢視／標籤</span></button>
-    <button data-mode="paint" class="tool" title="畫筆只標可見表面" aria-label="畫筆模式">${icon("brush")}<span>畫筆</span></button>
-    <button data-mode="erase" class="tool" aria-label="橡皮擦模式" title="只擦走標注筆跡">${icon("eraser")}<span>橡皮擦</span></button>
-    <button data-mode="fill" class="tool" aria-label="油漆桶模式" title="預覽相連近平面，單擊填色">${icon("fill")}<span>油漆桶</span></button>
-    <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button>
+   <div class="toolbar" role="toolbar" aria-label="${T("a11y.toolbar")}">
+    <button data-mode="orbit" class="tool active" title="${T("tool.orbitTitle")}" aria-label="${T("tool.orbitLabel")}">${icon("orbit")}<span>${T("tool.orbit")}</span></button>
+    <button data-mode="paint" class="tool" title="${T("tool.brushTitle")}" aria-label="${T("tool.brushLabel")}">${icon("brush")}<span>${T("tool.brush")}</span></button>
+    <button data-mode="erase" class="tool" aria-label="${T("tool.eraserLabel")}" title="${T("tool.eraserTitle")}">${icon("eraser")}<span>${T("tool.eraser")}</span></button>
+    <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
+    <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
    </div>
-   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}新區域</button></div>
-   <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
-   <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span id="loading-hint">模型載入完成後就可以開始標記</span></div>
-   <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
+   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="${T("a11y.palette")}"></div><label id="radius-control" hidden>${T("tool.size")} <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="${T("tool.brushSize")}"></label><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
+   <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">${T("echo.focus")}</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">${T("echo.hide")}</button><span id="echo-stale" hidden>${T("echo.stale")}</span></div>
+   <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
+   <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
   </div>
   </div>
-  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">睇最新版本</button></div>
-  <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗都開住呢一版。</span><button id="resume-review" class="quiet">繼續喺呢部機標記</button></div>
-  <div id="recovery-banner" class="pending-banner" hidden><span>本機另有未同步草稿，已保留，未覆蓋目前版本。</span><a id="download-recovery">下載草稿備份</a></div>
+  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">${T("version.goActive")}</button></div>
+  <div id="resume-banner" class="pending-banner" hidden><span>${T("resume.text")}</span><button id="resume-review" class="quiet">${T("resume.action")}</button></div>
+  <div id="recovery-banner" class="pending-banner" hidden><span>${T("recovery.text")}</span><a id="download-recovery">${T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
   <div id="precision-banner" class="pending-banner" hidden><span id="precision-text"></span></div>
-  <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><a id="download-model" class="secondary-button" hidden>下載當前版本</a><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
+  <footer class="review-footer"><div class="submission-status"><span id="feedback-status">${T("feedback.default")}</span><a id="download-feedback" hidden>${T("feedback.downloadMarks")}</a></div><a id="download-model" class="secondary-button" hidden>${T("feedback.downloadModel")}</a><button id="finish-review" class="secondary-button" disabled>${T("feedback.finish")}</button><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="關閉">${icon("close")}</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>頂部標籤列出 Agent 交付過嘅每一個版本。撳任何一個都可以睇返，亦可以直接喺舊版本上標記同提交 —— 每個版本有自己嘅草稿，換版唔會影響其他版本。Agent 收到嘅標記會註明係針對邊一版。</p><p>標完一版撳「結束本輪審閱」，仲未提交嘅標記會一併封存交畀 Agent；之後再標記就會自動重新開始。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p5")}</p><p>${T("help.p6")}</p><p>${T("help.p7")}</p><p>${T("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -138,10 +173,10 @@ async function api(path, data, method = "POST") {
   try {
     json = await res.json();
   } catch {
-    throw new Error("服務連線中斷，草稿仍會保留。");
+    throw new Error(t("conn.dropped"));
   }
   if (!res.ok) {
-    const err = new Error(json.error || "操作未完成。");
+    const err = new Error(serverMessage(json));
     err.code = json.code;
     if (res.status === 401 || json.code === "REVIEW_FINISHED") {
       accessBlocked = true;
@@ -158,8 +193,7 @@ async function api(path, data, method = "POST") {
           });
       } else {
         $("#loading-text").textContent = err.message;
-        $("#loading-hint").textContent =
-          "已連接工作台；授權完成前不會載入模型。";
+        $("#loading-hint").textContent = t("conn.connectedNoAccess");
         $("#loading .spinner").hidden = true;
       }
       updateButtons();
@@ -185,7 +219,7 @@ function draftKey() {
 // another set, so the keys only ever accumulate. Exhausting the quota is not
 // cosmetic here: it is exactly what puts the page into the mode that stops
 // editing to protect an unsynced draft. Age cannot decide what goes — an older
-// review's draft is precisely what "草稿保留，請在原會話接續" promises to keep.
+// review's draft is precisely what the kept-draft promise covers.
 // Being unsynced can: a cache that matches what the server already holds costs
 // a reload to rebuild and nothing to lose. Recovery backups are never touched;
 // they exist because something was already at risk.
@@ -222,7 +256,7 @@ function cacheDraft() {
       }),
     );
   } catch {
-    toast("本機暫存空間不足；請保持頁面開啟，等伺服器保存。");
+    toast(t("save.storageFull"));
   }
 }
 function historyPush() {
@@ -242,7 +276,7 @@ function changed() {
   submissionKey = null;
   cacheDraft();
   renderAnnotations();
-  $("#save-status").textContent = "保存中…";
+  $("#save-status").textContent = t("save.saving");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(
     () => flushDraft().catch((e) => toast(e.message)),
@@ -274,7 +308,7 @@ async function beginEdit() {
   }
 }
 function onPin(pin) {
-  if (annotations.length >= 200) return toast("本輪最多 200 個標記。");
+  if (annotations.length >= 200) return toast(t("marks.limit"));
   const item = {
     id: newId(),
     type: "pin",
@@ -286,15 +320,19 @@ function onPin(pin) {
   selectedId = item.id;
   changed();
 }
-const colorNames = {
-  "#e76d5c": "紅色",
-  "#e6b64b": "黃色",
-  "#6ab398": "綠色",
-  "#629bd8": "藍色",
-  "#ae82ce": "紫色",
+/* A colour is named, not described: the swatch is already on screen, so the
+   word is there to be said out loud in the original conversation. A colour with
+   no name falls back to its hex, which is still something to point at. */
+const colorKeys = {
+  "#e76d5c": "color.red",
+  "#e6b64b": "color.yellow",
+  "#6ab398": "color.green",
+  "#629bd8": "color.blue",
+  "#ae82ce": "color.purple",
 };
+const colorName = (hex) => (colorKeys[hex] ? t(colorKeys[hex]) : hex);
 function regionName(a) {
-  return `${colorNames[a.color] || a.color}區域`;
+  return t("marks.regionName", { color: colorName(a.color) });
 }
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
@@ -318,7 +356,7 @@ function onPaint(patches) {
       })
       .filter((a) => a.type === "pin" || a.surfacePatches.length);
     if (next.reduce((n, a) => n + (a.surfacePatches?.length || 0), 0) > 40000) {
-      toast("擦除產生太多細小筆跡，請縮小範圍。");
+      toast(t("tool.eraseTooFine"));
       return;
     }
     if (!sameValue(serialized, next)) {
@@ -332,7 +370,7 @@ function onPaint(patches) {
     0,
   );
   if (count + patches.length > 40000) {
-    toast("本輪筆跡接近上限，請先提交呢一批。");
+    toast(t("marks.nearStrokeLimit"));
     return;
   }
   let region = annotations.find(
@@ -359,7 +397,7 @@ function onPaint(patches) {
       0,
     );
   if (otherFaces + targetFaces.size > 20000) {
-    toast("本輪標注接近上限，請先提交呢一批。");
+    toast(t("marks.nearMarkLimit"));
     return;
   }
   if (!region) {
@@ -414,30 +452,30 @@ viewer.onOrient = (yaw, pitch) => {
 };
 /* Faces name a side; edges and corners are the three-quarter views a modeller
    reaches for to see two or three sides at once. */
-const CUBE_LABELS = {
-  "0,0,1": "前",
-  "0,0,-1": "後",
-  "1,0,0": "右",
-  "-1,0,0": "左",
-  "0,1,0": "頂",
-  "0,-1,0": "底",
+const CUBE_KEYS = {
+  "0,0,1": "cube.front",
+  "0,0,-1": "cube.back",
+  "1,0,0": "cube.right",
+  "-1,0,0": "cube.left",
+  "0,1,0": "cube.top",
+  "0,-1,0": "cube.bottom",
 };
 const CUBE_AXES = [
-  ["右", "左"],
-  ["頂", "底"],
-  ["前", "後"],
+  ["cube.right", "cube.left"],
+  ["cube.top", "cube.bottom"],
+  ["cube.front", "cube.back"],
 ];
 const cubeTitle = (view) =>
   view
     .split(",")
     .map(Number)
-    .map((v, i) => (v ? CUBE_AXES[i][v > 0 ? 0 : 1] : ""))
+    .map((v, i) => (v ? t(CUBE_AXES[i][v > 0 ? 0 : 1]) : ""))
     .filter(Boolean)
     .reverse()
-    .join("");
+    .join(t("cube.sideJoin"));
 for (const region of buildOrientCube(orientCube, {
-  label: (view) => CUBE_LABELS[view],
-  title: (view) => `由${cubeTitle(view)}睇`,
+  label: (view) => (CUBE_KEYS[view] ? t(CUBE_KEYS[view]) : ""),
+  title: (view) => t("cube.viewFrom", { side: cubeTitle(view) }),
 }))
   region.el.addEventListener("click", () =>
     viewer.viewFrom(...region.view.split(",").map(Number)),
@@ -501,9 +539,9 @@ async function flushDraft() {
       if (draft.capabilities) state.capabilities = draft.capabilities;
       cacheDraft();
       $("#save-status").textContent =
-        editSeq === savedSeq ? "草稿已保存" : "保存中…";
+        editSeq === savedSeq ? t("save.saved") : t("save.saving");
     } catch (e) {
-      $("#save-status").textContent = "未同步 · 草稿仍在本機";
+      $("#save-status").textContent = t("save.unsynced");
       throw e;
     } finally {
       saveFlight = null;
@@ -531,22 +569,23 @@ function updateButtons() {
   $("#redo").disabled = busy || !redoStack.length;
   $("#review-status").textContent = accessBlocked
     ? loadedId && initialDraftRestored
-      ? "授權已失效 · 草稿仍保留"
-      : "尚未取得審閱權限"
+      ? t("conn.accessExpired")
+      : t("conn.noAccess")
     : !ready
-      ? "載入模型"
+      ? t("review.loadingModel")
       : !followActive
-        ? "較早版本 · 一樣可以標記"
+        ? t("review.earlierVersion")
         : state?.locked
-          ? "另一個視窗都開住呢一版"
-          : can.blockedReason || "目前版本 · 可以開始標記";
+          ? t("review.openElsewhere")
+          : blockedText(can.blocked) || t("review.current");
   updateReceipt();
   renderVersions();
   const newer = !followActive && state?.active;
   $("#pending-banner").hidden = !newer;
   if (newer)
-    $("#pending-text").textContent =
-      `你正在睇較早版本；Agent 目前展示 ${state.active.version || state.active.name}。`;
+    $("#pending-text").textContent = t("version.pinnedNotice", {
+      version: state.active.version || state.active.name,
+    });
   $("#resume-banner").hidden = !state?.locked || accessBlocked;
   document
     .querySelectorAll("[data-mode]")
@@ -575,7 +614,7 @@ function renderAnnotations() {
     if (!annotations.length) {
       const div = document.createElement("div");
       div.className = "annotation-empty";
-      div.textContent = "將想改嘅位置\n標記喺模型上。";
+      div.textContent = t("marks.empty");
       list.append(div);
     }
     for (const a of annotations) {
@@ -589,7 +628,9 @@ function renderAnnotations() {
       eye.setAttribute("aria-pressed", String(hidden));
       eye.setAttribute(
         "aria-label",
-        `${hidden ? "顯示" : "隱藏"} ${a.type === "pin" ? a.label : regionName(a)}`,
+        t(hidden ? "marks.showOne" : "marks.hideOne", {
+          name: a.type === "pin" ? a.label : regionName(a),
+        }),
       );
       eye.addEventListener("click", () => {
         if (hiddenMarks.has(a.id)) hiddenMarks.delete(a.id);
@@ -604,14 +645,14 @@ function renderAnnotations() {
       badge.textContent = a.type === "pin" ? a.label : "";
       const text = document.createElement("span");
       const title = document.createElement("strong");
-      title.textContent = a.type === "pin" ? "點標籤" : regionName(a);
+      title.textContent = a.type === "pin" ? t("marks.pin") : regionName(a);
       const detail = document.createElement("small");
       detail.textContent =
         a.type === "pin"
-          ? "已固定在模型表面"
+          ? t("marks.pinned")
           : a.coverage === "source-v1"
-            ? "沿表面筆跡標記"
-            : "舊版整面標記 · 原樣保留";
+            ? t("marks.alongSurface")
+            : t("marks.legacyFace");
       text.append(title, detail);
       select.append(badge, text);
       select.addEventListener("click", () => {
@@ -625,7 +666,9 @@ function renderAnnotations() {
       remove.innerHTML = icon("trash");
       remove.setAttribute(
         "aria-label",
-        a.type === "pin" ? `刪除標記 ${a.label}` : `刪除${regionName(a)}`,
+        a.type === "pin"
+          ? t("marks.deleteLabel", { label: a.label })
+          : t("marks.deleteOne", { name: regionName(a) }),
       );
       remove.disabled =
         !!(state?.locked && !state?.owned) || submitting || recoveryBlocked;
@@ -642,23 +685,28 @@ function renderAnnotations() {
       });
       const focus = document.createElement("button");
       focus.className = "quiet-dark annotation-action";
-      focus.textContent = "定位";
+      focus.textContent = t("marks.frame");
       focus.setAttribute(
         "aria-label",
-        `轉視角查看 ${a.type === "pin" ? a.label : regionName(a)}`,
+        t("marks.frameOne", {
+          name: a.type === "pin" ? a.label : regionName(a),
+        }),
       );
       focus.addEventListener("click", () => viewer.focusAnnotation(a));
       row.append(eye, select, focus);
       if (a.type === "pin") {
         const move = document.createElement("button");
         move.className = "quiet-dark annotation-action edit-action";
-        move.textContent = "移動";
-        move.setAttribute("aria-label", `移動標籤 ${a.label}`);
+        move.textContent = t("marks.move");
+        move.setAttribute(
+          "aria-label",
+          t("marks.moveLabel", { label: a.label }),
+        );
         move.disabled = remove.disabled;
         move.addEventListener("click", () => {
           relocatingId = a.id;
           setMode("relocate");
-          toast(`點模型表面移動 ${a.label}；Esc 取消。`);
+          toast(t("marks.moveHint", { label: a.label }));
         });
         row.append(move);
       }
@@ -671,7 +719,7 @@ function setMode(next) {
   mode = next;
   if (next !== "relocate") relocatingId = null;
   viewer.setVisible(true);
-  $("#toggle-marks").textContent = "隱藏標注";
+  $("#toggle-marks").textContent = t("marks.hide");
   $("#toggle-marks").setAttribute("aria-pressed", "false");
   viewer.setMode(next);
   document
@@ -683,11 +731,11 @@ function setMode(next) {
   $("#radius-control").hidden = !["paint", "erase"].includes(next);
   $("#new-region").hidden = next !== "paint";
   $("#tool-hint").textContent = {
-    paint: "塗可見表面 · Option／Alt 拖動旋轉",
-    erase: "擦走可見筆跡 · 不影響模型 · Option／Alt 旋轉",
-    fill: "移上預覽 · 單擊填色 · Option／Alt 旋轉",
-    relocate: "點表面移動標籤 · Esc 取消",
-    orbit: "拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放",
+    paint: t("hint.paint"),
+    erase: t("hint.erase"),
+    fill: t("hint.fill"),
+    relocate: t("hint.relocate"),
+    orbit: t("hint.orbit"),
   }[next];
 }
 function updatePalette() {
@@ -700,7 +748,7 @@ for (const c of colors) {
   b.className = "color-button";
   b.dataset.color = c;
   b.style.background = c;
-  b.setAttribute("aria-label", `選擇顏色 ${c}`);
+  b.setAttribute("aria-label", t("color.choose", { color: colorName(c) }));
   b.addEventListener("click", () => {
     color = c;
     updatePalette();
@@ -720,8 +768,8 @@ $("#fill-range").addEventListener("input", (e) =>
 $("#toggle-marks").addEventListener("click", () => {
   viewer.setVisible(!viewer.annotationsVisible);
   $("#toggle-marks").textContent = viewer.annotationsVisible
-    ? "隱藏標注"
-    : "顯示標注";
+    ? t("marks.hide")
+    : t("marks.show");
   $("#toggle-marks").setAttribute(
     "aria-pressed",
     String(!viewer.annotationsVisible),
@@ -729,13 +777,17 @@ $("#toggle-marks").addEventListener("click", () => {
 });
 $("#neutral-view").addEventListener("click", () => {
   viewer.setNeutral(!viewer.neutral);
-  $("#neutral-view").textContent = viewer.neutral ? "原色檢視" : "素色檢視";
+  $("#neutral-view").textContent = viewer.neutral
+    ? t("view.original")
+    : t("view.plain");
   $("#neutral-view").setAttribute("aria-pressed", String(viewer.neutral));
 });
 $("#toggle-echo").addEventListener("click", () => {
   viewer.agentHidden = !viewer.agentHidden;
   viewer.setVisible(viewer.annotationsVisible);
-  $("#toggle-echo").textContent = viewer.agentHidden ? "顯示回顯" : "隱藏回顯";
+  $("#toggle-echo").textContent = viewer.agentHidden
+    ? t("echo.show")
+    : t("echo.hide");
   $("#toggle-echo").setAttribute("aria-pressed", String(viewer.agentHidden));
 });
 $("#focus-echo").addEventListener("click", () => {
@@ -747,13 +799,18 @@ $("#new-region").addEventListener("click", () => {
   selectedId = null;
   renderAnnotations();
   setMode("paint");
-  toast("下一筆會建立獨立顏色區域。");
+  toast(t("tool.newRegionHint"));
 });
 $("#toggle-annotations").addEventListener("click", () => {
   $("#annotations-list").hidden = !$("#annotations-list").hidden;
+  const collapsed = $("#annotations-list").hidden;
+  $("#toggle-annotations").setAttribute("aria-expanded", String(!collapsed));
+  // The icon flips but the label did not: collapsed, the button still told a
+  // screen reader it would collapse the list. Found by the catalogue check —
+  // "expand" was a translated phrase that nothing ever asked for.
   $("#toggle-annotations").setAttribute(
-    "aria-expanded",
-    String(!$("#annotations-list").hidden),
+    "aria-label",
+    t(collapsed ? "marks.expand" : "marks.collapse"),
   );
   $(".annotations-panel").classList.toggle(
     "collapsed",
@@ -874,7 +931,7 @@ async function restoreDraft(draft) {
     editSeq = cached.editSeq || 1;
     savedSeq = cached.savedSeq || 0;
     pendingWrite = cached.pendingWrite || null;
-    toast("已恢復上次未同步嘅草稿。");
+    toast(t("recovery.restored"));
     return;
   }
   // A genuine concurrent conflict is not an acknowledgement retry. Keep the
@@ -891,10 +948,10 @@ async function restoreDraft(draft) {
     // quota that has to protect the next unsynced draft.
     if (superseded && superseded !== key) localStorage.removeItem(superseded);
     cacheDraft();
-    toast("未同步草稿已獨立備份，可下載交畀 Agent；目前顯示伺服器已保存版本。");
+    toast(t("recovery.backedUp"));
   } catch {
     recoveryBlocked = true;
-    toast("本機空間不足，已保護未同步草稿並暫停編輯；請下載備份交畀 Agent。");
+    toast(t("recovery.paused"));
   }
 }
 
@@ -931,15 +988,15 @@ function renderVersions() {
     tab.title = [
       v.name,
       v.version,
-      `${(v.triangles || 0).toLocaleString()} 面`,
-      v.active ? "Agent 目前展示" : "較早版本",
-      v.submissions ? `${v.submissions} 批已提交` : null,
-      v.busy ? "另一個視窗開住" : null,
+      t("model.triangles", { count: (v.triangles || 0).toLocaleString() }),
+      v.active ? t("version.showingNow") : t("version.earlier"),
+      v.submissions ? t("version.submitted", { count: v.submissions }) : null,
+      v.busy ? t("version.openElsewhere") : null,
     ]
       .filter(Boolean)
       .join(" · ");
     const caption = document.createElement("span");
-    caption.textContent = v.label || v.version || v.name || "版本";
+    caption.textContent = v.label || v.version || v.name || t("common.version");
     tab.append(caption);
     if (marks) {
       const badge = document.createElement("em");
@@ -1014,9 +1071,9 @@ async function loadVersion(fullState) {
     `${model.format.toUpperCase()} · ${model.units}`;
   $("#loading").hidden = false;
   $("#loading .spinner").hidden = false;
-  $("#loading-text").textContent = "載入並核對模型版本";
-  $("#loading-hint").textContent = "模型載入完成後就可以開始標記";
-  $("#save-status").textContent = "核對中…";
+  $("#loading-text").textContent = t("loading.verifying");
+  $("#loading-hint").textContent = t("loading.hint");
+  $("#save-status").textContent = t("save.verifying");
   try {
     const stats = await viewer.load(
       model,
@@ -1026,8 +1083,11 @@ async function loadVersion(fullState) {
       },
     );
     if (!stats) return;
-    $("#model-info").textContent =
-      `${model.triangles.toLocaleString()} 面 · ${model.format.toUpperCase()} · ${model.units}`;
+    $("#model-info").textContent = t("model.summary", {
+      count: model.triangles.toLocaleString(),
+      format: model.format.toUpperCase(),
+      units: model.units,
+    });
     updatePrecision(stats);
     await restoreDraft(fullState.draft);
     initialDraftRestored = true;
@@ -1035,10 +1095,10 @@ async function loadVersion(fullState) {
     $("#loading").hidden = true;
     $("#save-status").textContent =
       editSeq > savedSeq
-        ? "恢復草稿中…"
+        ? t("save.restoring")
         : annotations.length
-          ? "草稿已保存"
-          : "未開始標記";
+          ? t("save.saved")
+          : t("save.notStarted");
     updateButtons();
     if (editSeq > savedSeq) await flushDraft().catch((e) => toast(e.message));
   } catch (e) {
@@ -1109,7 +1169,7 @@ async function readState() {
     const wanted = followActive ? incoming.active?.id : viewingId;
     if (wanted !== loadedId || incoming.reviewId !== loadedReviewId) {
       if (loadedId && editSeq > savedSeq) {
-        toast("偵測到版本不同，已保留當前草稿，停止自動換版。");
+        toast(t("version.driftStopped"));
         return;
       }
       const full = await api(
@@ -1123,7 +1183,7 @@ async function readState() {
         await loadFlight;
         loadFlight = null;
       } else {
-        $("#loading-text").textContent = "等候 Agent 交付第一個模型";
+        $("#loading-text").textContent = t("model.awaitingFirst");
         $("#loading .spinner").hidden = true;
       }
     } else state = incoming;
@@ -1131,21 +1191,21 @@ async function readState() {
       await flushDraft();
     $(".connection-dot").classList.add("online");
     $("#connection-status").textContent = incoming.bridgeEnabled
-      ? "回傳原會話"
-      : "本機審閱";
+      ? t("conn.origin")
+      : t("conn.local");
     updateEcho(incoming);
     updateOutbox(incoming);
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
     $("#connection-status").textContent = accessBlocked
-      ? "請返回原對話"
-      : "連線暫停";
+      ? t("conn.returnToChat")
+      : t("conn.paused");
     $("#save-status").textContent = accessBlocked
       ? loadedId && initialDraftRestored
-        ? "授權已失效 · 草稿仍保留"
-        : "尚未取得審閱權限"
-      : "服務暫時離線";
+        ? t("conn.accessExpired")
+        : t("conn.noAccess")
+      : t("conn.offline");
     updateButtons();
   }
 }
@@ -1154,15 +1214,22 @@ function updateReceipt() {
   const last = state?.submissions?.findLast((s) => s.versionId === loadedId);
   if (!last) {
     $("#feedback-status").textContent = annotations.length
-      ? "尚未提交 · 草稿自動保存"
-      : "標注會附帶三維位置及當前版本";
+      ? t("feedback.notSubmitted")
+      : t("feedback.default");
     return;
   }
-  const status = `已保存 · ${last.deliveredAt ? "已送到原會話" : last.status === "accepted" ? "送達待核實" : "送達未確認，可重試"} · ${last.readAt ? "Agent 已讀取" : "等候 Agent 讀取"}`;
+  const delivery = last.deliveredAt
+    ? t("feedback.delivered")
+    : last.status === "accepted"
+      ? t("feedback.acceptedPending")
+      : t("feedback.deliveryUnconfirmed");
+  const status = `${t("feedback.saved")} · ${delivery} · ${
+    last.readAt ? t("feedback.read") : t("feedback.unread")
+  }`;
   $("#feedback-status").textContent =
     status +
     (editSeq > savedSeq || revision !== last.revision
-      ? "；另有尚未提交改動"
+      ? t("feedback.alsoUnsubmitted")
       : "");
 }
 // Hitting the subdivision budget produces no error and no visible defect until
@@ -1175,9 +1242,10 @@ function updatePrecision(stats) {
   const short = stats?.rationed;
   $("#precision-banner").hidden = !short;
   if (!short) return;
-  $("#precision-text").textContent =
-    `呢個模型嘅面數已經食晒審閱網格嘅上限（要 ${stats.wanted.toLocaleString()} 個三角形，得 ${stats.budget.toLocaleString()}）。` +
-    `大平面唔會再細分，畫筆喺𠮶啲面上會一整片咁跳；細節位唔受影響。想要更準嘅筆觸，叫 Agent 用低啲嘅弦高重新匯出。`;
+  $("#precision-text").textContent = t("precision.overBudget", {
+    wanted: stats.wanted.toLocaleString(),
+    budget: stats.budget.toLocaleString(),
+  });
 }
 // The one channel that would report a delivery failure is the channel that is
 // failing, so the reviewer is the only person present to tell. A single missed
@@ -1192,11 +1260,19 @@ function updateOutbox(incoming) {
   const stalled = stuck.filter((item) => item.status === "stalled");
   const worst = stalled[0] || stuck[0];
   const reason = worst.lastError?.message
-    ? `原因：${worst.lastError.message}`
-    : "原因未明";
+    ? t("outbox.reason", { message: worst.lastError.message })
+    : t("outbox.reasonUnknown");
   $("#outbox-text").textContent = stalled.length
-    ? `${stuck.length} 批標記一直送唔到 Agent（已重試 ${worst.attempts} 次，仍會繼續）。${reason}。標記已保存喺本機，請喺原會話講一聲。`
-    : `${stuck.length} 批標記未送到 Agent，正在重試（第 ${worst.attempts} 次）。${reason}。標記已保存，唔使重新標。`;
+    ? t("outbox.stuck", {
+        count: stuck.length,
+        attempts: worst.attempts,
+        reason,
+      })
+    : t("outbox.retrying", {
+        count: stuck.length,
+        attempts: worst.attempts,
+        reason,
+      });
 }
 function updateEcho(incoming) {
   const echo = incoming.echo;
@@ -1207,7 +1283,7 @@ function updateEcho(incoming) {
   viewer.setAgentEcho(echo?.versionId === loadedId ? echo : null);
   $("#echo-panel").hidden = !viewer.agentEcho;
   $("#echo-summary").textContent = viewer.agentEcho
-    ? `Agent 理解：${echo.summary}`
+    ? t("echo.summary", { summary: echo.summary })
     : "";
 }
 function pollState() {
@@ -1221,7 +1297,7 @@ $("#submit-feedback").addEventListener("click", async () => {
   if (submitting) return;
   submitting = true;
   updateButtons();
-  $("#submit-feedback").textContent = "提交中…";
+  $("#submit-feedback").textContent = t("feedback.submitting");
   try {
     await flushDraft();
     submissionKey ||=
@@ -1241,13 +1317,13 @@ $("#submit-feedback").addEventListener("click", async () => {
     updateReceipt();
     $("#download-feedback").href = endpoint(`api/submissions/${result.id}`);
     $("#download-feedback").hidden = false;
-    toast("標記已保存，提交狀態會按實際回執更新；模型仍然鎖定。");
+    toast(t("feedback.submitted"));
   } catch (e) {
     $("#feedback-status").textContent = e.message;
     toast(e.message);
   } finally {
     submitting = false;
-    $("#submit-feedback").textContent = "交畀 Agent ↗";
+    $("#submit-feedback").innerHTML = `${T("feedback.submit")} ${icon("send")}`;
     updateButtons();
   }
 });
@@ -1260,9 +1336,7 @@ $("#finish-review").addEventListener("click", async () => {
     const result = await api("review/finish", owner());
     state = result;
     toast(
-      result.sealed
-        ? "本輪已結束；仲未提交嘅標記已經一併封存交畀 Agent。"
-        : "本輪審閱已結束，已提交標記仍有保存。",
+      result.sealed ? t("feedback.roundSealed") : t("feedback.roundClosed"),
     );
   } catch (e) {
     toast(e.message);
@@ -1288,7 +1362,7 @@ $("#resume-review").addEventListener("click", async () => {
     redoStack = [];
     renderAnnotations();
     if (editSeq > savedSeq) await flushDraft();
-    toast("已接續原有草稿。");
+    toast(t("resume.picked"));
   } catch (e) {
     toast(e.message);
   } finally {

@@ -168,7 +168,14 @@ export function buildOrientCube(host, { label, title }) {
     if (p.clip) el.style.setProperty("--corner-clip", p.clip);
     if (p.kind === "face") {
       el.classList.add("orient-face");
-      el.textContent = label(view) ?? "";
+      const word = label(view) ?? "";
+      el.textContent = word;
+      /* A side is one character in Chinese and seven in French (DESSOUS), on a
+         plate that is the same size either way. Rather than pick words short
+         enough for the smallest plate — and lose the right word in the process
+         — the type gives way to the language. */
+      if (word.length > 4)
+        el.style.fontSize = word.length > 6 ? "8.5px" : "9px";
     }
     const tip = title(view);
     if (tip) el.title = tip;

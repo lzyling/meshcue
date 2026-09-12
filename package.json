@@ -1,6 +1,6 @@
 {
   "name": "meshcue",
-  "version": "0.7.0-m1",
+  "version": "0.7.0-m2",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,11 +8,12 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 43175",
-    "build": "vite build",
+    "build": "npm run check:i18n && vite build",
     "build:integration": "node scripts/build-integration.mjs",
     "start": "node server/index.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "test:browser": "vite build --outDir tmp/refinement-dist && playwright test",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "test": "npm run check:i18n && node --test tests/*.test.mjs",
+    "test:browser": "npm run check:i18n && vite build --outDir tmp/refinement-dist && playwright test",
     "test:lan": "node scripts/test-lan.mjs",
     "test:package": "node tests/package-smoke.mjs",
     "samples": "node scripts/generate-samples.mjs",

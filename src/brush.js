@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "./i18n/index.js";
 
 // Brush coverage is clipped on the surface, not rounded up to hit triangles.
 // Screen coordinates carry perspective-correct local positions. Occluders are
@@ -169,9 +170,7 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
           if (poly.length < 3) return false;
         }
         if (candidates.length >= 6000)
-          throw new Error(
-            "呢一筆涉及太多表面，請放大模型或縮細畫筆；已有筆跡會保留。",
-          );
+          throw new Error(t("tool.strokeTooBroad"));
         if (useful(poly))
           candidates.push({ mesh, faceIndex, poly, depth, box: bounds(poly) });
         return false;

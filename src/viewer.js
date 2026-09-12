@@ -11,6 +11,7 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
+import { t } from "./i18n/index.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -54,10 +55,7 @@ export class ModelViewer {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.3;
-    this.renderer.domElement.setAttribute(
-      "aria-label",
-      "三維模型預覽，可旋轉、縮放及標注",
-    );
+    this.renderer.domElement.setAttribute("aria-label", t("a11y.viewer"));
     container.append(this.renderer.domElement);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -125,7 +123,7 @@ export class ModelViewer {
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
       this.enabled = false;
-      this.onError("顯示資源已中斷，草稿仍會保留；請重新整理頁面。");
+      this.onError(t("model.contextLost"));
     });
     this.renderer.setAnimationLoop(() => this.render());
   }
@@ -249,11 +247,10 @@ export class ModelViewer {
     this.clearModel();
     this.model = null;
     const response = await fetch(url);
-    if (!response.ok) throw new Error("模型檔案讀取失敗。");
+    if (!response.ok) throw new Error(t("model.readFailed"));
     const data = await response.arrayBuffer();
     const hash = await modelDigest(data);
-    if (hash !== model.sha256)
-      throw new Error("模型檔案與 Agent 指定版本不符，已停止標注。");
+    if (hash !== model.sha256) throw new Error(t("model.versionMismatch"));
     if (epoch !== this.loadingEpoch) return;
     let object;
     if (model.format === "glb") {
@@ -283,7 +280,7 @@ export class ModelViewer {
       size = bounds.getSize(new V()),
       center = bounds.getCenter(new V());
     if (!Number.isFinite(size.length()) || size.length() === 0)
-      throw new Error("模型沒有可顯示的有效範圍。");
+      throw new Error(t("model.noExtent"));
     const scale = 3 / Math.max(size.x, size.y, size.z);
     this.root.scale.setScalar(scale);
     this.root.position.copy(center).multiplyScalar(-scale);
@@ -302,10 +299,10 @@ export class ModelViewer {
         o.isInstancedMesh ||
         o.geometry.morphAttributes.position?.length
       )
-        throw new Error("請先匯出靜態網格；初版不標注變形動畫。");
+        throw new Error(t("model.animated"));
     const sourceTotal = faces.reduce((n, c) => n + c, 0);
     if (sourceTotal > MAX_REVIEW_TRIANGLES)
-      throw new Error("模型超過 60 萬面，請先簡化。");
+      throw new Error(t("model.tooManyTriangles"));
     // Share the budget by what each mesh needs, not by how many triangles it
     // happens to start with. A dense mesh used to hold a share far larger than
     // it could ever spend while a mesh of a few large faces was starved down to
@@ -322,7 +319,9 @@ export class ModelViewer {
     // included. Version tabs turn that from a one-time cost at open into a cost
     // per switch, so name it rather than leaving a stalled spinner. Two frames,
     // because one only schedules the paint and the second proves it happened.
-    onStage(`重新計算審閱網格（${sourceTotal.toLocaleString()} 面）`);
+    onStage(
+      t("loading.rebuildingMesh", { count: sourceTotal.toLocaleString() }),
+    );
     await nextPaint();
     if (epoch !== this.loadingEpoch) return;
     const originals = new Set();
@@ -357,7 +356,7 @@ export class ModelViewer {
     // it an over-budget manifest reaches the server, which can only answer with
     // the generic schema rejection and leaves the viewer with no explanation.
     if (total > MAX_REVIEW_TRIANGLES)
-      throw new Error("審閱網格超出 60 萬面上限，請先簡化模型。");
+      throw new Error(t("model.meshOverBudget"));
     this.model = model;
     this.grid.position.y = (-size.y * scale) / 2 - 0.025;
     this.home();
@@ -628,7 +627,7 @@ export class ModelViewer {
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
         el.textContent = a.label;
         el.style.setProperty("--pin-color", a.color);
-        el.setAttribute("aria-label", `標記 ${a.label}`);
+        el.setAttribute("aria-label", t("marks.one", { label: a.label }));
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           this.onSelect?.(a.id);
@@ -944,9 +943,7 @@ export class ModelViewer {
       modelId = this.model?.id;
     if (mode === "fill") this.previewFill(e.clientX, e.clientY);
     if (mode === "fill" && this.fillTooLarge) {
-      this.onError(
-        "此平面超過本輪 20,000 面標注上限；可收窄範圍或先簡化模型。",
-      );
+      this.onError(t("tool.faceOverLimit"));
       return;
     }
     const patches = this.fillPatches,
