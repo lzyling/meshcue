@@ -10,7 +10,12 @@ import {
   pauseRegistered,
   resumeRegistered,
 } from "../integration/manager.mjs";
-import { trustedOrigin } from "../integration/context.mjs";
+import {
+  HOST_CONTEXT,
+  contextSummary,
+  trustedOrigin,
+  workspaceContext,
+} from "../integration/context.mjs";
 import { ReviewStore } from "../server/store.mjs";
 import { OpenClawBridge } from "../server/bridge.mjs";
 
@@ -125,6 +130,89 @@ test("trusted Telegram context normalizes encoded destinations and refuses missi
       }),
     /一致/,
   );
+});
+
+test("a host supplying only the required context runs a full round, and each missing requirement is named alone", async (t) => {
+  const f = setup(t);
+  // The policy object is built alongside the host's own file tools, so a host
+  // that builds none supplies none. That is the claude-cli shape.
+  const { fsPolicy: _unsupplied, ...lean } = f.ctx;
+  assert.equal(contextSummary(lean).fsPolicy, false);
+  fs.mkdirSync(path.join(f.workspace, "projects"), { recursive: true });
+  const manager = new InstanceManager(lean, f.options);
+  // The identity a review is filed under cannot depend on the optional field,
+  // or relaxing it would strand every existing review behind a new id.
+  assert.equal(
+    manager.project("projects/lean", true).id,
+    f.manager.project("projects/lean").id,
+  );
+  const opened = await manager.execute({
+    action: "open",
+    project: "projects/lean",
+    file: "part.stl",
+    host: "127.0.0.1",
+    confirmedClientAddress: "127.0.0.1",
+  });
+  try {
+    assert.ok(opened.url);
+    assert.equal(
+      (await manager.execute({ action: "status", project: "projects/lean" }))
+        .project,
+      "projects/lean",
+    );
+    // Containment does not widen with the policy gone: the workspace root stands.
+    const outside = fs.mkdtempSync(path.join(repo, "tmp", "lean-outside-"));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+    fs.symlinkSync(outside, path.join(f.workspace, "projects/lean-escape"));
+    await assert.rejects(
+      manager.execute({
+        action: "open",
+        project: "projects/lean-escape",
+        file: "part.stl",
+        host: "127.0.0.1",
+        confirmedClientAddress: "127.0.0.1",
+      }),
+      /符號連結/,
+    );
+    assert.deepEqual(fs.readdirSync(outside), []);
+  } finally {
+    await manager.execute({ action: "stop", project: "projects/lean" });
+  }
+  // A field the table calls required must be refused on its own terms and named
+  // on its own; a requirement added there without a case here fails here first.
+  const withoutField = {
+    workspace: (ctx) => ({ ...ctx, workspaceDir: undefined }),
+    agent: (ctx) => ({ ...ctx, agentId: undefined }),
+    sessionKey: (ctx) => ({ ...ctx, sessionKey: undefined }),
+    sessionGeneration: (ctx) => ({ ...ctx, sessionId: undefined }),
+  };
+  const guarded = HOST_CONTEXT.filter((field) =>
+    ["workspace", "origin"].includes(field.need),
+  );
+  assert.deepEqual(
+    guarded.map((field) => field.key).sort(),
+    Object.keys(withoutField).sort(),
+  );
+  for (const field of guarded) {
+    const workspaceGuard = field.need === "workspace";
+    assert.throws(
+      () =>
+        (workspaceGuard ? workspaceContext : trustedOrigin)(
+          withoutField[field.key](lean),
+        ),
+      (error) => {
+        assert.equal(
+          error.code,
+          workspaceGuard ? "MISSING_CONTEXT" : "MISSING_ORIGIN",
+        );
+        assert.match(error.message, new RegExp(field.key));
+        for (const other of guarded)
+          if (other !== field)
+            assert.doesNotMatch(error.message, new RegExp(other.key));
+        return true;
+      },
+    );
+  }
 });
 
 test("concurrent prepare is idempotent; independent projects persist identity and do not move occupied ports", async (t) => {

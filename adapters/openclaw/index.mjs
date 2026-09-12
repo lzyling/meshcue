@@ -8,6 +8,9 @@ import {
   resumeRegistered,
 } from "../../integration/manager.mjs";
 import { precheckModel } from "../../integration/precheck.mjs";
+// Derived from the same table the guards read, so the probe cannot report a
+// field the guards no longer look at, or stay silent about one they added.
+import { contextSummary } from "../../integration/context.mjs";
 
 // Read at call time, not discovery, and never restated: a hardcoded copy here
 // disagreed with the manifest and with the version the server reported.
@@ -18,21 +21,6 @@ function installedVersion(root) {
   } catch {
     return "unknown";
   }
-}
-export function contextSummary(ctx) {
-  const delivery = ctx.deliveryContext;
-  return {
-    workspace: Boolean(ctx.workspaceDir),
-    agent: Boolean(ctx.agentId),
-    sessionKey: Boolean(ctx.sessionKey),
-    sessionGeneration: Boolean(ctx.sessionId),
-    channel: delivery?.channel || ctx.messageChannel || null,
-    deliveryTarget: Boolean(delivery?.to),
-    deliveryAccount: Boolean(delivery?.accountId),
-    deliveryThread: delivery?.threadId !== undefined,
-    fsPolicy: Boolean(ctx.fsPolicy),
-    sandboxed: Boolean(ctx.sandboxed),
-  };
 }
 
 const parameters = {
