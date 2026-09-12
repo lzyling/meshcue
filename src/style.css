@@ -388,6 +388,14 @@ a {
   background: var(--warn);
   color: var(--warn-on);
 }
+/* The rail and the canvas are siblings, so the panel that lists the marks
+   never sits on top of the model it is describing. */
+.review-body {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
 .viewer-shell {
   position: relative;
   flex: 1;
@@ -540,20 +548,21 @@ a {
   font-size: 10px;
   white-space: nowrap;
 }
+/* Docked beside the canvas instead of floating over it: a list of marks is
+   read while looking at the model, so it must not cover what it lists. */
 .annotations-panel {
-  position: absolute;
-  right: 17px;
-  top: 64px;
-  width: 185px;
+  width: clamp(152px, 17%, 232px);
+  flex: none;
+  min-height: 0;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-raised);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-1);
   color: var(--ink);
-  max-height: calc(100% - 130px);
   display: flex;
   flex-direction: column;
+}
+.annotations-panel.collapsed {
+  width: auto;
 }
 .annotations-heading {
   display: flex;
@@ -578,7 +587,7 @@ a {
 }
 #annotations-list {
   overflow: auto;
-  max-height: 310px;
+  flex: 1;
   padding: 6px;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
@@ -602,6 +611,18 @@ a {
 .annotation-row.selected {
   background: var(--accent-soft);
   border-color: var(--accent-line);
+}
+/* The eye leads the row because it answers the question asked while looking at
+   the model — is this one showing — before the question of what it is. */
+.mark-eye {
+  background: transparent;
+  color: var(--ink-faint);
+  padding: 8px 2px 8px 7px;
+  font-size: 14px;
+  flex: none;
+}
+.mark-eye.off {
+  opacity: 0.45;
 }
 .annotation-select {
   display: flex;
@@ -864,9 +885,6 @@ dialog .muted {
   .review-panel {
     padding: 30px 36px 23px;
   }
-  .annotations-panel {
-    width: 205px;
-  }
   .tool-options {
     left: 100px;
   }
@@ -879,10 +897,6 @@ dialog .muted {
     padding: 20px 17px 16px;
   }
 
-  .annotations-panel {
-    width: 160px;
-    right: 12px;
-  }
   .tool-options {
     gap: 9px;
     left: 83px;
@@ -946,10 +960,6 @@ dialog .muted {
   .submission-status {
     flex-basis: 100%;
     min-height: 18px;
-  }
-  .annotations-panel {
-    width: 140px;
-    top: 60px;
   }
   .tool-options {
     bottom: 43px;
@@ -1045,12 +1055,12 @@ dialog .muted {
     width: auto;
     flex-wrap: wrap;
   }
+  .review-body {
+    flex-direction: column;
+  }
   .annotations-panel {
-    top: auto;
-    bottom: 35px;
-    right: 8px;
-    width: 150px;
-    max-height: 150px;
+    width: auto;
+    max-height: 148px;
   }
   .annotation-row {
     padding: 7px;
@@ -1187,18 +1197,8 @@ dialog .muted {
   padding: 7px 9px;
   gap: 10px;
 }
-.annotations-panel {
-  top: 40px;
-  right: 8px;
-  bottom: auto;
-  width: 240px;
-  max-height: calc(100% - 125px);
-}
 .annotations-heading {
   padding: 7px 9px;
-}
-.annotations-panel.collapsed {
-  width: 125px;
 }
 .annotation-row {
   padding: 0;
@@ -1281,9 +1281,6 @@ a.secondary-button {
 @media (max-width: 650px) {
   .header-right {
     font-size: 9px;
-  }
-  .annotations-panel {
-    width: 180px;
   }
   .annotation-select {
     flex-basis: 100%;

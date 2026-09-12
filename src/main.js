@@ -45,6 +45,8 @@ app.innerHTML = `${SPRITE}
  <section class="review-panel" aria-label="模型審閱">
   <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="模型版本" hidden></div>
+  <div class="review-body">
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
@@ -57,10 +59,10 @@ app.innerHTML = `${SPRITE}
     <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button><button class="tool small" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
    </div>
    <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}新區域</button></div>
-   <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
    <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span id="loading-hint">模型載入完成後就可以開始標記</span></div>
    <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
+  </div>
   </div>
   <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">睇最新版本</button></div>
   <div id="resume-banner" class="pending-banner" hidden><span>另一個視窗都開住呢一版。</span><button id="resume-review" class="quiet">繼續喺呢部機標記</button></div>
@@ -511,11 +513,20 @@ function updateButtons() {
     .querySelectorAll(".delete-annotation, .edit-action")
     .forEach((b) => (b.disabled = busy || !can.canEdit));
 }
+/* Hiding a mark is a way of looking, not a way of editing: it never reaches
+   the draft or the submission, only what the viewer is asked to draw. Keyed by
+   id so the list still shows every mark, including the hidden ones. */
+const hiddenMarks = new Set();
 function renderAnnotations() {
   if (renderFrame) return;
   renderFrame = requestAnimationFrame(() => {
     renderFrame = null;
-    viewer.setAnnotations(annotations, selectedId);
+    for (const id of hiddenMarks)
+      if (!annotations.some((a) => a.id === id)) hiddenMarks.delete(id);
+    viewer.setAnnotations(
+      annotations.filter((a) => !hiddenMarks.has(a.id)),
+      selectedId,
+    );
     $("#annotation-count").textContent = annotations.length;
     const list = $("#annotations-list");
     list.replaceChildren();
@@ -529,6 +540,20 @@ function renderAnnotations() {
       const row = document.createElement("div");
       row.className = `annotation-row ${a.id === selectedId ? "selected" : ""}`;
       row.dataset.annotationId = a.id;
+      const hidden = hiddenMarks.has(a.id);
+      const eye = document.createElement("button");
+      eye.className = `mark-eye${hidden ? " off" : ""}`;
+      eye.innerHTML = icon(hidden ? "eye-off" : "eye");
+      eye.setAttribute("aria-pressed", String(hidden));
+      eye.setAttribute(
+        "aria-label",
+        `${hidden ? "顯示" : "隱藏"} ${a.type === "pin" ? a.label : regionName(a)}`,
+      );
+      eye.addEventListener("click", () => {
+        if (hiddenMarks.has(a.id)) hiddenMarks.delete(a.id);
+        else hiddenMarks.add(a.id);
+        renderAnnotations();
+      });
       const select = document.createElement("button");
       select.className = "annotation-select";
       const badge = document.createElement("span");
@@ -581,7 +606,7 @@ function renderAnnotations() {
         `轉視角查看 ${a.type === "pin" ? a.label : regionName(a)}`,
       );
       focus.addEventListener("click", () => viewer.focusAnnotation(a));
-      row.append(select, focus);
+      row.append(eye, select, focus);
       if (a.type === "pin") {
         const move = document.createElement("button");
         move.className = "quiet-dark annotation-action edit-action";
