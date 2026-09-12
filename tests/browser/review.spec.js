@@ -1248,13 +1248,16 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   const canvas = page.locator("#viewer canvas");
   const box = await canvas.boundingBox();
   // Compare model pixels, excluding the deliberately changing toolbar/list receipts.
+  // The toolbar and its options moved from the left edge to a bottom-centred
+  // cluster, so the band that has to stay out of the comparison is the bottom
+  // of the canvas rather than its left side.
   const capture = () =>
     page.screenshot({
       clip: {
         x: box.x + box.width * 0.25,
         y: box.y + box.height * 0.15,
         width: box.width * 0.53,
-        height: box.height * 0.7,
+        height: box.height * 0.52,
       },
     });
   const clean = await capture();

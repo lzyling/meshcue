@@ -443,10 +443,10 @@ a {
 }
 .toolbar {
   position: absolute;
-  top: 62px;
-  left: 18px;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   gap: 3px;
   padding: 6px;
   background: var(--surface-raised);
@@ -454,11 +454,13 @@ a {
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow-2);
+  max-width: calc(100% - 24px);
 }
 .tool {
   background: transparent;
-  width: 47px;
+  min-width: 56px;
   height: 50px;
+  padding: 0 9px;
   border-radius: 8px;
   font-size: 20px;
   display: flex;
@@ -480,20 +482,22 @@ a {
   background: var(--surface-sunken);
 }
 .tool.small {
-  height: 34px;
+  min-width: 38px;
+  padding: 0 5px;
   font-size: 17px;
 }
 .tool-divider {
-  height: 1px;
+  width: 1px;
+  align-self: stretch;
   background: var(--line);
-  margin: 4px 5px;
+  margin: 5px 3px;
 }
 .tool-options {
   position: absolute;
-  bottom: 49px;
-  left: 90px;
+  bottom: 114px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--surface-raised);
-  backdrop-filter: blur(12px);
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 10px 13px;
@@ -503,7 +507,7 @@ a {
   font-size: 10px;
   color: var(--ink-muted);
   box-shadow: var(--shadow-1);
-  max-width: calc(100% - 110px);
+  max-width: calc(100% - 24px);
   flex-wrap: wrap;
 }
 .palette {
@@ -885,9 +889,6 @@ dialog .muted {
   .review-panel {
     padding: 30px 36px 23px;
   }
-  .tool-options {
-    left: 100px;
-  }
 }
 @media (max-width: 1100px) {
   .workspace {
@@ -899,7 +900,6 @@ dialog .muted {
 
   .tool-options {
     gap: 9px;
-    left: 83px;
   }
   .model-heading h2 {
     font-size: 15px;
@@ -962,17 +962,12 @@ dialog .muted {
     min-height: 18px;
   }
   .tool-options {
-    bottom: 43px;
-    max-width: calc(100% - 90px);
-    left: 77px;
+    bottom: 104px;
+    max-width: calc(100% - 20px);
     padding: 8px;
   }
-  .toolbar {
-    left: 11px;
-    top: 59px;
-  }
   .tool {
-    width: 40px;
+    min-width: 48px;
     height: 43px;
   }
   .tool.small {
@@ -1040,19 +1035,10 @@ dialog .muted {
   .viewer-shell {
     min-height: 330px;
   }
-  .toolbar {
-    top: 48px;
-    left: 8px;
-  }
   .tool {
-    width: 40px;
+    min-width: 46px;
   }
   .tool-options {
-    left: 64px;
-    right: 8px;
-    top: 48px;
-    bottom: auto;
-    width: auto;
     flex-wrap: wrap;
   }
   .review-body {
@@ -1154,16 +1140,16 @@ dialog .muted {
   display: none;
 }
 .toolbar {
-  top: 40px;
-  left: 8px;
   padding: 4px;
   gap: 1px;
   border-radius: 9px;
+  bottom: 34px;
 }
 .tool {
-  width: 38px;
+  min-width: 44px;
   height: 39px;
   font-size: 17px;
+  padding: 0 6px;
 }
 .tool.small {
   height: 25px;
@@ -1189,11 +1175,8 @@ dialog .muted {
   color: var(--accent);
 }
 .tool-options {
-  left: 64px;
-  right: auto;
-  top: auto;
-  bottom: 30px;
-  max-width: calc(100% - 74px);
+  bottom: 92px;
+  max-width: calc(100% - 18px);
   padding: 7px 9px;
   gap: 10px;
 }
