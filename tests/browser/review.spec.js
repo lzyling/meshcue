@@ -1430,3 +1430,126 @@ test("a cube face reframes from a named side without changing the framing", asyn
     .poll(() => page.locator("#orient-cube").getAttribute("style"))
     .not.toBe(spun);
 });
+
+/* Six named sides are the views you can describe; the three-quarter views are
+   the ones a modeller actually works from, and until the edges and corners were
+   clickable there was no way to reach one except by dragging until it looked
+   about right. */
+test("an edge and a corner are three-quarter views you can click", async ({
+  page,
+}) => {
+  publish();
+  await ready(page);
+  await expect(page.locator(".orient-region")).toHaveCount(26);
+  await expect(page.locator(".orient-face")).toHaveCount(6);
+
+  const direction = async () => {
+    const c = await page.evaluate(() => window.__reviewDiagnostics().camera);
+    const d = c.position.map((v, i) => v - c.target[i]);
+    const n = Math.hypot(...d);
+    return d.map((v) => v / n);
+  };
+  for (const view of ["1,0,1", "1,1,1"]) {
+    // Playwright refuses a click the page would not deliver, so this is also
+    // the assertion that nothing is sitting on top of the region.
+    await page.locator(`.orient-region[data-view="${view}"]`).click();
+    const want = view.split(",").map(Number);
+    const n = Math.hypot(...want);
+    await expect
+      .poll(async () => {
+        const got = await direction();
+        return Math.max(...got.map((v, i) => Math.abs(v - want[i] / n)));
+      })
+      .toBeLessThan(0.01);
+  }
+});
+
+/* Reaching a region is not the same as its centre being clickable, and the
+   difference is where this went wrong: drawn as clipped triangles, the corners
+   kept their outline and lost most of their hit area, leaving two dozen
+   viewpoints from which a visible corner could not be clicked anywhere at all.
+   So measure the target a reviewer actually has, not one convenient point. */
+test("every region a reviewer can see is a target they can hit", async ({
+  page,
+}) => {
+  publish();
+  await ready(page);
+  const worst = await page.evaluate(() => {
+    const cube = document.getElementById("orient-cube");
+    const was = cube.style.transform;
+    const dirs = [...cube.children].map((e) =>
+      e.dataset.view.split(",").map(Number),
+    );
+    const unit = (d) => {
+      const n = Math.hypot(...d);
+      return d.map((v) => v / n);
+    };
+    let found = null;
+    for (const cam of dirs) {
+      const u = unit(cam);
+      const [yaw, pitch] = [
+        (Math.atan2(u[0], u[2]) * 180) / Math.PI,
+        (Math.asin(u[1]) * 180) / Math.PI,
+      ];
+      cube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+      for (const el of cube.children) {
+        const v = unit(el.dataset.view.split(",").map(Number));
+        const facing = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+        if (facing < 0.25) continue; // edge on, or round the back
+        const b = el.getBoundingClientRect();
+        let px = 0;
+        for (let x = Math.floor(b.x); x <= Math.ceil(b.right); x += 2)
+          for (let y = Math.floor(b.y); y <= Math.ceil(b.bottom); y += 2)
+            if (document.elementFromPoint(x, y) === el) px++;
+        if (!found || px < found.px)
+          found = {
+            px,
+            region: el.dataset.view,
+            kind: el.dataset.kind,
+            from: cam.join(","),
+          };
+      }
+    }
+    cube.style.transform = was;
+    return found;
+  });
+  // Four sampled pixels is a target roughly 6px across: small, but aimable.
+  expect(worst, `smallest target: ${JSON.stringify(worst)}`).toBeTruthy();
+  expect(worst.px, `smallest target: ${JSON.stringify(worst)}`).toBeGreaterThan(
+    4,
+  );
+});
+
+/* The cube projects well outside the box it occupies, and the reset button sits
+   directly beneath it. Given only its flat size it leans over that button at
+   some angles and swallows the click — with nothing on screen to explain why
+   the button stopped working. */
+test("the reset-view button stays clickable at every angle", async ({
+  page,
+}) => {
+  publish();
+  await ready(page);
+  const covered = await page.evaluate(() => {
+    const cube = document.getElementById("orient-cube");
+    const home = document.getElementById("home-view");
+    const was = cube.style.transform;
+    const b = home.getBoundingClientRect();
+    const probes = [
+      [b.x + b.width / 2, b.y + b.height / 2],
+      [b.x + 3, b.y + 3],
+      [b.x + b.width - 3, b.y + 3],
+    ];
+    const hits = [];
+    for (let yaw = 0; yaw < 360; yaw += 10)
+      for (let pitch = -90; pitch <= 90; pitch += 10) {
+        cube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+        for (const [x, y] of probes)
+          if (!document.elementFromPoint(x, y)?.closest("#home-view"))
+            hits.push(`${yaw}/${pitch}`);
+      }
+    cube.style.transform = was;
+    return hits.slice(0, 5);
+  });
+  expect(covered).toEqual([]);
+  await page.locator("#home-view").click();
+});

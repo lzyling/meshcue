@@ -1,6 +1,7 @@
 import { newId } from "./browser-crypto.js";
 import "./style.css";
 import { ModelViewer } from "./viewer.js";
+import { buildOrientCube, compassTransform } from "./orient-cube.js";
 import {
   letterLabel,
   letterNumber,
@@ -52,14 +53,7 @@ app.innerHTML = `${SPRITE}
    <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
    <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">隱藏標注</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">素色檢視</button></div>
    <div class="orient">
-    <div class="orient-cube" id="orient-cube" aria-hidden="true">
-     <button class="orient-face" data-view="0,0,1" tabindex="-1">前</button>
-     <button class="orient-face" data-view="0,0,-1" tabindex="-1">後</button>
-     <button class="orient-face" data-view="1,0,0" tabindex="-1">右</button>
-     <button class="orient-face" data-view="-1,0,0" tabindex="-1">左</button>
-     <button class="orient-face" data-view="0,1,0" tabindex="-1">頂</button>
-     <button class="orient-face" data-view="0,-1,0" tabindex="-1">底</button>
-    </div>
+    <div class="orient-stage"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div></div>
     <button class="orient-home quiet-dark" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
    </div>
    <div class="toolbar" role="toolbar" aria-label="模型操作工具">
@@ -416,12 +410,37 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
    clicking a face reframes from that side without changing what is framed. */
 const orientCube = $("#orient-cube");
 viewer.onOrient = (yaw, pitch) => {
-  // Negated for the same reason the top face is: screen Y runs downward.
-  orientCube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+  orientCube.style.transform = compassTransform(yaw, pitch);
 };
-for (const face of document.querySelectorAll(".orient-face"))
-  face.addEventListener("click", () =>
-    viewer.viewFrom(...face.dataset.view.split(",").map(Number)),
+/* Faces name a side; edges and corners are the three-quarter views a modeller
+   reaches for to see two or three sides at once. */
+const CUBE_LABELS = {
+  "0,0,1": "前",
+  "0,0,-1": "後",
+  "1,0,0": "右",
+  "-1,0,0": "左",
+  "0,1,0": "頂",
+  "0,-1,0": "底",
+};
+const CUBE_AXES = [
+  ["右", "左"],
+  ["頂", "底"],
+  ["前", "後"],
+];
+const cubeTitle = (view) =>
+  view
+    .split(",")
+    .map(Number)
+    .map((v, i) => (v ? CUBE_AXES[i][v > 0 ? 0 : 1] : ""))
+    .filter(Boolean)
+    .reverse()
+    .join("");
+for (const region of buildOrientCube(orientCube, {
+  label: (view) => CUBE_LABELS[view],
+  title: (view) => `由${cubeTitle(view)}睇`,
+}))
+  region.el.addEventListener("click", () =>
+    viewer.viewFrom(...region.view.split(",").map(Number)),
   );
 viewer.onSelect = (id) => {
   selectedId = id;

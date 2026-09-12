@@ -1163,61 +1163,88 @@ dialog .muted {
    canvas's projection. */
 .orient {
   position: absolute;
-  top: 50px;
-  right: 14px;
+  top: 44px;
+  right: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
-  perspective: 340px;
+  gap: 2px;
   z-index: 2;
 }
-.orient-cube {
-  width: 62px;
-  height: 62px;
-  position: relative;
-  transform-style: preserve-3d;
-}
-.orient-face {
-  position: absolute;
-  inset: 0;
+/* The stage exists to reserve the room a turning cube needs, and to put the
+   vanishing point on the cube rather than on the middle of the whole widget.
+   Without it the projection leans downwards over the reset button and takes
+   its clicks. Its size comes from the geometry — see projectedReach(). */
+.orient-stage {
+  width: 116px;
+  height: 116px;
   display: grid;
   place-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  perspective: 400px;
+}
+.orient-cube {
+  width: 72px;
+  height: 72px;
+  position: relative;
+  transform-style: preserve-3d;
+  /* The box itself is only a frame of reference. Left clickable it competes
+     with its own plates in the depth sort and wins often enough to leave a
+     dead spot on one of them. */
+  pointer-events: none;
+}
+/* Sizes, offsets and transforms are all computed geometry and are set from
+   orient-cube.js; what is left here is only how a region looks. */
+.orient-region {
+  position: absolute;
+  pointer-events: auto;
+  left: 50%;
+  top: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
   color: var(--ink-muted);
   background: var(--surface-raised);
   border: 1px solid var(--line-strong);
+  border-radius: 0;
   backface-visibility: hidden;
+  box-shadow: none;
 }
-.orient-face:hover {
+.orient-face {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+/* Edges and corners are aim points, not labels: they stay quiet until the
+   pointer is on them, so the cube still reads as six named sides. */
+.orient-edge {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+}
+/* The square is what you aim at; the triangle inside it is what you see. */
+.orient-corner {
+  background: none;
+  border: 0;
+}
+.orient-corner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--corner-clip);
+  background: var(--surface-sunken);
+  pointer-events: none;
+}
+.orient-face:hover,
+.orient-edge:hover {
   background: var(--accent-soft);
   color: var(--accent);
+  border-color: var(--accent);
 }
-.orient-face:nth-child(1) {
-  transform: translateZ(31px);
-}
-.orient-face:nth-child(2) {
-  transform: rotateY(180deg) translateZ(31px);
-}
-.orient-face:nth-child(3) {
-  transform: rotateY(90deg) translateZ(31px);
-}
-.orient-face:nth-child(4) {
-  transform: rotateY(-90deg) translateZ(31px);
-}
-/* CSS points +Y down, so the face that reads "top" is the one pushed along -Y
-   — rotateX(-90deg), not +90. Getting this backwards puts the top of the model
-   on the underside of the compass, which still labels correctly and is still
-   wrong. */
-.orient-face:nth-child(5) {
-  transform: rotateX(-90deg) translateZ(31px);
-}
-.orient-face:nth-child(6) {
-  transform: rotateX(90deg) translateZ(31px);
+.orient-corner:hover::before {
+  background: var(--accent);
 }
 .orient-home {
+  position: relative;
+  z-index: 1;
   width: 26px;
   height: 26px;
   display: grid;
