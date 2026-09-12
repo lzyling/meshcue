@@ -78,6 +78,39 @@ test("an altered cache is refused rather than launched", (t) => {
   });
 });
 
+test("a bundled skill is part of the package identity, not a loose file", (t) => {
+  // The host loads a bundled skill from the install root, so swapping it there
+  // changes what the Agent is told to do while every other check still passes.
+  const skill = "skills/meshcue-review/SKILL.md";
+  const f = fixture(t, {
+    extra: { [skill]: "---\nname: meshcue-review\n---\n" },
+  });
+  const release = cacheRelease(f.install, f.runtime);
+  assert.equal(fs.existsSync(path.join(release.root, skill)), true);
+
+  const bare = fixture(t);
+  assert.notEqual(
+    release.id,
+    cacheRelease(bare.install, bare.runtime).id,
+    "a package with a skill must not share an identity with one without",
+  );
+
+  // Its contents count, not just its presence: a reworded skill is a new package.
+  const reworded = fixture(t, {
+    extra: { [skill]: "---\nname: meshcue-review\n---\nreworded\n" },
+  });
+  assert.notEqual(
+    release.id,
+    cacheRelease(reworded.install, reworded.runtime).id,
+  );
+
+  // And editing it inside the verified cache is refused like any other file.
+  fs.writeFileSync(path.join(release.root, skill), "---\nedited\n---\n");
+  assert.throws(() => cachedRelease(f.runtime, release.id), {
+    code: "CACHE_CHANGED",
+  });
+});
+
 test("a release identity must be a real digest and a real directory", (t) => {
   const f = fixture(t);
   const release = cacheRelease(f.install, f.runtime);

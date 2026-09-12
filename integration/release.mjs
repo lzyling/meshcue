@@ -22,6 +22,7 @@ export function cacheRelease(installRoot, runtime) {
   );
   if (manifest.id !== "meshcue")
     fail("PACKAGE_INVALID", "套件身份不是 MeshCue。");
+  const skills = path.join(installRoot, "skills");
   const wanted = [
     "runtime/server.mjs",
     "AGENT-INTERFACE.md",
@@ -29,6 +30,12 @@ export function cacheRelease(installRoot, runtime) {
     // release without it reports "unknown" from inside a numbered package.
     "package.json",
     ...files(path.join(installRoot, "web")).map((p) => path.join("web", p)),
+    // A bundled skill ships in the package but the host loads it from the
+    // install root, so no other check would notice it being edited in place.
+    // Hash it with the rest; a package built without one contributes nothing.
+    ...(fs.existsSync(skills)
+      ? files(skills).map((p) => path.join("skills", p))
+      : []),
   ];
   const hash = crypto.createHash("sha256"),
     content = [];
