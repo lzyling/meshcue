@@ -21,6 +21,9 @@
   --surface-sunken: #eaedee;
   --canvas-a: #f0f3f5;
   --canvas-b: #dde3e7;
+  /* Painted by WebGL, not by a rule, but they are theme and belong here. */
+  --canvas-grid: #ccd4d9;
+  --canvas-grid-line: #b4bec5;
   --overlay: #eef1f3f2;
   --scrim: #1c232899;
 
@@ -72,6 +75,8 @@
     --surface-sunken: #1a1d20;
     --canvas-a: #2b3034;
     --canvas-b: #1b1f22;
+    --canvas-grid: #2f3539;
+    --canvas-grid-line: #3d4549;
     --overlay: #23282bf2;
     --scrim: #0d0f11c2;
 

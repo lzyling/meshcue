@@ -43,8 +43,6 @@ export class ModelViewer {
       onError,
     });
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color("#e9ede8");
-    this.scene.fog = new THREE.Fog("#e9ede8", 10, 35);
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
     this.camera.position.set(4, 3, 5);
     this.renderer = new THREE.WebGLRenderer({
@@ -72,9 +70,7 @@ export class ModelViewer {
     const fill = new THREE.DirectionalLight(0xd3e3ff, 2);
     fill.position.set(-5, 3, -4);
     this.scene.add(fill);
-    this.grid = new THREE.GridHelper(20, 40, 0xc3cdc5, 0xd7ddd8);
-    this.grid.position.y = -1.4;
-    this.scene.add(this.grid);
+    this.applyTheme();
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.overlay = new THREE.Group();
@@ -127,6 +123,31 @@ export class ModelViewer {
       this.onError("顯示資源已中斷，草稿仍會保留；請重新整理頁面。");
     });
     this.renderer.setAnimationLoop(() => this.render());
+  }
+  /* WebGL paints the canvas, so the CSS token block cannot reach it: without
+     this the whole page would turn dark and the model would keep sitting on a
+     bright rectangle. Only the backdrop and the ground grid are read from the
+     tokens — the studio lights, the default STL grey and the mark colours stay
+     fixed on purpose, so the same model looks the same in either theme. */
+  applyTheme() {
+    const token = (name) =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const backdrop = new THREE.Color(token("--canvas-b") || "#e9ede8");
+    this.scene.background = backdrop;
+    this.scene.fog = new THREE.Fog(backdrop, 10, 35);
+    if (this.grid) {
+      this.scene.remove(this.grid);
+      this.grid.geometry.dispose();
+      this.grid.material.dispose();
+    }
+    this.grid = new THREE.GridHelper(
+      20,
+      40,
+      new THREE.Color(token("--canvas-grid-line") || "#c3cdc5"),
+      new THREE.Color(token("--canvas-grid") || "#d7ddd8"),
+    );
+    this.grid.position.y = -1.4;
+    this.scene.add(this.grid);
   }
   resize() {
     const { width, height } = this.container.getBoundingClientRect();

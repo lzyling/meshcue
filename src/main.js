@@ -391,6 +391,13 @@ const viewer = new ModelViewer($("#viewer"), {
   },
   onError: toast,
 });
+/* The theme follows the system, so it can change while the page is open — at
+   dusk, or when the reviewer flips the setting mid-review. CSS repaints itself;
+   the WebGL canvas will not until it is told to. */
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  viewer.applyTheme();
+  viewer.render();
+});
 viewer.onSelect = (id) => {
   selectedId = id;
   renderAnnotations();
