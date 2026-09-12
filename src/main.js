@@ -51,12 +51,23 @@ app.innerHTML = `${SPRITE}
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">載入模型</span><span class="scene-pill subtle" id="model-info"></span></div>
    <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">隱藏標注</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">素色檢視</button></div>
+   <div class="orient">
+    <div class="orient-cube" id="orient-cube" aria-hidden="true">
+     <button class="orient-face" data-view="0,0,1" tabindex="-1">前</button>
+     <button class="orient-face" data-view="0,0,-1" tabindex="-1">後</button>
+     <button class="orient-face" data-view="1,0,0" tabindex="-1">右</button>
+     <button class="orient-face" data-view="-1,0,0" tabindex="-1">左</button>
+     <button class="orient-face" data-view="0,1,0" tabindex="-1">頂</button>
+     <button class="orient-face" data-view="0,-1,0" tabindex="-1">底</button>
+    </div>
+    <button class="orient-home quiet-dark" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
+   </div>
    <div class="toolbar" role="toolbar" aria-label="模型操作工具">
     <button data-mode="orbit" class="tool active" title="拖動旋轉，雙擊表面落標籤" aria-label="檢視及標籤">${icon("orbit")}<span>檢視／標籤</span></button>
     <button data-mode="paint" class="tool" title="畫筆只標可見表面" aria-label="畫筆模式">${icon("brush")}<span>畫筆</span></button>
     <button data-mode="erase" class="tool" aria-label="橡皮擦模式" title="只擦走標注筆跡">${icon("eraser")}<span>橡皮擦</span></button>
     <button data-mode="fill" class="tool" aria-label="油漆桶模式" title="預覽相連近平面，單擊填色">${icon("fill")}<span>油漆桶</span></button>
-    <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button><button class="tool small" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
+    <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button>
    </div>
    <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}新區域</button></div>
    <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
@@ -400,6 +411,18 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   viewer.applyTheme();
   viewer.render();
 });
+/* The cube is a compass: it turns with the camera so a reviewer who has orbited
+   into an unfamiliar angle can still read which way the model is facing, and
+   clicking a face reframes from that side without changing what is framed. */
+const orientCube = $("#orient-cube");
+viewer.onOrient = (yaw, pitch) => {
+  // Negated for the same reason the top face is: screen Y runs downward.
+  orientCube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+};
+for (const face of document.querySelectorAll(".orient-face"))
+  face.addEventListener("click", () =>
+    viewer.viewFrom(...face.dataset.view.split(",").map(Number)),
+  );
 viewer.onSelect = (id) => {
   selectedId = id;
   renderAnnotations();

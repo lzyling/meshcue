@@ -92,7 +92,12 @@ export class ModelViewer {
     this.meshMap = new Map();
     this.pins = [];
     // Reused per frame: the pin layer used to allocate four vectors per pin.
-    this.scratch = { world: new V(), projected: new V(), direction: new V() };
+    this.scratch = {
+      world: new V(),
+      projected: new V(),
+      direction: new V(),
+      orient: new V(),
+    };
     this.occlusionAt = { position: new V(), target: new V() };
     this.occlusionValid = false;
     this.markMaterials = new Map();
@@ -668,9 +673,52 @@ export class ModelViewer {
       }
     }
   }
+  /* Where the camera sits relative to what it is looking at, as the two angles
+     a compass needs. Reported from the render loop but only when it actually
+     changed, so a still scene costs nothing. */
+  reportOrientation() {
+    if (!this.onOrient) return;
+    const d = this.scratch.orient
+      .copy(this.camera.position)
+      .sub(this.controls.target)
+      .normalize();
+    const yaw = Math.atan2(d.x, d.z) * (180 / Math.PI);
+    const pitch = Math.asin(Math.min(1, Math.max(-1, d.y))) * (180 / Math.PI);
+    if (
+      this.orientAt &&
+      Math.abs(this.orientAt.yaw - yaw) < 0.05 &&
+      Math.abs(this.orientAt.pitch - pitch) < 0.05
+    )
+      return;
+    this.orientAt = { yaw, pitch };
+    this.onOrient(yaw, pitch);
+  }
+  /* A standard view changes only where the camera looks from. The target and
+     the distance are kept, so picking a face reframes the model rather than
+     resetting it — the reviewer keeps whatever they had zoomed in on. */
+  viewFrom(x, y, z) {
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();
+    const target = this.controls.target;
+    const distance = Math.max(this.camera.position.distanceTo(target), 0.2);
+    this.camera.position
+      .set(x, y, z)
+      .normalize()
+      .multiplyScalar(distance)
+      .add(target);
+    // Straight down or straight up leaves the default up vector parallel to the
+    // view, where it no longer says which way is up; lay it along the floor.
+    const vertical = Math.abs(y) > 0.9 && !x && !z;
+    this.camera.up.set(0, vertical ? 0 : 1, vertical ? -Math.sign(y) : 0);
+    this.camera.lookAt(target);
+    this.controls.update();
+    this.controls.enableDamping = damping;
+  }
   render() {
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.reportOrientation();
     if (!this.pins.length) return;
     const rect = this.container.getBoundingClientRect();
     // Occlusion costs one ray per pin and only changes when the view does. At

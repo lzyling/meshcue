@@ -1400,3 +1400,33 @@ test("switching versions reports its own cost, sweeps dead draft caches and keep
   expect(precision.wanted).toBeLessThanOrEqual(precision.budget);
   await expect(page.locator("#precision-banner")).toBeHidden();
 });
+
+test("a cube face reframes from a named side without changing the framing", async ({
+  page,
+}) => {
+  publish();
+  await ready(page);
+  const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  const spun = await page.locator("#orient-cube").getAttribute("style");
+  await page.locator('.orient-face[data-view="1,0,0"]').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.abs(window.__reviewDiagnostics().camera.position[1]),
+      ),
+    )
+    .toBeLessThan(0.01);
+  const after = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  // Looking from +X: level with the target and square on to it.
+  expect(after.position[0]).toBeGreaterThan(0);
+  expect(Math.abs(after.position[2])).toBeLessThan(0.01);
+  // The side changed; what is being looked at, and how closely, did not.
+  expect(after.target).toEqual(before.target);
+  const span = (c) => Math.hypot(...c.position.map((v, i) => v - c.target[i]));
+  expect(Math.abs(span(after) - span(before))).toBeLessThan(0.01);
+  // The compass followed rather than sat still. Polled, because the camera
+  // moves on the click and the compass on the frame after it.
+  await expect
+    .poll(() => page.locator("#orient-cube").getAttribute("style"))
+    .not.toBe(spun);
+});

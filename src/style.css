@@ -1157,6 +1157,78 @@ dialog .muted {
 .tool span {
   font-size: 8px;
 }
+/* A compass, not decoration: it turns with the camera, so an orbit that lost
+   the reviewer's bearings can be read off instead of guessed at, and a face is
+   a way back to a named view. Its own perspective, so it never borrows the
+   canvas's projection. */
+.orient {
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  perspective: 340px;
+  z-index: 2;
+}
+.orient-cube {
+  width: 62px;
+  height: 62px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+.orient-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  backface-visibility: hidden;
+}
+.orient-face:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.orient-face:nth-child(1) {
+  transform: translateZ(31px);
+}
+.orient-face:nth-child(2) {
+  transform: rotateY(180deg) translateZ(31px);
+}
+.orient-face:nth-child(3) {
+  transform: rotateY(90deg) translateZ(31px);
+}
+.orient-face:nth-child(4) {
+  transform: rotateY(-90deg) translateZ(31px);
+}
+/* CSS points +Y down, so the face that reads "top" is the one pushed along -Y
+   — rotateX(-90deg), not +90. Getting this backwards puts the top of the model
+   on the underside of the compass, which still labels correctly and is still
+   wrong. */
+.orient-face:nth-child(5) {
+  transform: rotateX(-90deg) translateZ(31px);
+}
+.orient-face:nth-child(6) {
+  transform: rotateX(90deg) translateZ(31px);
+}
+.orient-home {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  box-shadow: var(--shadow-1);
+}
 .view-actions {
   position: absolute;
   right: 8px;
