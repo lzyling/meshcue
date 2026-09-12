@@ -1,19 +1,109 @@
+/* Every colour in this file comes from here. A rule that hard-codes one puts
+   the second theme out of reach, because a theme is only this block swapped.
+   Mark colours are deliberately absent: they arrive per annotation from the
+   review data and must read the same in both themes, so they are not themed. */
 :root {
+  color-scheme: light dark;
   font-family:
     Inter,
     -apple-system,
     BlinkMacSystemFont,
     "PingFang TC",
     "Noto Sans TC",
+    "Noto Sans SC",
+    "Noto Sans JP",
     sans-serif;
-  color: #edf1ec;
-  background: #111a21;
   font-synthesis: none;
   font-weight: 400;
-  --ink: #111a21;
-  --muted: #8e9c9f;
-  --accent: #c5efb4;
-  --line: rgba(222, 234, 224, 0.11);
+
+  --surface: #f6f7f8;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eaedee;
+  --canvas-a: #f0f3f5;
+  --canvas-b: #dde3e7;
+  --overlay: #eef1f3f2;
+  --scrim: #1c232899;
+
+  --ink: #232a2f;
+  --ink-muted: #5d686f;
+  --ink-faint: #8d979d;
+
+  --line: #dadee1;
+  --line-strong: #c0c7cb;
+
+  --accent: #2e9e78;
+  --accent-hover: #27886b;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2f2ec;
+  --accent-line: #a9dcc8;
+  --focus: #2e9e78;
+
+  --warn: #c98a1c;
+  /* Text on the solid amber, not on the soft panel: amber stays amber in both
+     themes, so its partner cannot flip with the theme the way --warn-ink does. */
+  --warn-on: #2a1e05;
+  --warn-ink: #5a4310;
+  --warn-soft: #fdf3dc;
+  --warn-line: #e8cf94;
+
+  --danger: #c1503b;
+  --danger-ink: #6b2418;
+  --danger-soft: #fbe9e5;
+
+  --shadow-1: 0 1px 2px #1b262c14, 0 2px 8px #1b262c0f;
+  --shadow-2: 0 4px 16px #1b262c24;
+  --shadow-3: 0 20px 60px #1b262c3d;
+
+  /* Marks sit on the model, not on a panel, so their contrast partners are
+     fixed rather than themed — a pin must stay legible against its own colour. */
+  --pin-ink: #16201c;
+  --pin-ring: #ffffff;
+  --brush-fill: #6d877817;
+  --brush-ring: #ffffff8c;
+
+  color: var(--ink);
+  background: var(--surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #23282b;
+    --surface-raised: #2d3236;
+    --surface-sunken: #1a1d20;
+    --canvas-a: #2b3034;
+    --canvas-b: #1b1f22;
+    --overlay: #23282bf2;
+    --scrim: #0d0f11c2;
+
+    --ink: #e6eaec;
+    --ink-muted: #a2acb2;
+    --ink-faint: #778288;
+
+    --line: #3a4044;
+    --line-strong: #4c5459;
+
+    --accent: #45b990;
+    --accent-hover: #57c9a1;
+    --accent-ink: #10201a;
+    --accent-soft: #1d3a30;
+    --accent-line: #2f5a49;
+    --focus: #45b990;
+
+    --warn: #d8a63a;
+    --warn-ink: #f0dcae;
+    --warn-soft: #3a3323;
+    --warn-line: #6d5c2c;
+
+    --danger: #e07f6a;
+    --danger-ink: #f3cdc1;
+    --danger-soft: #3d2620;
+
+    --shadow-1: 0 1px 2px #00000059, 0 2px 8px #00000047;
+    --shadow-2: 0 4px 18px #00000073;
+    --shadow-3: 0 20px 60px #00000099;
+
+    --brush-ring: #0000008c;
+  }
 }
 * {
   box-sizing: border-box;
@@ -46,7 +136,7 @@ button:focus-visible,
 a:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #6aa789;
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 [hidden] {
@@ -99,12 +189,12 @@ a {
 .brand span {
   font-size: 10px;
   letter-spacing: 0.14em;
-  color: #8ea09e;
+  color: var(--ink-faint);
 }
 .prototype {
   font-size: 10px;
-  color: #aab9b4;
-  border: 1px solid #38473f;
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
   border-radius: 5px;
   padding: 4px 7px;
   margin-left: 10px;
@@ -116,14 +206,14 @@ a {
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #9eadac;
+  color: var(--ink-muted);
 }
 .connection-dot,
 .tiny-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #9c8e6b;
+  background: var(--warn);
   display: inline-block;
   flex-shrink: 0;
 }
@@ -133,8 +223,8 @@ a {
 }
 .quiet {
   background: transparent;
-  color: #b2c1bd;
-  border: 1px solid #35433f;
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
   border-radius: 7px;
   min-width: 27px;
   min-height: 27px;
@@ -154,14 +244,14 @@ a {
   font-size: 9px;
   letter-spacing: 0.18em;
   font-weight: 600;
-  color: #93a39e;
+  color: var(--ink-faint);
   display: block;
   margin-bottom: 12px;
 }
 
 .inline-error {
   font-size: 11px;
-  color: #f1b69e;
+  color: var(--danger);
   margin: 9px 0;
   line-height: 1.7;
 }
@@ -195,13 +285,13 @@ a {
   gap: 14px;
   align-items: center;
   font-size: 10px;
-  color: #99aaa0;
+  color: var(--ink-faint);
 }
 .version-chip {
-  border: 1px solid #3d4a43;
+  border: 1px solid var(--line);
   padding: 5px 9px;
   border-radius: 20px;
-  color: #c3d2c7;
+  color: var(--ink-muted);
   font-size: 10px;
 }
 
@@ -217,16 +307,16 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #3d4a43;
+  border: 1px solid var(--line);
   background: transparent;
-  color: #c3d2c7;
+  color: var(--ink-muted);
   padding: 5px 11px;
   border-radius: 20px;
   font-size: 11px;
   cursor: pointer;
 }
 .version-tab:hover {
-  border-color: #5d7a6c;
+  border-color: var(--line-strong);
 }
 /* A switch already in flight swallows any further click; look that way too. */
 .version-tabs.busy {
@@ -234,12 +324,12 @@ a {
   opacity: 0.55;
 }
 .version-tab.current {
-  border-color: #6ab398;
+  border-color: var(--accent);
 }
 .version-tab.selected {
-  background: #6ab398;
-  border-color: #6ab398;
-  color: #10221a;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 600;
 }
 .version-tab .badge {
@@ -248,16 +338,16 @@ a {
   min-width: 15px;
   padding: 0 4px;
   border-radius: 9px;
-  background: #2d3a33;
-  color: #c3d2c7;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
 }
 .version-tab.selected .badge {
-  background: #10221a;
-  color: #cfeadd;
+  background: var(--accent-hover);
+  color: var(--accent-ink);
 }
 .version-tab .badge.unsent {
-  background: #e6b64b;
-  color: #221a06;
+  background: var(--warn);
+  color: var(--warn-on);
 }
 .viewer-shell {
   position: relative;
@@ -265,8 +355,8 @@ a {
   min-height: 380px;
   border-radius: 16px;
   overflow: hidden;
-  background: #e9ede8;
-  border: 1px solid #ecf2e416;
+  background: linear-gradient(180deg, var(--canvas-a), var(--canvas-b));
+  border: 1px solid var(--line);
 }
 #viewer {
   width: 100%;
@@ -294,15 +384,15 @@ a {
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 10px;
-  background: #f7faf3bd;
-  color: #42564d;
+  background: var(--surface-raised);
+  color: var(--ink);
   backdrop-filter: blur(12px);
-  border: 1px solid #b6c6b735;
+  border: 1px solid var(--line);
 }
 .scene-pill.subtle {
   margin-left: auto;
-  background: #f5f8f1b3;
-  color: #5e7068;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
 }
 .toolbar {
   position: absolute;
@@ -312,11 +402,11 @@ a {
   flex-direction: column;
   gap: 3px;
   padding: 6px;
-  background: #fafcf6ed;
-  color: #374b40;
-  border: 1px solid #dde4d5;
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 6px 25px #28422a12;
+  box-shadow: var(--shadow-2);
 }
 .tool {
   background: transparent;
@@ -336,11 +426,11 @@ a {
   letter-spacing: 0.05em;
 }
 .tool.active {
-  background: #263e31;
-  color: #ddf4cf;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .tool:hover:not(:disabled):not(.active) {
-  background: #e8eee1;
+  background: var(--surface-sunken);
 }
 .tool.small {
   height: 34px;
@@ -348,24 +438,24 @@ a {
 }
 .tool-divider {
   height: 1px;
-  background: #d8dfd2;
+  background: var(--line);
   margin: 4px 5px;
 }
 .tool-options {
   position: absolute;
   bottom: 49px;
   left: 90px;
-  background: #fcfff6f2;
+  background: var(--surface-raised);
   backdrop-filter: blur(12px);
-  border: 1px solid #d7e1d2;
+  border: 1px solid var(--line);
   border-radius: 11px;
   padding: 10px 13px;
   display: flex;
   gap: 15px;
   align-items: center;
   font-size: 10px;
-  color: #4d6356;
-  box-shadow: 0 5px 20px #183b1810;
+  color: var(--ink-muted);
+  box-shadow: var(--shadow-1);
   max-width: calc(100% - 110px);
   flex-wrap: wrap;
 }
@@ -383,7 +473,7 @@ a {
   padding: 0;
 }
 .color-button.active {
-  outline: 1px solid #526553;
+  outline: 1px solid var(--focus);
   outline-offset: 1px;
 }
 .tool-options label {
@@ -395,19 +485,19 @@ a {
 }
 .tool-options input {
   width: 70px;
-  accent-color: #57775b;
+  accent-color: var(--accent);
 }
 .tool-options select {
-  border: 1px solid #d5dfd0;
+  border: 1px solid var(--line);
   border-radius: 5px;
-  background: #f1f5ea;
+  background: var(--surface-sunken);
   font-size: 10px;
   padding: 4px;
-  color: #415c48;
+  color: var(--ink);
 }
 .quiet-dark {
   background: transparent;
-  color: #52634f;
+  color: var(--ink-muted);
   font-size: 10px;
   white-space: nowrap;
 }
@@ -416,12 +506,12 @@ a {
   right: 17px;
   top: 64px;
   width: 185px;
-  border: 1px solid #d7e2d47d;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  background: #f6f9f0dc;
+  background: var(--surface-raised);
   backdrop-filter: blur(14px);
-  box-shadow: 0 7px 25px #48624a0c;
-  color: #3f5646;
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
   max-height: calc(100% - 130px);
   display: flex;
   flex-direction: column;
@@ -431,7 +521,7 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 13px 12px 11px;
-  border-bottom: 1px solid #d9e2d47d;
+  border-bottom: 1px solid var(--line);
   font-size: 11px;
 }
 .annotations-heading strong {
@@ -440,7 +530,7 @@ a {
 }
 .annotations-heading span {
   font-size: 9px;
-  color: #7b8e78;
+  color: var(--ink-faint);
   margin-left: 5px;
 }
 .annotations-heading button {
@@ -452,12 +542,12 @@ a {
   max-height: 310px;
   padding: 6px;
   scrollbar-width: thin;
-  scrollbar-color: #c2d0b8 transparent;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .annotation-empty {
   padding: 26px 10px 29px;
   font-size: 11px;
-  color: #83937b;
+  color: var(--ink-faint);
   line-height: 1.9;
   white-space: pre-line;
   text-align: center;
@@ -471,8 +561,8 @@ a {
   min-width: 0;
 }
 .annotation-row.selected {
-  background: #e6edda;
-  border-color: #d3deca;
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 .annotation-select {
   display: flex;
@@ -490,7 +580,7 @@ a {
   border-radius: 7px;
   display: grid;
   place-items: center;
-  color: #172b23;
+  color: var(--pin-ink);
   font-weight: 750;
   font-size: 10px;
   flex-shrink: 0;
@@ -504,12 +594,12 @@ a {
 .annotation-select small {
   display: block;
   font-size: 8px;
-  color: #73866c;
+  color: var(--ink-faint);
   line-height: 1.7;
 }
 .delete-annotation {
   background: transparent;
-  color: #8b9981;
+  color: var(--ink-faint);
   padding: 8px 6px;
   font-size: 15px;
 }
@@ -521,7 +611,7 @@ a {
   display: flex;
   justify-content: space-between;
   font-size: 9px;
-  color: #70816e;
+  color: var(--ink-faint);
   pointer-events: none;
 }
 .axis-label {
@@ -538,7 +628,7 @@ a {
 .submission-status {
   flex: 1;
   font-size: 10px;
-  color: #9aad9c;
+  color: var(--ink-faint);
   line-height: 1.7;
   min-width: 0;
 }
@@ -550,7 +640,7 @@ a {
 }
 .primary-button {
   background: var(--accent);
-  color: #263b2a;
+  color: var(--accent-ink);
   font-weight: 600;
   letter-spacing: 0.025em;
   padding: 13px 19px;
@@ -559,12 +649,12 @@ a {
   white-space: nowrap;
 }
 .primary-button:hover:not(:disabled) {
-  background: #d5ffc5;
+  background: var(--accent-hover);
 }
 .secondary-button {
-  background: #233129;
-  color: #b9cbb6;
-  border: 1px solid #3b4c3c;
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
   padding: 12px 13px;
   border-radius: 8px;
   font-size: 10px;
@@ -576,8 +666,8 @@ a {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  background: #3a3925;
-  color: #e2dcb0;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
   padding: 10px 13px;
   border-radius: 8px;
   gap: 15px;
@@ -586,19 +676,19 @@ a {
 /* Losing work is the fear a delivery failure triggers, and nothing here is
    lost. Warn without borrowing the colour an unrecoverable error would use. */
 .pending-banner.warn {
-  background: #402c1f;
-  color: #f0cdae;
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: #e9ede8ee;
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 14px;
-  color: #45634d;
+  color: var(--ink);
   z-index: 9;
   text-align: center;
   padding: 30px;
@@ -611,13 +701,13 @@ a {
 }
 .loading-overlay span {
   font-size: 10px;
-  color: #83947e;
+  color: var(--ink-faint);
 }
 .spinner {
   width: 27px;
   height: 27px;
-  border: 2px solid #d0dbca;
-  border-top-color: #67875e;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -640,28 +730,28 @@ a {
   height: 32px;
   padding: 0 6px;
   background: var(--pin-color);
-  color: #1a2420;
-  border: 2px solid #fff9e8;
+  color: var(--pin-ink);
+  border: 2px solid var(--pin-ring);
   border-radius: 9px 9px 9px 1px;
   font-size: 11px;
   font-weight: 700;
-  box-shadow: 0 2px 5px #18231833;
+  box-shadow: var(--shadow-1);
   pointer-events: auto;
   z-index: 3;
 }
 .model-pin.selected {
-  outline: 2px solid #264430;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .brush-cursor {
   position: absolute;
   pointer-events: none;
-  border: 1px solid #243e3899;
-  background: #6d877817;
+  border: 1px solid var(--ink-faint);
+  background: var(--brush-fill);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   display: none;
-  box-shadow: 0 0 0 1px #fff8;
+  box-shadow: 0 0 0 1px var(--brush-ring);
   z-index: 4;
 }
 #toast {
@@ -669,29 +759,29 @@ a {
   bottom: 25px;
   left: 50%;
   transform: translateX(-50%);
-  background: #ebf1e5;
-  color: #304a35;
-  box-shadow: 0 10px 50px #0005;
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
   padding: 13px 20px;
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.7;
   max-width: min(640px, 90vw);
   z-index: 100;
-  border: 1px solid #cbdac5;
+  border: 1px solid var(--line);
 }
 dialog {
-  background: #1b2a24;
-  color: #d4e3d2;
-  border: 1px solid #4d644e;
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 18px;
   max-width: 550px;
   width: calc(100vw - 40px);
   padding: 33px;
-  box-shadow: 0 20px 100px #0009;
+  box-shadow: var(--shadow-3);
 }
 dialog::backdrop {
-  background: #0c171cb8;
+  background: var(--scrim);
   backdrop-filter: blur(4px);
 }
 dialog h2 {
@@ -702,11 +792,11 @@ dialog p {
   font-size: 12px;
   line-height: 1.9;
   margin-top: 14px;
-  color: #bbcfb9;
+  color: var(--ink-muted);
 }
 dialog .muted {
   font-size: 10px;
-  color: #8ca184;
+  color: var(--ink-faint);
 }
 .dialog-close {
   position: absolute;
@@ -714,7 +804,7 @@ dialog .muted {
   right: 15px;
   font-size: 23px;
   background: none;
-  color: #96ad8e;
+  color: var(--ink-faint);
 }
 .sr-only {
   position: absolute;
@@ -1041,13 +1131,13 @@ dialog .muted {
 }
 .view-actions button {
   border-radius: 6px;
-  background: #fbfff7ed;
+  background: var(--surface-raised);
   padding: 5px 7px;
-  border: 1px solid #ced9c6;
+  border: 1px solid var(--line);
 }
 .view-actions [aria-pressed="true"] {
-  background: #263e31;
-  color: #edf5e6;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .tool-options {
   left: 64px;
@@ -1087,18 +1177,18 @@ dialog .muted {
   padding: 6px 3px;
 }
 .annotation-badge {
-  border: 1px solid #fff;
-  outline: 1px solid #283b3580;
-  color: #132a23;
+  border: 1px solid var(--pin-ring);
+  outline: 1px solid var(--line-strong);
+  color: var(--pin-ink);
 }
 .delete-annotation {
   padding: 6px 4px;
 }
 .model-pin {
-  color: #101d19;
+  color: var(--pin-ink);
   box-shadow:
-    0 0 0 1px #142a25,
-    0 2px 5px #18231833;
+    0 0 0 1px var(--line-strong),
+    var(--shadow-1);
 }
 .review-footer {
   padding-top: 6px;
@@ -1133,9 +1223,9 @@ a.secondary-button {
   left: 64px;
   bottom: 70px;
   max-width: calc(100% - 75px);
-  background: #fff8d7ed;
-  color: #453f22;
-  border: 1px dashed #817536;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  border: 1px dashed var(--warn-line);
   border-radius: 7px;
   padding: 7px 10px;
   font-size: 11px;
