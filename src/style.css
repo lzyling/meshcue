@@ -159,6 +159,40 @@ button {
 a {
   color: var(--accent);
 }
+
+/* The sprite is markup, not a picture: it holds the shapes and must take up no
+   room. Icons take their size from the font-size already on the button, so the
+   existing rules — including the responsive ones — keep sizing them. */
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.icon {
+  width: 1em;
+  height: 1em;
+  display: block;
+  flex: none;
+}
+.icon-only {
+  display: inline-grid;
+  place-items: center;
+}
+.icon-only .icon {
+  width: 1.25em;
+  height: 1.25em;
+}
+/* A label beside an icon has to sit on the icon's centre line, not the text
+   baseline, or the two read as separate things stacked by accident. */
+.primary-button,
+.secondary-button,
+#new-region {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
 .app-header {
   height: 78px;
   display: flex;
@@ -172,7 +206,7 @@ a {
   height: 37px;
   display: grid;
   place-items: center;
-  font-size: 35px;
+  font-size: 26px;
   line-height: 1;
   color: var(--accent);
 }
@@ -413,7 +447,7 @@ a {
   width: 47px;
   height: 50px;
   border-radius: 8px;
-  font-size: 23px;
+  font-size: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -434,7 +468,7 @@ a {
 }
 .tool.small {
   height: 34px;
-  font-size: 20px;
+  font-size: 17px;
 }
 .tool-divider {
   height: 1px;
@@ -534,7 +568,7 @@ a {
   margin-left: 5px;
 }
 .annotations-heading button {
-  font-size: 18px;
+  font-size: 15px;
   min-width: 20px;
 }
 #annotations-list {
@@ -601,7 +635,7 @@ a {
   background: transparent;
   color: var(--ink-faint);
   padding: 8px 6px;
-  font-size: 15px;
+  font-size: 14px;
 }
 .viewer-bottom {
   position: absolute;
@@ -802,7 +836,7 @@ dialog .muted {
   position: absolute;
   top: 12px;
   right: 15px;
-  font-size: 23px;
+  font-size: 17px;
   background: none;
   color: var(--ink-faint);
 }
@@ -1045,7 +1079,7 @@ dialog .muted {
 .brand-mark {
   width: 22px;
   height: 22px;
-  font-size: 24px;
+  font-size: 19px;
 }
 .brand strong {
   font-size: 13px;
@@ -1114,7 +1148,7 @@ dialog .muted {
 .tool {
   width: 38px;
   height: 39px;
-  font-size: 20px;
+  font-size: 17px;
 }
 .tool.small {
   height: 25px;

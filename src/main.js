@@ -10,20 +10,37 @@ import {
 
 const $ = (selector) => document.querySelector(selector);
 const app = $("#app");
+/* Icons were Unicode glyphs, which is not a style choice but an absence of
+   control: the operating system font decided their shape, weight and baseline,
+   the rarer ones (▱ ▰ ⌖ ⌂) are missing from some fonts entirely, and ▱ against
+   ▰ differed only by fill — eraser and paint bucket were indistinguishable side
+   by side. These are drawn here, ship inside the bundle, and depict the action
+   rather than gesture at it. Sized in em so every existing font-size rule,
+   including the responsive ones, keeps working untouched. */
+const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+<g id="mc-brand" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2 20.4 8v8L12 20.8 3.6 16V8z"/><path d="M3.6 8 12 12.8 20.4 8M12 12.8v8" stroke-width="1.2" opacity=".55"/></g>
+<g id="mc-orbit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7" stroke-width="1.2" opacity=".55"/></g>
+<g id="mc-brush" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14.5 3.6l5.9 5.9-7.2 7.2a3 3 0 0 1-1.5.8l-1.6.3-1.9-1.9.3-1.6a3 3 0 0 1 .8-1.5z"/><path d="M13.2 5 19 10.8" stroke-width="1.2" opacity=".55"/><path d="M7.6 15.2c-1.6.5-2.3 1.7-2.6 3.1-.2 1-.7 1.5-1.6 1.9 1.4 1.1 3.6 1.2 4.9.1 1-.9 1.3-2.2 1.1-3.4z" fill="currentColor" stroke="none"/></g>
+<g id="mc-eraser" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8.9 19.4 4.3 14.8a2 2 0 0 1 0-2.8l8-8a2 2 0 0 1 2.8 0l4.6 4.6a2 2 0 0 1 0 2.8l-7.8 8z"/><path d="M8.6 8.4 15.6 15.4" stroke-width="1.3" opacity=".55"/><path d="M9 19.4h11" stroke-linecap="round"/></g>
+<g id="mc-fill" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M11 2.6 20 11.6a1.6 1.6 0 0 1 0 2.3l-6 6a1.6 1.6 0 0 1-2.3 0l-6-6a1.6 1.6 0 0 1 0-2.3l6-6"/><path d="M5.6 13.2h14.2l-5.8 5.8a1.6 1.6 0 0 1-2.3 0z" fill="currentColor" stroke="none" opacity=".32"/><path d="M21.4 15.6c.9 1.2 1.4 2.1 1.4 2.8a1.4 1.4 0 1 1-2.8 0c0-.7.5-1.6 1.4-2.8z" fill="currentColor" stroke="none"/></g>
+<g id="mc-undo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h9a5 5 0 0 1 0 10H9"/><path d="M7.5 6 3.5 10l4 4"/></g>
+<g id="mc-redo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-9a5 5 0 0 0 0 10h4"/><path d="M16.5 6l4 4-4 4"/></g>
+<g id="mc-home" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 11 12 4l8.4 7"/><path d="M5.8 12.2V20h12.4v-7.8"/></g>
+<g id="mc-send" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M21 3 10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8z"/></g>
+<g id="mc-trash" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M9.5 6.5V4.2h5v2.3"/><path d="M6.3 6.5 7.2 20h9.6l.9-13.5"/><path d="M10.3 10v6.4M13.7 10v6.4" stroke-width="1.3" opacity=".6"/></g>
+<g id="mc-close" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></g>
+<g id="mc-plus" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></g>
+<g id="mc-minus" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></g>
+<g id="mc-check" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6 9.5 17.5 19.5 6.8"/></g>
+<g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21.2s6.4-6.3 6.4-11a6.4 6.4 0 1 0-12.8 0c0 4.7 6.4 11 6.4 11z"/><circle cx="12" cy="10" r="2.4"/></g>
+<g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 12S5.6 5.8 12 5.8 22.2 12 22.2 12 18.4 18.2 12 18.2 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></g>
+<g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.6 6.2A9.6 9.6 0 0 1 12 5.8c6.4 0 10.2 6.2 10.2 6.2a17 17 0 0 1-3.2 3.8M6.1 8.2A17 17 0 0 0 1.8 12S5.6 18.2 12 18.2c1.2 0 2.2-.2 3.2-.5"/><path d="M10 10a2.8 2.8 0 0 0 3.9 3.9"/><path d="M3.5 3.5l17 17"/></g>
+<g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></g>
+</defs></svg>`;
 const icon = (name) =>
-  ({
-    orbit: "↻",
-    pin: "⌖",
-    paint: "◉",
-    undo: "↶",
-    redo: "↷",
-    home: "⌂",
-    trash: "×",
-    send: "↗",
-    check: "✓",
-  })[name] || name;
-app.innerHTML = `
-<header class="app-header"><div class="brand-mark">◈</div><div class="brand"><strong>MeshCue</strong><span>3D 模型審閱與標注</span></div><span class="prototype">試用版 ${__MESHCUE_VERSION__}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet" id="help-button" aria-label="使用說明">?</button></div></header>
+  `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
+app.innerHTML = `${SPRITE}
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>3D 模型審閱與標注</span></div><span class="prototype">試用版 ${__MESHCUE_VERSION__}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">連接中</span><button class="quiet icon-only" id="help-button" aria-label="使用說明">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="模型審閱">
   <div class="model-heading"><div><h2 id="model-name">等候 Agent 交付模型</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">準備中</span></div></div>
@@ -34,13 +51,13 @@ app.innerHTML = `
    <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">隱藏標注</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">素色檢視</button></div>
    <div class="toolbar" role="toolbar" aria-label="模型操作工具">
     <button data-mode="orbit" class="tool active" title="拖動旋轉，雙擊表面落標籤" aria-label="檢視及標籤">${icon("orbit")}<span>檢視／標籤</span></button>
-    <button data-mode="paint" class="tool" title="畫筆只標可見表面" aria-label="畫筆模式">${icon("paint")}<span>畫筆</span></button>
-    <button data-mode="erase" class="tool" aria-label="橡皮擦模式" title="只擦走標注筆跡">▱<span>橡皮擦</span></button>
-    <button data-mode="fill" class="tool" aria-label="油漆桶模式" title="預覽相連近平面，單擊填色">▰<span>油漆桶</span></button>
+    <button data-mode="paint" class="tool" title="畫筆只標可見表面" aria-label="畫筆模式">${icon("brush")}<span>畫筆</span></button>
+    <button data-mode="erase" class="tool" aria-label="橡皮擦模式" title="只擦走標注筆跡">${icon("eraser")}<span>橡皮擦</span></button>
+    <button data-mode="fill" class="tool" aria-label="油漆桶模式" title="預覽相連近平面，單擊填色">${icon("fill")}<span>油漆桶</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="撤銷 Ctrl/⌘ Z" aria-label="撤銷">${icon("undo")}</button><button class="tool small" id="redo" title="重做" aria-label="重做">${icon("redo")}</button><button class="tool small" id="home-view" title="回到預設視角" aria-label="重設視角">${icon("home")}</button>
    </div>
-   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>＋ 新區域</button></div>
-   <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">−</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
+   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="標注顏色"></div><label id="radius-control" hidden>大小 <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="畫筆大小"></label><label id="fill-control" hidden>範圍 <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="油漆桶範圍"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}新區域</button></div>
+   <aside class="annotations-panel"><div class="annotations-heading"><strong>本輪標記 <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="收合標記列表" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">將想改嘅位置<br>標記喺模型上。</div></div></aside>
    <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">睇修改範圍</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">隱藏回顯</button><span id="echo-stale" hidden>標注已更新，請在原會話更正理解</span></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">準備審閱空間</strong><span id="loading-hint">模型載入完成後就可以開始標記</span></div>
    <div class="viewer-bottom"><span id="tool-hint">拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放</span><span class="axis-label">3D SPACE</span></div>
@@ -53,7 +70,7 @@ app.innerHTML = `
   <footer class="review-footer"><div class="submission-status"><span id="feedback-status">標注會附帶三維位置及當前版本</span><a id="download-feedback" hidden>下載標注</a></div><a id="download-model" class="secondary-button" hidden>下載當前版本</a><button id="finish-review" class="secondary-button" disabled>結束本輪審閱</button><button id="submit-feedback" class="primary-button" disabled>交畀 Agent ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="關閉">×</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>頂部標籤列出 Agent 交付過嘅每一個版本。撳任何一個都可以睇返，亦可以直接喺舊版本上標記同提交 —— 每個版本有自己嘅草稿，換版唔會影響其他版本。Agent 收到嘅標記會註明係針對邊一版。</p><p>標完一版撳「結束本輪審閱」，仲未提交嘅標記會一併封存交畀 Agent；之後再標記就會自動重新開始。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="關閉">${icon("close")}</button><span class="eyebrow">QUICK START</span><h2>睇、標記，再講點改。</h2><p>按住左鍵拖動旋轉，右鍵平移，滾輪縮放；唔使切工具就可以落標籤。</p><p>標籤：雙擊模型表面，放上 A、B、C 字母，普通單擊唔落標籤。畫筆：只塗選目前睇到嘅表面；按住 Option／Alt 拖動可暫時旋轉，再繼續畫。</p><p>點標籤用字母，塗抹區用顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，撳「新區域」。可以撤銷、重做，亦可以刪除個別標記。</p><p>橡皮擦只移除可見筆跡，唔影響模型材質。油漆桶預覽相連近平面，點一下上色；範圍滑桿只在油漆桶顯示。油漆桶以整片相連表面為單位，可能包括被其他物件遮住的部分；畫筆和橡皮擦不穿透。</p><p>標注以紋樣區分；可一鍵隱藏，素色只是輔助檢視。下載會保留原檔顏色與貼圖，不包含標注。</p><p>「交畀 Agent」保存並提交標記。返原本對話講修改要求；Agent 未明白就會問清楚。提交本身唔會自動改模型。</p><p>頂部標籤列出 Agent 交付過嘅每一個版本。撳任何一個都可以睇返，亦可以直接喺舊版本上標記同提交 —— 每個版本有自己嘅草稿，換版唔會影響其他版本。Agent 收到嘅標記會註明係針對邊一版。</p><p>標完一版撳「結束本輪審閱」，仲未提交嘅標記會一併封存交畀 Agent；之後再標記就會自動重新開始。草稿會自動保存。</p><p class="muted">初版：GLB／STL，最多 80 MB、60 萬面。動畫、骨架及壓縮 GLB 暫未支援。這是審閱工具，唔會直接雕刻模型。</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -531,7 +548,7 @@ function renderAnnotations() {
       });
       const remove = document.createElement("button");
       remove.className = "delete-annotation";
-      remove.textContent = "×";
+      remove.innerHTML = icon("trash");
       remove.setAttribute(
         "aria-label",
         a.type === "pin" ? `刪除標記 ${a.label}` : `刪除${regionName(a)}`,
@@ -668,9 +685,9 @@ $("#toggle-annotations").addEventListener("click", () => {
     "collapsed",
     $("#annotations-list").hidden,
   );
-  $("#toggle-annotations").textContent = $("#annotations-list").hidden
-    ? "+"
-    : "−";
+  $("#toggle-annotations").innerHTML = icon(
+    $("#annotations-list").hidden ? "plus" : "minus",
+  );
 });
 async function travelHistory(redo = false) {
   const from = redo ? redoStack : undoStack,
