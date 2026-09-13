@@ -575,7 +575,7 @@ const STALL_AFTER = Math.max(1, Number(process.env.REVIEW_STALL_AFTER) || 20);
 // each distinct cause once, then stay quiet about it until it changes.
 const loggedCauses = new Map();
 function logDeliveryFailure(submissionId, attempts, cause, error) {
-  const signature = `${cause.code} ${cause.message}`;
+  const signature = `${cause.code}\0${cause.message}`;
   if (loggedCauses.get(submissionId) === signature) {
     if (attempts % 10 === 0)
       log.warn("feedback", "delivery still failing for the same reason", {
