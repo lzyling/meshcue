@@ -26,7 +26,7 @@ export function precheckModel(ctx, file) {
   const { workspace, allowed } = workspaceContext(ctx);
   const actual = scopedPath(allowed, file);
   const stat = fs.statSync(actual);
-  if (!stat.isFile()) fail("MODEL_LIMIT", "模型路徑不是檔案。");
+  if (!stat.isFile()) fail("MODEL_LIMIT", "The model path is not a file.");
   const format = path.extname(actual).slice(1).toLowerCase();
   const limits = {
     maxTriangles: MAX_TRIANGLES,
@@ -46,7 +46,7 @@ export function precheckModel(ctx, file) {
       ...base,
       triangles: null,
       verdict: "reject",
-      reason: `檔案 ${(stat.size / 1048576).toFixed(1)} MB 超過 ${MAX_BYTES / 1048576} MB 上限；檔案太大未解析面數。請先簡化或重新匯出，再跑一次 precheck 取得面數。`,
+      reason: `${(stat.size / 1048576).toFixed(1)} MB exceeds the ${MAX_BYTES / 1048576} MB limit; too large to count faces. Simplify or re-export, then run precheck again for a face count.`,
       simplify: { targetTriangles: DEGRADE_TRIANGLES, requiredRatio: null },
     };
   let metadata;
@@ -86,7 +86,7 @@ export function precheckModel(ctx, file) {
       verdict: "degraded",
       // Publishing this succeeds. Say what the user will actually experience,
       // because nothing downstream will say it for them.
-      reason: `${triangles} 三角面在上限內，可以發布，但已超過 ${DEGRADE_TRIANGLES}：審閱網格的細分餘量不足每面一個三角形，大平面會停止細分，畫筆在那些面上會整片跳動。建議簡化後再發布。`,
+      reason: `${triangles} triangles is within the limit and publishable, but past ${DEGRADE_TRIANGLES} the review mesh has under one triangle of subdivision left per face: large flat spans stop subdividing and the brush skips across them. Simplify before publishing.`,
       simplify: {
         targetTriangles: DEGRADE_TRIANGLES,
         requiredRatio: null,
@@ -96,7 +96,7 @@ export function precheckModel(ctx, file) {
   return {
     ...result,
     verdict: "ok",
-    reason: `${triangles} 三角面、${(stat.size / 1048576).toFixed(2)} MB，在上限內且細分餘量充足，可直接發布。`,
+    reason: `${triangles} triangles, ${(stat.size / 1048576).toFixed(2)} MB: within the limits with subdivision budget to spare. Publish as is.`,
     simplify: null,
   };
 }

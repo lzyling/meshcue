@@ -36,11 +36,13 @@ export function listenerConfig(
     ];
     if (preferred.length !== 1)
       throw new Error(
-        "請先核對可達的內網介面，再明確指定 REVIEW_HOST；沒有開放監聽。",
+        "Verify which private interface is reachable and name it in REVIEW_HOST; nothing was opened for listening.",
       );
     return { host: preferred[0], lan: true };
   }
   if (candidates.some((c) => c.address === value))
     return { host: value, lan: true };
-  throw new Error("REVIEW_HOST 只接受本機回環或已配置的內網 IPv4 位址。");
+  throw new Error(
+    "REVIEW_HOST accepts only loopback or a configured private IPv4 address.",
+  );
 }

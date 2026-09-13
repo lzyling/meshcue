@@ -70,7 +70,7 @@ export function browserInfo(headers, address) {
 }
 export class AccessError extends Error {
   constructor(
-    message = "此入口未取得有效審閱權，請返回原對話。",
+    message = "This entry has no valid review access; go back to the conversation.",
     status = 401,
     code = "ACCESS_REQUIRED",
   ) {
@@ -142,7 +142,9 @@ export class ReviewAccess {
           file: this.file,
           ...errorDetail(renameError),
         });
-        throw new Error("瀏覽器授權記錄無法讀取；原檔未覆寫。");
+        throw new Error(
+          "The browser authorization record could not be read; the file was not overwritten.",
+        );
       }
       log.error(
         "access",
@@ -185,7 +187,7 @@ export class ReviewAccess {
         for (const client of clients) this.clients.set(client, item.id);
       }
       throw new AccessError(
-        "瀏覽器授權未能保存，請稍後重試。",
+        "The browser authorization could not be saved; try again shortly.",
         503,
         "ACCESS_STORAGE",
       );
@@ -223,7 +225,7 @@ export class ReviewAccess {
     const address = peerAddress(value);
     if (!address)
       throw new AccessError(
-        "請指定已核對的內網 IPv4 位址。",
+        "Give a private IPv4 address that has been verified.",
         400,
         "BAD_ADDRESS",
       );
@@ -281,7 +283,7 @@ export class ReviewAccess {
       )
     )
       throw new AccessError(
-        "臨時授權已失效，請返回原對話。",
+        "That one-time grant has expired; go back to the conversation.",
         401,
         "ACCESS_EXPIRED",
       );
@@ -296,7 +298,11 @@ export class ReviewAccess {
       /* new browser */
     }
     if (!item && this.sessions.size >= 32)
-      throw new AccessError("審閱連線已達上限。", 429, "ACCESS_LIMIT");
+      throw new AccessError(
+        "This review has reached its connection limit.",
+        429,
+        "ACCESS_LIMIT",
+      );
     this.grant = null;
     if (item) return { value: existing, expiresAt: item.expiresAt };
     const sessionValue = crypto.randomBytes(32).toString("base64url");
@@ -319,11 +325,15 @@ export class ReviewAccess {
       typeof clientId !== "string" ||
       !/^[a-zA-Z0-9_-]{1,100}$/.test(clientId)
     )
-      throw new AccessError("視窗識別不完整。", 400, "BAD_CLIENT");
+      throw new AccessError(
+        "The window identity is incomplete.",
+        400,
+        "BAD_CLIENT",
+      );
     const owner = this.clients.get(clientId);
     if (owner && owner !== item.id)
       throw new AccessError(
-        "此視窗屬於另一個審閱連線。",
+        "This window belongs to another review connection.",
         403,
         "CLIENT_OWNERSHIP",
       );
@@ -351,7 +361,11 @@ export class ReviewAccess {
         ([, item]) => item.id === browserId,
       );
       if (!entry)
-        throw new AccessError("找不到此瀏覽器授權。", 404, "BROWSER_NOT_FOUND");
+        throw new AccessError(
+          "No such browser authorization.",
+          404,
+          "BROWSER_NOT_FOUND",
+        );
       this.sessions.delete(entry[0]);
       for (const client of entry[1].clients) this.clients.delete(client);
     } else {

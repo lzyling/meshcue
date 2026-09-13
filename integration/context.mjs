@@ -32,7 +32,7 @@ export const HOST_CONTEXT = [
   {
     key: "workspace",
     need: "workspace",
-    label: "工作區",
+    label: "workspace",
     read: (ctx) => ctx.workspaceDir,
     use: "Root every project path is resolved and contained against.",
     absent: "Refuse: a guessed root writes into somewhere real.",
@@ -48,7 +48,7 @@ export const HOST_CONTEXT = [
   {
     key: "sessionKey",
     need: "owner",
-    label: "會話",
+    label: "session",
     read: (ctx) => ctx.sessionKey,
     use: "Names the conversation a submitted batch is delivered back to.",
     absent:
@@ -57,7 +57,7 @@ export const HOST_CONTEXT = [
   {
     key: "sessionGeneration",
     need: "owner",
-    label: "會話代際",
+    label: "session generation",
     read: (ctx) => ctx.sessionId,
     use: "Generation fence, so /new or /reset cannot silently resume a bound round.",
     absent: "Refuse: without it a stale round looks current.",
@@ -65,7 +65,7 @@ export const HOST_CONTEXT = [
   {
     key: "channel",
     need: "route",
-    label: "頻道",
+    label: "channel",
     read: (ctx) => ctx.deliveryContext?.channel || ctx.messageChannel || null,
     use: "Selects the shape of the return route.",
     absent: "The channel branch below refuses to bind the round.",
@@ -74,7 +74,7 @@ export const HOST_CONTEXT = [
   {
     key: "deliveryTarget",
     need: "route",
-    label: "回傳目標",
+    label: "return target",
     read: (ctx) => ctx.deliveryContext?.to,
     use: "Chat the bound conversation belongs to.",
     absent: "The channel branch below refuses to bind the round.",
@@ -82,7 +82,7 @@ export const HOST_CONTEXT = [
   {
     key: "deliveryAccount",
     need: "route",
-    label: "回傳帳號",
+    label: "return account",
     read: (ctx) => ctx.deliveryContext?.accountId,
     use: "Host account the bound conversation belongs to.",
     absent: "The channel branch below refuses to bind the round.",
@@ -90,7 +90,7 @@ export const HOST_CONTEXT = [
   {
     key: "deliveryThread",
     need: null,
-    label: "回傳話題",
+    label: "return topic",
     read: (ctx) => ctx.deliveryContext?.threadId,
     use: "Forum topic of the bound conversation.",
     absent: "Recovered from the target when that carries one.",
@@ -98,7 +98,7 @@ export const HOST_CONTEXT = [
   {
     key: "fsPolicy",
     need: null,
-    label: "文件權限",
+    label: "file policy",
     read: (ctx) => ctx.fsPolicy,
     use: "A narrower root the host already applies to its own file tools, to be mirrored here.",
     absent:
@@ -107,7 +107,7 @@ export const HOST_CONTEXT = [
   {
     key: "sandboxed",
     need: null,
-    label: "沙箱",
+    label: "sandbox",
     read: (ctx) => ctx.sandboxed,
     use: "Host-side sandbox; a host service cannot be started from inside one.",
     absent: "Absent means not sandboxed.",
@@ -122,7 +122,7 @@ function requireContext(ctx, need, code, tail) {
   if (missing.length)
     fail(
       code,
-      `宿主未提供${missing.map((field) => `${field.label}(${field.key})`).join("、")}；${tail}`,
+      `The host did not supply ${missing.map((field) => `${field.label} (${field.key})`).join(", ")}. ${tail}`,
     );
 }
 export function contextSummary(ctx) {
@@ -135,19 +135,32 @@ export function contextSummary(ctx) {
 }
 export function workspaceContext(ctx) {
   if (ctx.sandboxed)
-    fail("HOST_UNAVAILABLE", "此會話在沙箱內；沒有越過沙箱啟動主機服務。");
-  requireContext(ctx, "workspace", "MISSING_CONTEXT", "沒有猜測資料位置。");
+    fail(
+      "HOST_UNAVAILABLE",
+      "This session is sandboxed; no host service was started outside it.",
+    );
+  requireContext(
+    ctx,
+    "workspace",
+    "MISSING_CONTEXT",
+    "No data location was guessed.",
+  );
   const workspace = fs.realpathSync(ctx.workspaceDir);
   const fsPolicy = ctx.fsPolicy ?? { workspaceOnly: true };
   const allowed = fsPolicy.workspaceOnly
     ? fs.realpathSync(fsPolicy.root || workspace)
     : workspace;
   if (!within(workspace, allowed))
-    fail("PATH_SCOPE", "文件權限根目錄不屬於此工作區。");
+    fail("PATH_SCOPE", "The file policy root is outside this workspace.");
   return { workspace, allowed, agentId: ctx.agentId };
 }
 export function trustedOrigin(ctx) {
-  requireContext(ctx, "owner", "MISSING_ORIGIN", "沒有沿用舊話題。");
+  requireContext(
+    ctx,
+    "owner",
+    "MISSING_ORIGIN",
+    "No previous topic was reused.",
+  );
   const d = ctx.deliveryContext;
   const channel = d?.channel || ctx.messageChannel;
   const base = {
@@ -162,11 +175,14 @@ export function trustedOrigin(ctx) {
   if (channel === "webchat")
     return normalizeOrigin({ ...base, route: { channel } });
   if (channel !== "telegram" || !d?.to || !d.accountId)
-    fail("MISSING_ORIGIN", "此入口未有受支援的原會話回傳地址。");
+    fail(
+      "MISSING_ORIGIN",
+      "This entry has no supported return address for its originating session.",
+    );
   const match = /^(?:telegram:)?(-?\d+)(?::topic:(\d+))?$/.exec(d.to);
   const thread = d.threadId == null ? undefined : String(d.threadId);
   if (!match || (match[2] && thread && match[2] !== thread))
-    fail("BAD_ORIGIN", "宿主提供的 Telegram 話題資料不一致。");
+    fail("BAD_ORIGIN", "The host gave inconsistent Telegram topic details.");
   return normalizeOrigin({
     ...base,
     route: {
@@ -206,9 +222,10 @@ export function scopedPath(
     path.isAbsolute(relative) ||
     relative.includes("\0")
   )
-    fail("PATH_SCOPE", "請使用工作區內的相對路徑。");
+    fail("PATH_SCOPE", "Use a path relative to the workspace.");
   const target = path.resolve(root, relative);
-  if (!within(root, target)) fail("PATH_SCOPE", "路徑超出允許的工作區。");
+  if (!within(root, target))
+    fail("PATH_SCOPE", "That path lies outside the permitted workspace.");
   let current = root;
   const parts = path.relative(root, target).split(path.sep).filter(Boolean);
   for (let i = 0; i < parts.length; i++) {
@@ -225,13 +242,14 @@ export function scopedPath(
       })()
     ) {
       const real = fs.realpathSync(current);
-      if (!within(root, real)) fail("PATH_SCOPE", "符號連結指向工作區以外。");
+      if (!within(root, real))
+        fail("PATH_SCOPE", "A symlink points outside the workspace.");
       current = real;
     } else if (create && (directory || i < parts.length - 1)) {
       fs.mkdirSync(current, { mode: 0o700 });
-    } else fail("NOT_FOUND", "指定文件或項目尚未存在。");
+    } else fail("NOT_FOUND", "That file or project does not exist yet.");
   }
   if (directory && !fs.statSync(current).isDirectory())
-    fail("PATH_SCOPE", "項目路徑不是目錄。");
+    fail("PATH_SCOPE", "The project path is not a directory.");
   return current;
 }

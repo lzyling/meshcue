@@ -129,7 +129,8 @@ async function locked(file, fn) {
         fs.unlinkSync(file);
         continue;
       }
-      if (i === 99) fail("INSTANCE_BUSY", "項目正在啟動，請稍後再試。");
+      if (i === 99)
+        fail("INSTANCE_BUSY", "The project is starting; try again shortly.");
       await delay(100);
     }
   }
@@ -198,16 +199,16 @@ export class InstanceManager {
     )
       fail(
         "PROJECT_REQUIRED",
-        "請指定獨立建模項目，例如 projects/phone-stand；不會自動取上次項目。",
+        "Name a separate modelling project, such as projects/phone-stand; the last one is never assumed.",
       );
     if (!within(this.allowed, path.resolve(this.workspace, project)))
-      fail("PATH_SCOPE", "此工具未獲該項目的文件權限。");
+      fail("PATH_SCOPE", "This tool has no file permission for that project.");
     const projectRoot = scopedPath(this.workspace, project, {
       create,
       directory: true,
     });
     if (!within(this.allowed, projectRoot))
-      fail("PATH_SCOPE", "此工具未獲該項目的文件權限。");
+      fail("PATH_SCOPE", "This tool has no file permission for that project.");
     const id = crypto
       .createHash("sha256")
       .update(JSON.stringify([this.workspace, this.agentId, projectRoot]))
@@ -222,7 +223,7 @@ export class InstanceManager {
       directory: true,
     });
     if (!within(this.allowed, runtime))
-      fail("PATH_SCOPE", "運行目錄超出文件權限。");
+      fail("PATH_SCOPE", "The runtime directory is outside the file policy.");
     return {
       id,
       projectRoot,
@@ -234,7 +235,10 @@ export class InstanceManager {
     const result = await ipc(p.runtime, readInstance(config), "/status");
     const verdict = instanceVerdict(result, config.instance, p.id);
     if (verdict === "foreign")
-      fail("WRONG_INSTANCE", "服務身份不符；沒有復用或停止此進程。");
+      fail(
+        "WRONG_INSTANCE",
+        "Service identity does not match; that process was neither reused nor stopped.",
+      );
     if (verdict === "outdated") {
       // Ours, and answering — just older than this code can talk to. That is
       // the one condition `open` exists to fix, so it must not arrive wearing
@@ -242,7 +246,7 @@ export class InstanceManager {
       // read, replace or stop is a process a person has to go and kill.
       const error = new IntegrationError(
         "INSTANCE_OUTDATED",
-        "此專案的服務端是較舊的契約；請重新 open 以換掉執行中的服務端。",
+        "This project serves an older contract; open it again to replace the running server.",
       );
       error.running = result;
       throw error;
@@ -274,7 +278,10 @@ export class InstanceManager {
   async register(p, config) {
     const root = path.join(this.workspace, "projects/meshcue-state");
     if (!within(this.allowed, root))
-      fail("PATH_SCOPE", "整合服務需要工作區內的項目登記目錄權限。");
+      fail(
+        "PATH_SCOPE",
+        "The integration needs permission for the project registry inside the workspace.",
+      );
     scopedPath(this.workspace, "projects/meshcue-state", {
       create: true,
       directory: true,
@@ -285,7 +292,10 @@ export class InstanceManager {
         ? JSON.parse(fs.readFileSync(file, "utf8"))
         : { schema: 1, projects: {} };
       if (registry.schema !== 1)
-        fail("REGISTRY_VERSION", "項目登記格式未受支援；未覆蓋。");
+        fail(
+          "REGISTRY_VERSION",
+          "Unsupported project registry format; nothing was overwritten.",
+        );
       registry.projects[p.id] = {
         project: p.project,
         runtime: path.relative(this.workspace, p.runtime),
@@ -304,7 +314,7 @@ export class InstanceManager {
     if (state.locked)
       fail(
         "REVIEW_BUSY",
-        "使用者正在標記；未停止或升級服務，草稿已保存。請稍後重試。",
+        "Someone is marking; the service was neither stopped nor upgraded and the draft is saved. Retry later.",
       );
     const health = await fetch(
       `http://${state.network.host}:${state.network.port}/api/health`,
@@ -316,7 +326,10 @@ export class InstanceManager {
       health.instance?.id !== config.instance.id ||
       health.pid !== owner.pid
     )
-      fail("WRONG_INSTANCE", "進程身份不符；沒有停止。");
+      fail(
+        "WRONG_INSTANCE",
+        "Process identity does not match; nothing was stopped.",
+      );
     await ipc(p.runtime, config.instance, "/maintenance", {
       instanceId: config.instance.id,
     });
@@ -324,7 +337,10 @@ export class InstanceManager {
       process.kill(owner.pid, "SIGTERM");
       for (let i = 0; i < 60 && alive(owner.pid); i++) await delay(50);
       if (alive(owner.pid))
-        fail("INSTANCE_BUSY", "服務尚未停止，沒有強制中止。");
+        fail(
+          "INSTANCE_BUSY",
+          "The service has not stopped and was not force-killed.",
+        );
     } catch (error) {
       await ipc(p.runtime, config.instance, "/maintenance", {
         instanceId: config.instance.id,
@@ -379,7 +395,7 @@ export class InstanceManager {
         atomicJson(path.join(p.runtime, "config.json"), config);
         fail(
           "UPGRADE_ROLLED_BACK",
-          "新版啟動失敗；已恢復上一個可用版本，網址、模型與授權保持。",
+          "The new release failed to start; the last good one is restored, with its URL, models and authorizations intact.",
         );
       }
       throw error;
@@ -395,7 +411,7 @@ export class InstanceManager {
     if (alive(readLock(runFile)?.pid))
       fail(
         "INSTANCE_BUSY",
-        "項目進程仍在運行但未通過健康檢查；沒有重複啟動或殺掉進程。",
+        "The project process is running but fails its health check; nothing was restarted or killed.",
       );
     if (
       !fs.existsSync(release.serverEntry) ||
@@ -403,7 +419,7 @@ export class InstanceManager {
     )
       fail(
         "PACKAGE_INCOMPLETE",
-        "安裝包缺少工作台資源；沒有要求臨時編譯或生成假網址。",
+        "The package is missing workbench assets; no ad-hoc build was attempted and no fake URL invented.",
       );
     const network = listenerConfig(config.host);
     const mediaDir = scopedPath(this.workspace, `media/3d/meshcue/${p.id}`, {
@@ -472,8 +488,8 @@ export class InstanceManager {
     fail(
       "START_FAILED",
       config.port
-        ? "原連接埠未能啟動；保留原網址與瀏覽器草稿，請先排除埠衝突。"
-        : "工作台未啟動；請檢查此項目日誌，沒有交付無效網址。",
+        ? "The original port would not bind; the URL and browser drafts are kept, so clear the port conflict first."
+        : "The workbench did not start; check this project log. No unusable URL was delivered.",
     );
   }
   // A fixed version on disk does not reach a reviewer until the project is
@@ -493,7 +509,7 @@ export class InstanceManager {
       result.serving = {
         running: result.version,
         installed,
-        note: "此專案仍在跑舊版；meshcue open 才會換掉執行中的服務端。",
+        note: "This project still runs an older build; only meshcue open replaces a running server.",
       };
     return result;
   }
@@ -511,14 +527,17 @@ export class InstanceManager {
     )
       fail(
         "PATH_SCOPE",
-        "整合服務需要此工作區的項目登記目錄權限；沒有越過目前文件權限。",
+        "The integration needs permission for this workspace's project registry; the current file policy was not overstepped.",
       );
     const opens = input.action === "open";
     // No empty viewer on first use: a source model must exist before a new instance.
     if (opens && input.file) {
       const source = scopedPath(this.workspace, input.file);
       if (!within(this.allowed, source))
-        fail("PATH_SCOPE", "模型檔案超出此工具的文件權限。");
+        fail(
+          "PATH_SCOPE",
+          "The model file is outside this tool's file permission.",
+        );
     }
     let p;
     try {
@@ -531,7 +550,10 @@ export class InstanceManager {
       const file = path.join(p.runtime, "config.json");
       const exists = fs.existsSync(file);
       if (!exists && (!opens || !input.file))
-        fail("MODEL_REQUIRED", "請先建好初稿或選定已有模型，再開啟審閱。");
+        fail(
+          "MODEL_REQUIRED",
+          "Build a draft or choose an existing model before opening a review.",
+        );
       const config = exists
         ? JSON.parse(fs.readFileSync(file, "utf8"))
         : {
@@ -544,7 +566,10 @@ export class InstanceManager {
             projectPath: p.project,
           };
       if (readInstance(config)?.projectId !== p.id)
-        fail("WRONG_INSTANCE", "保存的項目身份不符；未遷移資料。");
+        fail(
+          "WRONG_INSTANCE",
+          "The stored project identity does not match; no data was migrated.",
+        );
       this.usedProjects.set(p.runtime, { p, config });
       if (!exists) atomicJson(file, config);
       await this.register(p, config);
@@ -568,7 +593,7 @@ export class InstanceManager {
           if (alive(readLock(lockFile)?.pid))
             fail(
               "INSTANCE_UNVERIFIED",
-              "項目進程仍存在，但未通過身份檢查；沒有宣稱停止或殺掉進程。",
+              "The project process exists but fails its identity check; nothing was claimed stopped or killed.",
             );
           if (["status", "stop"].includes(input.action))
             return {
@@ -577,14 +602,17 @@ export class InstanceManager {
               stopped: true,
               dataRetained: true,
             };
-          fail("NOT_RUNNING", "此項目服務未運行，請先接續此項目。");
+          fail(
+            "NOT_RUNNING",
+            "This project is not running; continue it first.",
+          );
         }
       }
       if (!isDeepStrictEqual(state.origin, origin)) {
         if (!opens || !input.resume)
           fail(
             "RESUME_REQUIRED",
-            "此項目屬於另一輪會話。明確繼續該項目後才接續，沒有改動草稿或回傳位置。",
+            "This project belongs to another session. Continue it explicitly before resuming; no draft or return address was changed.",
           );
         await ipc(p.runtime, config.instance, "/origin", {
           origin,
@@ -611,7 +639,10 @@ export class InstanceManager {
           });
         state = await this.status(p, config);
         if (!state.active)
-          fail("MODEL_REQUIRED", "項目尚未有模型；沒有交付空白審閱頁。");
+          fail(
+            "MODEL_REQUIRED",
+            "This project has no model yet; no empty review page was delivered.",
+          );
         const address = input.confirmedClientAddress || this.clientAddress;
         let admission = { status: "client_address_needed" };
         if (address) {
@@ -619,7 +650,10 @@ export class InstanceManager {
             privateIPv4(address) ||
             (!state.network.lan && address === "127.0.0.1")
           ))
-            fail("BAD_ADDRESS", "請使用已由使用者核對的設備內網地址。");
+            fail(
+              "BAD_ADDRESS",
+              "Use a private address for a device the user has verified.",
+            );
           // Admission is scoped to this project. Existing browser credentials
           // continue to work; no global trust is granted to all projects.
           admission = await ipc(p.runtime, config.instance, "/access/admit", {
@@ -641,14 +675,17 @@ export class InstanceManager {
       if (input.action === "status") return { project: p.project, ...state };
       if (input.action === "read") {
         if (!/^[\w-]{1,160}$/.test(input.submissionId || ""))
-          fail("SUBMISSION_REQUIRED", "請指定這批提交的 ID。");
+          fail("SUBMISSION_REQUIRED", "Name the submission id for this batch.");
         const batch = await ipc(
           p.runtime,
           config.instance,
           `/submissions/${input.submissionId}`,
         );
         if (!sameRoute(batch.origin, origin))
-          fail("WRONG_ORIGIN", "此批標記屬於其他會話；沒有讀取回執或轉送。");
+          fail(
+            "WRONG_ORIGIN",
+            "That batch belongs to another session; nothing was read back or forwarded.",
+          );
         // Full immutable payload is returned, not just a list summary.
         const receipt = await ipc(p.runtime, config.instance, "/read", {
           submissionId: batch.id,
@@ -663,7 +700,7 @@ export class InstanceManager {
           `/submissions/${input.submissionId}`,
         );
         if (!sameRoute(batch.origin, origin))
-          fail("WRONG_ORIGIN", "此批標記屬於其他會話。");
+          fail("WRONG_ORIGIN", "That batch belongs to another session.");
         return ipc(p.runtime, config.instance, "/echo", {
           submissionId: batch.id,
           versionId: batch.versionId,
@@ -681,7 +718,7 @@ export class InstanceManager {
         if (!versionId)
           fail(
             "VERSION_REQUIRED",
-            "請指定要展示的 versionId，或用 status 先列出可選版本。",
+            "Name the versionId to display, or list the choices with status first.",
           );
         const result = await ipc(p.runtime, config.instance, "/activate", {
           versionId,
@@ -725,7 +762,10 @@ function eachRegistered(workspace, installRoot, verb, act) {
   const checked = scopedPath(root, "projects/meshcue-state/registry.json");
   const registry = JSON.parse(fs.readFileSync(checked, "utf8"));
   if (registry.schema !== 1)
-    fail("REGISTRY_VERSION", "項目登記格式未受支援；未覆蓋。");
+    fail(
+      "REGISTRY_VERSION",
+      "Unsupported project registry format; nothing was overwritten.",
+    );
   const unavailable = [];
   for (const item of Object.values(registry.projects)) {
     if (item.installRoot !== installRoot) continue;

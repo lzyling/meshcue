@@ -123,14 +123,17 @@ test("trusted Telegram context normalizes encoded destinations and refuses missi
       threadId: "41",
     },
   });
-  assert.throws(() => trustedOrigin({ ...ctx, sessionId: undefined }), /代際/);
+  assert.throws(
+    () => trustedOrigin({ ...ctx, sessionId: undefined }),
+    /session generation/,
+  );
   assert.throws(
     () =>
       trustedOrigin({
         ...ctx,
         deliveryContext: { ...ctx.deliveryContext, threadId: 42 },
       }),
-    /一致/,
+    /inconsistent/,
   );
 });
 
@@ -174,7 +177,7 @@ test("a host supplying only the required context runs a full round, and each mis
         host: "127.0.0.1",
         confirmedClientAddress: "127.0.0.1",
       }),
-      /符號連結/,
+      /symlink/,
     );
     assert.deepEqual(fs.readdirSync(outside), []);
   } finally {
@@ -311,7 +314,7 @@ test("/new requires explicit continuation and retains locked draft plus browser 
         { ...origin, sessionKey: "other-topic" },
         { resumeGeneration: true },
       ),
-    /標記/,
+    /marking/,
   );
 });
 
@@ -465,7 +468,7 @@ test("filesystem boundary rejects escaping symlinks and narrow-scope creation be
   const outside = fs.mkdtempSync(path.join(repo, "tmp", "outside-"));
   t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
   fs.symlinkSync(outside, path.join(f.workspace, "projects/escape"));
-  await assert.rejects(f.open("projects/escape"), /符號連結/);
+  await assert.rejects(f.open("projects/escape"), /symlink/);
   assert.deepEqual(fs.readdirSync(outside), []);
   fs.mkdirSync(path.join(f.workspace, "projects/allowed"));
   const narrow = new InstanceManager(
@@ -484,7 +487,7 @@ test("filesystem boundary rejects escaping symlinks and narrow-scope creation be
       project: "projects/disallowed",
       file: "part.stl",
     }),
-    /權限/,
+    /permission/,
   );
   assert.equal(
     fs.existsSync(path.join(f.workspace, "projects/disallowed")),
@@ -521,12 +524,12 @@ test("async bridge fences admission to the frozen generation and rejects unavail
       sessionInfo: { activeLeafEntryId: "leaf-43" },
     };
   };
-  await assert.rejects(bridge.send("test", "batch-1"), /原會話/);
+  await assert.rejects(bridge.send("test", "batch-1"), /originating session/);
   bridge.call = async (method) => {
     assert.equal(method, "chat.history");
     return { sessionId: origin.sessionId };
   };
-  await assert.rejects(bridge.send("test", "batch-1"), /宿主/);
+  await assert.rejects(bridge.send("test", "batch-1"), /host could not verify/);
 });
 
 // Choosing what the reviewer is looking at is presentation, and presentation is

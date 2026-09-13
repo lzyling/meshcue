@@ -46,7 +46,9 @@ const instanceFile = path.join(runtime, "instance.lock");
 if (fs.existsSync(instanceFile)) {
   const previous = readLock(instanceFile);
   if (processAlive(previous?.pid))
-    throw new Error("此審閱服務已在運行，請勿重複啟動。");
+    throw new Error(
+      "This review service is already running; do not start a second one.",
+    );
   if (!previous)
     log.warn("service", "discarding an unreadable instance lock", {
       file: instanceFile,
@@ -57,7 +59,9 @@ try {
   claimLock(instanceFile, { startedAt: Date.now() });
 } catch (error) {
   if (error.code === "EEXIST")
-    throw new Error("此審閱服務已在運行，請勿重複啟動。");
+    throw new Error(
+      "This review service is already running; do not start a second one.",
+    );
   throw error;
 }
 process.on("exit", () => releaseLock(instanceFile));
@@ -153,7 +157,8 @@ app.set("strict routing", true);
 app.use((req, res, next) => {
   if (!["GET", "HEAD"].includes(req.method) && !managedEnabled())
     return res.status(503).json({
-      error: "MeshCue 擴充已停用；草稿保留，請在原會話接續。",
+      error:
+        "The MeshCue extension is disabled; drafts are kept, continue from the originating conversation.",
       code: "INTEGRATION_DISABLED",
     });
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -166,24 +171,29 @@ app.use((req, res, next) => {
     /* rejected below */
   }
   if (!allowedHosts.has(hostname))
-    throw new AccessError("請使用核對過的工作台入口。", 421, "BAD_HOST");
+    throw new AccessError("Use the verified workbench entry.", 421, "BAD_HOST");
   if (
     !["GET", "HEAD"].includes(req.method) &&
     ((req.headers.origin &&
       req.headers.origin !== `http://${req.headers.host}`) ||
       req.headers["sec-fetch-site"] === "cross-site")
   )
-    throw new AccessError("此請求不是來自目前工作台。", 403, "BAD_ORIGIN");
+    throw new AccessError(
+      "This request did not come from the current workbench.",
+      403,
+      "BAD_ORIGIN",
+    );
   if (
     !["GET", "HEAD"].includes(req.method) &&
     req.headers["x-review-client"] !== "1"
   )
-    return res.status(403).json({ error: "請使用審閱工作台操作。" });
+    return res.status(403).json({ error: "Use the review workbench." });
   next();
 });
 app.use(express.json({ limit: "16mb" }));
 app.post("/api/access/claim", (req, res) => {
-  if (!accessRequired) throw new AccessError("此入口不使用遠端授權。", 409);
+  if (!accessRequired)
+    throw new AccessError("This entry does not use remote authorization.", 409);
   z.object({}).strict().parse(req.body);
   // Never use req.ip, forwarded headers or a browser-supplied address here.
   const session = access.claimAddress(
@@ -198,7 +208,8 @@ app.post("/api/access/claim", (req, res) => {
   res.json({ authorized: true, expiresAt: session.expiresAt });
 });
 app.post("/api/access/exchange", (req, res) => {
-  if (!accessRequired) throw new AccessError("此入口不使用遠端授權。", 409);
+  if (!accessRequired)
+    throw new AccessError("This entry does not use remote authorization.", 409);
   const p = z
     .object({ grant: z.string().max(128) })
     .strict()
@@ -237,21 +248,33 @@ app.use((req, res, next) => {
   ) {
     const filename = req.path.split("/").pop();
     if (!store.modelInBinding(filename))
-      throw new AccessError("找不到此輪審閱模型。", 404, "NOT_FOUND");
+      throw new AccessError(
+        "No model of this review round was found.",
+        404,
+        "NOT_FOUND",
+      );
   }
   if (req.path.startsWith("/api/submissions/")) {
     const item = store.state.submissions.find(
       (s) => s.id === req.path.split("/").pop(),
     );
     if (!item || !store.submissionInBinding(item))
-      throw new AccessError("找不到此輪提交。", 404, "NOT_FOUND");
+      throw new AccessError(
+        "No submission of this round was found.",
+        404,
+        "NOT_FOUND",
+      );
   }
   if (req.path === "/api/feedback") {
     const item = store.state.submissions.find(
       (s) => s.id === req.body?.submissionId,
     );
     if (item && !store.submissionInBinding(item))
-      throw new AccessError("提交不屬於此輪審閱。", 403, "WRONG_REVIEW");
+      throw new AccessError(
+        "That submission does not belong to this review round.",
+        403,
+        "WRONG_REVIEW",
+      );
   }
   next();
 });
@@ -345,7 +368,7 @@ function saveManifest(versionId, meshes) {
     new Set(valid.map((x) => x.id)).size !== valid.length ||
     valid.reduce((n, x) => n + x.triangles, 0) > MAX_TRIANGLES
   )
-    throw new ReviewError("模型網格超出限制。", 400);
+    throw new ReviewError("The model mesh exceeds the limits.", 400);
   atomicJson(path.join(runtime, "manifests", `${versionId}.json`), {
     versionId,
     meshes: valid,
@@ -354,7 +377,11 @@ function saveManifest(versionId, meshes) {
 function validateAnnotations(versionId, annotations) {
   const manifestFile = path.join(runtime, "manifests", `${versionId}.json`);
   if (!fs.existsSync(manifestFile))
-    throw new ReviewError("模型尚未完成載入。", 409, "NOT_READY");
+    throw new ReviewError(
+      "The model has not finished loading.",
+      409,
+      "NOT_READY",
+    );
   const meshes = new Map(
     JSON.parse(fs.readFileSync(manifestFile, "utf8")).meshes.map((m) => [
       m.id,
@@ -365,7 +392,8 @@ function validateAnnotations(versionId, annotations) {
   let faceCount = 0,
     patchCount = 0;
   for (const a of annotations) {
-    if (usedIds.has(a.id)) throw new ReviewError("標注識別碼重複。", 400);
+    if (usedIds.has(a.id))
+      throw new ReviewError("Duplicate annotation id.", 400);
     usedIds.add(a.id);
     const groups = a.type === "pin" ? { [a.meshId]: [a.faceIndex] } : a.faces;
     for (const [meshId, faces] of Object.entries(groups)) {
@@ -380,7 +408,7 @@ function validateAnnotations(versionId, annotations) {
         )
       )
         throw new ReviewError(
-          "標注與目前模型網格不符，沒有覆蓋草稿。",
+          "The annotations do not match the current model mesh; the draft was not overwritten.",
           400,
           "BAD_GEOMETRY",
         );
@@ -391,7 +419,11 @@ function validateAnnotations(versionId, annotations) {
       a.sourceFaceIndex !== undefined &&
       a.sourceFaceIndex >= meshes.get(a.meshId).sourceTriangles
     )
-      throw new ReviewError("點標籤的來源面不符。", 400, "BAD_GEOMETRY");
+      throw new ReviewError(
+        "A pin's source face does not match.",
+        400,
+        "BAD_GEOMETRY",
+      );
     if (a.type === "region") {
       const patches = a.surfacePatches || [];
       const selected = new Set(
@@ -412,16 +444,22 @@ function validateAnnotations(versionId, annotations) {
         )
       )
         throw new ReviewError(
-          "塗選表面資料不完整，草稿沒有被覆蓋。",
+          "The painted surface data is incomplete; the draft was not overwritten.",
           400,
           "BAD_GEOMETRY",
         );
     }
     patchCount += a.surfacePatches?.length || 0;
     if (patchCount > 40000)
-      throw new ReviewError("本輪筆跡已達上限，請分批提交。", 400);
+      throw new ReviewError(
+        "This round has reached its stroke limit; submit in batches.",
+        400,
+      );
     if (faceCount > 20000)
-      throw new ReviewError("本輪標注上限為 2 萬個審閱面，請分批提交。", 400);
+      throw new ReviewError(
+        "A round is limited to 20,000 review faces; submit in batches.",
+        400,
+      );
   }
 }
 // Derived, never restated: a bundled server used to report the project's
@@ -465,7 +503,7 @@ app.post("/api/access/activity", (req, res) => {
 });
 app.get("/api/models/:filename", (req, res) => {
   if (!/^[a-f0-9]{64}\.(glb|stl)$/.test(req.params.filename))
-    throw new ReviewError("找不到模型。", 404);
+    throw new ReviewError("Model not found.", 404);
   res.setHeader(
     "Cache-Control",
     accessRequired
@@ -485,7 +523,11 @@ app.post("/api/ready", (req, res) => {
   // Verify against the version actually being looked at. Checking the active
   // one instead made every older tab fail its own integrity check.
   if (p.sha256 !== store.state.models[p.versionId].sha256)
-    throw new ReviewError("載入檔案與 Agent 交付不符。", 409, "HASH_MISMATCH");
+    throw new ReviewError(
+      "The loaded file does not match what the Agent delivered.",
+      409,
+      "HASH_MISMATCH",
+    );
   saveManifest(p.versionId, p.meshes);
   store.recordViewerReceipt(p.clientId, {
     versionId: p.versionId,
@@ -498,7 +540,11 @@ app.post("/api/ready", (req, res) => {
 app.post("/api/review/begin", (req, res) => {
   const p = owner.parse(req.body);
   if (store.state.viewerReceipts?.[p.clientId]?.versionId !== p.versionId)
-    throw new ReviewError("請等模型完成載入及版本核對。", 409, "NOT_READY");
+    throw new ReviewError(
+      "Wait for the model to load and its version to be verified.",
+      409,
+      "NOT_READY",
+    );
   store.acquire(p.versionId, p.clientId);
   rememberUse(req, res);
   res.json(stateFor(p.clientId, true, p.versionId));
@@ -600,7 +646,7 @@ function logDeliveryFailure(submissionId, attempts, cause, error) {
 function deliverFeedback(item) {
   if (!managedEnabled())
     throw new ReviewError(
-      "擴充已停用，提交仍保留。",
+      "The extension is disabled; the submission is still kept.",
       503,
       "INTEGRATION_DISABLED",
     );
@@ -612,16 +658,16 @@ function deliverFeedback(item) {
         const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
         const readCommand =
           config.managed && config.projectPath
-            ? `meshcue 工具 ${JSON.stringify({ action: "read", project: config.projectPath, submissionId: item.id })}`
+            ? `the meshcue tool with ${JSON.stringify({ action: "read", project: config.projectPath, submissionId: item.id })}`
             : `REVIEW_DATA_DIR=${shellQuote(runtime)} node ${shellQuote(path.join(repo, "scripts/reviewctl.mjs"))} read ${shellQuote(item.id)}`;
         const summary = item.annotations
           .map((a) =>
             a.type === "pin"
-              ? `${a.label}：點標籤，${a.meshId}／面 ${a.faceIndex}`
-              : `${a.color} 塗抹區域（區域識別 ${a.id}）：${["brush-v1", "source-v1"].includes(a.coverage) ? "實際表面筆跡" : "舊版整面標記"}；不是編號點標籤，按顏色及位置辨認`,
+              ? `${a.label}: pin on ${a.meshId}, face ${a.faceIndex}`
+              : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position`,
           )
           .join("\n");
-        const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 ${readCommand} 讀取本次實例的完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
+        const message = `[MeshCue review marks ${item.id}]\nModel: ${item.model.name} / ${item.model.version}; version ${item.versionId}; SHA256 ${item.model.sha256}.\n${summary}\n\nThe full 3D annotations and camera are saved at ${localFile}. Agent instructions: ${path.join(repo, "AGENT-INTERFACE.md")}.\nThis is a batch of positions the reviewer sent with "Send to Agent". It is not an instruction to change anything. Read the complete submission from this instance with ${readCommand} and write the read receipt before confirming you have it; if the conversation does not already explain the marks, ask what each one means and what to change rather than guessing. Reply only in the conversation this batch came from — never forward it to another topic or channel. The reviewer has not finished, so do not replace the model on them.`;
         const notifier = notifierCached(store.submissionOrigin(item));
         // Nowhere to push is not a push that failed. The batch is already
         // durable and listed; this host's Agent collects it by asking. Counting
@@ -661,7 +707,7 @@ function deliverFeedback(item) {
               history.messages.some(
                 (m) =>
                   m.role === "user" &&
-                  m.text.includes(`[3D 審閱標記提交 ${item.id}]`),
+                  m.text.includes(`[MeshCue review marks ${item.id}]`),
               )
             )
               store.submissionStatus(item.id, "accepted", {
@@ -694,7 +740,8 @@ function deliverFeedback(item) {
             item.id,
             attempts >= STALL_AFTER ? "stalled" : "unconfirmed",
             {
-              error: "尚未確認交到 OpenClaw；標注已保存在本機。",
+              error:
+                "Not yet confirmed as handed to OpenClaw; the annotations are saved locally.",
               lastError: { ...cause, at: Date.now() },
               stalledAt:
                 attempts >= STALL_AFTER ? item.stalledAt || Date.now() : null,
@@ -704,7 +751,7 @@ function deliverFeedback(item) {
             },
           );
           throw new ReviewError(
-            "未能確認送達；標注已保存。恢復連線後可用同一提交重試，不會重建標記。",
+            "Delivery could not be confirmed; the annotations are saved. Once the connection returns the same submission retries, and no mark is rebuilt.",
             502,
             "DELIVERY_UNCONFIRMED",
           );
@@ -744,7 +791,7 @@ outboxTimer?.unref();
 app.get("/api/submissions/:id", (req, res) => {
   const submissionId = id.parse(req.params.id);
   const file = path.join(runtime, "submissions", `${submissionId}.json`);
-  if (!fs.existsSync(file)) throw new ReviewError("找不到提交。", 404);
+  if (!fs.existsSync(file)) throw new ReviewError("No such submission.", 404);
   res.download(`${submissionId}.json`, `meshcue-${submissionId}.json`, {
     root: path.join(runtime, "submissions"),
   });
@@ -757,7 +804,7 @@ app.get("/api/download/:filename", (req, res) => {
   const model = Object.values(store.state.models).find(
     (m) => m?.filename === filename,
   );
-  if (!model) throw new ReviewError("找不到此已發布版本。", 404);
+  if (!model) throw new ReviewError("No such published version.", 404);
   rememberUse(req, res);
   // Same immutable source bytes as the viewer, never a modified review mesh.
   res.download(filename, `${model.name}-${model.version}.${model.format}`, {
@@ -766,7 +813,9 @@ app.get("/api/download/:filename", (req, res) => {
 });
 // Conversation history and input belong exclusively to the origin session.
 app.all("/api/chat", (req, res) =>
-  res.status(410).json({ error: "請返回發起審閱的原會話對話。" }),
+  res
+    .status(410)
+    .json({ error: "Go back to the conversation this review came from." }),
 );
 
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
@@ -829,7 +878,11 @@ agentApp.get("/status", (req, res) =>
 );
 agentApp.post("/maintenance", (req, res) => {
   if (!config.managed || req.body.instanceId !== instance?.id)
-    throw new ReviewError("服務身份不符。", 409, "WRONG_INSTANCE");
+    throw new ReviewError(
+      "Service identity does not match.",
+      409,
+      "WRONG_INSTANCE",
+    );
   if (req.body.release === true) {
     maintenanceUntil = 0;
     return res.json({ paused: false });
@@ -842,7 +895,7 @@ agentApp.post("/maintenance", (req, res) => {
   );
   if (busy.length && req.body.force !== true)
     throw new ReviewError(
-      "使用者正在標記；未停止或升級服務。草稿已保存，可稍後重試或明確強制。",
+      "Someone is marking; the service was neither stopped nor upgraded. The draft is saved — retry later, or force it explicitly.",
       423,
       "REVIEW_BUSY",
     );
@@ -883,7 +936,11 @@ agentApp.post("/finish", (req, res) => {
   const p = z.object({ versionId: id.optional() }).strict().parse(req.body);
   const versionId = p.versionId || store.state.active?.id;
   if (!versionId)
-    throw new ReviewError("尚未有可結束的版本。", 409, "NO_MODEL");
+    throw new ReviewError(
+      "There is no version to finish yet.",
+      409,
+      "NO_MODEL",
+    );
   const { sealed } = store.finish(versionId, null);
   if (sealed) deliverFeedback(attachManifest(sealed)).catch(() => {});
   res.json({ versionId, sealed: sealed?.id || null });
@@ -901,21 +958,25 @@ agentApp.post("/unlock", (req, res) => {
 });
 agentApp.post("/access/issue", (req, res) => {
   if (!accessRequired || !store.state.active)
-    throw new AccessError("尚未準備受保護審閱。", 409);
+    throw new AccessError("No protected review is ready.", 409);
   // Host IPC response only. reviewctl deliberately has no grant-printing command.
   res.setHeader("Cache-Control", "no-store");
   res.json(access.issue());
 });
 agentApp.post("/access/admit", (req, res) => {
   if (!accessRequired || !store.state.active)
-    throw new AccessError("尚未準備受保護審閱。", 409);
+    throw new AccessError("No protected review is ready.", 409);
   const p = z
     .object({ address: z.string().max(64) })
     .strict()
     .parse(req.body);
   // Loopback admissions are for protected local fixtures, not LAN delivery.
   if (network.lan && !privateIPv4(p.address))
-    throw new AccessError("請指定已核對的內網 IPv4 位址。", 400, "BAD_ADDRESS");
+    throw new AccessError(
+      "Give a private IPv4 address that has been verified.",
+      400,
+      "BAD_ADDRESS",
+    );
   res.setHeader("Cache-Control", "no-store");
   res.json(access.admitAddress(p.address));
 });
@@ -946,7 +1007,7 @@ agentApp.get("/submissions/:id", (req, res) => {
   const submission = store.state.submissions.find(
     (s) => s.id === id.parse(req.params.id),
   );
-  if (!submission) throw new ReviewError("找不到提交。", 404);
+  if (!submission) throw new ReviewError("No such submission.", 404);
   res.json(submission);
 });
 agentApp.post("/read", (req, res) => {
@@ -968,7 +1029,7 @@ agentApp.post("/echo", (req, res) => {
     .parse(req.body);
   if (p.annotations.some((a) => a.type !== "region"))
     throw new ReviewError(
-      "理解回顯需要明確表面範圍，不能以點標籤冒充範圍。",
+      "An echo needs explicit surface regions; a pin cannot stand in for one.",
       400,
     );
   validateAnnotations(p.versionId, p.annotations);
@@ -1007,9 +1068,9 @@ function errorHandler(err, req, res, next) {
     });
   res.status(status).json({
     error: schemaError
-      ? "輸入資料格式不正確。"
+      ? "The input is not in the expected shape."
       : status >= 500
-        ? "服務暫時未能完成請求，草稿會保留。"
+        ? "The service could not complete the request for now; the draft is kept."
         : err.message,
     code: err.code || "ERROR",
   });

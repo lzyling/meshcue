@@ -69,12 +69,17 @@ export function normalizeOrigin(value) {
 
 export function deliveryParams(value) {
   const origin = normalizeOrigin(value);
-  if (!origin) throw new Error("此批提交未綁定原會話，沒有發送到其他位置。");
+  if (!origin)
+    throw new Error(
+      "This batch is bound to no originating session and was not sent anywhere else.",
+    );
   // Nowhere to push is not a failure to push. The batch is already durable and
   // waits to be read; saying "delivery failed" about a host that never offered
   // delivery would report a fault that does not exist.
   if (!origin.route)
-    throw new Error("此來源沒有回傳路由；提交等待 Agent 讀取，未投遞。");
+    throw new Error(
+      "This origin has no return route; the submission waits to be read and was not delivered.",
+    );
   if (origin.route.channel === "webchat")
     return { sessionKey: origin.sessionKey, deliver: false };
   // The host resolves the destination from the session itself. Naming it here

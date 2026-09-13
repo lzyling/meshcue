@@ -42,24 +42,26 @@ async function health() {
 async function stop() {
   const current = await health();
   if (!current) {
-    console.log("MeshCue 審閱服務未在此連接埠運行。");
+    console.log("No MeshCue review service is running on this port.");
     return;
   }
   if (
     !fs.existsSync(pidFile) ||
     Number(fs.readFileSync(pidFile, "utf8")) !== current.pid
   )
-    throw new Error("PID 不符；沒有停止任何進程。");
+    throw new Error("PID mismatch; no process was stopped.");
   process.kill(current.pid, "SIGTERM");
   for (let i = 0; i < 40; i++) {
     if (!(await health())) return;
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error("服務尚未完成停止，沒有強制中止。");
+  throw new Error(
+    "The service has not finished stopping and was not force-killed.",
+  );
 }
 async function start() {
   if (await health()) {
-    console.log(`MeshCue 審閱服務已啟動：${url}（runtime ${runtime}）`);
+    console.log(`MeshCue review service started: ${url} (runtime ${runtime})`);
     return;
   }
   fs.mkdirSync(runtime, { recursive: true });
@@ -77,16 +79,18 @@ async function start() {
     if (up) {
       // Record the pid the service reports, and only once it is actually
       // serving. Writing it before meant a child that died on a busy port left
-      // a stale pid behind, and every later stop refused with "PID 不符".
+      // a stale pid behind, and every later stop refused with "PID mismatch".
       fs.writeFileSync(pidFile, `${up.pid}\n`, { mode: 0o600 });
-      console.log(`MeshCue 審閱服務已啟動：${url}（runtime ${runtime}）`);
+      console.log(
+        `MeshCue review service started: ${url} (runtime ${runtime})`,
+      );
       return;
     }
     if (child.exitCode !== null || child.signalCode !== null) break;
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(
-    `服務未啟動；請查看 ${path.join(runtime, "server.log")}。沒有寫入 PID 檔。`,
+    `The service did not start; see ${path.join(runtime, "server.log")}. No PID file was written.`,
   );
 }
 if (command === "start") await start();

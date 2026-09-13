@@ -54,17 +54,17 @@ export function parseArgs(argv) {
   for (let i = 0; i < rest.length; i++) {
     const token = rest[i];
     if (!token.startsWith("--"))
-      throw new IntegrationError("BAD_USAGE", `未預期的參數：${token}`);
+      throw new IntegrationError("BAD_USAGE", `Unexpected argument: ${token}`);
     const flag = token.slice(2);
     if (flag in BOOLEANS) {
       input[BOOLEANS[flag]] = flag !== "no-activate";
       continue;
     }
     if (!(flag in FLAGS))
-      throw new IntegrationError("BAD_USAGE", `無法識別的選項：--${flag}`);
+      throw new IntegrationError("BAD_USAGE", `Unknown option: --${flag}`);
     const value = rest[++i];
     if (value === undefined || value.startsWith("--"))
-      throw new IntegrationError("BAD_USAGE", `--${flag} 需要一個值。`);
+      throw new IntegrationError("BAD_USAGE", `--${flag} needs a value.`);
     input[FLAGS[flag]] = value;
   }
   return { action, input };
@@ -79,7 +79,7 @@ export function cliOrigin(owner) {
   if (!owner)
     throw new IntegrationError(
       "MISSING_OWNER",
-      "請以 --owner 指明擁有這輪審閱的會話；沒有替你編一個。",
+      "Name the session that owns this review with --owner; one is never invented for you.",
     );
   return normalizeOrigin({
     harness: "cli",
@@ -102,13 +102,13 @@ export async function run(
   if (!action || !ACTIONS.includes(action))
     throw new IntegrationError(
       "BAD_USAGE",
-      `用法：meshcue <${ACTIONS.join("|")}> [--選項 值]…`,
+      `Usage: meshcue <${ACTIONS.join("|")}> [--option value]…`,
     );
   const workspace = fs.realpathSync(input.workspace || cwd);
   // Measuring a file needs no instance, no owner and no project.
   if (action === "precheck") {
     if (!input.file)
-      throw new IntegrationError("BAD_USAGE", "precheck 需要 --file。");
+      throw new IntegrationError("BAD_USAGE", "precheck needs --file.");
     return precheckModel(
       { workspaceDir: workspace, agentId: "cli" },
       input.file,

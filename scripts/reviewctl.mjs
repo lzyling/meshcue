@@ -19,26 +19,27 @@ if (command === "network") {
 // then dropped the unknown key without complaint, leaving no layer that could
 // report that the flag had not taken effect.
 function parseOptions(rest, allowed) {
-  const flags = ` 可用選項：${allowed.map((name) => `--${name}`).join(" ")}。`;
+  const flags = ` Available options: ${allowed.map((name) => `--${name}`).join(" ")}.`;
   const options = {};
   for (let i = 0; i < rest.length; i += 2) {
     const flag = rest[i];
     const name = flag.startsWith("--") && flag.slice(2);
-    if (!name) throw new Error(`無法辨識的參數 ${flag}。${flags}`);
+    if (!name) throw new Error(`Unrecognised argument ${flag}.${flags}`);
     if (!allowed.includes(name))
-      throw new Error(`未支援的選項 ${flag}。${flags}`);
+      throw new Error(`Unsupported option ${flag}.${flags}`);
     if (Object.hasOwn(options, name))
-      throw new Error(`選項 ${flag} 重複出現。`);
+      throw new Error(`Option ${flag} was given twice.`);
     const value = rest[i + 1];
     if (value === undefined || value.startsWith("--"))
-      throw new Error(`選項 ${flag} 缺少值。`);
+      throw new Error(`Option ${flag} is missing its value.`);
     options[name] = value;
   }
   return options;
 }
 function readWorkspaceJson(name) {
   const file = fs.realpathSync(path.resolve(name || ""));
-  if (!within(workspace, file)) throw new Error("操作資料必須在工作區內。");
+  if (!within(workspace, file))
+    throw new Error("The payload must live inside the workspace.");
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 let endpoint, body;
@@ -84,7 +85,8 @@ try {
     endpoint = `/submissions/${args[0]}`;
   } else if (command === "echo") {
     const file = fs.realpathSync(path.resolve(args[0] || ""));
-    if (!within(workspace, file)) throw new Error("回顯資料必須在工作區內。");
+    if (!within(workspace, file))
+      throw new Error("The echo payload must live inside the workspace.");
     body = JSON.parse(fs.readFileSync(file, "utf8"));
     endpoint = "/echo";
   } else
@@ -120,7 +122,7 @@ function call(route, payload) {
           try {
             const value = JSON.parse(data);
             if (res.statusCode >= 400)
-              reject(new Error(value.error || "操作失敗"));
+              reject(new Error(value.error || "The action failed"));
             else resolve(value);
           } catch (e) {
             reject(e);
@@ -128,7 +130,9 @@ function call(route, payload) {
         });
       },
     );
-    req.on("error", () => reject(new Error("審閱服務尚未啟動。")));
+    req.on("error", () =>
+      reject(new Error("The review service is not running.")),
+    );
     req.end(payload ? JSON.stringify(payload) : undefined);
   });
 }

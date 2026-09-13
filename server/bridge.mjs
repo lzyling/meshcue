@@ -6,7 +6,7 @@ const exec = promisify(execFile);
 // Every failure out of call() carries the host's own two fields, so a caller
 // never has to parse prose to find out what went wrong or whether to retry.
 function hostFailure(method, { code, message }) {
-  const failure = new Error(`OpenClaw 未接納請求：${message}`);
+  const failure = new Error(`OpenClaw did not accept the request: ${message}`);
   failure.method = method;
   failure.hostError = { code, message: String(message).slice(0, 300) };
   return failure;
@@ -17,10 +17,10 @@ function hostFailure(method, { code, message }) {
 // spawn failure by its own fields instead.
 function spawnFailure(method, error) {
   const reason = error.killed
-    ? "呼叫超時"
+    ? "the call timed out"
     : error.code === "ENOENT"
-      ? "找不到 openclaw 指令"
-      : `openclaw 結束碼 ${error.code ?? "?"}`;
+      ? "the openclaw command was not found"
+      : `openclaw exited with ${error.code ?? "?"}`;
   const detail = String(error.stderr || "")
     .trim()
     .slice(0, 200);
@@ -40,7 +40,8 @@ export class OpenClawBridge {
     this.visibleMessages = new Map();
   }
   async call(method, params) {
-    if (!this.enabled) throw new Error("此測試服務未啟用 OpenClaw 連線。");
+    if (!this.enabled)
+      throw new Error("This test service has no OpenClaw connection enabled.");
     const argv = [
       "gateway",
       "call",
@@ -73,7 +74,7 @@ export class OpenClawBridge {
     } catch {
       throw hostFailure(method, {
         code: "UNPARSEABLE_RESPONSE",
-        message: `回應無法解析：${String(stdout).slice(0, 200)}`,
+        message: `The response could not be parsed: ${String(stdout).slice(0, 200)}`,
       });
     }
     // A non-zero exit is a failure even if the payload does not say so, so it
@@ -110,7 +111,7 @@ export class OpenClawBridge {
         !Object.hasOwn(info, "activeLeafEntryId")
       ) {
         throw new Error(
-          "原會話已變更或宿主無法核對；提交保留，沒有轉送到新任務。",
+          "The originating session changed or the host could not verify it; the submission is kept and was not forwarded to a new task.",
         );
       }
       // Host revalidates both under the admission writer barrier. A check then

@@ -34,7 +34,7 @@ function limitError(message, code, measured) {
 export function inspectModel(buffer, format) {
   if (!buffer.length || buffer.length > MAX_BYTES)
     throw limitError(
-      `模型須小於 ${mb(MAX_BYTES)}；此檔為 ${mb(buffer.length)}。`,
+      `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
       "MODEL_LIMIT",
       { bytes: buffer.length },
     );
@@ -45,15 +45,15 @@ export function inspectModel(buffer, format) {
       buffer.readUInt32LE(4) !== 2 ||
       buffer.readUInt32LE(8) !== buffer.length
     )
-      throw new ReviewError("不是有效的 GLB 2.0 檔案。", 400, "MODEL_FORMAT");
+      throw new ReviewError("Not a valid GLB 2.0 file.", 400, "MODEL_FORMAT");
     const jsonSize = buffer.readUInt32LE(12);
     if (jsonSize > buffer.length - 20 || buffer.readUInt32LE(16) !== 0x4e4f534a)
-      throw new ReviewError("GLB 結構不完整。", 400);
+      throw new ReviewError("The GLB structure is incomplete.", 400);
     let doc;
     try {
       doc = JSON.parse(buffer.toString("utf8", 20, 20 + jsonSize));
     } catch {
-      throw new ReviewError("GLB 資料無法讀取。", 400);
+      throw new ReviewError("The GLB data could not be read.", 400);
     }
     if (
       (doc.extensionsRequired || []).some(
@@ -70,14 +70,14 @@ export function inspectModel(buffer, format) {
       )
     )
       throw new ReviewError(
-        "初版未支援此 GLB 的壓縮／必要擴充；請先匯出未壓縮 GLB。",
+        "This GLB uses compression or a required extension that is not supported yet; export an uncompressed GLB.",
         400,
         "UNSUPPORTED_EXTENSION",
       );
     for (const item of [...(doc.buffers || []), ...(doc.images || [])]) {
       if (item.uri && !item.uri.startsWith("data:"))
         throw new ReviewError(
-          "請使用貼圖及幾何都嵌入檔案的 GLB。",
+          "Use a GLB with both textures and geometry embedded in the file.",
           400,
           "EXTERNAL_RESOURCE",
         );
@@ -87,7 +87,7 @@ export function inspectModel(buffer, format) {
       const size = buffer.readUInt32LE(offset),
         type = buffer.readUInt32LE(offset + 4);
       if (offset + 8 + size > buffer.length)
-        throw new ReviewError("GLB 區塊資料不完整。", 400);
+        throw new ReviewError("A GLB chunk is incomplete.", 400);
       if (type === 0x004e4942)
         bin = buffer.subarray(offset + 8, offset + 8 + size);
       offset += 8 + size;
@@ -98,12 +98,15 @@ export function inspectModel(buffer, format) {
       if (image.uri?.startsWith("data:")) {
         const comma = image.uri.indexOf(",");
         if (!image.uri.slice(0, comma).endsWith(";base64"))
-          throw new ReviewError("請將貼圖嵌入 GLB 二進位資料。", 400);
+          throw new ReviewError(
+            "Embed the textures in the GLB binary data.",
+            400,
+          );
         bytes = Buffer.from(image.uri.slice(comma + 1), "base64");
       } else {
         const view = doc.bufferViews?.[image.bufferView];
         if (!view || view.buffer !== 0 || !bin)
-          throw new ReviewError("貼圖資料不完整。", 400);
+          throw new ReviewError("The texture data is incomplete.", 400);
         bytes = bin.subarray(
           view.byteOffset || 0,
           (view.byteOffset || 0) + view.byteLength,
@@ -132,7 +135,7 @@ export function inspectModel(buffer, format) {
         dimensions = imageSize(bytes);
       } catch {
         throw new ReviewError(
-          "貼圖格式未支援或資料不完整。",
+          "The texture format is unsupported or its data is incomplete.",
           400,
           "TEXTURE_FORMAT",
         );
@@ -144,7 +147,7 @@ export function inspectModel(buffer, format) {
         texturePixels > MAX_TEXTURE_PIXELS
       )
         throw limitError(
-          `貼圖解碼量超出初版上限；單張上限 8192×8192、合計上限 ${MAX_TEXTURE_PIXELS} 像素，此模型已達 ${texturePixels}。請縮小貼圖（建議 4K 或以下）。`,
+          `Texture decoding exceeds the limit: 8192×8192 per image and ${MAX_TEXTURE_PIXELS} pixels in total, against ${texturePixels} here. Reduce the textures — 4K or below is a good target.`,
           "TEXTURE_LIMIT",
           { texturePixels },
         );
@@ -154,7 +157,7 @@ export function inspectModel(buffer, format) {
       doc.nodes?.some((n) => n.extensions?.EXT_mesh_gpu_instancing)
     )
       throw new ReviewError(
-        "初版請先將骨架／實例轉為靜態網格再匯入。",
+        "Convert skins and instances to static meshes before importing.",
         400,
         "ANIMATED_MODEL",
       );
@@ -163,17 +166,17 @@ export function inspectModel(buffer, format) {
       if (node.mesh === undefined) continue;
       for (const prim of doc.meshes?.[node.mesh]?.primitives || []) {
         if (prim.mode !== undefined && prim.mode !== 4)
-          throw new ReviewError("初版只接受三角面網格。", 400);
+          throw new ReviewError("Only triangle meshes are accepted.", 400);
         const count =
           doc.accessors?.[prim.indices ?? prim.attributes?.POSITION]?.count;
         if (!Number.isFinite(count) || count < 3 || count % 3 !== 0)
-          throw new ReviewError("模型三角面資料不完整。", 400);
+          throw new ReviewError("The model triangle data is incomplete.", 400);
         triangles += count / 3;
       }
     }
     if (!triangles || triangles > MAX_TRIANGLES)
       throw limitError(
-        `模型上限為 ${MAX_TRIANGLES} 三角面；此模型有 ${triangles}，請先簡化至 ${MAX_TRIANGLES} 以下（建議 ${DEGRADE_TRIANGLES} 以下以保留標注精度）。`,
+        `The limit is ${MAX_TRIANGLES} triangles; this model has ${triangles}. Simplify below ${MAX_TRIANGLES} — below ${DEGRADE_TRIANGLES} keeps annotation precision.`,
         "MODEL_LIMIT",
         { triangles },
       );
@@ -187,29 +190,33 @@ export function inspectModel(buffer, format) {
     if (!triangles || triangles > MAX_TRIANGLES)
       throw limitError(
         triangles
-          ? `模型上限為 ${MAX_TRIANGLES} 三角面；此 STL 有 ${triangles}，請先簡化至 ${MAX_TRIANGLES} 以下（建議 ${DEGRADE_TRIANGLES} 以下以保留標注精度）。`
-          : "STL 無法辨識。",
+          ? `The limit is ${MAX_TRIANGLES} triangles; this STL has ${triangles}. Simplify below ${MAX_TRIANGLES} — below ${DEGRADE_TRIANGLES} keeps annotation precision.`
+          : "The STL could not be recognised.",
         "MODEL_LIMIT",
         { triangles },
       );
     return { triangles, format };
   }
-  throw new ReviewError("初版支援 GLB 與 STL。", 400, "MODEL_FORMAT");
+  throw new ReviewError("GLB and STL are supported.", 400, "MODEL_FORMAT");
 }
 
 export function importModel(
-  { file, name, version, source, units = "未指定" },
+  { file, name, version, source, units = "unspecified" },
   { workspace, mediaDir },
 ) {
   const actual = fs.realpathSync(path.resolve(workspace, file));
   if (!actual.startsWith(workspace + path.sep))
-    throw new ReviewError("模型必須位於目前 workspace。", 400, "PATH_OUTSIDE");
+    throw new ReviewError(
+      "The model must live inside the current workspace.",
+      400,
+      "PATH_OUTSIDE",
+    );
   const stat = fs.statSync(actual);
   if (!stat.isFile())
-    throw new ReviewError("模型路徑不是檔案。", 400, "MODEL_LIMIT");
+    throw new ReviewError("The model path is not a file.", 400, "MODEL_LIMIT");
   if (stat.size > MAX_BYTES)
     throw limitError(
-      `模型須小於 ${mb(MAX_BYTES)}；此檔為 ${mb(stat.size)}。`,
+      `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(stat.size)}.`,
       "MODEL_LIMIT",
       { bytes: stat.size },
     );
@@ -227,7 +234,7 @@ export function importModel(
     sha256: hash,
     filename,
     name: String(name || path.basename(actual)).slice(0, 160),
-    version: String(version || "初版").slice(0, 80),
+    version: String(version || "initial").slice(0, 80),
     units: String(units).slice(0, 30),
     source: source
       ? path.relative(workspace, path.resolve(workspace, source))

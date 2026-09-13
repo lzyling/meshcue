@@ -235,7 +235,9 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   // The batch names the version it was made against, which is the whole point
   // of being able to go back: an older marking is not an ambiguous one.
   expect(send.params.message).toContain(original);
-  expect(send.params.message).toContain("不等於修改指令");
+  expect(send.params.message).toContain(
+    "not an instruction to change anything",
+  );
   // The round is not closed here, because closing it is not a thing a reviewer
   // does: he hands the batch over and walks onto whatever the Agent publishes
   // next. The submission below was made by handing over, not by finishing.
@@ -398,7 +400,7 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   const sent = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   ).calls.find((c) => c.method === "chat.send");
-  expect(sent.params.message).toContain("不是編號點標籤");
+  expect(sent.params.message).toContain("not a lettered pin");
   expect(sent.params.deliver).toBe(false);
   expect(s.meshManifest.meshes[0].surfaceAlgorithm).toBe(
     "midpoint-v3-edge0.07-rationed",

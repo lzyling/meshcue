@@ -172,7 +172,7 @@ test("an owner without a return route is a describable host, not a malformed one
 
   // Nowhere to push is not a failed push. The wording matters because the page
   // turns "delivery failed" into a standing red banner.
-  assert.throws(() => deliveryParams(pull), /未投遞/);
+  assert.throws(() => deliveryParams(pull), /was not delivered/);
   assert.doesNotThrow(() => deliveryParams(telegram));
 
   // Ownership did not loosen. Every field that was ever compared is still

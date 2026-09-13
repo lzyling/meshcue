@@ -9,10 +9,13 @@ function files(root, relative = "") {
     const rel = path.join(relative, name),
       st = fs.lstatSync(path.join(root, rel));
     if (st.isSymbolicLink())
-      fail("PACKAGE_INVALID", "套件資源含符號連結，沒有啟動。");
+      fail(
+        "PACKAGE_INVALID",
+        "The package contains a symlink; nothing was started.",
+      );
     if (st.isDirectory()) found.push(...files(root, rel));
     else if (st.isFile()) found.push(rel);
-    else fail("PACKAGE_INVALID", "套件資源不是普通文件。");
+    else fail("PACKAGE_INVALID", "A package entry is not a plain file.");
   }
   return found.sort();
 }
@@ -21,7 +24,7 @@ export function cacheRelease(installRoot, runtime) {
     fs.readFileSync(path.join(installRoot, "openclaw.plugin.json"), "utf8"),
   );
   if (manifest.id !== "meshcue")
-    fail("PACKAGE_INVALID", "套件身份不是 MeshCue。");
+    fail("PACKAGE_INVALID", "This package is not MeshCue.");
   const skills = path.join(installRoot, "skills");
   const wanted = [
     "runtime/server.mjs",
@@ -65,14 +68,17 @@ export function cacheRelease(installRoot, runtime) {
         path.relative(runtime, path.join(root, relative)),
       );
       if (!fs.readFileSync(cached).equals(data))
-        fail("CACHE_CHANGED", "已驗證的版本快取被改動，未啟動。");
+        fail(
+          "CACHE_CHANGED",
+          "The verified release cache was modified; nothing was started.",
+        );
     }
   }
   return cachedRelease(runtime, id);
 }
 export function cachedRelease(runtime, id) {
   if (!/^[a-f0-9]{64}$/.test(id || ""))
-    fail("PACKAGE_INVALID", "版本快取身份不正確。");
+    fail("PACKAGE_INVALID", "The release cache identity is wrong.");
   const root = scopedPath(runtime, `releases/${id}`, { directory: true });
   const digest = crypto.createHash("sha256");
   for (const relative of files(root))
@@ -81,7 +87,10 @@ export function cachedRelease(runtime, id) {
       .update("\0")
       .update(fs.readFileSync(path.join(root, relative)));
   if (digest.digest("hex") !== id)
-    fail("CACHE_CHANGED", "上一個版本快取校驗失敗；沒有啟動被改動的程式。");
+    fail(
+      "CACHE_CHANGED",
+      "The previous release cache failed verification; modified code was not started.",
+    );
   return {
     id,
     root,

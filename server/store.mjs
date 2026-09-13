@@ -38,7 +38,7 @@ export class ReviewStore {
         };
     if (![1, 2].includes(this.state.schemaVersion))
       throw new ReviewError(
-        "此資料版本未受支援；未遷移或覆蓋現有資料。",
+        "Unsupported data version; nothing was migrated or overwritten.",
         409,
         "STATE_VERSION",
       );
@@ -275,9 +275,10 @@ export class ReviewStore {
     const versions = Object.keys(this.state.models).filter((id) =>
       this.versionInBinding(id),
     );
-    if (versions.some((id) => this.livePresence(id))) return "使用者正在標記；";
+    if (versions.some((id) => this.livePresence(id)))
+      return "Someone is marking; ";
     if (versions.some((id) => this.hasUnsubmitted(id)))
-      return "原會話仍有未交出的標記，請先在網頁交給 Agent；";
+      return "The originating session still holds unsubmitted marks; send them to the Agent from the page first. ";
     return null;
   }
   hasUnsubmitted(versionId) {
@@ -363,7 +364,7 @@ export class ReviewStore {
   assertVersion(versionId) {
     if (!this.versionInBinding(versionId))
       throw new ReviewError(
-        "此模型版本不屬於目前審閱。",
+        "That model version does not belong to this review.",
         409,
         "UNKNOWN_VERSION",
       );
@@ -422,7 +423,7 @@ export class ReviewStore {
       return structuredClone(draft);
     if (revision !== draft.revision)
       throw new ReviewError(
-        "草稿已更新，請重新載入已保存版本。",
+        "The draft moved on; reload the saved revision.",
         409,
         "STALE_DRAFT",
       );
@@ -472,7 +473,7 @@ export class ReviewStore {
     }
     if (this.busyReason())
       throw new ReviewError(
-        `${this.busyReason()}綁定與草稿沒有被改動。`,
+        `${this.busyReason()}the binding and the draft were not changed.`,
         423,
         "ORIGIN_BUSY",
       );
@@ -520,14 +521,18 @@ export class ReviewStore {
   }
   activate(versionId) {
     if (!this.state.models[versionId])
-      throw new ReviewError("此模型版本未發佈。", 409, "UNKNOWN_VERSION");
+      throw new ReviewError(
+        "That model version is not published.",
+        409,
+        "UNKNOWN_VERSION",
+      );
     const foreign = !isDeepStrictEqual(
       this.state.modelOrigins[versionId] ?? this.state.reviewOrigin,
       this.state.reviewOrigin,
     );
     if (foreign && this.busyReason())
       throw new ReviewError(
-        `${this.busyReason()}沒有更換目前模型。`,
+        `${this.busyReason()}the displayed model was not changed.`,
         423,
         "ORIGIN_BUSY",
       );
@@ -547,7 +552,7 @@ export class ReviewStore {
         !isDeepStrictEqual(origin, s.modelOrigins[model.id] ?? s.reviewOrigin)
       )
         throw new ReviewError(
-          "此模型已有原會話綁定，請先完成該輪審閱。",
+          "This model already belongs to a session; finish that round first.",
           423,
           "ORIGIN_BUSY",
         );
@@ -573,7 +578,7 @@ export class ReviewStore {
       return {
         status: "published",
         model,
-        reason: `${blocked}沒有更換目前模型。`,
+        reason: `${blocked}the displayed model was not changed.`,
       };
     return { status: activate ? "active" : "published", model };
   }
@@ -587,14 +592,18 @@ export class ReviewStore {
     const old = this.state.submissions.find((x) => x.id === submissionId);
     if (old) {
       if (old.versionId !== versionId || old.revision !== revision)
-        throw new ReviewError("提交識別碼已用於另一份草稿。");
+        throw new ReviewError(
+          "That submission id already belongs to another draft.",
+        );
       return old;
     }
     const d = this.claim(versionId, clientId);
     if (d.revision !== revision)
-      throw new ReviewError("請等草稿保存完成後再提交。");
+      throw new ReviewError(
+        "Wait for the draft to finish saving before submitting.",
+      );
     if (!d.annotations.length && d.submittedRevision == null)
-      throw new ReviewError("請先加入點標籤或塗選區域。", 400, "EMPTY");
+      throw new ReviewError("Add a pin or paint a region first.", 400, "EMPTY");
     const item = {
       id: submissionId,
       versionId,
@@ -631,7 +640,7 @@ export class ReviewStore {
   }
   submissionStatus(id, status, extra = {}) {
     const s = this.state.submissions.find((x) => x.id === id);
-    if (!s) throw new ReviewError("找不到提交。", 404);
+    if (!s) throw new ReviewError("No such submission.", 404);
     Object.assign(s, { status }, extra);
     this.markSubmitted(s);
     atomicJson(path.join(this.dir, "submissions", `${s.id}.json`), s);
@@ -642,7 +651,11 @@ export class ReviewStore {
     const submission = this.state.submissions.find(
       (s) => s.id === id && s.versionId === versionId,
     );
-    if (!submission) throw new ReviewError("提交或模型版本不符。", 404);
+    if (!submission)
+      throw new ReviewError(
+        "The submission or the model version does not match.",
+        404,
+      );
     // Explicit local Agent read acknowledgment, never inferred from chat.send.
     return this.submissionStatus(id, submission.status, {
       readAt: submission.readAt || Date.now(),
@@ -654,7 +667,7 @@ export class ReviewStore {
       (s) => s.id === submissionId && s.versionId === versionId,
     );
     if (!submission || !this.submissionInBinding(submission))
-      throw new ReviewError("找不到此輪對應提交。", 404);
+      throw new ReviewError("No submission of this round matches.", 404);
     this.state.echoes[versionId] = {
       id: crypto.randomUUID(),
       submissionId,
