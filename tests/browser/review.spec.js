@@ -1605,3 +1605,100 @@ test("the reset-view button stays clickable at every angle", async ({
   expect(covered).toEqual([]);
   await page.locator("#home-view").click();
 });
+
+test("many versions stay on one row, and the one being marked stays reachable", async ({
+  page,
+}) => {
+  await ready(page);
+  // Kelven's XR housing session reached seventeen published versions in an
+  // afternoon and the strip had been wrapping onto a second row since about the
+  // tenth, taking that row out of the model's height for the rest of the day.
+  // Versions are identified by the hash of their bytes, so republishing one
+  // sample seventeen times is one version. Each variant rewrites the generator
+  // string in the GLB header — same length, same geometry, different file.
+  const sample = fs.readFileSync(
+    "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
+  );
+  const generator = Buffer.from("THREE.GLTFExporter");
+  const at = sample.indexOf(generator);
+  expect(at).toBeGreaterThan(0);
+  for (let i = 2; i <= 17; i++) {
+    const bytes = Buffer.from(sample);
+    Buffer.from(`MeshCueStripTest${String(i).padStart(2, "0")}`).copy(
+      bytes,
+      at,
+    );
+    const file = path.join(dir, `strip-${i}.glb`);
+    fs.writeFileSync(file, bytes);
+    execFileSync(
+      process.execPath,
+      [
+        "scripts/reviewctl.mjs",
+        "publish",
+        file,
+        "--name",
+        "參數支架",
+        "--version",
+        `v0.${i} · 15mm鳍片爆炸`,
+      ],
+      { cwd: repo, env, encoding: "utf8" },
+    );
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().versions.length),
+    )
+    .toBe(17);
+  const strip = page.locator("#version-tabs");
+  const rows = await strip.evaluate((bar) => {
+    const tops = new Set(
+      [...bar.querySelectorAll(".version-tab")].map((t) =>
+        Math.round(t.getBoundingClientRect().top),
+      ),
+    );
+    return tops.size;
+  });
+  expect(rows).toBe(1);
+  // One row is only worth having if it still shows where you are. The version
+  // being marked is the last one published, so it starts off the right edge.
+  await expect
+    .poll(() =>
+      strip.evaluate((bar) => {
+        const tab = bar.querySelector(".version-tab.selected");
+        const rail = bar.getBoundingClientRect(),
+          seat = tab.getBoundingClientRect();
+        return seat.left >= rail.left - 1 && seat.right <= rail.right + 1;
+      }),
+    )
+    .toBe(true);
+  await expect(strip).toHaveClass(/overflow-start/);
+  // A plain wheel walks back along the strip; a mouse has no sideways one.
+  await strip.hover();
+  const startedAt = await strip.evaluate((bar) => bar.scrollLeft);
+  expect(startedAt).toBeGreaterThan(0);
+  for (let i = 0; i < 20; i++) {
+    await page.mouse.wheel(0, -600);
+    if ((await strip.evaluate((bar) => bar.scrollLeft)) === 0) break;
+  }
+  await expect.poll(() => strip.evaluate((bar) => bar.scrollLeft)).toBe(0);
+  await expect(strip).toHaveClass(/overflow-end/);
+  await expect(strip).not.toHaveClass(/overflow-start/);
+  // Switching versions must not be what a stuck scroll position looks like.
+  const first = await strip.evaluate(
+    (bar) => bar.querySelector(".version-tab").dataset.versionId,
+  );
+  await page.locator(`.version-tab[data-version-id="${first}"]`).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
+    .toBe(first);
+  await expect
+    .poll(() =>
+      strip.evaluate((bar) => {
+        const tab = bar.querySelector(".version-tab.selected");
+        const rail = bar.getBoundingClientRect(),
+          seat = tab.getBoundingClientRect();
+        return seat.left >= rail.left - 1 && seat.right <= rail.right + 1;
+      }),
+    )
+    .toBe(true);
+});

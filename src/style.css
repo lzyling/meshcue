@@ -338,11 +338,36 @@ a {
 .version-tabs {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  /* Wrapping cost the model a whole row of its height every time the Agent
+     published past the width of the strip. Seventeen versions in one session
+     put two rows on screen permanently. The strip scrolls instead. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
   margin: 0 0 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+/* Fading an edge is how the strip admits there is more; it is applied only when
+   there really is, so a strip that fits never looks cut off. */
+.version-tabs.overflow-start {
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px);
+}
+.version-tabs.overflow-end {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent 100%);
+}
+.version-tabs.overflow-start.overflow-end {
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 22px,
+    #000 calc(100% - 22px),
+    transparent 100%
+  );
 }
 .version-tab {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--line);
@@ -356,10 +381,15 @@ a {
 .version-tab:hover {
   border-color: var(--line-strong);
 }
-/* A switch already in flight swallows any further click; look that way too. */
+/* A switch already in flight swallows any further click; look that way too.
+   Only the tabs stop responding — killing pointer events on the strip itself
+   would take the scrolling with them, and being unable to look along the
+   versions is not part of being unable to switch to one. */
 .version-tabs.busy {
-  pointer-events: none;
   opacity: 0.55;
+}
+.version-tabs.busy .version-tab {
+  pointer-events: none;
 }
 .version-tab.current {
   border-color: var(--accent);

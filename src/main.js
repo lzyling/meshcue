@@ -798,6 +798,26 @@ $("#focus-echo").addEventListener("click", () => {
   const a = viewer.agentEcho?.annotations?.[0];
   if (a) viewer.focusAnnotation(a);
 });
+$("#version-tabs").addEventListener("scroll", () =>
+  markVersionOverflow($("#version-tabs")),
+);
+/* A mouse has no horizontal wheel, and Shift+wheel is not something a reviewer
+   should have to know to see the versions he was given. A plain wheel over the
+   strip moves along it, and only while the strip has somewhere to move. */
+$("#version-tabs").addEventListener(
+  "wheel",
+  (e) => {
+    const bar = $("#version-tabs");
+    if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    if (bar.scrollWidth <= bar.clientWidth) return;
+    e.preventDefault();
+    bar.scrollLeft += e.deltaY;
+  },
+  { passive: false },
+);
+window.addEventListener("resize", () =>
+  markVersionOverflow($("#version-tabs")),
+);
 $("#home-view").addEventListener("click", () => viewer.home());
 $("#new-region").addEventListener("click", () => {
   selectedId = null;
@@ -1011,6 +1031,34 @@ function renderVersions() {
     tab.addEventListener("click", () => selectVersion(v.id));
     bar.append(tab);
   }
+  // The tabs were replaced a statement ago; their positions, and the width the
+  // strip can scroll through, are only settled once the browser has laid them
+  // out. Asking now reads the old strip and scrolls to a place that is gone.
+  requestAnimationFrame(() => {
+    revealCurrentVersion(bar);
+    markVersionOverflow(bar);
+  });
+}
+/* A strip that scrolls can hide the tab you are standing on. Seventeen versions
+   deep, the one being marked is off the right-hand end on load, and a reviewer
+   looking for where he is finds an empty rail. Only move when it is actually
+   out of sight: scrolling on every render would fight anyone reading along it. */
+function revealCurrentVersion(bar) {
+  const tab = bar.querySelector(".version-tab.selected");
+  if (!tab) return;
+  // Measured against the strip itself, not offsetLeft: the strip is not a
+  // positioned element, so offsetLeft counts from some ancestor and scrolling
+  // by it lands somewhere else entirely.
+  const rail = bar.getBoundingClientRect(),
+    seat = tab.getBoundingClientRect();
+  if (seat.left < rail.left) bar.scrollLeft -= rail.left - seat.left + 12;
+  else if (seat.right > rail.right)
+    bar.scrollLeft += seat.right - rail.right + 12;
+}
+function markVersionOverflow(bar) {
+  const scrollable = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("overflow-start", bar.scrollLeft > 1);
+  bar.classList.toggle("overflow-end", bar.scrollLeft < scrollable - 1);
 }
 async function selectVersion(id) {
   if (!id || id === viewingId || loadFlight || submitting) return;
