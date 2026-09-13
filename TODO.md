@@ -1,44 +1,34 @@
 # MeshCue · 待办
 
-**下一步：0.9 的第 1 项 —— 把实例的所有权从 harness 手里拆出来。**
+**下一步：0.9 第 1 组 —— 把「身份」从一条聊天路由改成「拥有者 + 可选回传」。**
 
 这份是「接下来做什么」的唯一清单。做完的整段在版本发布时移进 `ROADMAP.md`（历史记录），
 版本号怎么定见 `VERSIONING.md`。没有归属版本、也还没想清楚的，一律进最后那节，不要散落在别处。
 
 ---
 
-## 0.9 · Codex 兼容
+## 0.9 · 核心与 harness 解耦
 
-目标不是「多支持一个平台」，而是**让核心第一次真的脱离 OpenClaw**。
-`REQUIREMENTS.md` 的 R16 早就写下「共用核心，各平台分别包装」，这一版兑现它。
+**不叫「Codex 兼容」** —— 目标是核心不再知道任何 harness 的名字，Codex／Claude Code／
+国内那批都只是消费者。`REQUIREMENTS.md` R16 早就写下「共用核心，各平台分别包装」，这一版兑现它。
 
-- [ ] **① 实例的所有权与生命周期拆开**
-      现在实例由 harness 侧管着。stdio MCP server 是客户端的子进程，客户端一退，
-      实例跟着没 —— 而实例上挂着真人的浏览器。改成 server 只做「确保 + 重连」：
-      实例独立存活，端口与身份写在 `<project>/.meshcue/`，任何 harness 都能接回。
-      `integration/manager.mjs` 的 `ensure()` 已经是这个形状，要拆的是「谁拥有它」。
-      ⭐ 副产品：**同一个审阅能在两个 harness 之间接力** —— 这是「通用工具」第一次能被证明。
+完整方案、实读到的现状、风险与「明确不做」见 **`ITERATION-V09-PLAN.md`**。
 
-- [ ] **② 绑定语义拆成两件事**
-      `integration/context.mjs` 的 `HOST_CONTEXT` 现在缺 `sessionKey`／`channel`／
-      `deliveryTarget` 就拒绝绑定，理由是「投递到错误的会话比不投递更糟」。
-      pull 型 harness 根本没有投递，那条理由不适用。要拆成：
-      **所有权**（谁能改草稿、谁能换版本 —— 两种 harness 都要）与
-      **回传路由**（往哪送 —— 只有 push 型才有）。
-      ⚠️ 最容易做错的一条：拆松了就会出现「另一个会话把你正在标的项目抢走」。
-      `RESUME_REQUIRED` 这套保护在 pull 模式下必须有等价物。
+- [ ] **组 1 · 身份改成「拥有者 + 可选回传」** ——
+      `server/origin.mjs` 现在是 `discriminatedUnion("channel", [webchat, telegram])`，
+      **身份被建模成一条 OpenClaw 聊天路由**。拆成 `owner`（人人都要）与 `route`（只有推送型有），
+      `HOST_CONTEXT` 随之收缩；旧 origin 走宽容读取，不迁移磁盘。
+- [ ] **组 2 · 通知器变成能力接口** —— bridge 做的是**两件事**：`send`（带代际围栏，不能丢）
+      与 `history`（读回对话推断送达）。两个都要能缺席。
+      ⚠️ 无通知器时提交是「等 Agent 来取」，**不是投递失败** —— 否则 `STALL_AFTER=20` 会永远误报。
+- [ ] **组 3 · 拔掉剩下的名字** —— `z.literal("openclaw")`、`release.mjs:21` 读
+      `openclaw.plugin.json`、bridge 里的「找不到 openclaw 指令」文案。
+- [ ] **组 4 · `meshcue` CLI** —— manager 的命令行外壳，**所有 harness 的共同底座**。
+- [ ] **组 5 · MCP server** —— 建在组 4 之上；`instructions` 由 `skills/meshcue-review/SKILL.md` 生成。
+- [ ] **组 6 · OpenClaw 适配器改调同一条底座** —— 不能省，省了就是两套路径、其中一套没人测。
 
-- [ ] **③ 核心里不再钉死 harness 名字**
-      `server/origin.mjs` 两处 `z.literal("openclaw")` —— schema 层面只允许这一个值。
-      改成开放枚举，且**盘上已有的 origin 记录要能继续读**（迁移或宽容读取，二选一）。
-
-- [ ] **④ MCP server 本体**
-      stdio 传输；操作指引走 MCP `instructions` 字段（官方要求**前 512 字自包含**），
-      **与 `skills/meshcue-review/SKILL.md` 同源**，不要养出第二份会各自漂移的文案。
-
-- [ ] **⑤ 打包与安装**
-      对方没有「扩充」概念，只有 `config.toml` 里一段 `[mcp_servers.meshcue]`。
-      上限是做一个 `init` 命令替用户写好那段。
+验收：**同一个审阅在 OpenClaw 打开 → Codex 接手 → 回到 OpenClaw，草稿与版本一个不丢。**
+`INTEGRATION_API` 1 → 2；`schemaVersion` 不动。
 
 ---
 
