@@ -830,22 +830,94 @@ a {
   pointer-events: none;
   overflow: hidden;
 }
+/* A mark has to say which point it is about. The old shape was a rounded block
+   floating above that point, with one near-square corner implying a direction
+   it was not anchored in — so the label was visible and its subject was not.
+   It is a bubble with a tail now, and the tail's tip is the anchor. */
 .model-pin {
   position: absolute;
   left: 0;
   top: 0;
-  min-width: 28px;
-  height: 32px;
-  padding: 0 6px;
+  min-width: 26px;
+  height: 27px;
+  padding: 0 7px;
   background: var(--pin-color);
   color: var(--pin-ink);
   border: 2px solid var(--pin-ring);
-  border-radius: 9px 9px 9px 1px;
+  border-radius: 13px;
   font-size: 11px;
   font-weight: 700;
   box-shadow: var(--shadow-1);
   pointer-events: auto;
   z-index: 3;
+}
+.model-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -4.5px;
+  background: inherit;
+  border: 2px solid var(--pin-ring);
+  border-top: 0;
+  border-left: 0;
+  /* Drawn as the corner of the bubble rotated into a point, so the tip carries
+     the same fill and ring as the body and lands on the surface below it. */
+  transform: rotate(45deg);
+  border-bottom-right-radius: 2px;
+  pointer-events: none;
+}
+.model-pin.landing {
+  animation: pin-land 340ms cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+/* Double-clicking a surface is the one moment a reviewer makes something. It
+   used to appear with no acknowledgement at all, which reads as the click
+   having been missed rather than taken. */
+@keyframes pin-land {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+  }
+  55% {
+    opacity: 1;
+    scale: 1.12;
+  }
+  100% {
+    scale: 1;
+  }
+}
+.pin-ripple {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid var(--pin-color);
+  pointer-events: none;
+  z-index: 2;
+  animation: pin-ripple 460ms ease-out forwards;
+}
+@keyframes pin-ripple {
+  from {
+    opacity: 0.85;
+    scale: 0.35;
+  }
+  to {
+    opacity: 0;
+    scale: 2.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-pin.landing {
+    animation: none;
+  }
+  .pin-ripple {
+    display: none;
+  }
 }
 .model-pin.selected {
   outline: 2px solid var(--focus);

@@ -469,6 +469,11 @@ export class ModelViewer {
         modelId === this.model?.id &&
         epoch === this.editEpoch
       ) {
+        this.ripple(e.clientX, e.clientY);
+        // Consumed by the next render, so only the mark just placed lands.
+        // Every pin element is rebuilt on each pass, and animating whichever
+        // ones are new would make a page refresh look like a hailstorm.
+        this.placing = true;
         this.onPin(pin);
         this.onStrokeEnd();
       }
@@ -618,6 +623,11 @@ export class ModelViewer {
     this.pins = [];
     // Fresh pin records carry no cached occlusion; recheck on the next frame.
     this.occlusionValid = false;
+    // Which pins existed before this pass, so the one just placed can be told
+    // apart from the ones merely being redrawn.
+    const seen = this.knownPins || new Set();
+    const landing = this.placing;
+    this.placing = false;
     for (const a of annotations) {
       if (a.type === "pin") {
         const mesh = this.meshMap.get(a.meshId);
@@ -625,6 +635,7 @@ export class ModelViewer {
         const el = document.createElement("button");
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
+        if (landing && !seen.has(a.id)) el.classList.add("landing");
         el.textContent = a.label;
         el.style.setProperty("--pin-color", a.color);
         el.setAttribute("aria-label", t("marks.one", { label: a.label }));
@@ -671,6 +682,9 @@ export class ModelViewer {
         }
       }
     }
+    this.knownPins = new Set(
+      annotations.filter((a) => a.type === "pin").map((a) => a.id),
+    );
   }
   /* Where the camera sits relative to what it is looking at, as the two angles
      a compass needs. Reported from the render loop but only when it actually
@@ -759,8 +773,25 @@ export class ModelViewer {
         }
       }
       pin.el.hidden = !inView || !pin.unoccluded || !this.annotationsVisible;
-      pin.el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,-100%)`;
+      // The tail is what marks the spot, so the tail is what sits on it. The
+      // label used to be centred above the point with a near-square corner
+      // hinting at a direction it was not actually anchored in, which left the
+      // exact surface a mark referred to unreadable.
+      pin.el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,calc(-100% - 7px))`;
     }
+  }
+  /* Placing a mark is the one moment a reviewer makes something, and it used to
+     happen in silence — the label simply existed on the next frame, which reads
+     as the double click having been missed rather than taken. The ripple is
+     drawn where the surface was actually struck, so it also says which point of
+     the model was understood as the target. */
+  ripple(clientX, clientY) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const mark = document.createElement("div");
+    mark.className = "pin-ripple";
+    mark.style.transform = `translate(${clientX - rect.left}px,${clientY - rect.top}px)`;
+    mark.addEventListener("animationend", () => mark.remove());
+    this.labels.append(mark);
   }
   focusAnnotation(a) {
     const mesh = this.meshMap.get(

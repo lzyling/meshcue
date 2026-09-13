@@ -1836,3 +1836,57 @@ test("the reviewer can overrule the automatic language and theme", async ({
     await page.locator("#locale-choice option[value='zh-Hans']").textContent(),
   ).toBe("简体中文");
 });
+
+test("a mark points at the surface it is about, and says so when it lands", async ({
+  page,
+}) => {
+  await ready(page);
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
+  const spot = await point(page);
+  await page.mouse.dblclick(spot.x, spot.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
+  // Placing a mark used to happen in silence, which reads as a double click
+  // that missed rather than one that was taken.
+  await expect(page.locator(".model-pin.landing")).toHaveCount(1);
+  // The old shape hinted at a direction with one squared-off corner while being
+  // anchored by its bottom edge instead, so the point it referred to could not
+  // be read off the screen. The tip is the anchor now — assert it against the
+  // pixel that was actually struck, not against the label's own box.
+  // The label is positioned by the render loop, not by the element existing, so
+  // its first frame sits at the layer's origin.
+  const measure = () =>
+    page.evaluate(
+      ([x, y]) => {
+        const pin = document.querySelector(".model-pin");
+        const box = pin.getBoundingClientRect();
+        const tail = getComputedStyle(pin, "::after");
+        return {
+          dx: Math.abs(box.left + box.width / 2 - x),
+          below: box.bottom <= y,
+          tipGap: Math.abs(y - box.bottom),
+          hasTail: tail.content !== "none",
+        };
+      },
+      [spot.x, spot.y],
+    );
+  await expect.poll(async () => (await measure()).dx).toBeLessThan(3);
+  const gap = await measure();
+  expect(gap.hasTail).toBe(true);
+  // Horizontally the tail sits on the point; vertically the body clears it so
+  // the label never covers what it is labelling.
+  expect(gap.dx).toBeLessThan(3);
+  expect(gap.below).toBe(true);
+  expect(gap.tipGap).toBeLessThan(12);
+  // Redrawing is not placing: a refresh must not make every existing mark
+  // re-enact its own arrival.
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator(".model-pin")).toHaveCount(1);
+  await expect(page.locator(".model-pin.landing")).toHaveCount(0);
+});
