@@ -90,8 +90,16 @@ fs.copyFileSync(
 );
 // Workshop is the only authoring source. A vetted export can be supplied for
 // packaging; do not synthesize or patch SKILL.md in this build process.
-if (process.env.MESHCUE_SKILL_EXPORT) {
-  const source = fs.realpathSync(process.env.MESHCUE_SKILL_EXPORT);
+// skills/meshcue-review in the repository is such an export, committed so that
+// a clone can rebuild the package it ships. MESHCUE_SKILL_EXPORT still wins,
+// which is how a Workshop revision reaches a package before it is committed.
+const skillExport =
+  process.env.MESHCUE_SKILL_EXPORT ||
+  (fs.existsSync(path.join(repo, "skills/meshcue-review/SKILL.md"))
+    ? path.join(repo, "skills/meshcue-review")
+    : null);
+if (skillExport) {
+  const source = fs.realpathSync(skillExport);
   if (!fs.existsSync(path.join(source, "SKILL.md")))
     throw new Error("Workshop export has no SKILL.md");
   const skillRoot = path.join(out, "skills/meshcue-review");
@@ -124,6 +132,7 @@ execFileSync("openclaw", ["plugins", "build", "--root", out], {
 console.log(
   JSON.stringify({
     output: path.relative(repo, out),
-    bundledSkill: !!process.env.MESHCUE_SKILL_EXPORT,
+    bundledSkill: !!skillExport,
+    skillSource: process.env.MESHCUE_SKILL_EXPORT ? "export" : "repository",
   }),
 );
