@@ -26,6 +26,7 @@ import {
   scopedPath,
   within,
   fail,
+  IntegrationError,
 } from "./context.mjs";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -149,6 +150,18 @@ export function installedVersion(root) {
     return "unknown";
   }
 }
+// Three answers, not two. A foreign instance must never be touched; an
+// outdated one is ours and is exactly what reopening replaces; anything else is
+// usable. Merging the first two is what turned an upgrade into a stuck project.
+export function instanceVerdict(result, instance, projectId) {
+  if (
+    result?.instance?.id !== instance.id ||
+    result?.instance?.projectId !== projectId
+  )
+    return "foreign";
+  if (result.integrationApi !== INTEGRATION_API) return "outdated";
+  return "ok";
+}
 export class InstanceManager {
   constructor(
     ctx,
@@ -219,12 +232,21 @@ export class InstanceManager {
   }
   async status(p, config) {
     const result = await ipc(p.runtime, readInstance(config), "/status");
-    if (
-      result.instance?.id !== config.instance.id ||
-      result.instance?.projectId !== p.id ||
-      result.integrationApi !== INTEGRATION_API
-    )
+    const verdict = instanceVerdict(result, config.instance, p.id);
+    if (verdict === "foreign")
       fail("WRONG_INSTANCE", "服務身份不符；沒有復用或停止此進程。");
+    if (verdict === "outdated") {
+      // Ours, and answering — just older than this code can talk to. That is
+      // the one condition `open` exists to fix, so it must not arrive wearing
+      // the code that means "not ours, do not touch": an instance nothing may
+      // read, replace or stop is a process a person has to go and kill.
+      const error = new IntegrationError(
+        "INSTANCE_OUTDATED",
+        "此專案的服務端是較舊的契約；請重新 open 以換掉執行中的服務端。",
+      );
+      error.running = result;
+      throw error;
+    }
     return result;
   }
   pauseOwned() {
@@ -330,6 +352,10 @@ export class InstanceManager {
       running = await this.status(p, config);
     } catch (error) {
       if (error.code === "WRONG_INSTANCE") throw error;
+      // An outdated instance still has to be shut down before its replacement
+      // can take the port, and its own status is the only description of it
+      // there is.
+      if (error.code === "INSTANCE_OUTDATED") running = error.running;
     }
     if (running && running.releaseId === release.id) return running;
     if (running) await this.stopOwned(p, config, running);

@@ -1,6 +1,6 @@
 # MeshCue · 待办
 
-**下一步：0.9 第 2 组 —— 把通知器变成一个可以缺席的能力。**
+**下一步：0.10 英文化。0.9 六组已全部完成，等 Kelven 验收后整段移进 `ROADMAP.md`。**
 
 这份是「接下来做什么」的唯一清单。做完的整段在版本发布时移进 `ROADMAP.md`（历史记录），
 版本号怎么定见 `VERSIONING.md`。没有归属版本、也还没想清楚的，一律进最后那节，不要散落在别处。
@@ -20,16 +20,23 @@
       `sameRoute` 仍比较全部字段，**没有放松任何检查**。
       ⭐ 写测试时抓到一个真漏：store 原样返回存档 origin，改完之后**旧项目会跟自己的会话比不相等**。
       已修（读时升格）。127 node + 55 浏览器测试。
-- [ ] **组 2 · 通知器变成能力接口** —— bridge 做的是**两件事**：`send`（带代际围栏，不能丢）
-      与 `history`（读回对话推断送达）。两个都要能缺席。
-      ⚠️ 无通知器时提交是「等 Agent 来取」，**不是投递失败** —— 否则 `STALL_AFTER=20` 会永远误报。
-- [~] **组 3 · 拔掉剩下的名字** —— `z.literal("openclaw")` 随组 1 一起没了。
-      剩下 `release.mjs:21` 读 `openclaw.plugin.json` 取身份与版本 ——
-      **推迟到组 4／5**：现在根本不存在第二种安装包布局，改了也只是写一条没东西能跑的分支。
-      bridge 里的「找不到 openclaw 指令」等文案随组 2 一起搬走。
-- [ ] **组 4 · `meshcue` CLI** —— manager 的命令行外壳，**所有 harness 的共同底座**。
-- [ ] **组 5 · MCP server** —— 建在组 4 之上；`instructions` 由 `skills/meshcue-review/SKILL.md` 生成。
-- [ ] **组 6 · OpenClaw 适配器改调同一条底座** —— 不能省，省了就是两套路径、其中一套没人测。
+- [x] **组 2 · 通知器变成能力接口** —— 完成（`ad37b23`）。`send`／`observe` 各自可缺席；
+      代际围栏原样保留。无 `send` 时提交是 `waiting`：**不计入重试、永不 stalled**。
+      无 `observe` 时送达确认退回 Agent 自己的已读回执。
+- [x] **组 3 · 拔掉剩下的名字** —— `z.literal("openclaw")` 随组 1 没了；版本读取本来就只看
+      `package.json`，已下沉到 manager 并对所有 harness 生效。
+      `release.mjs` 的 `openclaw.plugin.json` **保留**：它只在启动内附发布包时才走，
+      CLI／MCP 走 `serverEntry`，那条分支到不了 —— 等真有第二种包布局再改。
+- [x] **组 4 · `meshcue` CLI** —— 完成（`ee7d817`）。manager 的命令行外壳，JSON 进 JSON 出。
+      owner 必须由调用方指明，**不替它编一个**；`bin: meshcue`。
+- [x] **组 5 · MCP server** —— 完成（`3fe56e9`）。stdio JSON-RPC，**零新依赖**；
+      `instructions` 就是仓库那份 SKILL.md 的字节；`bin: meshcue-mcp`。
+- [x] **组 6 · 适配器与底座合一** —— 完成（`bf0b391`）。适配器本来就直连 manager，
+      它独占的只有「装的 vs 跑的」对比 —— 已下沉，CLI／MCP 同样拿得到。
+
+⚠️ 跳 `INTEGRATION_API` 时发现并修掉的一条：旧契约实例原本落进 `WRONG_INSTANCE`，
+而 `ensure()` 对该码直接重抛 —— **正在跑的实例会同时变成读不了、换不掉、也停不了**。
+现在分成 `foreign`／`outdated`／`ok` 三态，`outdated` 由重新 `open` 停掉再起新的。
 
 验收：**同一个审阅在 OpenClaw 打开 → Codex 接手 → 回到 OpenClaw，草稿与版本一个不丢。**
 `INTEGRATION_API` 1 → 2；`schemaVersion` 不动。

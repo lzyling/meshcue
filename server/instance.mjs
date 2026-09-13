@@ -3,7 +3,11 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 
-export const INTEGRATION_API = 1;
+// 2 (0.9.0): an origin is an owner and an optional route rather than a chat
+// route, so a manager and an instance from either side of this line cannot
+// agree on what a rebind means. An instance still answering the old contract is
+// replaced by reopening the project; it is never left unreachable.
+export const INTEGRATION_API = 2;
 export const INSTANCE_SCHEMA = 1;
 
 export function readInstance(config) {

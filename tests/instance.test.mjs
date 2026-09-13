@@ -4,7 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { startReview } from "./helpers/review-server.mjs";
-import { instanceCookieName, readInstance } from "../server/instance.mjs";
+import {
+  instanceCookieName,
+  readInstance,
+  INTEGRATION_API,
+} from "../server/instance.mjs";
+import { instanceVerdict } from "../integration/manager.mjs";
 
 const origin = {
   harness: "openclaw",
@@ -121,4 +126,43 @@ test("explicit workspace decouples installation layout without allowing model im
     200,
   );
   assert.throws(() => readInstance({ instance: { ...identity(), schema: 2 } }));
+});
+
+test("an instance running the old contract is replaceable, not untouchable", () => {
+  const mine = { id: "instance-one", projectId: "project-one" };
+  const answering = (extra) => ({
+    instance: { ...mine },
+    integrationApi: INTEGRATION_API,
+    ...extra,
+  });
+  assert.equal(instanceVerdict(answering(), mine, "project-one"), "ok");
+
+  // Someone else's process, or ours pointed at another project: never read,
+  // never replaced, never stopped.
+  assert.equal(
+    instanceVerdict(
+      { instance: { id: "other", projectId: "project-one" } },
+      mine,
+      "project-one",
+    ),
+    "foreign",
+  );
+  assert.equal(
+    instanceVerdict(answering(), mine, "another-project"),
+    "foreign",
+  );
+  assert.equal(instanceVerdict(undefined, mine, "project-one"), "foreign");
+
+  // Ours, answering, just older than this code can talk to. Reopening the
+  // project is the documented way to swap a running server, so this must not
+  // arrive wearing the verdict that forbids touching it — that combination
+  // leaves a live process nothing can read, replace or stop.
+  assert.equal(
+    instanceVerdict(
+      answering({ integrationApi: INTEGRATION_API - 1 }),
+      mine,
+      "project-one",
+    ),
+    "outdated",
+  );
 });
