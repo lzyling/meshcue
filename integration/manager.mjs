@@ -139,6 +139,16 @@ async function locked(file, fn) {
   }
 }
 
+// Read at call time, not discovery, and never restated: a hardcoded copy
+// disagreed with the manifest and with the version the server reported.
+export function installedVersion(root) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
+      .version;
+  } catch {
+    return "unknown";
+  }
+}
 export class InstanceManager {
   constructor(
     ctx,
@@ -440,7 +450,31 @@ export class InstanceManager {
         : "工作台未啟動；請檢查此項目日誌，沒有交付無效網址。",
     );
   }
+  // A fixed version on disk does not reach a reviewer until the project is
+  // opened again — installing, or restarting a host, leaves live instances on
+  // the code they started with. Saying so beside the running version is the
+  // whole difference between noticing that in a second and not noticing it for
+  // an hour and a half, which is what happened on 2026-09-11.
+  //
+  // It lives here rather than in one adapter because every harness can be
+  // upgraded while somebody is still looking at the old build, and the harness
+  // that happened to implement it first is not the only one that needs telling.
+  withServingVersion(result) {
+    if (!result || typeof result !== "object" || !result.version) return result;
+    const installed = installedVersion(this.installRoot);
+    result.integrationVersion = installed;
+    if (installed !== result.version)
+      result.serving = {
+        running: result.version,
+        installed,
+        note: "此專案仍在跑舊版；meshcue open 才會換掉執行中的服務端。",
+      };
+    return result;
+  }
   async execute(input) {
+    return this.withServingVersion(await this.run(input));
+  }
+  async run(input) {
     const origin = this.resolveOrigin();
     if (
       !within(

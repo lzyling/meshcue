@@ -107,6 +107,13 @@ test("the CLI opens a review, reports it, and still refuses a stranger", async (
     assert.equal(status.origin.route, undefined);
     assert.deepEqual(status.notifier, { send: false, observe: false });
 
+    // The installed-versus-running comparison used to exist only in the OpenClaw
+    // adapter, so a reviewer reached through any other harness would have looked
+    // at an old build with nothing saying so. It belongs to the base now.
+    assert.equal(status.integrationVersion, "unknown");
+    assert.equal(status.serving.running, status.version);
+    assert.equal(status.serving.installed, "unknown");
+
     // Ownership did not loosen when the route went away. Another session asking
     // about this project gets the same refusal a different conversation gets.
     await assert.rejects(

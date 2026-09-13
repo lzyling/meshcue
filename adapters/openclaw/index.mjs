@@ -6,22 +6,12 @@ import {
   InstanceManager,
   pauseRegistered,
   resumeRegistered,
+  installedVersion,
 } from "../../integration/manager.mjs";
 import { precheckModel } from "../../integration/precheck.mjs";
 // Derived from the same table the guards read, so the probe cannot report a
 // field the guards no longer look at, or stay silent about one they added.
 import { contextSummary } from "../../integration/context.mjs";
-
-// Read at call time, not discovery, and never restated: a hardcoded copy here
-// disagreed with the manifest and with the version the server reported.
-function installedVersion(root) {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
-      .version;
-  } catch {
-    return "unknown";
-  }
-}
 
 const parameters = {
   type: "object",
@@ -150,24 +140,10 @@ const plugin = defineToolPlugin({
                   listenHost: config.listenHost,
                 });
                 try {
+                  // The installed-versus-running comparison now travels with
+                  // the manager, so every harness gets it rather than the one
+                  // that noticed it first.
                   result = await manager.execute(params);
-                  // A fixed version on disk does not reach a reviewer until the
-                  // project is opened again — installing or restarting the
-                  // Gateway leaves live instances on the code they started
-                  // with. Saying so beside the running version is the whole
-                  // difference between noticing that in a second and not
-                  // noticing it for an hour and a half, which is what happened
-                  // on 2026-09-11.
-                  if (result && typeof result === "object" && result.version) {
-                    const installed = installedVersion(api.rootDir);
-                    result.integrationVersion = installed;
-                    if (installed !== result.version)
-                      result.serving = {
-                        running: result.version,
-                        installed,
-                        note: "此專案仍在跑舊版；meshcue open 才會換掉執行中的服務端。",
-                      };
-                  }
                 } finally {
                   for (const runtime of manager.usedProjects.keys())
                     managers.set(runtime, manager);
