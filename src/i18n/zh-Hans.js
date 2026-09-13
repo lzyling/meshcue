@@ -111,7 +111,7 @@ export default {
 
   "tool.orbit": "查看／标签",
   "tool.orbitLabel": "查看及标签",
-  "tool.orbitTitle": "拖动旋转，双击表面放标签",
+  "tool.orbitTitle": "在表面双击落下标签；旋转用右键",
   "tool.brush": "画笔",
   "tool.brushLabel": "画笔模式",
   "tool.brushTitle": "画笔只标可见表面",
@@ -136,10 +136,10 @@ export default {
   "tool.faceOverLimit":
     "此平面超过本轮 20,000 面标注上限；可收窄范围或先简化模型。",
 
-  "hint.orbit": "拖动旋转 · 双击放标签 · 右键平移 · 滚轮缩放",
-  "hint.paint": "涂抹可见表面 · 按住 Option/Alt 拖动可旋转",
-  "hint.erase": "擦掉可见笔迹 · 不动模型本身 · 按 Option/Alt 可旋转",
-  "hint.fill": "移动预览 · 单击填色 · 按 Option/Alt 可旋转",
+  "hint.orbit": "右键拖动旋转 · 双击落标签 · 双指或中键平移 · 滚轮缩放",
+  "hint.paint": "涂抹看得见的表面 · 右键照样旋转",
+  "hint.erase": "擦除看得见的笔迹 · 不改动模型 · 右键照样旋转",
+  "hint.fill": "悬停预览 · 点击填充 · 右键照样旋转",
   "hint.relocate": "点击表面移动标签 · 按 Esc 取消",
 
   "version.showingNow": "正在显示",
@@ -190,6 +190,10 @@ export default {
   "feedback.submitting": "提交中…",
   "feedback.submitted": "标记已保存；提交状态以实际回执为准。模型维持锁定。",
 
+  "settings.device": "指点设备",
+  "settings.deviceAuto": "自动识别",
+  "settings.deviceMouse": "鼠标",
+  "settings.deviceTrackpad": "触控板",
   "settings.language": "界面语言",
   "settings.theme": "明暗",
   "settings.themeSystem": "跟随系统",
@@ -199,9 +203,10 @@ export default {
   "help.open": "使用说明",
   "help.eyebrow": "快速上手",
   "help.title": "先看，再标，然后说要改什么。",
-  "help.p1": "按住左键拖动可旋转，右键平移，滚轮缩放；不用切换工具也能放标签。",
+  "help.p1":
+    "右键拖动旋转，中键拖动或双指拖动平移，滚轮或捏合缩放。左键永远不归相机，所以标记时不用先放下工具。",
   "help.p2":
-    "标签：在模型表面双击即可放下 A、B、C；单击不会放任何东西。画笔：只涂抹当前看得见的表面；按住 Option/Alt 拖动可暂时旋转，松开后继续涂。",
+    "标签：在模型表面双击即可放下 A、B、C；单击不会放任何东西。画笔：只涂抹当前看得见的表面 —— 右键始终可以旋转，涂抹过程中不必停下来转模型。",
   "help.p3":
     "点标签按字母辨认，涂抹区域按颜色辨认；颜色只覆盖实际笔迹。想分开另一个要求，按「新区域」。标记可以撤销、重做，也可以逐个删除。",
   "help.p4":

@@ -127,7 +127,7 @@ export default {
   "tool.orbit": "Pivoter / Repère",
   "tool.orbitLabel": "Pivoter et repérer",
   "tool.orbitTitle":
-    "Glissez pour pivoter, double-cliquez une surface pour poser un repère",
+    "Double-cliquez une surface pour poser un repère ; le bouton droit pivote",
   "tool.brush": "Pinceau",
   "tool.brushLabel": "Outil pinceau",
   "tool.brushTitle": "Le pinceau ne marque que la surface visible",
@@ -155,13 +155,12 @@ export default {
     "Cette surface dépasse la limite de 20 000 triangles par marque ; réduisez l'étendue ou simplifiez le modèle.",
 
   "hint.orbit":
-    "Glisser pour pivoter · double-clic pour repérer · clic droit pour déplacer · molette pour zoomer",
-  "hint.paint":
-    "Peindre la surface visible · maintenir Option/Alt et glisser pour pivoter",
+    "Glisser à droite pour pivoter · double-clic pour repérer · deux doigts ou milieu pour déplacer · molette pour zoomer",
+  "hint.paint": "Peindre la surface visible · le bouton droit pivote toujours",
   "hint.erase":
-    "Effacer les tracés visibles · le modèle reste intact · Option/Alt pour pivoter",
+    "Effacer les tracés visibles · le modèle reste intact · le bouton droit pivote toujours",
   "hint.fill":
-    "Survoler pour prévisualiser · cliquer pour remplir · Option/Alt pour pivoter",
+    "Survoler pour prévisualiser · cliquer pour remplir · le bouton droit pivote toujours",
   "hint.relocate": "Cliquez une surface pour déplacer le repère · Échap annule",
 
   "version.showingNow": "Affichée en ce moment",
@@ -219,6 +218,10 @@ export default {
   "feedback.submitted":
     "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
 
+  "settings.device": "Dispositif de pointage",
+  "settings.deviceAuto": "Détecter automatiquement",
+  "settings.deviceMouse": "Souris",
+  "settings.deviceTrackpad": "Pavé tactile",
   "settings.language": "Langue de l'interface",
   "settings.theme": "Clair ou sombre",
   "settings.themeSystem": "Suivre le système",
@@ -229,9 +232,9 @@ export default {
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",
   "help.p1":
-    "Maintenez le bouton gauche et glissez pour pivoter, le bouton droit pour déplacer, la molette pour zoomer ; vous pouvez poser un repère sans changer d'outil.",
+    "Glisser avec le bouton droit pour pivoter, bouton du milieu ou deux doigts pour déplacer, molette ou pincement pour zoomer. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
   "help.p2":
-    "Repères : double-cliquez la surface du modèle pour poser A, B, C ; un simple clic ne pose rien. Pinceau : ne peint que la surface actuellement visible ; maintenez Option/Alt et glissez pour pivoter un instant, puis reprenez.",
+    "Repères : double-cliquez la surface pour poser A, B, C ; un simple clic ne pose rien. Pinceau : ne peint que la surface visible — et le bouton droit continue de pivoter, la peinture n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
     "Les repères se reconnaissent à leur lettre, les zones peintes à leur couleur ; la couleur ne couvre que les tracés réels. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Les marques peuvent être annulées, rétablies et supprimées une à une.",
   "help.p4":

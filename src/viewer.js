@@ -12,6 +12,7 @@ import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { t } from "./i18n/index.js";
+import { createDeviceSense, resolveDevice } from "./pointer-profile.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -61,6 +62,17 @@ export class ModelViewer {
     this.controls.enableDamping = true;
     this.controls.minDistance = 0.15;
     this.controls.maxDistance = 18;
+    /* The left button belongs to marking, in every mode. It used to be shared
+       with the camera, which is why painting meant either holding Option to
+       steal a rotation or switching tools to turn the model and switching back.
+       Rotation moves to the right button, panning to the middle one. */
+    this.controls.mouseButtons = {
+      LEFT: null,
+      MIDDLE: THREE.MOUSE.PAN,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
+    this.deviceSense = createDeviceSense();
+    this.deviceChoice = "auto";
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8d9ba8, 2.6));
     const key = new THREE.DirectionalLight(0xfff4dc, 3.3);
     key.position.set(4, 7, 5);
@@ -125,7 +137,56 @@ export class ModelViewer {
       this.enabled = false;
       this.onError(t("model.contextLost"));
     });
+    canvas.addEventListener("wheel", (e) => this.wheel(e), {
+      passive: false,
+      capture: true,
+    });
+    canvas.addEventListener(
+      "pointerdown",
+      (e) => this.deviceSense.observeButton(e.button),
+      true,
+    );
     this.renderer.setAnimationLoop(() => this.render());
+  }
+  get device() {
+    return resolveDevice(this.deviceChoice, this.deviceSense.detected);
+  }
+  setDevice(choice) {
+    this.deviceChoice = choice;
+  }
+  /* A trackpad has no middle button, so panning cannot live there. It does have
+     something a mouse does not: a two-finger drag, which arrives as a wheel
+     event carrying both axes. That becomes the pan, and pinch — a wheel with
+     ctrlKey, by browser convention — becomes the zoom. A mouse keeps the plain
+     wheel for zoom, which is what its one wheel is for.
+
+     Handled in the capture phase so OrbitControls, which would otherwise dolly
+     on every wheel event, never sees the ones that mean something else here. */
+  wheel(e) {
+    this.deviceSense.observeWheel(e);
+    if (!this.enabled || this.device !== "trackpad") return;
+    if (e.ctrlKey) return; // pinch: OrbitControls already reads this as zoom
+    e.preventDefault();
+    e.stopPropagation();
+    this.panBy(e.deltaX, e.deltaY);
+    this.render();
+  }
+  /* The same arithmetic OrbitControls uses for its own panning: screen pixels
+     scaled by how much world the camera covers at the distance it is orbiting. */
+  panBy(dx, dy) {
+    const height = this.renderer.domElement.clientHeight || 1;
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    const perPixel =
+      (2 * distance * Math.tan(((this.camera.fov / 2) * Math.PI) / 180)) /
+      height;
+    const right = new V().setFromMatrixColumn(this.camera.matrix, 0),
+      up = new V().setFromMatrixColumn(this.camera.matrix, 1);
+    const shift = right
+      .multiplyScalar(dx * perPixel)
+      .add(up.multiplyScalar(-dy * perPixel));
+    this.camera.position.add(shift);
+    this.controls.target.add(shift);
+    this.controls.update();
   }
   /* WebGL paints the canvas, so the CSS token block cannot reach it: without
      this the whole page would turn dark and the model would keep sitting on a
@@ -171,7 +232,9 @@ export class ModelViewer {
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
     this.mode = mode;
-    this.controls.enableRotate = mode === "orbit";
+    // Rotation no longer competes with the mode: it is on a button that marking
+    // never uses, so the camera stays available while painting.
+    this.controls.enableRotate = true;
     this.cursor.style.display = "none";
     this.renderer.domElement.style.cursor =
       mode === "orbit" ? "grab" : "crosshair";
@@ -500,11 +563,10 @@ export class ModelViewer {
       this.clickStart = [e.clientX, e.clientY];
       return;
     }
-    // Temporary navigation while painting; does not create a stroke.
-    if (e.altKey) {
-      this.controls.enableRotate = true;
-      return;
-    }
+    // Option on the left button still declines to paint, which is the habit the
+    // old scheme taught. Rotating no longer needs it — the right button does
+    // that in every mode — so it is kept as a way to not draw, nothing more.
+    if (e.altKey) return;
     e.stopImmediatePropagation();
     e.preventDefault();
     const epoch = this.editEpoch;
@@ -588,7 +650,6 @@ export class ModelViewer {
       this.onStrokeEnd();
     }
     this.controls.enabled = true;
-    this.controls.enableRotate = this.mode === "orbit";
   }
   paint(x, y) {
     if (!this.enabled || !this.model) return;

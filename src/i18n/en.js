@@ -121,7 +121,8 @@ export default {
 
   "tool.orbit": "Orbit / Label",
   "tool.orbitLabel": "Orbit and label",
-  "tool.orbitTitle": "Drag to orbit, double-click a surface to drop a label",
+  "tool.orbitTitle":
+    "Double-click a surface to drop a label; the right button orbits",
   "tool.brush": "Brush",
   "tool.brushLabel": "Brush tool",
   "tool.brushTitle": "The brush only marks the surface you can see",
@@ -148,11 +149,12 @@ export default {
     "This surface exceeds the 20,000 triangle limit for one mark; narrow the spread or simplify the model.",
 
   "hint.orbit":
-    "Drag to orbit · double-click to label · right-drag to pan · scroll to zoom",
-  "hint.paint": "Paint the visible surface · Option/Alt drag to orbit",
+    "Right-drag to orbit · double-click to label · two fingers or middle to pan · scroll to zoom",
+  "hint.paint": "Paint the visible surface · the right button still orbits",
   "hint.erase":
-    "Erase visible strokes · leaves the model alone · Option/Alt to orbit",
-  "hint.fill": "Hover to preview · click to fill · Option/Alt to orbit",
+    "Erase visible strokes · leaves the model alone · the right button still orbits",
+  "hint.fill":
+    "Hover to preview · click to fill · the right button still orbits",
   "hint.relocate": "Click a surface to move the label · Esc cancels",
 
   "version.showingNow": "Showing now",
@@ -208,6 +210,10 @@ export default {
   "feedback.submitted":
     "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
 
+  "settings.device": "Pointing device",
+  "settings.deviceAuto": "Detect automatically",
+  "settings.deviceMouse": "Mouse",
+  "settings.deviceTrackpad": "Trackpad",
   "settings.language": "Interface language",
   "settings.theme": "Light or dark",
   "settings.themeSystem": "Follow the system",
@@ -218,9 +224,9 @@ export default {
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
   "help.p1":
-    "Hold the left button and drag to orbit, right button to pan, wheel to zoom; you can drop a label without switching tools.",
+    "Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to zoom. The left button is never the camera's, so you can mark without putting a tool down.",
   "help.p2":
-    "Labels: double-click the model surface to place A, B, C; a plain single click places nothing. Brush: paints only the surface you can currently see; hold Option/Alt and drag to orbit for a moment, then carry on painting.",
+    "Labels: double-click the model surface to place A, B, C; a plain single click places nothing. Brush: paints only the surface you can currently see — and the right button still orbits while you hold it, so painting never has to stop to turn the model.",
   "help.p3":
     "Point labels are identified by their letter, painted areas by their colour; the colour covers only the actual strokes. To separate another request, press “New area”. You can undo, redo, and delete individual marks.",
   "help.p4":

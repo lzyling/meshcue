@@ -126,7 +126,7 @@ export default {
   "tool.orbit": "Drehen / Marke",
   "tool.orbitLabel": "Drehen und markieren",
   "tool.orbitTitle":
-    "Ziehen zum Drehen, Doppelklick auf eine Fläche setzt eine Marke",
+    "Doppelklick auf eine Fläche setzt eine Marke; die rechte Taste dreht",
   "tool.brush": "Pinsel",
   "tool.brushLabel": "Pinselwerkzeug",
   "tool.brushTitle": "Der Pinsel markiert nur sichtbare Oberflächen",
@@ -154,12 +154,13 @@ export default {
     "Diese Fläche überschreitet die Grenze von 20.000 Dreiecken je Markierung; den Umfang verkleinern oder das Modell vereinfachen.",
 
   "hint.orbit":
-    "Ziehen zum Drehen · Doppelklick markiert · rechte Taste verschiebt · Rad zoomt",
+    "Rechts ziehen dreht · Doppelklick markiert · zwei Finger oder Mitte verschiebt · Rad zoomt",
   "hint.paint":
-    "Sichtbare Oberfläche bemalen · Option/Alt gedrückt halten zum Drehen",
+    "Sichtbare Oberfläche bemalen · die rechte Taste dreht weiterhin",
   "hint.erase":
-    "Sichtbare Striche entfernen · das Modell bleibt unberührt · Option/Alt dreht",
-  "hint.fill": "Zeigen zum Vorschauen · Klick füllt · Option/Alt dreht",
+    "Sichtbare Striche löschen · das Modell bleibt unberührt · die rechte Taste dreht weiterhin",
+  "hint.fill":
+    "Zum Vorschauen schweben · klicken zum Füllen · die rechte Taste dreht weiterhin",
   "hint.relocate":
     "Auf eine Oberfläche klicken, um die Marke zu verschieben · Esc bricht ab",
 
@@ -220,6 +221,10 @@ export default {
   "feedback.submitted":
     "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
 
+  "settings.device": "Zeigegerät",
+  "settings.deviceAuto": "Automatisch erkennen",
+  "settings.deviceMouse": "Maus",
+  "settings.deviceTrackpad": "Trackpad",
   "settings.language": "Sprache der Oberfläche",
   "settings.theme": "Hell oder dunkel",
   "settings.themeSystem": "Dem System folgen",
@@ -230,9 +235,9 @@ export default {
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",
   "help.p1":
-    "Linke Taste gedrückt halten und ziehen dreht, rechte Taste verschiebt, das Rad zoomt; eine Marke lässt sich setzen, ohne das Werkzeug zu wechseln.",
+    "Mit rechts ziehen dreht, mit der mittleren Taste oder zwei Fingern verschiebt, Rad oder Pinch zoomt. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
   "help.p2":
-    "Marken: Doppelklick auf die Modelloberfläche setzt A, B, C; ein einfacher Klick setzt nichts. Pinsel: bemalt nur die gerade sichtbare Oberfläche; Option/Alt gedrückt halten und ziehen dreht kurz, danach weitermalen.",
+    "Marken: Doppelklick auf die Oberfläche setzt A, B, C; ein einfacher Klick setzt nichts. Pinsel: malt nur auf der sichtbaren Oberfläche — und die rechte Taste dreht weiterhin, das Malen muss dafür nie unterbrochen werden.",
   "help.p3":
     "Punktmarken erkennt man am Buchstaben, bemalte Flächen an der Farbe; die Farbe deckt nur die tatsächlichen Striche ab. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
   "help.p4":

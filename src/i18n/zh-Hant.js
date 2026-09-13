@@ -111,7 +111,7 @@ export default {
 
   "tool.orbit": "檢視／標籤",
   "tool.orbitLabel": "檢視及標籤",
-  "tool.orbitTitle": "拖動旋轉，雙擊表面落標籤",
+  "tool.orbitTitle": "在表面雙擊落下標籤；旋轉用右鍵",
   "tool.brush": "畫筆",
   "tool.brushLabel": "畫筆模式",
   "tool.brushTitle": "畫筆只標可見表面",
@@ -136,10 +136,10 @@ export default {
   "tool.faceOverLimit":
     "此平面超過本輪 20,000 面標注上限；可收窄範圍或先簡化模型。",
 
-  "hint.orbit": "拖動旋轉 · 雙擊落標籤 · 右鍵平移 · 滾輪縮放",
-  "hint.paint": "塗抹可見表面 · 按住 Option/Alt 拖動可旋轉",
-  "hint.erase": "擦走可見筆跡 · 不動模型本身 · 按 Option/Alt 可旋轉",
-  "hint.fill": "移動預覽 · 單擊填色 · 按 Option/Alt 可旋轉",
+  "hint.orbit": "右鍵拖動旋轉 · 雙擊落標籤 · 雙指或中鍵平移 · 滾輪縮放",
+  "hint.paint": "塗抹看得見的表面 · 右鍵照樣旋轉",
+  "hint.erase": "擦除看得見的筆跡 · 不改動模型 · 右鍵照樣旋轉",
+  "hint.fill": "懸停預覽 · 點擊填充 · 右鍵照樣旋轉",
   "hint.relocate": "點選表面移動標籤 · 按 Esc 取消",
 
   "version.showingNow": "正在顯示",
@@ -190,6 +190,10 @@ export default {
   "feedback.submitting": "提交中…",
   "feedback.submitted": "標記已保存；提交狀態以實際回執為準。模型維持鎖定。",
 
+  "settings.device": "指標裝置",
+  "settings.deviceAuto": "自動辨識",
+  "settings.deviceMouse": "滑鼠",
+  "settings.deviceTrackpad": "觸控板",
   "settings.language": "介面語言",
   "settings.theme": "明暗",
   "settings.themeSystem": "跟隨系統",
@@ -199,9 +203,10 @@ export default {
   "help.open": "使用說明",
   "help.eyebrow": "快速上手",
   "help.title": "先看，再標，然後說要改什麼。",
-  "help.p1": "按住左鍵拖動可旋轉，右鍵平移，滾輪縮放；不用切換工具也能落標籤。",
+  "help.p1":
+    "右鍵拖動旋轉，中鍵拖動或雙指拖動平移，滾輪或捏合縮放。左鍵永遠不歸相機，所以標記時不用先放下工具。",
   "help.p2":
-    "標籤：在模型表面雙擊即可放下 A、B、C；單擊不會放任何東西。畫筆：只塗抹目前看得見的表面；按住 Option/Alt 拖動可暫時旋轉，放開後繼續塗。",
+    "標籤：在模型表面雙擊即可放下 A、B、C；單擊不會放任何東西。畫筆：只塗抹目前看得見的表面 —— 右鍵始終可以旋轉，塗抹過程中不必停下來轉模型。",
   "help.p3":
     "點標籤按字母辨認，塗抹區域按顏色辨認；顏色只覆蓋實際筆跡。想分開另一個要求，按「新區域」。標記可以撤銷、重做，也可以逐個刪除。",
   "help.p4":

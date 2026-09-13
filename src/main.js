@@ -10,6 +10,7 @@ import {
   LOCALES,
   localeName,
 } from "./i18n/index.js";
+import { DEVICES } from "./pointer-profile.js";
 import {
   readThemeChoice,
   storeThemeChoice,
@@ -97,7 +98,7 @@ const serverMessage = (json) =>
   json?.error ||
   t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
-<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select><select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select><select class="quiet" id="device-choice" aria-label="${T("settings.device")}"><option value="auto">${T("settings.deviceAuto")}</option><option value="mouse">${T("settings.deviceMouse")}</option><option value="trackpad">${T("settings.deviceTrackpad")}</option></select><select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
   <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
@@ -490,6 +491,29 @@ for (const tag of LOCALES) {
   $("#locale-choice").append(option);
 }
 $("#locale-choice").value = currentLocale();
+/* Which pointing device this is gets guessed from how the wheel behaves, and
+   the guess is usually right — but a trackpad has no middle button, so being
+   wrong costs a laptop reviewer the ability to pan at all. Saying so outright
+   is cheap; discovering it is not. */
+const storedDevice = (() => {
+  try {
+    const value = localStorage.getItem("meshcue-device");
+    return DEVICES.includes(value) ? value : "auto";
+  } catch {
+    return "auto";
+  }
+})();
+viewer.setDevice(storedDevice);
+$("#device-choice").value = storedDevice;
+$("#device-choice").addEventListener("change", (e) => {
+  viewer.setDevice(e.target.value);
+  try {
+    if (e.target.value === "auto") localStorage.removeItem("meshcue-device");
+    else localStorage.setItem("meshcue-device", e.target.value);
+  } catch {
+    /* the choice still holds for this visit */
+  }
+});
 /* Every string was placed once, when the interface was built. Rebuilding it in
    place would mean re-binding every listener and rebuilding the viewer with the
    model still in it; reloading is honest and the choice is already stored.

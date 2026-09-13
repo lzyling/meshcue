@@ -579,7 +579,7 @@ test("review page has no conversation copy, history polling or second message in
   expect(fs.existsSync(path.join(dir, "fake-gateway.json"))).toBe(false);
 });
 
-test("drag rotates and single click does nothing; double click adds exactly one pin without tool switching", async ({
+test("the right button rotates, the left one only marks, and a single click still does nothing", async ({
   page,
 }) => {
   await ready(page);
@@ -589,10 +589,21 @@ test("drag rotates and single click does nothing; double click adds exactly one 
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(0);
+  // The left button used to rotate as well as mark, which is why painting had
+  // to borrow Option or change tools to turn the model. It is the marker's now
+  // and nothing else, so dragging it moves no camera.
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   await page.mouse.move(p.x + 45, p.y + 20, { steps: 6 });
   await page.mouse.up();
+  await page.waitForTimeout(350);
+  const dragged = await page.evaluate(() => window.__reviewDiagnostics());
+  expect(dragged.annotationCount).toBe(0);
+  expect(dragged.camera).toEqual(before);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(p.x + 45, p.y + 20, { steps: 6 });
+  await page.mouse.up({ button: "right" });
   await page.waitForTimeout(350);
   const moved = await page.evaluate(() => window.__reviewDiagnostics());
   expect(moved.annotationCount).toBe(0);
@@ -920,7 +931,7 @@ test("narrow embedded review fixture remains interactive without a duplicated co
   );
 });
 
-test("paint mode supports temporary Option navigation and does not consume point label numbers", async ({
+test("painting never has to stop to turn the model, and does not consume point label numbers", async ({
   page,
 }) => {
   await ready(page);
@@ -929,12 +940,13 @@ test("paint mode supports temporary Option navigation and does not consume point
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
-  await page.keyboard.down("Alt");
+  // The friction this replaces: with the camera on the left button too, turning
+  // the model mid-stroke meant holding Option or switching back to the view
+  // tool and switching out again. The right button was free the whole time.
   await page.mouse.move(p.x, p.y);
-  await page.mouse.down();
+  await page.mouse.down({ button: "right" });
   await page.mouse.move(p.x + 30, p.y + 12, { steps: 4 });
-  await page.mouse.up();
-  await page.keyboard.up("Alt");
+  await page.mouse.up({ button: "right" });
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations).toEqual(before.annotations);
   expect(after.camera).not.toEqual(before.camera);
@@ -1889,4 +1901,41 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator(".model-pin")).toHaveCount(1);
   await expect(page.locator(".model-pin.landing")).toHaveCount(0);
+});
+
+test("a trackpad pans with two fingers where a mouse zooms with its wheel", async ({
+  page,
+}) => {
+  await ready(page);
+  const p = await point(page);
+  const start = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  // A mouse has a wheel and a middle button, so the wheel is free to zoom.
+  await page.locator("#device-choice").selectOption("mouse");
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(200);
+  const zoomed = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  expect(zoomed.target).toEqual(start.target);
+  expect(zoomed.position).not.toEqual(start.position);
+
+  // A trackpad has no middle button at all, so panning has to live somewhere
+  // else — and it has something a mouse does not: a two-axis drag.
+  await page.locator("#device-choice").selectOption("trackpad");
+  const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.wheel(40, 60);
+  await page.waitForTimeout(200);
+  const panned = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  // Panning moves what the camera is looking at; zooming never does.
+  expect(panned.target).not.toEqual(before.target);
+  const travelled = Math.hypot(
+    panned.target[0] - before.target[0],
+    panned.target[1] - before.target[1],
+    panned.target[2] - before.target[2],
+  );
+  expect(travelled).toBeGreaterThan(0.001);
+  // Nothing about this places marks or disturbs the review.
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(0);
 });
