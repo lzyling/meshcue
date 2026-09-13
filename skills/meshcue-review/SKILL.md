@@ -1,48 +1,140 @@
 ---
 name: "meshcue-review"
-description: "3D建模初稿審閱、模型位置標記、改模再審；用 MeshCue 網頁與原會話完成協作。"
+description: "Review a 3D model draft in a browser: mark surfaces, read the marks, publish the next version. 3D建模審閱、標記、改模再審"
 ---
 
-# MeshCue 模型審閱
+# MeshCue model review
 
-## 1. 判斷是否進入審閱
+## 1. Deciding to review
 
-在使用者要建立或修改 3D 模型、指出模型哪裡要改、檢查初稿或繼續改模時，將 MeshCue 作為瀏覽器審閱入口；不必等使用者說出產品名稱。純概念問答、只索取檔案或明確不要網頁時，不啟動工作台。沒有初稿時，先用適合的 CAD／造型工具建立可編輯原檔及 GLB／STL 審閱檔；完成標準是有可載入的實際模型，而不是空白網址。
+When someone wants a 3D model built or changed, wants to point out what is wrong
+with one, wants a draft checked, or wants to keep iterating, use MeshCue as the
+browser review entry. Do not wait for them to name the product. Skip it for pure
+conceptual questions, for a plain request for a file, and whenever they say they
+do not want a web page. With no draft yet, first build an editable source and a
+GLB or STL for review with whatever CAD or modelling tool fits. Done means a
+model that actually loads, not a URL.
 
-## 2. 核對工具與項目
+## 2. Checking the tool and the project
 
-找到並調用 `meshcue` 的 `inspect` 動作，核對工作區、Agent、會話及代際；Telegram 還需回傳目標與帳戶。工具缺失、沙箱不支援或上下文不完整時，說明實際缺口，不用猜測的命令、localhost 或舊話題網址代替。為新建模工作選擇獨立的 `projects/<項目名>`；沿用正在建模的工程目錄，不把 MeshCue 程式庫或舊試用目錄當作新模型項目。使用者明確繼續指定工程時才設定 `resume: true`；有多個可能的工程時只澄清工程，完成標準是項目及原會話均唯一。
+Find and call `meshcue`'s `inspect` action to check the workspace, agent,
+session and generation; on Telegram the return target and account as well. When
+the tool is missing, the sandbox forbids it, or the context is incomplete, say
+what is actually absent — never substitute a guessed command, localhost, or an
+old topic's URL. Choose a separate `projects/<name>` for new modelling work, or
+reuse the engineering directory already being modelled in; never treat the
+MeshCue codebase or an old trial directory as the model project. Set
+`resume: true` only when the user is explicitly continuing that project. With
+several candidate projects, clarify the project alone. Done means exactly one
+project and one originating session.
 
-## 3. 發布前預檢面數與體積
+## 3. Measuring before publishing
 
-每次 `open` 之前先用 `precheck` 量同一個檔案；它只讀不啟動實例。硬上限是 600000 三角面與 80 MB，但超過 300000 面時細分餘量已不足每面一個三角形，大平面會停止細分，畫筆在那些面上整片跳動。
+Run `precheck` on the same file before every `open`; it only reads and starts no
+instance. The hard limits are 600000 triangles and 80 MB, but past 300000 faces
+the subdivision budget is already under one triangle per face, large flat spans
+stop subdividing, and the brush skips across them.
 
-`verdict: "ok"` 直接發布。`reject` 或 `degraded` 時先簡化再發布，並在會話裡說明做過簡化、用了什麼比例、面數由多少變成多少；回應裡的 `simplify.requiredRatio` 夠過閘，`recommendedRatio` 保留標注精度。首選重新從 STEP 或建模腳本導出並放寬弦高，幾何精度不變；只有網格沒有源檔時才用 Blender 無頭 Decimate。完成標準是使用者知道他審的是原始精度還是簡化過的網格。
+`verdict: "ok"` publishes as is. On `reject` or `degraded`, simplify first and
+say in the conversation that you simplified, at what ratio, and from how many
+faces to how many. `simplify.requiredRatio` passes the gate;
+`recommendedRatio` keeps annotation precision. Prefer re-exporting from STEP or
+a modelling script with a looser chord height — geometry stays exact. Use
+headless Blender decimation only when there is a mesh and no source. Done means
+the user knows whether they are reviewing original or simplified geometry.
 
-## 4. 發布初稿與交付網址
+## 4. Publishing a draft and delivering the URL
 
-調用 `meshcue`，`action: "open"`，提供工作區相對路徑 `project`、實際 `file`、模型 `name`、可辨認的 `version` 及 `units`，可用 `label` 給網頁標籤一個短標題。來源、收件人及話題由宿主上下文取得，不加入工具參數。若需要開放 Windows 內網入口，使用已由使用者核對的 `confirmedClientAddress`；套件已有經核對的設備設定時沿用它，不把第一個訪客或 User-Agent 當成確認。缺少設備資料時只補問 IPv4，不索取 token 或配對碼。
+Call `meshcue` with `action: "open"`, giving the workspace-relative `project`,
+the actual `file`, the model `name`, a recognisable `version` and `units`; use
+`label` for a short tab caption. Source, recipient and topic come from the host
+context and are never added as tool parameters. To open a LAN entry for another
+machine, use a `confirmedClientAddress` the user has verified; reuse a device
+already verified in the package rather than treating the first visitor or a
+User-Agent as confirmation. When device details are missing, ask only for the
+IPv4 — never for a token or a pairing code.
 
-發布預設立即切換到新版本，不會排隊，也不需要使用者先結束上一輪。只交付工具成功回報的網址，連同實際顯示的模型版本；`client_address_needed` 表示首次入場尚未準備，不說可以開始標記。瀏覽器信任按項目保存，30 天未使用才過期。Mac 健康檢查不等同 Windows 已打開。重新開啟或升級實例時，對照前後 `viewerReceipts` 的版本、SHA 與 `loadedAt`；只把本次重開後對應當前模型的新載入回執算作本次端上載入證據，保留的歷史回執不算重新驗證。完成標準是交付正確項目入口並準確說明端上驗證狀態。
+Publishing switches to the new version immediately; nothing queues, and the user
+does not have to end the previous round first. Deliver only the URL the tool
+actually returned, along with the model version really being displayed.
+`client_address_needed` means the first admission is not ready — do not say
+marking can begin. Browser trust is stored per project and expires after 30
+unused days. A health check on the serving machine is not the same as the page
+being open on the user's. When reopening or upgrading an instance, compare the
+`viewerReceipts` before and after by version, SHA and `loadedAt`: only a new
+receipt from after this reopen, against the current model, is evidence that the
+viewer loaded it. A retained receipt is not re-verification. Done means the
+right project entry was delivered and its end-device state described accurately.
 
-## 5. 控制展示哪一個版本
+## 5. Controlling which version is shown
 
-每一個發布過的版本都一直保留，各自有自己的草稿與標記，網頁頂部用標籤列出，使用者隨時可以切回任何一版並在上面標記。所以換版不會弄丟任何東西，也不需要向使用者要許可。
+Every published version stays, each with its own draft and marks, listed as tabs
+at the top of the page, and the user can return to any of them and mark there.
+Switching therefore loses nothing and needs no permission.
 
-用 `status` 查 `versions`：每一項有 `id`、`version`、標記數、未提交數、已提交批數，以及是否有視窗開著。用 `activate` 切換展示哪一版，傳 `versionId` 或 `version` 字串。想加一個版本但不打斷使用者眼前的畫面時，`open` 傳 `activate: false`。
+Use `status` to read `versions`: each carries an `id`, a `version`, its mark
+count, unsubmitted count, submitted batches, and whether a window is open. Use
+`activate` to change what is displayed, passing `versionId` or the `version`
+string. To add a version without disturbing what the user is looking at right
+now, pass `activate: false` to `open`.
 
-發布新版本時讓它同時成為展示中的版本——那就是使用者接著要標記的那一版。`activate: false` 只用在他此刻正在畫、你只想先把新版掛上標籤列時；說一句，等他停手後仍要切過去。長期不切會把展示指針留在舊版本，網頁對「正在看哪一版」的說明也跟著錯。`finish`（結束某一版這一輪）與 `unlock`（清掉過期的視窗在場記錄）不屬於正常迭代：下一個版本本身就是上一輪的結束，網頁也沒有讓使用者結束本輪的按鈕，不要叫他去按；只有他明確要求封存某一版時才用 `finish`。
+Let a new version become the displayed one — that is the version they are about
+to mark. `activate: false` is for the single case where they are drawing at this
+moment and you only want the new version on the tab strip; say so, and switch
+once they stop. Leaving it unswitched strands the display pointer on an old
+version, and the page's account of which version is being viewed goes wrong with
+it. `finish` (ending a round on one version) and `unlock` (clearing a stale
+presence record) are not part of iteration: the next version is the end of the
+last one, the page gives the user no button to end a round, so never tell them
+to press one. Use `finish` only when they explicitly ask to close a version out.
 
-## 6. 讀取標記並回應修改意圖
+## 6. Reading marks and answering the intent
 
-收到網頁提交提示後，用提示中的 `project` 與 `submissionId` 調用 `meshcue` 的 `read`，讀完整三維標注、模型版本與相機資料；工具同時寫入該批已讀回執。不要只憑位置摘要說已理解修改。把點標籤／顏色區域與原會話的修改說明對應；缺少改法、尺寸或含意才澄清。需要理解回顯時用 `echo`，提供同批次的 `summary` 及已讀取、經核對的表面區域 `annotations`，不憑空造 mesh 座標。
+On a submission notice, call `meshcue`'s `read` with the `project` and
+`submissionId` from the notice to read the full 3D annotations, model version
+and camera; the tool writes the read receipt for that batch at the same time.
+Never claim to have understood a change from a position summary alone. Match
+pins and coloured regions to the change described in the conversation, and ask
+only when the method, a dimension or the meaning is missing. Use `echo` to show
+your understanding, giving the same batch's `summary` and surface regions in
+`annotations` that you have actually read and verified — never invented mesh
+coordinates.
 
-兩種批次要分開處理。`sealed: true` 的批次不是使用者主動交出的，而是結束該版本時替他封存的半成品：先問清楚意圖，不要直接當修改需求執行。針對舊版本的批次（`versionId` 不是目前 active 的那個）先核對該處在當前版本是否已經改過，再判斷它是回溯指正還是過期意見；提交裡帶著當時的模型快照，足夠對照。完成標準是批次、版本與修改意圖三者一致。
+Two kinds of batch are handled differently. A batch with `sealed: true` was not
+handed over deliberately; it is unfinished work closed out on the user's behalf
+when a version's round ended, so ask what they meant rather than executing it as
+a change request. For a batch against an older version — a `versionId` that is
+not the active one — check whether that place has already been changed in the
+current version before deciding whether it is a correction or a stale opinion;
+the submission carries the model snapshot of the time, which is enough to
+compare. Done means the batch, the version and the intent all agree.
 
-## 7. 修改、新版再審與交付
+## 7. Changing, republishing and delivering files
 
-用原建模工具修改可編輯源檔，保存新版本，先 `precheck` 再用 `open` 發布同一項目的新 GLB／STL。保留舊版本及修改記錄；舊版本會自動留在標籤上，不要刪除或覆蓋。用 `status` 核對實際 active 版本與各版標記狀態，再在原會話說明改了什麼、對應哪一批標記。審閱網頁沒有下載模型的入口，標記資料也不需要使用者自行導出；檔案一律在會話裡交付，使用者索取或定稿時才發。GLB／STL 只是審閱網格，STEP／3MF 等另由建模工具輸出並核對單位與比例，不能把預覽網格說成可編輯 CAD。完成標準是使用者審過正確新版並取得約定檔案。
+Change the editable source with the original modelling tool, save a new version,
+`precheck`, then `open` the new GLB or STL in the same project. Keep old
+versions and the record of changes; they stay on the tab strip on their own and
+must not be deleted or overwritten. Use `status` to check the actually active
+version and each version's mark state, then say in the originating conversation
+what changed and which batch it answers. The review page has no download entry
+and the user never needs to export the marks themselves; files are delivered in
+the conversation, when they ask or when the work is final. GLB and STL are
+review meshes only — export STEP, 3MF and the like from the modelling tool and
+check units and scale; never describe a preview mesh as editable CAD. Done means
+the user reviewed the right new version and received the agreed files.
 
-## 8. 接續與故障處理
+## 8. Continuing and handling failures
 
-Gateway 暫時不可達時保留提交並等待原來源重試，區分已保存、宿主接納與 Agent 已讀；提交進入出站佇列即算交出，送達確認是另一回事，不因未確認就說使用者還沒提交。遇 `RESUME_REQUIRED`，先確認使用者是在繼續該工程，再以 `open` 和 `resume: true` 接續；舊批次不自動改收件人。遇另一話題正在標記、`/new` 代際不符、端口衝突或身份校驗失敗時，保留資料並回報工具狀態，不殺佔用進程、不移動網址、不重發一堆授權。維護需要停止實例時用 `stop`；若回報 `REVIEW_BUSY`，表示有人此刻正在標記，稍後重試即可，不必要求他結束本輪。完成標準是資料與原會話歸屬不變，或已明確完成合法接續。
+While the host is unreachable, keep the submission and wait for the original
+source to retry, distinguishing saved, accepted by the host and read by the
+agent. Reaching the outbound queue counts as handed over; confirmed delivery is
+a separate thing, and an unconfirmed send is not a reason to say the user has
+not submitted. On `RESUME_REQUIRED`, confirm the user is continuing that project
+before using `open` with `resume: true`; old batches never change recipient. When
+another topic is marking, a `/new` generation does not match, a port conflicts,
+or an identity check fails, keep the data and report the tool's state — do not
+kill the occupying process, move the URL, or reissue a pile of authorizations.
+Use `stop` when maintenance needs the instance down; `REVIEW_BUSY` means someone
+is marking right now, so retry later rather than asking them to end their round.
+Done means data and session ownership are unchanged, or a legitimate handover is
+explicitly complete.
