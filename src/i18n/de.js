@@ -188,9 +188,8 @@ export default {
     "Der lokale Speicher ist voll. Der nicht synchronisierte Entwurf ist geschützt und die Bearbeitung pausiert; laden Sie die Sicherung für den Agenten herunter.",
 
   "echo.summary": "Der Agent versteht: {summary}",
-  "echo.focus": "Bereich zeigen",
-  "echo.hide": "Rückmeldung ausblenden",
-  "echo.show": "Rückmeldung einblenden",
+  "echo.recall": "Das Verständnis des Agenten erneut lesen",
+  "echo.dismiss": "Wegklappen",
   "echo.stale":
     "Die Markierungen haben sich geändert — korrigieren Sie das Verständnis im ursprünglichen Gespräch",
 

@@ -179,9 +179,8 @@ export default {
     "Local storage is full. The unsynced draft is protected and editing is paused; download the backup for the Agent.",
 
   "echo.summary": "Agent understands: {summary}",
-  "echo.focus": "Show the area",
-  "echo.hide": "Hide the echo",
-  "echo.show": "Show the echo",
+  "echo.recall": "Read the Agent's understanding again",
+  "echo.dismiss": "Put it away",
   "echo.stale":
     "The marks changed — correct the understanding in the original conversation",
 

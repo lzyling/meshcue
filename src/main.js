@@ -39,8 +39,10 @@ const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-trash" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M9.5 6.5V4.2h5v2.3"/><path d="M6.3 6.5 7.2 20h9.6l.9-13.5"/><path d="M10.3 10v6.4M13.7 10v6.4" stroke-width="1.3" opacity=".6"/></g>
 <g id="mc-close" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></g>
 <g id="mc-plus" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></g>
-<g id="mc-minus" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></g>
 <g id="mc-check" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6 9.5 17.5 19.5 6.8"/></g>
+<g id="mc-collapse-left" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5 9 12l5.5 5.5"/><path d="M19 5.5v13"/></g>
+<g id="mc-expand-right" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5 15 12l-5.5 5.5"/><path d="M5 5.5v13"/></g>
+<g id="mc-echo" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 6.8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7.4a2 2 0 0 1-2 2h-6.6L7 19.8v-3.6H6a2 2 0 0 1-2-2z"/></g>
 <g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21.2s6.4-6.3 6.4-11a6.4 6.4 0 1 0-12.8 0c0 4.7 6.4 11 6.4 11z"/><circle cx="12" cy="10" r="2.4"/></g>
 <g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 12S5.6 5.8 12 5.8 22.2 12 22.2 12 18.4 18.2 12 18.2 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></g>
 <g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.6 6.2A9.6 9.6 0 0 1 12 5.8c6.4 0 10.2 6.2 10.2 6.2a17 17 0 0 1-3.2 3.8M6.1 8.2A17 17 0 0 0 1.8 12S5.6 18.2 12 18.2c1.2 0 2.2-.2 3.2-.5"/><path d="M10 10a2.8 2.8 0 0 0 3.9 3.9"/><path d="M3.5 3.5l17 17"/></g>
@@ -83,7 +85,7 @@ app.innerHTML = `${SPRITE}
   <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span><span class="scene-pill subtle" id="model-info"></span></div>
@@ -100,7 +102,7 @@ app.innerHTML = `${SPRITE}
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
    </div>
    <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="${T("a11y.palette")}"></div><label id="radius-control" hidden>${T("tool.size")} <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="${T("tool.brushSize")}"></label><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
-   <div id="echo-panel" hidden><span id="echo-summary"></span><button id="focus-echo" class="quiet-dark">${T("echo.focus")}</button><button id="toggle-echo" class="quiet-dark" aria-pressed="false">${T("echo.hide")}</button><span id="echo-stale" hidden>${T("echo.stale")}</span></div>
+   <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
   </div>
@@ -786,17 +788,45 @@ $("#neutral-view").addEventListener("click", () => {
     : t("view.plain");
   $("#neutral-view").setAttribute("aria-pressed", String(viewer.neutral));
 });
-$("#toggle-echo").addEventListener("click", () => {
-  viewer.agentHidden = !viewer.agentHidden;
-  viewer.setVisible(viewer.annotationsVisible);
-  $("#toggle-echo").textContent = viewer.agentHidden
-    ? t("echo.show")
-    : t("echo.hide");
-  $("#toggle-echo").setAttribute("aria-pressed", String(viewer.agentHidden));
+/* The Agent's understanding used to sit across the model until it was dismissed
+   by hand, every round. It says itself once, gets out of the way on its own, and
+   leaves a bubble to be asked again — reading it is occasional, the model is
+   what the screen is for.
+
+   Only the first showing leaves by itself. Recalling it is a deliberate act, so
+   it then stays until it is put away, and a pointer resting on it is someone
+   still reading. */
+const ECHO_LINGER = 7000;
+let echoTimer = null;
+function echoLinger() {
+  clearTimeout(echoTimer);
+  echoTimer = setTimeout(hideEcho, ECHO_LINGER);
+}
+function showEcho({ linger }) {
+  $("#echo-panel").hidden = false;
+  $("#echo-recall").setAttribute("aria-expanded", "true");
+  $("#echo-recall").setAttribute("aria-label", t("echo.dismiss"));
+  clearTimeout(echoTimer);
+  // A stale echo is a warning that the marks moved under it. Warnings do not
+  // get to leave before they are read.
+  if (linger && $("#echo-stale").hidden) echoLinger();
+}
+function hideEcho() {
+  clearTimeout(echoTimer);
+  echoTimer = null;
+  $("#echo-panel").hidden = true;
+  $("#echo-recall").setAttribute("aria-expanded", "false");
+  $("#echo-recall").setAttribute("aria-label", t("echo.recall"));
+}
+$("#echo-recall").addEventListener("click", () => {
+  if ($("#echo-panel").hidden) showEcho({ linger: false });
+  else hideEcho();
 });
-$("#focus-echo").addEventListener("click", () => {
-  const a = viewer.agentEcho?.annotations?.[0];
-  if (a) viewer.focusAnnotation(a);
+$("#echo-panel").addEventListener("pointerenter", () =>
+  clearTimeout(echoTimer),
+);
+$("#echo-panel").addEventListener("pointerleave", () => {
+  if (echoTimer !== null) echoLinger();
 });
 $("#version-tabs").addEventListener("scroll", () =>
   markVersionOverflow($("#version-tabs")),
@@ -840,8 +870,11 @@ $("#toggle-annotations").addEventListener("click", () => {
     "collapsed",
     $("#annotations-list").hidden,
   );
+  // A plus beside a list of marks reads as "add a mark", which is a thing this
+  // page can actually do — just not here. The control moves a panel sideways,
+  // so it points the way the panel will go.
   $("#toggle-annotations").innerHTML = icon(
-    $("#annotations-list").hidden ? "plus" : "minus",
+    $("#annotations-list").hidden ? "expand-right" : "collapse-left",
   );
 });
 async function travelHistory(redo = false) {
@@ -1101,7 +1134,10 @@ async function loadVersion(fullState) {
   labelCursor = 0;
   echoId = null;
   relocatingId = null;
-  $("#echo-panel").hidden = true;
+  // A new version has nothing said about it yet, so neither the bubble nor the
+  // way to ask for it belongs on screen until the Agent speaks again.
+  $("#echo-recall").hidden = true;
+  hideEcho();
   initialDraftRestored = false;
   annotations = [];
   selectedId = null;
@@ -1331,10 +1367,12 @@ function updateEcho(incoming) {
   if ((echo?.id || null) === echoId || !viewer.enabled) return;
   echoId = echo?.id || null;
   viewer.setAgentEcho(echo?.versionId === loadedId ? echo : null);
-  $("#echo-panel").hidden = !viewer.agentEcho;
   $("#echo-summary").textContent = viewer.agentEcho
     ? t("echo.summary", { summary: echo.summary })
     : "";
+  $("#echo-recall").hidden = !viewer.agentEcho;
+  if (viewer.agentEcho) showEcho({ linger: true });
+  else hideEcho();
 }
 function pollState() {
   if (pollFlight) return pollFlight;

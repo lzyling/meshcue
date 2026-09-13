@@ -188,9 +188,8 @@ export default {
     "Le stockage local est plein. Le brouillon non synchronisé est protégé et l'édition est en pause ; téléchargez la sauvegarde pour l'Agent.",
 
   "echo.summary": "L'Agent comprend : {summary}",
-  "echo.focus": "Voir la zone",
-  "echo.hide": "Masquer le retour",
-  "echo.show": "Afficher le retour",
+  "echo.recall": "Revoir ce que l'Agent a compris",
+  "echo.dismiss": "Replier",
   "echo.stale":
     "Les marques ont changé — corrigez la compréhension dans la conversation d'origine",
 

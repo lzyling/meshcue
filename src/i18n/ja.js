@@ -182,9 +182,8 @@ export default {
     "ローカル保存領域が一杯です。未同期の下書きは保護し、編集を一時停止しました。バックアップをダウンロードしてエージェントにお渡しください。",
 
   "echo.summary": "エージェントの理解：{summary}",
-  "echo.focus": "その範囲を見る",
-  "echo.hide": "エコーを隠す",
-  "echo.show": "エコーを表示",
+  "echo.recall": "エージェントの理解をもう一度見る",
+  "echo.dismiss": "しまう",
   "echo.stale": "印が変わりました。元の会話で理解を訂正してください",
 
   "precision.overBudget":

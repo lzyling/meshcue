@@ -1337,21 +1337,53 @@ dialog .muted {
   margin-top: 5px;
   padding: 5px 9px;
 }
-#echo-panel {
+/* Bottom right, out of the way of the toolbar beneath the model and the cube
+   above it — and speaking like a remark rather than a banner across the view. */
+#echo-dock {
   position: absolute;
-  left: 64px;
-  bottom: 70px;
-  max-width: calc(100% - 75px);
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: min(370px, calc(100% - 90px));
+  z-index: 3;
+}
+#echo-panel {
   background: var(--warn-soft);
   color: var(--warn-ink);
   border: 1px dashed var(--warn-line);
-  border-radius: 7px;
-  padding: 7px 10px;
+  border-radius: 10px 10px 3px 10px;
+  padding: 8px 11px;
   font-size: 11px;
+  line-height: 1.55;
+  box-shadow: var(--shadow-1);
+  animation: echo-arrive 170ms ease-out;
 }
-#echo-panel button {
-  margin-left: 8px;
-  text-decoration: underline;
+@keyframes echo-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.97);
+  }
+}
+#echo-recall {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--warn-line);
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  #echo-panel {
+    animation: none;
+  }
 }
 #echo-stale {
   display: block;

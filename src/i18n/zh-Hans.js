@@ -163,9 +163,8 @@ export default {
     "本机存储空间已满。未同步的草稿已保护，编辑暂停；请下载备份交给 Agent。",
 
   "echo.summary": "Agent 理解：{summary}",
-  "echo.focus": "查看修改范围",
-  "echo.hide": "隐藏回显",
-  "echo.show": "显示回显",
+  "echo.recall": "再看一次 Agent 的理解",
+  "echo.dismiss": "收起",
   "echo.stale": "标注已更新，请在原对话更正理解",
 
   "precision.overBudget":

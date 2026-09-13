@@ -1032,8 +1032,17 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
     .toEqual(second.annotations);
   await page.locator("#toggle-marks").click();
+  // The control points the way the panel moves. A plus and a minus sat beside a
+  // list that really can have marks added to it, and read as doing that.
+  const iconRef = () =>
+    page.locator("#toggle-annotations use").getAttribute("href");
+  expect(await iconRef()).toBe("#mc-collapse-left");
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#annotations-list")).toBeHidden();
+  expect(await iconRef()).toBe("#mc-expand-right");
+  // Sending the marks stays possible with the list collapsed: it lives outside
+  // the part that folds, so folding cannot take the page's one action with it.
+  await expect(page.locator("#submit-feedback")).toBeVisible();
 });
 
 test("iteration: bucket preview equals filled coverage and eraser is partial and undoable", async ({
@@ -1701,4 +1710,75 @@ test("many versions stay on one row, and the one being marked stays reachable", 
       }),
     )
     .toBe(true);
+});
+
+test("the Agent's understanding leaves on its own and comes back when asked", async ({
+  page,
+}) => {
+  await ready(page);
+  await pin(page);
+  await page.getByRole("button", { name: /Send to Agent/ }).click();
+  await expect(page.locator("#feedback-status")).toContainText(
+    "delivered to the original conversation",
+  );
+  const receipt = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  ).submissions[0];
+  execFileSync(
+    process.execPath,
+    ["scripts/reviewctl.mjs", "read", receipt.id],
+    { cwd: repo, env, stdio: "pipe" },
+  );
+  const file = path.join(dir, "echo.json");
+  // No annotations on purpose: an Agent that replies with words and no region is
+  // what every echo in the real session looked like.
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      submissionId: receipt.id,
+      versionId: receipt.versionId,
+      summary: "理解：把支架孔加大",
+      // Required by the contract, allowed to be empty — and empty is what the
+      // Agent sent every single time in the session this came from.
+      annotations: [],
+    }),
+  );
+  try {
+    execFileSync(process.execPath, ["scripts/reviewctl.mjs", "echo", file], {
+      cwd: repo,
+      env,
+      stdio: "pipe",
+    });
+  } catch (e) {
+    throw new Error(
+      `echo failed: ${e.stderr?.toString()} ${e.stdout?.toString()}`,
+    );
+  }
+  // It says itself once without being asked for.
+  const bubble = page.locator("#echo-panel");
+  await expect(bubble).toBeVisible();
+  await expect(page.locator("#echo-recall")).toBeVisible();
+  // Then it goes, instead of waiting to be dismissed by hand every round.
+  await expect(bubble).toBeHidden({ timeout: 12000 });
+  // What is left is a way to ask again — and asking is deliberate, so this time
+  // it stays until it is put away.
+  await page.locator("#echo-recall").click();
+  await expect(bubble).toBeVisible();
+  await expect(page.locator("#echo-recall")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await page.waitForTimeout(9000);
+  await expect(bubble).toBeVisible();
+  await page.locator("#echo-recall").click();
+  await expect(bubble).toBeHidden();
+  await expect(page.locator("#echo-recall")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  // Reading it never costs the model any room: the review keeps its marks and
+  // its camera either way.
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(1);
 });
