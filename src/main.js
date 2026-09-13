@@ -3,7 +3,19 @@ import "./style.css";
 import { ModelViewer } from "./viewer.js";
 import { buildOrientCube, compassTransform } from "./orient-cube.js";
 import { latestVersion, viewingBehindLatest } from "./versions.js";
-import { t, currentLocale } from "./i18n/index.js";
+import {
+  t,
+  currentLocale,
+  setLocale,
+  LOCALES,
+  localeName,
+} from "./i18n/index.js";
+import {
+  readThemeChoice,
+  storeThemeChoice,
+  applyTheme,
+  THEMES,
+} from "./theme.js";
 import {
   letterLabel,
   letterNumber,
@@ -26,6 +38,12 @@ const app = $("#app");
    by side. These are drawn here, ship inside the bundle, and depict the action
    rather than gesture at it. Sized in em so every existing font-size rule,
    including the responsive ones, keeps working untouched. */
+/* Before a single element exists: resolving the theme afterwards paints one
+   frame of the wrong one on every load. */
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+let themeChoice = readThemeChoice();
+applyTheme(themeChoice, darkQuery);
+
 const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-brand" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2 20.4 8v8L12 20.8 3.6 16V8z"/><path d="M3.6 8 12 12.8 20.4 8M12 12.8v8" stroke-width="1.2" opacity=".55"/></g>
 <g id="mc-orbit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7" stroke-width="1.2" opacity=".55"/></g>
@@ -79,7 +97,7 @@ const serverMessage = (json) =>
   json?.error ||
   t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
-<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select><select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
   <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
@@ -445,9 +463,48 @@ const viewer = new ModelViewer($("#viewer"), {
 /* The theme follows the system, so it can change while the page is open — at
    dusk, or when the reviewer flips the setting mid-review. CSS repaints itself;
    the WebGL canvas will not until it is told to. */
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+darkQuery.addEventListener("change", () => {
+  // Only while nobody has chosen. A reviewer who picked light meant it, and
+  // dusk is not an argument against it.
+  if (themeChoice === "system") applyTheme(themeChoice, darkQuery);
   viewer.applyTheme();
   viewer.render();
+});
+/* CSS repaints itself from the variables; the WebGL canvas is painted by us and
+   will not, so every path that changes the theme has to say so here. The system
+   listener above was the only one that existed, which is why the canvas could
+   not have followed a manual switch. */
+$("#theme-choice").value = THEMES.includes(themeChoice)
+  ? themeChoice
+  : "system";
+$("#theme-choice").addEventListener("change", (e) => {
+  themeChoice = storeThemeChoice(e.target.value);
+  applyTheme(themeChoice, darkQuery);
+  viewer.applyTheme();
+  viewer.render();
+});
+for (const tag of LOCALES) {
+  const option = document.createElement("option");
+  option.value = tag;
+  option.textContent = localeName(tag);
+  $("#locale-choice").append(option);
+}
+$("#locale-choice").value = currentLocale();
+/* Every string was placed once, when the interface was built. Rebuilding it in
+   place would mean re-binding every listener and rebuilding the viewer with the
+   model still in it; reloading is honest and the choice is already stored.
+   Flushing first is not optional — a reload with an unsaved draft in the tab
+   would throw away marks the reviewer just made. */
+$("#locale-choice").addEventListener("change", async (e) => {
+  const wanted = e.target.value;
+  if (wanted === currentLocale()) return;
+  setLocale(wanted);
+  try {
+    await flushDraft();
+  } catch {
+    /* a draft that will not save is a reason to reload no less carefully */
+  }
+  location.reload();
 });
 /* The cube is a compass: it turns with the camera so a reviewer who has orbited
    into an unfamiliar angle can still read which way the model is facing, and

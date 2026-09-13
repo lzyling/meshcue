@@ -127,7 +127,25 @@ for (const reader of READERS) {
 
     /* Nothing from another catalogue, and nothing the service wrote in its own
        language, is allowed onto a page that is not in that language. */
-    const text = await page.locator("body").innerText();
+    /* The language chooser is the one place that must carry other languages:
+       a reader who needs Japanese cannot be asked to find "Japanese" written in
+       the language they are trying to leave. Its options are named in
+       themselves, so they are read separately rather than scanned as strays. */
+    const offered = await page
+      .locator("#locale-choice option")
+      .allTextContents();
+    expect(offered).toEqual([
+      "English",
+      "简体中文",
+      "繁體中文",
+      "Deutsch",
+      "Français",
+      "日本語",
+    ]);
+    const text = (await page.locator("body").innerText()).replace(
+      new RegExp(offered.join("|"), "g"),
+      "",
+    );
     if (!["zh-Hans", "zh-Hant", "ja"].includes(reader.lang)) {
       const stray = text
         .split("\n")

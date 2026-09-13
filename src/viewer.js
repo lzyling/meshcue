@@ -973,6 +973,9 @@ export class ModelViewer {
       neutral: !!this.neutral,
       fillFaces: this.fillPatches?.length || 0,
       agentEchoId: this.agentEcho?.id || null,
+      // The canvas takes its colour from the theme tokens by hand rather than
+      // by rule, so whether it followed a theme change is only checkable here.
+      background: this.scene.background?.getHexString() || null,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
     };

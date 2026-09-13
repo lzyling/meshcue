@@ -68,47 +68,54 @@
   background: var(--surface);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #23282b;
-    --surface-raised: #2d3236;
-    --surface-sunken: #1a1d20;
-    --canvas-a: #2b3034;
-    --canvas-b: #1b1f22;
-    --canvas-grid: #2f3539;
-    --canvas-grid-line: #3d4549;
-    --overlay: #23282bf2;
-    --scrim: #0d0f11c2;
+/* The system's preference is the default, never a cage: a media query cannot be
+   overridden from script, so a reviewer whose room is dark but whose model reads
+   better light had no way to say so. The dark values apply when the system asks
+   for dark and nothing on the page has said otherwise, and apply outright when
+   the page has asked for dark. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #23282b;
+  --surface-raised: #2d3236;
+  --surface-sunken: #1a1d20;
+  --canvas-a: #2b3034;
+  --canvas-b: #1b1f22;
+  --canvas-grid: #2f3539;
+  --canvas-grid-line: #3d4549;
+  --overlay: #23282bf2;
+  --scrim: #0d0f11c2;
 
-    --ink: #e6eaec;
-    --ink-muted: #a2acb2;
-    --ink-faint: #778288;
+  --ink: #e6eaec;
+  --ink-muted: #a2acb2;
+  --ink-faint: #778288;
 
-    --line: #3a4044;
-    --line-strong: #4c5459;
+  --line: #3a4044;
+  --line-strong: #4c5459;
 
-    --accent: #45b990;
-    --accent-hover: #57c9a1;
-    --accent-ink: #10201a;
-    --accent-soft: #1d3a30;
-    --accent-line: #2f5a49;
-    --focus: #45b990;
+  --accent: #45b990;
+  --accent-hover: #57c9a1;
+  --accent-ink: #10201a;
+  --accent-soft: #1d3a30;
+  --accent-line: #2f5a49;
+  --focus: #45b990;
 
-    --warn: #d8a63a;
-    --warn-ink: #f0dcae;
-    --warn-soft: #3a3323;
-    --warn-line: #6d5c2c;
+  --warn: #d8a63a;
+  --warn-ink: #f0dcae;
+  --warn-soft: #3a3323;
+  --warn-line: #6d5c2c;
 
-    --danger: #e07f6a;
-    --danger-ink: #f3cdc1;
-    --danger-soft: #3d2620;
+  --danger: #e07f6a;
+  --danger-ink: #f3cdc1;
+  --danger-soft: #3d2620;
 
-    --shadow-1: 0 1px 2px #00000059, 0 2px 8px #00000047;
-    --shadow-2: 0 4px 18px #00000073;
-    --shadow-3: 0 20px 60px #00000099;
+  --shadow-1: 0 1px 2px #00000059, 0 2px 8px #00000047;
+  --shadow-2: 0 4px 18px #00000073;
+  --shadow-3: 0 20px 60px #00000099;
 
-    --brush-ring: #0000008c;
-  }
+  --brush-ring: #0000008c;
 }
 * {
   box-sizing: border-box;
@@ -245,6 +252,19 @@ a {
   gap: 8px;
   font-size: 11px;
   color: var(--ink-muted);
+  /* The header sits above a 460px-wide embedded review as readily as a full
+     window. Anything added here has to be able to give ground, or it pushes a
+     horizontal scrollbar onto the whole page. */
+  min-width: 0;
+}
+#locale-choice,
+#theme-choice {
+  min-width: 0;
+  max-width: 116px;
+  padding: 4px 6px;
+  min-height: 25px;
+  font-size: 10px;
+  text-overflow: ellipsis;
 }
 .connection-dot,
 .tiny-dot {
@@ -947,6 +967,17 @@ dialog .muted {
   }
   .model-meta #save-status {
     max-width: 75px;
+  }
+}
+@media (max-width: 860px) {
+  #locale-choice,
+  #theme-choice {
+    max-width: 78px;
+    font-size: 9px;
+    padding: 3px 4px;
+  }
+  .header-right #connection-status {
+    display: none;
   }
 }
 @media (max-width: 800px) {

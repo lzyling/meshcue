@@ -18,6 +18,22 @@ export const CATALOGUES = {
   ja,
 };
 
+/* A language is listed in its own language: someone who needs to switch to
+   Japanese is, by definition, not reading the current one well enough to find
+   "Japanese" in it. */
+export const LOCALE_NAMES = {
+  en: "English",
+  "zh-Hans": "简体中文",
+  "zh-Hant": "繁體中文",
+  de: "Deutsch",
+  fr: "Français",
+  ja: "日本語",
+};
+
+export function localeName(tag) {
+  return LOCALE_NAMES[tag] || tag;
+}
+
 export const SOURCE_LOCALE = "en";
 export const LOCALES = Object.keys(CATALOGUES);
 

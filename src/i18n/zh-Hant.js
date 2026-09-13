@@ -190,6 +190,12 @@ export default {
   "feedback.submitting": "提交中…",
   "feedback.submitted": "標記已保存；提交狀態以實際回執為準。模型維持鎖定。",
 
+  "settings.language": "介面語言",
+  "settings.theme": "明暗",
+  "settings.themeSystem": "跟隨系統",
+  "settings.themeLight": "淺色",
+  "settings.themeDark": "深色",
+
   "help.open": "使用說明",
   "help.eyebrow": "快速上手",
   "help.title": "先看，再標，然後說要改什麼。",

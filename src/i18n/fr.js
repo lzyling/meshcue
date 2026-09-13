@@ -219,6 +219,12 @@ export default {
   "feedback.submitted":
     "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
 
+  "settings.language": "Langue de l'interface",
+  "settings.theme": "Clair ou sombre",
+  "settings.themeSystem": "Suivre le système",
+  "settings.themeLight": "Clair",
+  "settings.themeDark": "Sombre",
+
   "help.open": "Mode d'emploi",
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",

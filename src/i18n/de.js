@@ -220,6 +220,12 @@ export default {
   "feedback.submitted":
     "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
 
+  "settings.language": "Sprache der Oberfläche",
+  "settings.theme": "Hell oder dunkel",
+  "settings.themeSystem": "Dem System folgen",
+  "settings.themeLight": "Hell",
+  "settings.themeDark": "Dunkel",
+
   "help.open": "Anleitung",
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",

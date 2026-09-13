@@ -210,6 +210,12 @@ export default {
   "feedback.submitted":
     "印を保存しました。送信状況は実際の受領確認に従います。モデルはロックしたままです。",
 
+  "settings.language": "表示言語",
+  "settings.theme": "明るさ",
+  "settings.themeSystem": "システムに従う",
+  "settings.themeLight": "ライト",
+  "settings.themeDark": "ダーク",
+
   "help.open": "使い方",
   "help.eyebrow": "クイックスタート",
   "help.title": "見て、印を付けて、何を変えたいか伝える。",

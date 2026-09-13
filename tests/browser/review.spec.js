@@ -1782,3 +1782,57 @@ test("the Agent's understanding leaves on its own and comes back when asked", as
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
 });
+
+test("the reviewer can overrule the automatic language and theme", async ({
+  page,
+}) => {
+  await ready(page);
+  // Dark was decided by a media query, which script cannot overrule — so the
+  // case that could not be expressed is this one: the system says dark and the
+  // reviewer wants light anyway.
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe("dark");
+  const darkCanvas = await page.evaluate(
+    () => window.__reviewDiagnostics().viewer.background,
+  );
+  await page.locator("#theme-choice").selectOption("light");
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe("light");
+  // The page repaints itself from CSS variables; the model is painted by us and
+  // will not, so a switch that leaves the canvas dark is a switch that failed.
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().viewer.background),
+    )
+    .not.toBe(darkCanvas);
+  // The system moving on does not undo a decision that was made deliberately.
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe("light");
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+  ).toBe("light");
+
+  // Language: the control existed in full — catalogues, matching, storage — and
+  // nothing in the product ever called setLocale. Six languages, no way in.
+  await expect(page.locator("#locale-choice")).toHaveValue("en");
+  await page.locator("#locale-choice").selectOption("ja");
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(page.locator("#locale-choice")).toHaveValue("ja");
+  await expect(
+    page.getByRole("button", { name: "エージェントへ送る" }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("ja");
+  // A language is named in its own language; finding 日本語 must not require
+  // already reading the language you are trying to leave.
+  expect(
+    await page.locator("#locale-choice option[value='zh-Hans']").textContent(),
+  ).toBe("简体中文");
+});

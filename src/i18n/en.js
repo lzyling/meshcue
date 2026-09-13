@@ -208,6 +208,12 @@ export default {
   "feedback.submitted":
     "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
 
+  "settings.language": "Interface language",
+  "settings.theme": "Light or dark",
+  "settings.themeSystem": "Follow the system",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+
   "help.open": "How to use",
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
