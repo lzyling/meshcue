@@ -10,7 +10,8 @@
   },
   "type": "module",
   "bin": {
-    "meshcue": "./cli/meshcue.mjs"
+    "meshcue": "./cli/meshcue.mjs",
+    "meshcue-mcp": "./mcp/server.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
