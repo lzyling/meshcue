@@ -187,15 +187,9 @@ export default {
   "feedback.read": "Agent 已读取",
   "feedback.unread": "等待 Agent 读取",
   "feedback.alsoUnsubmitted": "；另有改动尚未提交",
-  "feedback.downloadMarks": "下载标记",
-  "feedback.downloadModel": "下载这一版",
-  "feedback.finish": "结束本轮审阅",
   "feedback.submit": "交给 Agent",
   "feedback.submitting": "提交中…",
   "feedback.submitted": "标记已保存；提交状态以实际回执为准。模型维持锁定。",
-  "feedback.roundSealed":
-    "本轮已结束；未提交的标记已封存，并随本轮一并送交 Agent。",
-  "feedback.roundClosed": "本轮已结束；已提交的标记仍然保存。",
 
   "help.open": "使用说明",
   "help.eyebrow": "快速上手",
@@ -208,13 +202,13 @@ export default {
   "help.p4":
     "橡皮擦只擦掉可见笔迹，不动模型本身的材质。油漆桶会预览相连的近平面，单击即填色；范围滑块只在油漆桶时出现。油漆桶作用于整个相连表面，可能包含被其他物体挡住的部分；画笔与橡皮擦不会穿透。",
   "help.p5":
-    "标记靠花纹分辨，一键即可隐藏；素色查看只是辅助观看。下载保留原本颜色与贴图，不含任何标记。",
+    "标记靠花纹分辨，一键即可隐藏；素色查看只是辅助观看。标记只存在于审阅里 —— Agent 手上的模型文件从不带上它们。",
   "help.p6":
     "「交给 Agent」会保存并提交标记。回到原对话说明想改什么；有不清楚的地方 Agent 会问。提交本身不会改动模型。",
   "help.p7":
     "顶部的标签页列出 Agent 交付过的每一个版本。点任何一个都可以回看，也可以直接在旧版上标记并提交——每一版各有自己的草稿，切换不影响其他版本。Agent 收到的标记会注明针对哪一版。",
   "help.p8":
-    "一轮做完就按「结束本轮审阅」；未提交的标记会被封存，并随本轮一并送交 Agent。之后再标记会自动开始新的一轮。草稿会自动保存。",
+    "按「交给 Agent」把这一批送出；Agent 会给出新版本，你接着在新版本上标记就行。不需要结束什么，草稿会自动保存。",
   "help.p9":
     "本版支持 GLB／STL，上限 80 MB 与 60 万面。动画、骨架与压缩 GLB 尚未支持。这是审阅工具，不会替你改模型。",
 };

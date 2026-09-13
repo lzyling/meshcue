@@ -215,17 +215,10 @@ export default {
   "feedback.unread": "en attente de lecture par l'Agent",
   "feedback.alsoUnsubmitted":
     "; d'autres changements ne sont pas encore envoyés",
-  "feedback.downloadMarks": "Télécharger les marques",
-  "feedback.downloadModel": "Télécharger cette version",
-  "feedback.finish": "Terminer ce tour",
   "feedback.submit": "Envoyer à l'Agent",
   "feedback.submitting": "Envoi…",
   "feedback.submitted":
     "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
-  "feedback.roundSealed":
-    "Ce tour est clos ; les marques non envoyées ont été scellées et transmises à l'Agent avec lui.",
-  "feedback.roundClosed":
-    "Ce tour est clos ; les marques envoyées restent enregistrées.",
 
   "help.open": "Mode d'emploi",
   "help.eyebrow": "DÉMARRAGE RAPIDE",
@@ -239,13 +232,13 @@ export default {
   "help.p4":
     "La gomme n'enlève que les tracés visibles et laisse intacts les matériaux du modèle. Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue n'apparaît que pour lui. Le remplissage agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets ; le pinceau et la gomme ne traversent pas.",
   "help.p5":
-    "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les téléchargements conservent les couleurs et textures d'origine et ne contiennent aucune marque.",
+    "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
   "help.p6":
     "« Envoyer à l'Agent » enregistre et transmet les marques. Revenez à la conversation d'origine pour dire ce que vous voulez changer ; l'Agent posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
   "help.p7":
     "Les onglets en haut listent chaque version livrée par l'Agent. Appuyez sur l'un d'eux pour la revoir, et vous pouvez marquer et envoyer directement sur une version ancienne — chaque version garde son propre brouillon, et changer d'onglet n'affecte pas les autres. Les marques reçues par l'Agent indiquent la version visée.",
   "help.p8":
-    "Quand un tour est fini, appuyez sur « Terminer ce tour » ; les marques non envoyées sont scellées et transmises à l'Agent avec lui. Marquer de nouveau ensuite ouvre un tour suivant de lui-même. Les brouillons s'enregistrent seuls.",
+    "« Envoyer à l'Agent » envoie ce lot ; l'Agent répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
   "help.p9":
     "Première version : GLB/STL, jusqu'à 80 Mo et 600 000 triangles. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
 };

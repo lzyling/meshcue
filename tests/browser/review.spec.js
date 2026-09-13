@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 import * as THREE from "three";
+import { fetchLoadedModel, loadedModelDisposition } from "./loaded-model.mjs";
 
 const repo = process.cwd(),
   url = "http://127.0.0.1:43174";
@@ -235,9 +236,9 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   // of being able to go back: an older marking is not an ambiguous one.
   expect(send.params.message).toContain(original);
   expect(send.params.message).toContain("不等於修改指令");
-  await page
-    .getByRole("button", { name: "Finish this round", exact: true })
-    .click();
+  // The round is not closed here, because closing it is not a thing a reviewer
+  // does: he hands the batch over and walks onto whatever the Agent publishes
+  // next. The submission below was made by handing over, not by finishing.
   await expect(page.locator("#loading")).toBeHidden();
   await page
     .getByRole("button", { name: "Show the latest version", exact: true })
@@ -1172,37 +1173,38 @@ test("iteration: current-version download is original bytes, including after neu
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
     .toBe(stateBefore.active.id);
-  const pending = page.waitForEvent("download");
-  await page.locator("#download-model").click();
-  const download = await pending;
-  const bytes = fs.readFileSync(await download.path());
+  // The page has no download control any more — a reviewer who wants the file
+  // asks the Agent for it in the conversation. The service still serves the
+  // bytes, and the version named on screen still has to be the version those
+  // bytes belong to, which is the part worth asserting.
+  const served = await fetchLoadedModel(page);
   const { createHash } = await import("node:crypto");
-  expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+  expect(createHash("sha256").update(served).digest("hex")).toBe(
     stateBefore.active.sha256,
   );
-  expect(download.suggestedFilename()).toContain(stateBefore.active.version);
+  expect(await loadedModelDisposition(page)).toContain(
+    stateBefore.active.version,
+  );
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
 });
 
-test("iteration: superseded unsubmitted model remains downloadable from the current view", async ({
+test("iteration: superseded unsubmitted model is still served to the current view", async ({
   page,
 }) => {
   await ready(page);
   const current = (await request("GET", "state")).data.active;
   await page.route("**/api/state**", (route) => route.abort());
   publish("bunny-figurine.glb", "v2");
-  const pending = page.waitForEvent("download");
-  await page.locator("#download-model").click();
-  const download = await pending;
-  expect(await download.failure()).toBeNull();
+  // Publishing does not retract what a reviewer is still looking at. The page
+  // stopped offering the file, but the Agent can be asked for it, and the
+  // service must still have the superseded bytes to give.
+  const served = await fetchLoadedModel(page);
   const { createHash } = await import("node:crypto");
-  expect(
-    createHash("sha256")
-      .update(fs.readFileSync(await download.path()))
-      .digest("hex"),
-  ).toBe(current.sha256);
+  expect(createHash("sha256").update(served).digest("hex")).toBe(
+    current.sha256,
+  );
 });
 test("iteration: changing tool cancels a bucket action awaiting edit ownership", async ({
   page,

@@ -272,7 +272,7 @@ export class ReviewStore {
     );
     if (versions.some((id) => this.livePresence(id))) return "使用者正在標記；";
     if (versions.some((id) => this.hasUnsubmitted(id)))
-      return "原會話仍有未交出的標記，請先在網頁提交或結束該版本；";
+      return "原會話仍有未交出的標記，請先在網頁交給 Agent；";
     return null;
   }
   hasUnsubmitted(versionId) {

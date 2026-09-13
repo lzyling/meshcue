@@ -216,17 +216,10 @@ export default {
   "feedback.read": "der Agent hat sie gelesen",
   "feedback.unread": "wartet darauf, dass der Agent sie liest",
   "feedback.alsoUnsubmitted": "; weitere Änderungen sind noch nicht gesendet",
-  "feedback.downloadMarks": "Markierungen herunterladen",
-  "feedback.downloadModel": "Diese Version herunterladen",
-  "feedback.finish": "Runde beenden",
   "feedback.submit": "An den Agenten",
   "feedback.submitting": "Wird gesendet …",
   "feedback.submitted":
     "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
-  "feedback.roundSealed":
-    "Diese Runde ist beendet; nicht gesendete Markierungen wurden versiegelt und mit ihr an den Agenten geschickt.",
-  "feedback.roundClosed":
-    "Diese Runde ist beendet; gesendete Markierungen bleiben gespeichert.",
 
   "help.open": "Anleitung",
   "help.eyebrow": "SCHNELLSTART",
@@ -240,13 +233,13 @@ export default {
   "help.p4":
     "Der Radierer entfernt nur sichtbare Striche und lässt die Materialien des Modells unberührt. Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler erscheint nur dafür. Füllen wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile; Pinsel und Radierer dringen nicht durch.",
   "help.p5":
-    "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Downloads behalten die Originalfarben und Texturen und enthalten keine Markierungen.",
+    "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
   "help.p6":
     "„An den Agenten“ speichert und sendet die Markierungen. Kehren Sie ins ursprüngliche Gespräch zurück, um zu sagen, was geändert werden soll; bei Unklarheiten fragt der Agent nach. Das Senden allein ändert das Modell nicht.",
   "help.p7":
     "Die Reiter oben listen jede vom Agenten gelieferte Version. Ein Druck darauf zeigt sie erneut, und Sie können auch auf einer älteren Version direkt markieren und senden — jede Version hat ihren eigenen Entwurf, das Wechseln berührt die anderen nicht. Die Markierungen, die der Agent erhält, nennen die Version, für die sie gelten.",
   "help.p8":
-    "Ist eine Runde fertig, „Runde beenden“ drücken; nicht gesendete Markierungen werden versiegelt und mit ihr an den Agenten geschickt. Danach beginnt erneutes Markieren von selbst eine neue Runde. Entwürfe speichern sich selbst.",
+    "„An den Agenten“ sendet diesen Stapel; der Agent antwortet mit einer neuen Version, auf der Sie weiter markieren. Es muss nichts abgeschlossen werden, und Entwürfe speichern sich selbst.",
   "help.p9":
     "Erste Fassung: GLB/STL, bis 80 MB und 600.000 Dreiecke. Animation, Skelette und komprimiertes GLB werden noch nicht unterstützt. Dies ist ein Prüfwerkzeug; es modelliert nicht.",
 };

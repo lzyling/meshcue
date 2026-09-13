@@ -191,7 +191,6 @@ a {
 /* A label beside an icon has to sit on the icon's centre line, not the text
    baseline, or the two read as separate things stacked by accident. */
 .primary-button,
-.secondary-button,
 #new-region {
   display: inline-flex;
   align-items: center;
@@ -682,25 +681,29 @@ a {
   letter-spacing: 0.17em;
   font-size: 8px;
 }
-.review-footer {
+/* The one action a reviewer takes sits under the marks it hands over, not in a
+   bar of its own across the bottom. The bar had four controls; three of them
+   were the page offering to do what the Agent is there to do, and removing
+   them left nothing worth the 74px it reserved. */
+.panel-actions {
+  border-top: 1px solid var(--line);
+  padding: 9px;
   display: flex;
-  gap: 10px;
-  align-items: center;
-  padding-top: 18px;
-  min-height: 56px;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
 }
-.submission-status {
-  flex: 1;
+.panel-actions .primary-button {
+  width: 100%;
+  justify-content: center;
+  padding: 11px 12px;
+}
+#feedback-status {
   font-size: 10px;
   color: var(--ink-faint);
-  line-height: 1.7;
+  line-height: 1.6;
   min-width: 0;
-}
-.submission-status a {
-  display: block;
-  font-size: 10px;
-  text-decoration: none;
-  margin-top: 3px;
+  overflow-wrap: anywhere;
 }
 .primary-button {
   background: var(--accent);
@@ -714,15 +717,6 @@ a {
 }
 .primary-button:hover:not(:disabled) {
   background: var(--accent-hover);
-}
-.secondary-button {
-  background: var(--surface-raised);
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  padding: 12px 13px;
-  border-radius: 8px;
-  font-size: 10px;
-  white-space: nowrap;
 }
 .pending-banner {
   margin-top: 10px;
@@ -910,11 +904,7 @@ dialog .muted {
   .primary-button {
     padding: 12px;
   }
-  .secondary-button {
-    padding: 11px 8px;
-    font-size: 9px;
-  }
-  .submission-status {
+  #feedback-status {
     font-size: 9px;
   }
   .viewer-top {
@@ -951,15 +941,6 @@ dialog .muted {
   }
   .model-heading {
     margin-bottom: 14px;
-  }
-  .review-footer {
-    padding-top: 12px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-  .submission-status {
-    flex-basis: 100%;
-    min-height: 18px;
   }
   .tool-options {
     bottom: 104px;
@@ -1056,17 +1037,7 @@ dialog .muted {
     right: 10px;
     font-size: 9px;
   }
-  .review-footer {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 10px;
-  }
-  .submission-status {
-    flex-basis: 100%;
-  }
-  .primary-button,
-  .secondary-button {
-    flex: 1;
+  .primary-button {
     padding: 10px 6px;
   }
 }
@@ -1318,24 +1289,14 @@ dialog .muted {
     0 0 0 1px var(--line-strong),
     var(--shadow-1);
 }
-.review-footer {
-  padding-top: 6px;
-  min-height: 38px;
-  gap: 6px;
-  flex-wrap: wrap;
+.panel-actions {
+  padding: 6px;
+  gap: 4px;
 }
-.submission-status {
-  flex-basis: auto;
-}
-.primary-button,
-.secondary-button {
+.primary-button {
   padding: 8px 10px;
   flex: none;
   font-size: 10px;
-}
-a.secondary-button {
-  text-decoration: none;
-  text-align: center;
 }
 .viewer-bottom {
   bottom: 9px;
@@ -1378,17 +1339,14 @@ a.secondary-button {
   .annotation-action {
     margin-left: 5px;
   }
-  .submission-status {
-    flex-basis: 100%;
+  #feedback-status {
     font-size: 9px;
   }
   .model-meta #save-status {
     max-width: 65px;
     font-size: 9px;
   }
-  .primary-button,
-  .secondary-button {
-    flex: 1;
+  .primary-button {
     padding: 7px 5px;
   }
 }

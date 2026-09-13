@@ -83,7 +83,7 @@ app.innerHTML = `${SPRITE}
   <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("minus")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span><span class="scene-pill subtle" id="model-info"></span></div>
@@ -110,7 +110,6 @@ app.innerHTML = `${SPRITE}
   <div id="recovery-banner" class="pending-banner" hidden><span>${T("recovery.text")}</span><a id="download-recovery">${T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
   <div id="precision-banner" class="pending-banner" hidden><span id="precision-text"></span></div>
-  <footer class="review-footer"><div class="submission-status"><span id="feedback-status">${T("feedback.default")}</span><a id="download-feedback" hidden>${T("feedback.downloadMarks")}</a></div><a id="download-model" class="secondary-button" hidden>${T("feedback.downloadModel")}</a><button id="finish-review" class="secondary-button" disabled>${T("feedback.finish")}</button><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button></footer>
  </section>
 </main><div id="toast" role="status" hidden></div>
 <dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p5")}</p><p>${T("help.p6")}</p><p>${T("help.p7")}</p><p>${T("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
@@ -123,6 +122,10 @@ const colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 let color = colors[0];
 let state = null,
   loadedId = null,
+  // Named for the acceptance checks: with no download control on the page, a
+  // test that wants to prove the bytes on screen belong to the version claimed
+  // has to be told which file to ask the service for.
+  loadedFilename = null,
   // Which version the reviewer chose to look at, and whether they are still
   // following whatever the Agent puts on screen. Picking an older tab pins the
   // view; picking the current one hands the choice back to the Agent.
@@ -567,7 +570,6 @@ function updateButtons() {
   // would disable the button during exactly the outage it exists to survive.
   $("#submit-feedback").disabled =
     busy || !can.canEdit || (!can.canSubmit && !annotations.length);
-  $("#finish-review").disabled = busy || !can.canFinish || !settled;
   $("#undo").disabled = busy || !undoStack.length;
   $("#redo").disabled = busy || !redoStack.length;
   $("#review-status").textContent = accessBlocked
@@ -1044,6 +1046,7 @@ async function loadVersion(fullState) {
   if (!model) return;
   viewingId = fullState.viewing || model.id;
   loadedId = model.id;
+  loadedFilename = model.filename;
   loadedReviewId = fullState.reviewId;
   sweepDraftCache();
   loadedReceipt = null;
@@ -1051,10 +1054,6 @@ async function loadVersion(fullState) {
   echoId = null;
   relocatingId = null;
   $("#echo-panel").hidden = true;
-  $("#download-model").href = endpoint(`api/download/${model.filename}`);
-  $("#download-model").download =
-    `${model.name}-${model.version}.${model.format}`;
-  $("#download-model").hidden = false;
   initialDraftRestored = false;
   annotations = [];
   selectedId = null;
@@ -1107,6 +1106,7 @@ async function loadVersion(fullState) {
     if (!initialDraftRestored) {
       viewer.enabled = false;
       loadedId = null;
+      loadedFilename = null;
     }
     $("#loading-text").textContent = e.message;
     $("#loading .spinner").hidden = true;
@@ -1317,8 +1317,6 @@ $("#submit-feedback").addEventListener("click", async () => {
       result,
     ];
     updateReceipt();
-    $("#download-feedback").href = endpoint(`api/submissions/${result.id}`);
-    $("#download-feedback").hidden = false;
     toast(t("feedback.submitted"));
   } catch (e) {
     $("#feedback-status").textContent = e.message;
@@ -1327,25 +1325,6 @@ $("#submit-feedback").addEventListener("click", async () => {
     submitting = false;
     $("#submit-feedback").innerHTML = `${T("feedback.submit")} ${icon("send")}`;
     updateButtons();
-  }
-});
-$("#finish-review").addEventListener("click", async () => {
-  if (submitting) return;
-  submitting = true;
-  updateButtons();
-  try {
-    await flushDraft();
-    const result = await api("review/finish", owner());
-    state = result;
-    toast(
-      result.sealed ? t("feedback.roundSealed") : t("feedback.roundClosed"),
-    );
-  } catch (e) {
-    toast(e.message);
-  } finally {
-    submitting = false;
-    updateButtons();
-    await pollState();
   }
 });
 $("#go-latest").addEventListener("click", () => {
@@ -1434,6 +1413,7 @@ setInterval(() => {
 // Read-only diagnostics for browser acceptance checks; never mutate review state.
 window.__reviewDiagnostics = () => ({
   versionId: loadedId,
+  modelFilename: loadedFilename,
   reviewId: loadedReviewId,
   draftCacheKey: draftKey(),
   precision: loadedPrecision,

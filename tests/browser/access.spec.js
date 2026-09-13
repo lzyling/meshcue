@@ -4,6 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { startReview } from "../helpers/review-server.mjs";
+import { fetchLoadedModel } from "./loaded-model.mjs";
 
 const origin = {
   harness: "openclaw",
@@ -81,13 +82,6 @@ function geometryBytes(bytes) {
   }
   throw new Error("Expected binary geometry");
 }
-async function currentDownload(page) {
-  const pending = page.waitForEvent("download");
-  await page.locator("#download-model").click();
-  const download = await pending;
-  expect(await download.failure()).toBeNull();
-  return fs.readFileSync(await download.path());
-}
 
 test("ordinary link automatically claims a host-admitted peer and loads, marks, restores and downloads without token input", async ({
   page,
@@ -129,7 +123,7 @@ test("ordinary link automatically claims a host-admitted peer and loads, marks, 
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
-  expect(sha(await currentDownload(page))).toBe(initial.active.sha256);
+  expect(sha(await fetchLoadedModel(page))).toBe(initial.active.sha256);
   expect((await f.ipc("/status")).body.access.sessions).toBe(1);
 });
 
@@ -196,7 +190,7 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   const echoed = await page.evaluate(() => window.__reviewDiagnostics());
   expect(echoed.annotations).toEqual(before.annotations);
   expect(echoed.camera).toEqual(before.camera);
-  const v1bytes = await currentDownload(page);
+  const v1bytes = await fetchLoadedModel(page);
   expect(sha(v1bytes)).toBe(initial.active.sha256);
 
   const output = path.join(f.dir, "generated");
@@ -231,15 +225,17 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
     .locator(`.version-tab[data-version-id="${initial.active.id}"]`)
     .click();
   await expect(page.locator("#pending-banner")).toBeVisible();
-  expect(sha(await currentDownload(page))).toBe(initial.active.sha256);
-  await page.locator("#finish-review").click();
+  expect(sha(await fetchLoadedModel(page))).toBe(initial.active.sha256);
+  // Nothing is ended here on purpose: a reviewer told the Agent what was wrong,
+  // a new version arrived, and he walks onto it and keeps marking. That is the
+  // whole loop, and it never passes through a control that closes a round.
   await page
     .getByRole("button", { name: "Show the latest version", exact: true })
     .click();
   await expect(page.locator("#model-version")).toHaveText("v2-hole-0.28");
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#echo-panel")).toBeHidden();
-  expect(sha(await currentDownload(page))).toBe(published.body.model.sha256);
+  expect(sha(await fetchLoadedModel(page))).toBe(published.body.model.sha256);
   const current = await page.evaluate(() => window.__reviewDiagnostics());
   expect(current.versionId).toBe(published.body.model.id);
   expect(current.annotationCount).toBe(0);
@@ -285,7 +281,10 @@ test("authorization loss stops editing, auto-claim recovers unsynced draft in pl
   await expect(page.locator("#feedback-status")).toContainText(
     "delivered to the original conversation",
   );
-  await page.locator("#finish-review").click();
+  // Closing the round belongs to the Agent now — the page stopped offering it,
+  // because a reviewer never wanted it. The service's own behaviour is what
+  // matters here and it is unchanged.
+  await f.ipc("/finish", {});
   // Finishing clears presence, so the project reads as free to the Agent.
   await expect
     .poll(async () => (await f.ipc("/status")).body.locked)

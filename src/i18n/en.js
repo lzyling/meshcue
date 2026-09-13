@@ -204,17 +204,10 @@ export default {
   "feedback.read": "the Agent has read it",
   "feedback.unread": "waiting for the Agent to read it",
   "feedback.alsoUnsubmitted": "; more changes are not yet submitted",
-  "feedback.downloadMarks": "Download the marks",
-  "feedback.downloadModel": "Download this version",
-  "feedback.finish": "Finish this round",
   "feedback.submit": "Send to Agent",
   "feedback.submitting": "Submitting…",
   "feedback.submitted":
     "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
-  "feedback.roundSealed":
-    "This round is closed; marks that were not submitted have been sealed and sent to the Agent with it.",
-  "feedback.roundClosed":
-    "This round is closed; submitted marks are still saved.",
 
   "help.open": "How to use",
   "help.eyebrow": "QUICK START",
@@ -228,13 +221,13 @@ export default {
   "help.p4":
     "The eraser removes visible strokes only and leaves the model's own materials alone. The paint bucket previews the connected near-flat area and fills it on a click; the spread slider appears only for the bucket. The bucket works on a whole connected surface, which can include parts hidden behind other objects; the brush and eraser do not pass through.",
   "help.p5":
-    "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Downloads keep the original colours and textures and contain no marks.",
+    "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
   "help.p6":
     "“Send to Agent” saves and submits the marks. Return to the original conversation to say what you want changed; the Agent will ask if anything is unclear. Submitting does not change the model by itself.",
   "help.p7":
     "The tabs along the top list every version the Agent has delivered. Press any of them to look back, and you can mark and submit on an older version directly — each version keeps its own draft, and switching does not affect the others. The marks the Agent receives state which version they target.",
   "help.p8":
-    "When a round is done, press “Finish this round”; marks that were not submitted are sealed and sent to the Agent with it. Marking again afterwards starts a new round by itself. Drafts save themselves.",
+    "“Send to Agent” sends this batch; the Agent replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
   "help.p9":
     "First release: GLB/STL, up to 80 MB and 600,000 triangles. Animation, skeletons and compressed GLB are not supported yet. This is a review tool; it does not sculpt the model.",
 };
