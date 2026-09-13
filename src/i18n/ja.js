@@ -163,8 +163,8 @@ export default {
   "version.submitted": "{count} 件送信済み",
   "version.openElsewhere": "別ウィンドウで表示中",
   "version.pinnedNotice":
-    "以前のバージョンを見ています。エージェントは {version} を表示しています。",
-  "version.goActive": "最新バージョンを見る",
+    "以前のバージョンを見ています。最新は {version} です。",
+  "version.goLatest": "最新バージョンを見る",
   "version.driftStopped":
     "別のバージョンが届きました。下書きは保持し、自動切り替えを停止しました。",
 

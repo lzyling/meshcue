@@ -160,8 +160,8 @@ export default {
   "version.submitted": "{count} submitted",
   "version.openElsewhere": "Open in another window",
   "version.pinnedNotice":
-    "You are looking at an earlier version; the Agent is showing {version}.",
-  "version.goActive": "Show the latest version",
+    "You are looking at an earlier version; the newest is {version}.",
+  "version.goLatest": "Show the latest version",
   "version.driftStopped":
     "A different version arrived; your draft is kept and automatic switching has stopped.",
 

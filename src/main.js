@@ -2,6 +2,7 @@ import { newId } from "./browser-crypto.js";
 import "./style.css";
 import { ModelViewer } from "./viewer.js";
 import { buildOrientCube, compassTransform } from "./orient-cube.js";
+import { latestVersion, viewingBehindLatest } from "./versions.js";
 import { t, currentLocale } from "./i18n/index.js";
 import {
   letterLabel,
@@ -104,7 +105,7 @@ app.innerHTML = `${SPRITE}
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
   </div>
   </div>
-  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-active" class="quiet">${T("version.goActive")}</button></div>
+  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-latest" class="quiet">${T("version.goLatest")}</button></div>
   <div id="resume-banner" class="pending-banner" hidden><span>${T("resume.text")}</span><button id="resume-review" class="quiet">${T("resume.action")}</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>${T("recovery.text")}</span><a id="download-recovery">${T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
@@ -555,6 +556,8 @@ function updateButtons() {
   // The server decides what is permitted and says why when it is not. The page
   // only adds what the server cannot know: whether this tab has finished saving.
   const can = state?.capabilities || {};
+  const latest = latestVersion(state?.versions),
+    behind = viewingBehindLatest(state?.versions, viewingId);
   const ready =
       !!loadedId && viewer.enabled && !recoveryBlocked && !accessBlocked,
     settled = editSeq === savedSeq && !saveFlight,
@@ -573,18 +576,17 @@ function updateButtons() {
       : t("conn.noAccess")
     : !ready
       ? t("review.loadingModel")
-      : !followActive
+      : behind
         ? t("review.earlierVersion")
         : state?.locked
           ? t("review.openElsewhere")
           : blockedText(can.blocked) || t("review.current");
   updateReceipt();
   renderVersions();
-  const newer = !followActive && state?.active;
-  $("#pending-banner").hidden = !newer;
-  if (newer)
+  $("#pending-banner").hidden = !behind;
+  if (behind)
     $("#pending-text").textContent = t("version.pinnedNotice", {
-      version: state.active.version || state.active.name,
+      version: latest.version || latest.name,
     });
   $("#resume-banner").hidden = !state?.locked || accessBlocked;
   document
@@ -1346,9 +1348,9 @@ $("#finish-review").addEventListener("click", async () => {
     await pollState();
   }
 });
-$("#go-active").addEventListener("click", () => {
-  if (state?.active?.id)
-    selectVersion(state.active.id).catch((e) => toast(e.message));
+$("#go-latest").addEventListener("click", () => {
+  const latest = latestVersion(state?.versions);
+  if (latest?.id) selectVersion(latest.id).catch((e) => toast(e.message));
 });
 $("#resume-review").addEventListener("click", async () => {
   if (submitting) return;

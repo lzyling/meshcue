@@ -146,8 +146,8 @@ export default {
   "version.earlier": "较早版本",
   "version.submitted": "已交 {count} 批",
   "version.openElsewhere": "另一窗口打开中",
-  "version.pinnedNotice": "你正在看较早的版本；Agent 现在展示的是 {version}。",
-  "version.goActive": "查看最新版本",
+  "version.pinnedNotice": "你正在看较早的版本；最新的是 {version}。",
+  "version.goLatest": "查看最新版本",
   "version.driftStopped": "有新版本送到，草稿已保留，并已停止自动切换。",
 
   "resume.text": "另一个窗口也开着这一版。",
