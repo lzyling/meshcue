@@ -9,6 +9,9 @@
     "url": "git+https://github.com/lzyling/meshcue.git"
   },
   "type": "module",
+  "bin": {
+    "meshcue": "./cli/meshcue.mjs"
+  },
   "engines": {
     "node": ">=22.0.0"
   },

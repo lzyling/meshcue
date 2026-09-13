@@ -149,10 +149,15 @@ export class InstanceManager {
       serverEntry,
       distRoot,
       environment = {},
+      resolveOrigin,
     } = {},
   ) {
     Object.assign(this, workspaceContext(ctx));
     this.ctx = ctx;
+    // Who owns a review is the host's answer, and only a host shaped like
+    // OpenClaw can be asked for it the OpenClaw way. A host that states its own
+    // owner supplies this instead; the derivation stays where it can be right.
+    this.resolveOrigin = resolveOrigin || (() => trustedOrigin(this.ctx));
     this.installRoot = fs.realpathSync(installRoot);
     this.serverEntry =
       serverEntry || path.join(this.installRoot, "runtime/server.mjs");
@@ -436,7 +441,7 @@ export class InstanceManager {
     );
   }
   async execute(input) {
-    const origin = trustedOrigin(this.ctx);
+    const origin = this.resolveOrigin();
     if (
       !within(
         this.allowed,

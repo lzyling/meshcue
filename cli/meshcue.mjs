@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+// The base every harness stands on. The OpenClaw adapter reaches the same
+// InstanceManager through the plugin SDK; everything else — a person at a
+// prompt, an MCP server, a script — reaches it through here. There is one
+// implementation underneath, so a path that works in one harness is not a
+// separate path that has to be kept working in the others.
+//
+// Output is JSON on stdout, one object, always. Failures are JSON too, with the
+// same `code` the tool layer reports, and a non-zero exit. A caller should
+// never have to read prose to find out what happened.
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { InstanceManager } from "../integration/manager.mjs";
+import { precheckModel } from "../integration/precheck.mjs";
+import { normalizeOrigin } from "../server/origin.mjs";
+import { IntegrationError } from "../integration/context.mjs";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const INSTALL_ROOT = path.resolve(HERE, "..");
+
+const ACTIONS = [
+  "open",
+  "status",
+  "activate",
+  "read",
+  "echo",
+  "finish",
+  "unlock",
+  "stop",
+  "precheck",
+];
+
+const FLAGS = {
+  workspace: "workspace",
+  owner: "owner",
+  project: "project",
+  file: "file",
+  name: "name",
+  version: "version",
+  units: "units",
+  label: "label",
+  submission: "submissionId",
+  summary: "summary",
+  "version-id": "versionId",
+  host: "host",
+  "client-address": "confirmedClientAddress",
+};
+const BOOLEANS = { resume: "resume", "no-activate": "activate" };
+
+export function parseArgs(argv) {
+  const [action, ...rest] = argv;
+  const input = {};
+  for (let i = 0; i < rest.length; i++) {
+    const token = rest[i];
+    if (!token.startsWith("--"))
+      throw new IntegrationError("BAD_USAGE", `未預期的參數：${token}`);
+    const flag = token.slice(2);
+    if (flag in BOOLEANS) {
+      input[BOOLEANS[flag]] = flag !== "no-activate";
+      continue;
+    }
+    if (!(flag in FLAGS))
+      throw new IntegrationError("BAD_USAGE", `無法識別的選項：--${flag}`);
+    const value = rest[++i];
+    if (value === undefined || value.startsWith("--"))
+      throw new IntegrationError("BAD_USAGE", `--${flag} 需要一個值。`);
+    input[FLAGS[flag]] = value;
+  }
+  return { action, input };
+}
+
+// A CLI has no conversation to be woken in, so it states an owner and no route.
+// The owner has to outlive the process — every invocation is a new one — which
+// is why it is given rather than generated: whoever wraps this knows which
+// session is asking, and inventing an id here would hand the project to a
+// stranger on every call.
+export function cliOrigin(owner) {
+  if (!owner)
+    throw new IntegrationError(
+      "MISSING_OWNER",
+      "請以 --owner 指明擁有這輪審閱的會話；沒有替你編一個。",
+    );
+  return normalizeOrigin({
+    harness: "cli",
+    sessionKey: owner,
+    sessionId: owner,
+  });
+}
+
+export async function run(
+  argv,
+  {
+    cwd = process.cwd(),
+    installRoot = INSTALL_ROOT,
+    serverEntry = path.join(INSTALL_ROOT, "server/index.mjs"),
+    distRoot = path.join(INSTALL_ROOT, "dist"),
+    environment,
+  } = {},
+) {
+  const { action, input } = parseArgs(argv);
+  if (!action || !ACTIONS.includes(action))
+    throw new IntegrationError(
+      "BAD_USAGE",
+      `用法：meshcue <${ACTIONS.join("|")}> [--選項 值]…`,
+    );
+  const workspace = fs.realpathSync(input.workspace || cwd);
+  // Measuring a file needs no instance, no owner and no project.
+  if (action === "precheck") {
+    if (!input.file)
+      throw new IntegrationError("BAD_USAGE", "precheck 需要 --file。");
+    return precheckModel(
+      { workspaceDir: workspace, agentId: "cli" },
+      input.file,
+    );
+  }
+  const manager = new InstanceManager(
+    { workspaceDir: workspace, agentId: "cli" },
+    {
+      installRoot,
+      serverEntry,
+      distRoot,
+      ...(environment ? { environment } : {}),
+      clientAddress: input.confirmedClientAddress,
+      resolveOrigin: () => cliOrigin(input.owner),
+    },
+  );
+  const { workspace: _w, owner: _o, ...rest } = input;
+  return manager.execute({ ...rest, action });
+}
+
+const invoked =
+  process.argv[1] &&
+  fs.realpathSync(process.argv[1]) === fs.realpathSync(HERE + "/meshcue.mjs");
+if (invoked) {
+  try {
+    const result = await run(process.argv.slice(2));
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  } catch (error) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          error: {
+            code: error.code || "FAILED",
+            message: String(error.message || error),
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    process.exitCode = 1;
+  }
+}
