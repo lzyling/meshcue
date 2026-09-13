@@ -2,6 +2,12 @@
   "name": "@meshcue/openclaw",
   "version": "0.8.3",
   "private": true,
+  "license": "Apache-2.0",
+  "author": "Kelven Ling <kelvenlinglzy@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lzyling/meshcue.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
