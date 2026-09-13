@@ -23,6 +23,17 @@ export default {
   "conn.noSecureRandom":
     "This browser has no secure random source. Please use a current version of Chrome or Edge.",
 
+  "error.empty": "Add a pin or paint a region first",
+  "error.saving": "Wait for the draft to finish saving before submitting",
+  "error.staleDraft": "The draft moved on; reload the saved revision",
+  "error.originBusy": "Another conversation is using this review right now",
+  "error.accessExpired":
+    "That one-time grant has expired; go back to the conversation",
+  "error.accessLimit": "This review has reached its connection limit",
+  "error.integrationDisabled":
+    "MeshCue is disabled; your draft is kept, continue from the conversation",
+  "error.deliveryUnconfirmed":
+    "Delivery is not confirmed yet; your marks are saved and will be retried",
   "error.accessRequired":
     "This entrance has no valid review access. Please return to the original conversation.",
 

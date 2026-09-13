@@ -49,6 +49,7 @@ package.json（仓库根）                 ← 目前靠人手同步，未进�
 | 0.8.2     | 内附 Skill 正文跟上 0.8.x 事实    | patch ✓（只是文案）               |
 | 0.8.3     | Skill 补端上回执的时效判据        | patch ✓（只是文案）               |
 | **0.9.0** | **核心与 harness 解耦：身份拆成拥有者＋可选回传、通知器可缺席、`meshcue` CLI、MCP server** | **minor ✓（`INTEGRATION_API` 1→2）** |
+| **0.10.0** | **英文为主：README／AGENT-INTERFACE／SECURITY／SKILL 改英文，193 条运行时消息英文化，设计文档进 `docs/zh/`** | **minor ✓（用户可见表面实质变化）** |
 
 0.5.3 那次不追溯改号，但规则从 0.6.2 起严格执行。
 

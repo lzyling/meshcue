@@ -84,8 +84,20 @@ const T = (key, vars) => esc(t(key, vars));
    with no entry yet falls back to the service's own words: half-translated is
    poor, but silence in place of a reason is worse. This is the seam where the
    rest of the service's browser-facing text will join. */
+// A server message is written for an agent and a log file. These are the
+// refusals a reviewer can actually cause from the page, so they are said in the
+// reviewer's own language; anything else falls through to the server's text,
+// which is the honest thing to show when nobody has translated it.
 const ERROR_KEYS = {
   ACCESS_REQUIRED: "error.accessRequired",
+  EMPTY: "error.empty",
+  SAVING: "error.saving",
+  STALE_DRAFT: "error.staleDraft",
+  ORIGIN_BUSY: "error.originBusy",
+  ACCESS_EXPIRED: "error.accessExpired",
+  ACCESS_LIMIT: "error.accessLimit",
+  INTEGRATION_DISABLED: "error.integrationDisabled",
+  DELIVERY_UNCONFIRMED: "error.deliveryUnconfirmed",
 };
 const BLOCKED_KEYS = {
   NOT_IN_REVIEW: "review.notInReview",

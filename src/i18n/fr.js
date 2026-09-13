@@ -24,6 +24,19 @@ export default {
   "conn.noSecureRandom":
     "Ce navigateur n'a pas de source aléatoire sécurisée. Veuillez utiliser une version récente de Chrome ou d'Edge.",
 
+  "error.empty": "Posez d'abord un repère ou peignez une zone",
+  "error.saving":
+    "Attendez la fin de l'enregistrement du brouillon avant d'envoyer",
+  "error.staleDraft":
+    "Le brouillon a changé ; rechargez la version enregistrée",
+  "error.originBusy": "Une autre conversation utilise cette revue en ce moment",
+  "error.accessExpired":
+    "Cette autorisation à usage unique a expiré ; revenez à la conversation",
+  "error.accessLimit": "Cette revue a atteint sa limite de connexions",
+  "error.integrationDisabled":
+    "MeshCue est désactivé ; votre brouillon est conservé, continuez dans la conversation",
+  "error.deliveryUnconfirmed":
+    "Livraison non confirmée ; vos marques sont enregistrées et seront réessayées",
   "error.accessRequired":
     "Cette entrée n'a pas d'accès de revue valide. Veuillez revenir à la conversation d'origine.",
 

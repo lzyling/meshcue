@@ -22,6 +22,14 @@ export default {
   "conn.noSecureRandom":
     "瀏覽器缺少安全隨機功能，請使用目前版本的 Chrome 或 Edge。",
 
+  "error.empty": "請先放一個點標籤或塗一塊區域",
+  "error.saving": "請等草稿保存完成後再提交",
+  "error.staleDraft": "草稿已更新，請重新載入已保存的版本",
+  "error.originBusy": "另一個對話正在使用這次審閱",
+  "error.accessExpired": "臨時授權已過期，請返回原對話",
+  "error.accessLimit": "本次審閱的連線數已達上限",
+  "error.integrationDisabled": "MeshCue 已停用；草稿已保留，請在原對話繼續",
+  "error.deliveryUnconfirmed": "尚未確認送達；標記已保存，會自動重試",
   "error.accessRequired": "此入口未取得有效審閱權，請返回原對話。",
 
   "a11y.reviewPanel": "模型審閱",

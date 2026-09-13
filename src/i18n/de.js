@@ -24,6 +24,20 @@ export default {
   "conn.noSecureRandom":
     "Diesem Browser fehlt eine sichere Zufallsquelle. Bitte eine aktuelle Version von Chrome oder Edge verwenden.",
 
+  "error.empty":
+    "Setzen Sie zuerst eine Markierung oder malen Sie einen Bereich",
+  "error.saving":
+    "Warten Sie, bis der Entwurf gespeichert ist, bevor Sie senden",
+  "error.staleDraft":
+    "Der Entwurf hat sich geändert; laden Sie die gespeicherte Fassung neu",
+  "error.originBusy": "Ein anderes Gespräch nutzt diese Durchsicht gerade",
+  "error.accessExpired":
+    "Die einmalige Freigabe ist abgelaufen; kehren Sie zum Gespräch zurück",
+  "error.accessLimit": "Diese Durchsicht hat ihre Verbindungsgrenze erreicht",
+  "error.integrationDisabled":
+    "MeshCue ist deaktiviert; Ihr Entwurf bleibt erhalten, machen Sie im Gespräch weiter",
+  "error.deliveryUnconfirmed":
+    "Zustellung noch nicht bestätigt; Ihre Markierungen sind gespeichert und werden erneut gesendet",
   "error.accessRequired":
     "Dieser Zugang hat keine gültige Prüfberechtigung. Bitte kehren Sie zum ursprünglichen Gespräch zurück.",
 

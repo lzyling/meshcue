@@ -23,6 +23,18 @@ export default {
   "conn.noSecureRandom":
     "このブラウザには安全な乱数生成がありません。最新版の Chrome または Edge をご利用ください。",
 
+  "error.empty": "まずピンを置くか領域を塗ってください",
+  "error.saving": "下書きの保存が終わってから送信してください",
+  "error.staleDraft":
+    "下書きが更新されました。保存済みの版を読み込み直してください",
+  "error.originBusy": "別の会話がこのレビューを使用中です",
+  "error.accessExpired":
+    "一時的な許可の期限が切れました。元の会話に戻ってください",
+  "error.accessLimit": "このレビューの接続数が上限に達しました",
+  "error.integrationDisabled":
+    "MeshCue は無効です。下書きは保持されています。元の会話から続けてください",
+  "error.deliveryUnconfirmed":
+    "配信は未確認です。マークは保存済みで、再試行されます",
   "error.accessRequired":
     "この入口には有効なレビュー権限がありません。元の会話に戻ってください。",
 

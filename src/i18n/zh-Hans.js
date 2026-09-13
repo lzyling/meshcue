@@ -22,6 +22,14 @@ export default {
   "conn.noSecureRandom":
     "浏览器缺少安全随机功能，请使用当前版本的 Chrome 或 Edge。",
 
+  "error.empty": "请先放一个点标签或涂一块区域",
+  "error.saving": "请等草稿保存完成后再提交",
+  "error.staleDraft": "草稿已更新，请重新载入已保存的版本",
+  "error.originBusy": "另一个对话正在使用这次审阅",
+  "error.accessExpired": "临时授权已过期，请返回原对话",
+  "error.accessLimit": "本次审阅的连线数已达上限",
+  "error.integrationDisabled": "MeshCue 已停用；草稿已保留，请在原对话继续",
+  "error.deliveryUnconfirmed": "尚未确认送达；标记已保存，会自动重试",
   "error.accessRequired": "此入口未取得有效审阅权，请返回原对话。",
 
   "a11y.reviewPanel": "模型审阅",

@@ -599,8 +599,13 @@ export class ReviewStore {
     }
     const d = this.claim(versionId, clientId);
     if (d.revision !== revision)
+      // Its own code, not the default CONFLICT it shared with every other
+      // refusal: the page can only say this one in the reviewer's language if
+      // it can tell it apart from the rest.
       throw new ReviewError(
         "Wait for the draft to finish saving before submitting.",
+        409,
+        "SAVING",
       );
     if (!d.annotations.length && d.submittedRevision == null)
       throw new ReviewError("Add a pin or paint a region first.", 400, "EMPTY");
