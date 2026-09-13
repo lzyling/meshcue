@@ -473,7 +473,7 @@ test("real HTTP submission preserves explicit topic route and does not route old
   assert.equal((await f.api("feedback", { method: "POST", body })).status, 200);
   assert.equal(log().calls.filter((c) => c.method === "chat.send").length, 1);
   const old = await f.ipc(`/submissions/${body.submissionId}`);
-  assert.equal(old.body.origin.threadId, "41");
+  assert.equal(old.body.origin.route.threadId, "41");
 });
 
 test("HTTP authorization protects models and writes, enforces client ownership, and expires on origin change", async (t) => {

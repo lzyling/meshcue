@@ -23,10 +23,10 @@ export { within };
 // inspect probe and the interface doc all derive from it.
 //
 // need "workspace" workspaceContext refuses without it
-//      "origin"    trustedOrigin refuses without it
-//      "route"     required, but which ones depends on the channel; the branch
-//                  in trustedOrigin still decides, along with the rest of the
-//                  harness assumptions that have not been lifted out yet
+//      "owner"     who may change this review; every host must answer it
+//      "route"     where a batch is delivered; only a host that can be pushed
+//                  to has one, so this is a property of the adapter rather than
+//                  of MeshCue. The branch in trustedOrigin decides for OpenClaw
 //      null        optional; `absent` is what MeshCue does instead
 export const HOST_CONTEXT = [
   {
@@ -47,7 +47,7 @@ export const HOST_CONTEXT = [
   },
   {
     key: "sessionKey",
-    need: "origin",
+    need: "owner",
     label: "會話",
     read: (ctx) => ctx.sessionKey,
     use: "Names the conversation a submitted batch is delivered back to.",
@@ -56,7 +56,7 @@ export const HOST_CONTEXT = [
   },
   {
     key: "sessionGeneration",
-    need: "origin",
+    need: "owner",
     label: "會話代際",
     read: (ctx) => ctx.sessionId,
     use: "Generation fence, so /new or /reset cannot silently resume a bound round.",
@@ -147,7 +147,7 @@ export function workspaceContext(ctx) {
   return { workspace, allowed, agentId: ctx.agentId };
 }
 export function trustedOrigin(ctx) {
-  requireContext(ctx, "origin", "MISSING_ORIGIN", "沒有沿用舊話題。");
+  requireContext(ctx, "owner", "MISSING_ORIGIN", "沒有沿用舊話題。");
   const d = ctx.deliveryContext;
   const channel = d?.channel || ctx.messageChannel;
   const base = {
@@ -155,7 +155,12 @@ export function trustedOrigin(ctx) {
     sessionKey: ctx.sessionKey,
     sessionId: ctx.sessionId,
   };
-  if (channel === "webchat") return normalizeOrigin({ ...base, channel });
+  // OpenClaw can always be written back to, so this host still refuses to bind
+  // a round it could not deliver into. A host that offers no delivery at all
+  // will supply an owner and no route; that is a different answer, not this
+  // failure, and it belongs to whichever adapter speaks for such a host.
+  if (channel === "webchat")
+    return normalizeOrigin({ ...base, route: { channel } });
   if (channel !== "telegram" || !d?.to || !d.accountId)
     fail("MISSING_ORIGIN", "此入口未有受支援的原會話回傳地址。");
   const match = /^(?:telegram:)?(-?\d+)(?::topic:(\d+))?$/.exec(d.to);
@@ -164,24 +169,29 @@ export function trustedOrigin(ctx) {
     fail("BAD_ORIGIN", "宿主提供的 Telegram 話題資料不一致。");
   return normalizeOrigin({
     ...base,
-    channel,
-    target: match[1],
-    accountId: d.accountId,
-    ...(thread || match[2] ? { threadId: thread || match[2] } : {}),
+    route: {
+      channel,
+      target: match[1],
+      accountId: d.accountId,
+      ...(thread || match[2] ? { threadId: thread || match[2] } : {}),
+    },
   });
 }
+// Still every field that was ever compared, so nothing a round used to refuse
+// becomes allowed. Two origins with no route agree only when their owner does,
+// which is the whole comparison a host without delivery can support.
 export function sameRoute(a, b) {
-  const route = (v) =>
+  const identity = (v) =>
     v &&
     JSON.stringify([
       v.harness,
       v.sessionKey,
-      v.channel,
-      v.target,
-      v.accountId,
-      v.threadId,
+      v.route?.channel,
+      v.route?.target,
+      v.route?.accountId,
+      v.route?.threadId,
     ]);
-  return route(a) === route(b);
+  return identity(a) === identity(b);
 }
 // Walk parents before creation; checking only the final leaf after mkdir would
 // already have written through a symlink. Recheck on every tool invocation.

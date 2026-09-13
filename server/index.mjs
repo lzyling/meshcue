@@ -10,7 +10,7 @@ import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { OpenClawBridge } from "./bridge.mjs";
-import { originSchema, normalizeOrigin } from "./origin.mjs";
+import { originInput, normalizeOrigin } from "./origin.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import {
   readInstance,
@@ -841,7 +841,7 @@ agentApp.post("/publish", (req, res) => {
       source: z.string().optional(),
       units: z.string().max(30).optional(),
       label: z.string().max(24).optional(),
-      origin: originSchema.optional(),
+      origin: originInput.optional(),
       activate: z.boolean().optional(),
     })
     // Strict like every other write route: a caller that misnames a field must
@@ -912,7 +912,7 @@ agentApp.get("/access/browsers", (req, res) =>
 );
 agentApp.post("/origin", (req, res) => {
   const p = z
-    .object({ origin: originSchema, resumeGeneration: z.boolean().optional() })
+    .object({ origin: originInput, resumeGeneration: z.boolean().optional() })
     .strict()
     .parse(req.body);
   store.bindOrigin(p.origin, { resumeGeneration: p.resumeGeneration });

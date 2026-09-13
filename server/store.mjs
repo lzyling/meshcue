@@ -55,8 +55,13 @@ export class ReviewStore {
     }
     // Freeze legacy routing once, separately from immutable submission files.
     // A subsequent config edit must never redirect an old submission retry.
-    if (!Object.hasOwn(this.state, "reviewOrigin"))
-      this.state.reviewOrigin = normalizeOrigin(legacyOrigin);
+    // Origins stored before the route moved out of the identity are lifted on
+    // the way in, not left in their own spelling: two shapes in memory compare
+    // unequal, and the comparison that suffers is the one deciding whether a
+    // session may resume its own round.
+    this.state.reviewOrigin = Object.hasOwn(this.state, "reviewOrigin")
+      ? normalizeOrigin(this.state.reviewOrigin)
+      : normalizeOrigin(legacyOrigin);
     if (!this.state.reviewId) {
       this.state.reviewId = crypto.randomUUID();
       // Only the pre-0.4 active review may import a model-only browser cache.
@@ -488,9 +493,15 @@ export class ReviewStore {
     this.save();
   }
   submissionOrigin(item) {
-    return Object.hasOwn(item, "origin")
-      ? item.origin
-      : (this.state.legacySubmissionOrigins[item.id] ?? null);
+    // Lifted on the way out for the same reason the review's own origin is
+    // lifted on the way in, and without touching the file: a batch frozen
+    // before the route moved must still compare equal to the session that owns
+    // it, or its own conversation stops recognising it.
+    return normalizeOrigin(
+      Object.hasOwn(item, "origin")
+        ? item.origin
+        : (this.state.legacySubmissionOrigins[item.id] ?? null),
+    );
   }
   // Switching what is displayed is now free: every version keeps its own draft,
   // presence and echo, so nothing is surrendered and nothing is destroyed. That

@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { ReviewStore } from "../server/store.mjs";
 import { OpenClawBridge } from "../server/bridge.mjs";
-import { normalizeOrigin } from "../server/origin.mjs";
+import { normalizeOrigin, deliveryParams } from "../server/origin.mjs";
+import { sameRoute } from "../integration/context.mjs";
 
 const internal = normalizeOrigin("test-internal-session");
 const telegram = normalizeOrigin({
@@ -14,7 +15,11 @@ const telegram = normalizeOrigin({
   accountId: "test",
   threadId: "41",
 });
-const next = { ...telegram, sessionKey: "test-other-session", threadId: "42" };
+const next = {
+  ...telegram,
+  sessionKey: "test-other-session",
+  route: { ...telegram.route, threadId: "42" },
+};
 const model = {
   id: "origin-model",
   version: "v1",
@@ -57,7 +62,7 @@ test("Telegram replies route by the batch's own session and never override the h
     // sessionKey is the route. Each origin carries its own, so a batch frozen
     // against one topic can never be delivered into another.
     assert.equal(sent.params.sessionKey, origin.sessionKey);
-    assert.equal(sent.params.deliver, origin.channel === "telegram");
+    assert.equal(sent.params.deliver, origin.route.channel === "telegram");
     // Naming the destination instead is an admin-scoped override the Gateway
     // refuses outright. Sending one stalled every real Telegram round.
     for (const key of [
@@ -154,4 +159,65 @@ test("changing origin after a finished review never redirects an old idempotent 
   assert.deepEqual(store.submissionOrigin(retried), telegram);
   assert.equal(store.publicState("").submissions.length, 0);
   assert.equal(store.state.drafts[model.id].annotations.length, 0);
+});
+
+test("an owner without a return route is a describable host, not a malformed one", () => {
+  // The point of the split: a harness that cannot be pushed to must be
+  // expressible. Before, identity was a discriminated union over chat channels,
+  // so this object could not be built at all — the refusal came from the schema
+  // rather than from any decision about what to do.
+  const pull = normalizeOrigin({ harness: "codex", sessionKey: "a-codex-run" });
+  assert.equal(pull.route, undefined);
+  assert.equal(pull.harness, "codex");
+
+  // Nowhere to push is not a failed push. The wording matters because the page
+  // turns "delivery failed" into a standing red banner.
+  assert.throws(() => deliveryParams(pull), /未投遞/);
+  assert.doesNotThrow(() => deliveryParams(telegram));
+
+  // Ownership did not loosen. Every field that was ever compared is still
+  // compared; route-less origins simply have fewer of them to disagree on.
+  assert.equal(sameRoute(pull, normalizeOrigin({ ...pull })), true);
+  assert.equal(
+    sameRoute(pull, normalizeOrigin({ ...pull, sessionKey: "another-run" })),
+    false,
+  );
+  assert.equal(
+    sameRoute(pull, normalizeOrigin({ ...pull, harness: "x" })),
+    false,
+  );
+  assert.equal(sameRoute(telegram, next), false);
+});
+
+test("origins stored before the split still read, without rewriting any state file", (t) => {
+  const flat = {
+    harness: "openclaw",
+    sessionKey: "legacy-session",
+    channel: "telegram",
+    target: "-100000002",
+    accountId: "test",
+    threadId: "7",
+  };
+  const { dir, store } = fixture(t, flat);
+  store.publish(model);
+  const item = submit(store);
+  // Written by an older release exactly as it was stored then.
+  const statePath = path.join(dir, "state.json");
+  const raw = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  raw.reviewOrigin = { ...flat };
+  fs.writeFileSync(statePath, JSON.stringify(raw));
+
+  const recovered = new ReviewStore(dir, { legacyOrigin: internal });
+  assert.deepEqual(recovered.state.reviewOrigin.route, {
+    channel: "telegram",
+    target: "-100000002",
+    accountId: "test",
+    threadId: "7",
+  });
+  assert.equal(recovered.state.reviewOrigin.sessionKey, "legacy-session");
+  assert.deepEqual(deliveryParams(recovered.state.reviewOrigin), {
+    sessionKey: "legacy-session",
+    deliver: true,
+  });
+  assert.deepEqual(recovered.submissionOrigin(item), normalizeOrigin(flat));
 });

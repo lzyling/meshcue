@@ -116,10 +116,12 @@ test("trusted Telegram context normalizes encoded destinations and refuses missi
     harness: "openclaw",
     sessionKey: ctx.sessionKey,
     sessionId: ctx.sessionId,
-    channel: "telegram",
-    target: "-100000001",
-    accountId: "test",
-    threadId: "41",
+    route: {
+      channel: "telegram",
+      target: "-100000001",
+      accountId: "test",
+      threadId: "41",
+    },
   });
   assert.throws(() => trustedOrigin({ ...ctx, sessionId: undefined }), /代際/);
   assert.throws(
@@ -187,7 +189,7 @@ test("a host supplying only the required context runs a full round, and each mis
     sessionGeneration: (ctx) => ({ ...ctx, sessionId: undefined }),
   };
   const guarded = HOST_CONTEXT.filter((field) =>
-    ["workspace", "origin"].includes(field.need),
+    ["workspace", "owner"].includes(field.need),
   );
   assert.deepEqual(
     guarded.map((field) => field.key).sort(),
