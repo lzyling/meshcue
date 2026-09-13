@@ -13,9 +13,11 @@ __pycache__/
 /tmp/
 *.log
 
-# Historical delivery payloads include local paths and session identifiers.
-# Keep the files locally; track their human-readable summary in REFERENCES.md.
-/evidence/20260909-media/*.json
+# Acceptance evidence is local. It carries machine paths, session identifiers
+# and, in one case, 74MB of another project's build output that was never ours
+# to redistribute. The files stay on disk and REFERENCES.md keeps the readable
+# summary; what is already in history is removed the day this goes public.
+/evidence/
 
 # Runtime state and browser verification outputs
 /runtime/
@@ -23,6 +25,3 @@ __pycache__/
 **/browser-access.json.*.tmp
 /test-results/
 /playwright-report/
-
-# Machine-specific installed-code backups and staged runtime bundles.
-/evidence/sidebar-release-*/
