@@ -148,6 +148,12 @@ try {
     const status = await call({ action: "status", project });
     assert.equal(status.codeRoot.startsWith(workspace), true);
     assert.match(status.releaseId, /^[a-f0-9]{64}$/);
+    // A release id says which bytes are running but not whether they are the
+    // ones just installed. Freshly opened, the two versions agree — and when
+    // they stop agreeing the status has to say so unprompted, because the
+    // symptom otherwise is a fix that silently never reaches the reviewer.
+    assert.equal(status.version, status.integrationVersion);
+    assert.equal(status.serving, undefined);
     assert.equal(status.access.browsers.length, 1);
     assert.ok(
       Object.keys(status.viewerReceipts).length,

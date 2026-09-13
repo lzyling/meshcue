@@ -793,6 +793,12 @@ agentApp.get("/status", (req, res) =>
     integrationApi: INTEGRATION_API,
     codeRoot: repo,
     releaseId: process.env.REVIEW_RELEASE_ID || null,
+    // Installing an extension does not restart a live instance; only `open`
+    // replaces the code a reviewer's browser is talking to. A fixed version can
+    // therefore sit on disk while the running one is still the broken one, and
+    // on 2026-09-11 that went unnoticed for an hour and a half. The status says
+    // which version is actually serving, so the caller can compare.
+    version,
     network: {
       host: network.host,
       port: server.address()?.port,
