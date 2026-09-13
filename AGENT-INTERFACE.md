@@ -134,9 +134,9 @@ node scripts/reviewctl.mjs network
 
 内网模式设 `REVIEW_HOST=lan` 或经核对的本机私网 IPv4。多首选网卡时不猜测，不接受全网卡／公网地址。所有模型、状态、标注、回执和下载受授权保护；首页壳及不含模型数据的 health 可公开。
 
-授权规则（2026-09-10 16:32定案，取代15:32的60分钟方案）：入场许可15分钟、单次使用；每次新发放立即作废上一个未使用许可，已进入的浏览器不被踢出。浏览器连续30天未实际使用才过期，正常使用自动续期，没有小时级硬截止。服务重启保留浏览器授权；显式撤销／来源更换使相应授权失效，但不清草稿、不解除审阅锁。cookie为HttpOnly／SameSite=Strict，服务端仅持久化不可直接使用的校验摘要和关联元数据，不落明文凭据。`reviewctl browsers`查看元数据，`reviewctl revoke <browser-record-id>`定向撤销，无参数撤销全部。完整规则及迁移说明见[长期浏览器授权](BROWSER-TRUST.md)。
+授权规则（2026-09-10 16:32定案，取代15:32的60分钟方案）：入场许可15分钟、单次使用；每次新发放立即作废上一个未使用许可，已进入的浏览器不被踢出。浏览器连续30天未实际使用才过期，正常使用自动续期，没有小时级硬截止。服务重启保留浏览器授权；显式撤销／来源更换使相应授权失效，但不清草稿、不解除审阅锁。cookie为HttpOnly／SameSite=Strict，服务端仅持久化不可直接使用的校验摘要和关联元数据，不落明文凭据。`reviewctl browsers`查看元数据，`reviewctl revoke <browser-record-id>`定向撤销，无参数撤销全部。完整规则及迁移说明见[长期浏览器授权](docs/zh/BROWSER-TRUST.md)。
 
-本机私有 IPC 保留给宿主适配器的通用发行接口；不要把发行响应打印到会话或文件。**已补内网定向入场适配**：`reviewctl admit` 为已核对的客户端 IPv4 创建一次性许可，普通网页自动领取 HttpOnly 会话；命令只输出非凭据元数据，没有输出凭据的 CLI、URL 参数或产品配对表单。操作及适用边界见 [内网定向入场](LAN-ADMISSION.md)。`node scripts/reviewctl.mjs revoke` 可撤销授权，保留审阅数据。Windows 实测及真实回传结果须另行核实，不以隔离测试代替。
+本机私有 IPC 保留给宿主适配器的通用发行接口；不要把发行响应打印到会话或文件。**已补内网定向入场适配**：`reviewctl admit` 为已核对的客户端 IPv4 创建一次性许可，普通网页自动领取 HttpOnly 会话；命令只输出非凭据元数据，没有输出凭据的 CLI、URL 参数或产品配对表单。操作及适用边界见 [内网定向入场](docs/zh/LAN-ADMISSION.md)。`node scripts/reviewctl.mjs revoke` 可撤销授权，保留审阅数据。Windows 实测及真实回传结果须另行核实，不以隔离测试代替。
 
 ## 发布 GLB 或 STL
 

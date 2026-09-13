@@ -1,96 +1,117 @@
 # MeshCue
 
-**在模型上标清楚，让 Agent 改明白。**
+**Point at the model. Let the Agent read what you meant.**
 
-Browser-based 3D review and annotation for agent-assisted modeling.
+MeshCue is a browser workbench for reviewing 3D models with an AI agent. The
+agent publishes a draft, you open it in your own browser, mark the surfaces that
+are wrong — lettered pins and painted regions, on the mesh, in three dimensions —
+and hand the batch back. The agent reads positions, not a screenshot, and
+publishes the next version. Every version stays open for marking.
 
-面向 Agent 协作的 3D 模型审阅与标注工作台。2026-09-10由Kelven确认正式名称 **MeshCue**，仓库名及包名统一为 `meshcue`；原开发代号为 `3d-agent-review`。命名与旧路径兼容说明见 [正式命名](NAMING.md)。
+It is not a CAD or sculpting tool. It is the step between "here is a draft" and
+"here is what to change", which until now was a screenshot and a paragraph.
 
-**产品定位：在标准浏览器中使用的通用 3D 审阅与标注工具。** 面向不同 Agent harness，OpenClaw 为首个 Agent 适配平台。当前是独立本地网页程序配 OpenClaw 自订接线，尚未封装为 MCP 或正式 Skill，也未完成跨平台解耦。见 [定位说明](POSITIONING.md) 与 [2026-09-10 入口决策](BROWSER-ACCESS-DECISION.md)。
+## Why positions
 
-**最新设计：不再适配 OpenClaw／Codex 等内置浏览器。** 用户直接在 Chrome、Safari 等标准浏览器访问工作台，对话仍留在原会话。历史侧栏修复与验收材料保留，但不再是产品使用或发布前提；既有宿主补丁未在本轮移除。
+Telling an agent "the fillet on the left bracket is too sharp" costs a sentence
+and buys an argument about which bracket. A mark carries the mesh, the face, the
+barycentric coordinate and the version it was made against. The agent gets an
+address, not a description, and can say back which surface it understood.
 
-## 0.4 候选：内网授权与原会话接线
+## The loop
 
-**2026-09-10：已在 `feat/v0.4-lan-delivery` 实现 0.4 候选，尚未覆盖正式服务或用户数据。** 新增逐轮原会话绑定、Telegram 显式话题回传、普通内网 HTTP 的 UUID／SHA 兼容、具体私网网卡监听、短期授权与跨话题隔离。隔离浏览器已跑通真实参数改模及新版再审；验收细节及尚待端上核实的项目见 [0.4 结果](ITERATION-V04-RESULTS.md)。
+1. The agent runs `precheck` on the model file, then `open` to publish it.
+2. You open the URL in Chrome, Safari or any modern WebGL browser.
+3. Double-click a surface to drop a lettered pin; paint regions with the brush,
+   eraser and fill. Nothing is submitted until you say so.
+4. Press **Send to Agent**. The batch is frozen against the version you marked.
+5. The agent calls `read`, replies in your conversation, and `open`s the next
+   version. Older versions keep their own marks and stay selectable.
 
-已补[内网定向入场适配](LAN-ADMISSION.md)：Agent 为已核对的客户端 IPv4 创建15分钟一次性许可，普通网页自动领取HttpOnly浏览器授权，没有token输入或Mac配对步骤。**16:32用户确认[长期记住浏览器](BROWSER-TRUST.md)**：30天未实际使用才过期、正常使用续期、重启保留，取代60分钟硬截止。Windows已确认内网页面连通，模型操作及真实Telegram回传仍待端上验收。
+There is no "finish the round" button. The next version *is* the end of the last
+one.
 
-## 0.3 交付基线（历史）
+## Three ways in, one implementation
 
-**0.3 阶段已收尾（2026-09-10）：用户试用后确认「想要的功能基本都实现了」。同日 14:18 已获准实施 [0.4开发计划](ITERATION-V04-PLAN.md)。** 不把原整体反馈扩大为所有边界情况、其他浏览器或实际改模闭环均已验收；详情见 [发布与试用记录](STANDARD-BROWSER-V03-20260910.md)。
+The core does not know which harness is talking to it. All three entry points
+drive the same instance manager, with the same actions and the same results.
 
-本轮已实现模型优先布局、稳定字母标签／移动／撤销、可收合清单、全局隐藏、精确橡皮擦、近平面油漆桶预览／调节、原色与素色显示、独立 Agent 理解回显、真实提交回执及当前原档下载。旧数字标记和提交不改写，安装包不在本轮范围。
+| Entry point | How | Who owns a review |
+| --- | --- | --- |
+| OpenClaw extension | native `meshcue` tool | derived from the host's session |
+| `meshcue` CLI | `meshcue <action> --owner <id> …`, JSON in, JSON out | stated by the caller |
+| `meshcue-mcp` | stdio MCP server, added to your client's `mcp_servers` | the workspace, or `MESHCUE_OWNER` |
 
-**2026-09-10 已单次启用工作台 0.3，未重启 OpenClaw／Gateway。** 候选哈希、现有模型／草稿／提交保全、独立 Chrome 加载与原档下载已核验；本轮没有在正式数据上新增测试标记或提交。新功能的用户手感仍待试用。旧的宿主下载补丁／配套 UI 发布流程保持停止。见 [标准浏览器发布记录](STANDARD-BROWSER-V03-20260910.md)。
+Ownership decides who may change a draft or switch the displayed version.
+A second owner asking about the same project is refused with `RESUME_REQUIRED`
+until someone says, explicitly, that the review is being continued.
 
-## 现在测试
+### Being told, or asking
 
-0.3 既有本机服务入口：<http://127.0.0.1:43173/>。这是运行服务的同一台机器的回环地址，不是其他电脑或手机直接可用的网址。**09-10 开工核对时服务未运行，本轮未启动正式入口。** 0.4 已另行交付独立的 Windows 内网试用入口，用户已确认连通，Chrome 已取得长期浏览器授权；真人标记、真实 Telegram 回传及改模再审闭环仍待验收。实际试用网址由 Agent 在发起会话交付，不能只换成任意内网 IP 就当已可用。
+Only a host that can write into its own conversation can announce a submission.
+A client reached over a tool protocol cannot: the protocol has no way to wake a
+conversation. MeshCue does not pretend otherwise.
 
-把上述网址放入 **Chrome／Safari 等标准浏览器的地址栏**打开，不放进 Control UI／Codex 的内置浏览器。可将工作台和原会话窗口并排摆放；此入口不需要刷新宿主 UI、配置导航例外或为模型显示重启 Gateway。
+`status.notifier` reports what the host actually offers. Where `send` is false,
+a submitted batch has the status `waiting` — durable, listed, collected by
+calling `read`. It is not a delivery that failed, it counts as no attempt, and it
+never becomes stalled. An agent on such a host should read when the reviewer says
+they are done rather than waiting for a message that cannot arrive.
 
-Control UI Portal 入口待办已取消。跨 harness 保留的是模型／标注／回显与原会话接线，不是宿主侧栏显示。其他标准浏览器及版本按后续兼容矩阵核验，不宣称已经全部实测。
+## Model limits
 
-以下是 **0.3** 操作。已打开旧页的用户，等显示「草稿已保存」后刷新原有分頁；不要新开分頁抢占原草稿。服务不会强制刷新页面。
+| Limit | Threshold | On exceeding |
+| --- | --- | --- |
+| Triangles | 600,000 | publish refused, `MODEL_LIMIT` |
+| File size | 80 MB | publish refused, `MODEL_LIMIT` |
+| Texture pixels | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
+| Subdivision budget | 600,000 | **no error** — see below |
 
-1. 「双孔支架」参数样例：左键拖动旋转、右键平移、滚轮缩放。
-2. 无需切工具，双击模型表面落 A／B／C 字母标签；旧数字标记保留。单击、拖动不落点。画笔跟随笔迹、不填满三角面；画笔模式可按 Option／Alt 拖动临时旋转。
-3. 点击「交畀 Agent」；位置标记和当前模型版本被提交到发起审阅的原会话。
-4. 回原会话说明怎样修改。Agent 没有足够说明时应先询问，不凭颜色自行修改。
-5. 完成本轮后点「结束本轮审阅」。未提交草稿不能结束；新的 Agent 模型只会在释放审阅锁后显示。
+The review mesh divides one budget across every source face, and each face costs
+at least one triangle of it. Past roughly 300,000 source faces the remainder per
+face drops below one, large flat spans stop subdividing, and the brush skips
+across them. That model publishes successfully and says nothing, which is why
+`precheck` exists: run it on every file before `open` and simplify when the
+verdict is `degraded` or `reject`.
 
-想看人偶，可以在原会话让 Agent 按 [操作接口](AGENT-INTERFACE.md) 发布自带的人偶样例或现有 GLB；初版没有用户自行切历史版本按钮。
+## Running it
 
-旧的整面标记原样保留并标明来源；没有足够原笔迹数据，不能自动修复成精确笔迹。新笔迹不会覆盖或冒充旧标记。
-
-旧 Control UI 侧栏过程仅作 [历史接入记录](CONTROL-UI-INTEGRATION.md)，不再按其待办实施配置、部署或重启。
-
-## 本地运行
-
-需要 Node.js 22、已配置的 OpenClaw CLI、现代支持 WebGL 的浏览器。
+Node.js 22 or newer, and a browser with WebGL.
 
 ```sh
 npm ci
-npm run samples
-npm run build
-npm run serve:start
-npm run serve:status
+npm run samples      # generate the parametric sample models
+npm test             # 140 unit and integration tests
+npm run test:browser # 55 real-Chromium tests, isolated port and data
 ```
 
-停止：`npm run serve:stop`。前台运行：`npm start`。开发前端：先启动后端，再 `npm run dev`（仅本机 43175，代理后端 API）。不安装系统自启动服务。
-
-首次启动从忽略的 `runtime/config.json` 的 `origin`（旧版为 `sessionKey`）导入来源，随后固定到审阅状态和提交快照；改启动配置不会重定向旧批次。新来源由 Agent 用 `reviewctl bind` 或 `publish --origin` 绑定，见 [Agent 接口](AGENT-INTERFACE.md)。本项目不保存、展示或索取 Gateway 凭据，CLI 沿用主机配置。媒体放在 workspace 的 `media/3d/3d-agent-review/`，不会进源代码仓库。
-
-内网接口发现：`node scripts/reviewctl.mjs network`。`REVIEW_HOST=lan` 只在唯一首选私网网卡时选址，否则要求显式指定已配置的私网 IPv4；不监听 `0.0.0.0` 或公网地址。内网模式强制授权；Agent 按[定向入场操作](LAN-ADMISSION.md)核对目标并签发，不能把监听成功当作用户入口可用。撤销浏览器授权可用 `node scripts/reviewctl.mjs revoke`，不改变模型或草稿锁。
-
-## 验证与文档
+For an OpenClaw install, build and install the extension:
 
 ```sh
-npm test
-npm run test:browser
-REVIEW_BROWSER_ORIGIN=http://review.test:43174 npm run test:browser
+npm run build:integration -- tmp/candidate/package
+openclaw plugins install ./tmp/candidate/package
 ```
 
-浏览器测试会先构建到隔离的 `tmp/refinement-dist`，使用 43174 和临时数据，不更新正式 43173 服务。需要本机 Chrome，以及用于渲染像素检查的 Python/Pillow。常规交互测试使用明确标识的 Gateway 测试替身，另有真实 Gateway 接纳探针，二者的证据分开记录。现有大模型测试依赖本机 `media/3d/` 下的恐龙与 Benchy 文件。
+For any MCP client, point it at the server:
 
-- [项目与已确认方向](PROJECT.md)
-- [需求](REQUIREMENTS.md) · [待办](ROADMAP.md)
-- [0.2 改进验证、激活与待验收边界](ACCEPTANCE-V02-20260909.md)
-- [初版验收、测试截图与限制](ACCEPTANCE-20260909.md)
-- [睡醒后的试用指引与交付状态](HANDOFF-20260909.md)
-- [Agent 操作接口](AGENT-INTERFACE.md) · [实施记录](IMPLEMENTATION.md)
-- [早期调研](RESEARCH-20260909.md) · [上游参考素材](REFERENCES.md)
+```toml
+[mcp_servers.meshcue]
+command = "npx"
+args = ["meshcue-mcp"]
+```
 
-## 版本与数据边界
+The workbench listens on the loopback address by default. LAN mode binds one
+verified private IPv4 and always requires authorization — see
+[SECURITY.md](SECURITY.md) for the trust model, how a browser is admitted, and
+how long that lasts.
 
-正式仓库：[lzyling/meshcue](https://github.com/lzyling/meshcue)。项目保持独立 Git，`origin` 使用该仓库的 SSH 地址。
+## Documentation
 
-- `main`：首次同步以当前 MeshCue 0.4 候选为基线，保留此前完整开发历史；不表示 0.4 已完成真人闭环验收或正式发布。
-- `feat/v0.4-lan-delivery`：保留本轮开发分支，后续开发继续分阶段提交，再通过审阅合入 `main`。
-- `v0.4.0-rc.1`：保留原始候选检查点，不重打标签；该标签早于长期浏览器授权与 MeshCue 更名，最新代码以分支为准。
-- 本机通过项目专用 Deploy Key 访问；私钥保存在系统钥匙串，不放入仓库、命令参数或日志。SSH 身份选择只配置在本仓库，不改全局身份。
+- [AGENT-INTERFACE.md](AGENT-INTERFACE.md) — the contract an agent implements
+- [SECURITY.md](SECURITY.md) — network exposure, browser trust, reporting a flaw
+- [docs/zh/](docs/zh/) — design documents, in Chinese: positioning,
+  requirements, versioning rules, roadmap
 
-版本库包含代码、需求、测试与文档；不包含 `.env`、`runtime/`、依赖、构建目录、测试运行数据、媒体及原始会话投递 JSON。原始素材和样例源坐标不会被审阅标色写回。Git 同步不部署工作台，也不修改现有模型、草稿、浏览器授权或审阅锁。
+## License
 
-初版仍是审阅工作台，不是完整 CAD／雕刻软件；并不承诺对任意 Tripo 网格自动精修。参数样例用「模型单位」，没有宣称毫米标定或打印精度。
+Apache-2.0. See [LICENSE](LICENSE).
