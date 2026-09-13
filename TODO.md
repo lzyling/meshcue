@@ -1,6 +1,6 @@
 # MeshCue · 待办
 
-**下一步：0.9 第 1 组 —— 把「身份」从一条聊天路由改成「拥有者 + 可选回传」。**
+**下一步：0.9 第 2 组 —— 把通知器变成一个可以缺席的能力。**
 
 这份是「接下来做什么」的唯一清单。做完的整段在版本发布时移进 `ROADMAP.md`（历史记录），
 版本号怎么定见 `VERSIONING.md`。没有归属版本、也还没想清楚的，一律进最后那节，不要散落在别处。
@@ -14,15 +14,19 @@
 
 完整方案、实读到的现状、风险与「明确不做」见 **`ITERATION-V09-PLAN.md`**。
 
-- [ ] **组 1 · 身份改成「拥有者 + 可选回传」** ——
-      `server/origin.mjs` 现在是 `discriminatedUnion("channel", [webchat, telegram])`，
-      **身份被建模成一条 OpenClaw 聊天路由**。拆成 `owner`（人人都要）与 `route`（只有推送型有），
-      `HOST_CONTEXT` 随之收缩；旧 origin 走宽容读取，不迁移磁盘。
+- [x] **组 1 · 身份改成「拥有者 + 可选回传」** —— 完成（`3c1d081`）。
+      origin 现在是 `{harness, sessionKey, sessionId?, route?}`，`harness` 开放；
+      `HOST_CONTEXT` 的 `need: "origin"` 改名 `"owner"`；旧 origin 进出时就地升格，**磁盘不改写**。
+      `sameRoute` 仍比较全部字段，**没有放松任何检查**。
+      ⭐ 写测试时抓到一个真漏：store 原样返回存档 origin，改完之后**旧项目会跟自己的会话比不相等**。
+      已修（读时升格）。127 node + 55 浏览器测试。
 - [ ] **组 2 · 通知器变成能力接口** —— bridge 做的是**两件事**：`send`（带代际围栏，不能丢）
       与 `history`（读回对话推断送达）。两个都要能缺席。
       ⚠️ 无通知器时提交是「等 Agent 来取」，**不是投递失败** —— 否则 `STALL_AFTER=20` 会永远误报。
-- [ ] **组 3 · 拔掉剩下的名字** —— `z.literal("openclaw")`、`release.mjs:21` 读
-      `openclaw.plugin.json`、bridge 里的「找不到 openclaw 指令」文案。
+- [~] **组 3 · 拔掉剩下的名字** —— `z.literal("openclaw")` 随组 1 一起没了。
+      剩下 `release.mjs:21` 读 `openclaw.plugin.json` 取身份与版本 ——
+      **推迟到组 4／5**：现在根本不存在第二种安装包布局，改了也只是写一条没东西能跑的分支。
+      bridge 里的「找不到 openclaw 指令」等文案随组 2 一起搬走。
 - [ ] **组 4 · `meshcue` CLI** —— manager 的命令行外壳，**所有 harness 的共同底座**。
 - [ ] **组 5 · MCP server** —— 建在组 4 之上；`instructions` 由 `skills/meshcue-review/SKILL.md` 生成。
 - [ ] **组 6 · OpenClaw 适配器改调同一条底座** —— 不能省，省了就是两套路径、其中一套没人测。
