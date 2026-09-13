@@ -145,3 +145,72 @@ test("precheck measures a file without an owner, a project or an instance", asyn
   assert.equal(measured.triangles, 1);
   await assert.rejects(run(["precheck"], f.options), { code: "BAD_USAGE" });
 });
+
+test("a review survives being handed from one harness to another", async (t) => {
+  const f = workspace(t);
+  fs.writeFileSync(
+    path.join(f.dir, "projects/lamp/part-two.stl"),
+    stl.replace("solid t", "solid u"),
+  );
+  const openFlags = (owner, file, version) => [
+    "open",
+    "--owner",
+    owner,
+    "--project",
+    "projects/lamp",
+    "--file",
+    `projects/lamp/${file}`,
+    "--name",
+    "lamp",
+    "--version",
+    version,
+    "--host",
+    "127.0.0.1",
+    "--client-address",
+    "127.0.0.1",
+  ];
+  const first = await run(openFlags("harness-a", "part.stl", "v1"), f.options);
+  try {
+    assert.ok(first.url);
+    const before = await run(
+      ["status", "--owner", "harness-a", "--project", "projects/lamp"],
+      f.options,
+    );
+    assert.equal(before.versions.length, 1);
+
+    // Another harness does not simply take it. Continuing someone else's round
+    // stays a decision a person makes, exactly as it always has been.
+    await assert.rejects(
+      run(openFlags("harness-b", "part-two.stl", "v2"), f.options),
+      (error) => error.code === "RESUME_REQUIRED",
+    );
+
+    // Said explicitly, the handover happens — and nothing published before it
+    // goes away with the harness that published it.
+    const handed = await run(
+      [...openFlags("harness-b", "part-two.stl", "v2"), "--resume"],
+      f.options,
+    );
+    assert.ok(handed.url);
+    const after = await run(
+      ["status", "--owner", "harness-b", "--project", "projects/lamp"],
+      f.options,
+    );
+    assert.equal(after.versions.length, 2);
+    assert.deepEqual(after.versions.map((v) => v.version).sort(), ["v1", "v2"]);
+    assert.equal(after.origin.sessionKey, "harness-b");
+    // And the first harness is now the one that has to ask.
+    await assert.rejects(
+      run(
+        ["status", "--owner", "harness-a", "--project", "projects/lamp"],
+        f.options,
+      ),
+      (error) => error.code === "RESUME_REQUIRED",
+    );
+  } finally {
+    await run(
+      ["stop", "--owner", "harness-b", "--project", "projects/lamp"],
+      f.options,
+    );
+  }
+});
