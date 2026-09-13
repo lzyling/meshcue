@@ -1357,9 +1357,11 @@ async function readState() {
     if (recovered && state?.owned && editSeq > savedSeq && !recoveryBlocked)
       await flushDraft();
     $(".connection-dot").classList.add("online");
-    $("#connection-status").textContent = incoming.bridgeEnabled
+    $("#connection-status").textContent = incoming.notifier?.send
       ? t("conn.origin")
-      : t("conn.local");
+      : incoming.owned || state?.submissions?.length
+        ? t("conn.collect")
+        : t("conn.local");
     updateEcho(incoming);
     updateOutbox(incoming);
     updateButtons();
@@ -1385,11 +1387,15 @@ function updateReceipt() {
       : t("feedback.default");
     return;
   }
+  // "waiting" is not a delivery in progress. Saying "will retry" about a host
+  // that never had anywhere to push would promise something nothing is doing.
   const delivery = last.deliveredAt
     ? t("feedback.delivered")
-    : last.status === "accepted"
-      ? t("feedback.acceptedPending")
-      : t("feedback.deliveryUnconfirmed");
+    : last.status === "waiting"
+      ? t("feedback.waiting")
+      : last.status === "accepted"
+        ? t("feedback.acceptedPending")
+        : t("feedback.deliveryUnconfirmed");
   const status = `${t("feedback.saved")} · ${delivery} · ${
     last.readAt ? t("feedback.read") : t("feedback.unread")
   }`;

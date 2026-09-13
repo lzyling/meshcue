@@ -9,7 +9,7 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
-import { OpenClawBridge } from "./bridge.mjs";
+import { notifierFor, notifierSummary } from "./notify.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import {
@@ -101,19 +101,20 @@ const legacyOrigin = normalizeOrigin(
   process.env.REVIEW_SESSION_KEY || config.origin || config.sessionKey || null,
 );
 const store = new ReviewStore(runtime, { legacyOrigin });
-const bridges = new Map();
-function bridgeFor(origin) {
-  const key = JSON.stringify(origin);
-  if (!bridges.has(key)) {
-    if (bridges.size >= 32) bridges.delete(bridges.keys().next().value);
-    bridges.set(
+const notifiers = new Map();
+// Cached because OpenClawBridge holds a conversation window between calls, and
+// null is cached for the same reason a notifier is: asking twice whether a host
+// can be pushed to should not depend on how often something asks.
+function notifierCached(origin) {
+  const key = JSON.stringify(origin ?? null);
+  if (!notifiers.has(key)) {
+    if (notifiers.size >= 32) notifiers.delete(notifiers.keys().next().value);
+    notifiers.set(
       key,
-      new OpenClawBridge(origin, {
-        enabled: process.env.REVIEW_BRIDGE !== "off",
-      }),
+      notifierFor(origin, { enabled: process.env.REVIEW_BRIDGE !== "off" }),
     );
   }
-  return bridges.get(key);
+  return notifiers.get(key);
 }
 const network = listenerConfig(
   process.env.REVIEW_HOST || config.host || "127.0.0.1",
@@ -319,7 +320,7 @@ function stateFor(clientId, full = false, versionId) {
     };
   return {
     ...state,
-    bridgeEnabled: bridgeFor(store.state.reviewOrigin).enabled,
+    notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
   };
 }
@@ -621,13 +622,25 @@ function deliverFeedback(item) {
           )
           .join("\n");
         const message = `[3D 審閱標記提交 ${item.id}]\n模型：${item.model.name}／${item.model.version}；版本 ${item.versionId}；SHA256 ${item.model.sha256}。\n${summary}\n\n完整三維標注與相機資料已保存於 ${localFile}。Agent 操作說明：${path.join(repo, "AGENT-INTERFACE.md")}。\n這是使用者按下「交畀 Agent」提交的一批位置標記，不等於修改指令。請先用 ${readCommand} 讀取本次實例的完整提交並回傳讀取回執，再確認收到；若原會話尚未有對應說明，詢問各標記含意及修改要求，不自行猜測。請只在發起本批審閱的原會話回覆，不要轉發到其他話題或渠道。使用者尚未結束審閱，不能強行替換模型。`;
+        const notifier = notifierCached(store.submissionOrigin(item));
+        // Nowhere to push is not a push that failed. The batch is already
+        // durable and listed; this host's Agent collects it by asking. Counting
+        // an attempt here would start a retry curve against nothing and, past
+        // the stall mark, raise an alarm on a page where nothing is wrong.
+        if (!notifier?.send) {
+          store.submissionStatus(item.id, "waiting", {
+            lastError: null,
+            stalledAt: null,
+          });
+          const { annotations: _held, ...waiting } = item;
+          return waiting;
+        }
         store.submissionStatus(item.id, "sending", {
           lastAttemptAt: Date.now(),
           attempts: (item.attempts || 0) + 1,
         });
         try {
-          const bridge = bridgeFor(store.submissionOrigin(item));
-          const result = await bridge.send(message, `3d-feedback-${item.id}`);
+          const result = await notifier.send(message, `3d-feedback-${item.id}`);
           loggedCauses.delete(item.id);
           store.submissionStatus(item.id, "accepted", {
             runId: result.runId || null,
@@ -635,8 +648,15 @@ function deliverFeedback(item) {
             lastError: null,
             stalledAt: null,
           });
+          // A host that cannot be read back is not a host that failed to
+          // deliver. Without observe the receipt is the Agent's own read
+          // acknowledgement, which is the more honest of the two anyway.
+          if (!notifier.observe) {
+            const { annotations, ...receipt } = item;
+            return receipt;
+          }
           try {
-            const history = await bridge.history(item.createdAt - 5000);
+            const history = await notifier.observe(item.createdAt - 5000);
             if (
               history.messages.some(
                 (m) =>

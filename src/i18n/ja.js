@@ -9,6 +9,7 @@ export default {
 
   "conn.connecting": "接続中",
   "conn.origin": "元の会話に返信します",
+  "conn.collect": "エージェントが取りに来ます",
   "conn.local": "ローカルレビュー",
   "conn.returnToChat": "元の会話に戻る",
   "conn.paused": "接続を一時停止しました",
@@ -201,6 +202,7 @@ export default {
   "feedback.saved": "保存しました",
   "feedback.delivered": "元の会話に届きました",
   "feedback.acceptedPending": "受理済み、配信は未確認",
+  "feedback.waiting": "エージェントの取得待ち",
   "feedback.deliveryUnconfirmed": "配信未確認、再試行します",
   "feedback.read": "エージェントが読みました",
   "feedback.unread": "エージェントの読み取り待ち",

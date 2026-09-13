@@ -701,3 +701,52 @@ test("a repeatedly refused batch says so in its own status and recovers cleanly"
   assert.equal(batch.stalledAt, null);
   assert.equal((await f.ipc("/status")).body.outbox.pending, 0);
 });
+
+test("a host with nowhere to push holds the batch for collection instead of failing to deliver", async (t) => {
+  // An owner with no route: the shape a harness reached over a tool protocol
+  // has. Before the split this could not even be expressed.
+  const f = await startReview(t, {
+    origin: { harness: "codex", sessionKey: "a-codex-run" },
+  });
+  assert.deepEqual((await f.ipc("/status")).body.notifier, {
+    send: false,
+    observe: false,
+  });
+  const model = await f.publish();
+  const owner = { versionId: model.id, clientId: "client-collect" };
+  await f.api("ready", {
+    method: "POST",
+    body: { ...owner, sha256: model.sha256, meshes: [mesh] },
+  });
+  await f.api("review/begin", { method: "POST", body: owner });
+  const draft = await f.api("draft", {
+    method: "PUT",
+    body: { ...owner, revision: 0, annotations, camera: null },
+  });
+  const sent = await f.api("feedback", {
+    method: "POST",
+    body: {
+      ...owner,
+      revision: draft.body.revision,
+      submissionId: "collected-batch",
+    },
+  });
+  assert.equal(sent.status, 200);
+
+  const held = (await f.ipc("/submissions/collected-batch")).body;
+  // Waiting, not failing: no attempt was made, so nothing counts towards the
+  // stall mark and the page has no reason to raise an alarm.
+  assert.equal(held.status, "waiting");
+  assert.ok(!held.attempts);
+  assert.equal(held.lastError, null);
+  assert.equal(held.stalledAt, null);
+
+  // And nothing was pushed anywhere. The fake Gateway writes its log the first
+  // time it is invoked, so its absence is the strongest available statement
+  // that the host was never reached for.
+  assert.equal(fs.existsSync(path.join(f.dir, "fake-gateway.json")), false);
+
+  // The batch is still collectable, which is the whole point of holding it.
+  const read = await f.ipc("/submissions/collected-batch");
+  assert.equal(read.body.annotations.length, annotations.length);
+});

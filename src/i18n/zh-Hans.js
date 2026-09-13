@@ -9,6 +9,7 @@ export default {
 
   "conn.connecting": "连接中",
   "conn.origin": "回复原对话",
+  "conn.collect": "由 Agent 来取",
   "conn.local": "本机审阅",
   "conn.returnToChat": "返回原对话",
   "conn.paused": "连接已暂停",
@@ -182,6 +183,7 @@ export default {
   "feedback.saved": "已保存",
   "feedback.delivered": "已送达原对话",
   "feedback.acceptedPending": "已接纳，投递待确认",
+  "feedback.waiting": "等待 Agent 来取",
   "feedback.deliveryUnconfirmed": "投递未确认，会重试",
   "feedback.read": "Agent 已读取",
   "feedback.unread": "等待 Agent 读取",

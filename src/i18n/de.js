@@ -9,6 +9,7 @@ export default {
 
   "conn.connecting": "Verbinden",
   "conn.origin": "Antwortet im ursprünglichen Gespräch",
+  "conn.collect": "Der Agent holt sie hier ab",
   "conn.local": "Lokale Prüfung",
   "conn.returnToChat": "Zurück zum ursprünglichen Gespräch",
   "conn.paused": "Verbindung pausiert",
@@ -211,6 +212,7 @@ export default {
   "feedback.saved": "Gespeichert",
   "feedback.delivered": "im ursprünglichen Gespräch zugestellt",
   "feedback.acceptedPending": "angenommen, Zustellung noch nicht bestätigt",
+  "feedback.waiting": "wartet darauf, vom Agenten abgeholt zu werden",
   "feedback.deliveryUnconfirmed":
     "Zustellung unbestätigt, wird erneut versucht",
   "feedback.read": "der Agent hat sie gelesen",

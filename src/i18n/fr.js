@@ -9,6 +9,7 @@ export default {
 
   "conn.connecting": "Connexion",
   "conn.origin": "Répond dans la conversation d'origine",
+  "conn.collect": "L'agent vient les chercher ici",
   "conn.local": "Revue locale",
   "conn.returnToChat": "Revenir à la conversation d'origine",
   "conn.paused": "Connexion en pause",
@@ -208,6 +209,7 @@ export default {
   "feedback.saved": "Enregistré",
   "feedback.delivered": "remis à la conversation d'origine",
   "feedback.acceptedPending": "accepté, remise pas encore confirmée",
+  "feedback.waiting": "en attente de récupération par l'agent",
   "feedback.deliveryUnconfirmed": "remise non confirmée, nouvel essai prévu",
   "feedback.read": "l'Agent l'a lu",
   "feedback.unread": "en attente de lecture par l'Agent",
