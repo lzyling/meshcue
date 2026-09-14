@@ -4,6 +4,10 @@ export default {
   "app.tagline": "3D 模型审阅与标注",
   "app.preview": "试用版 {version}",
 
+  "closing.pending":
+    "闲置一天，这一轮审阅即将关闭。你在这里做任何操作都会让它继续。",
+  "closing.done":
+    "闲置一天后已关闭。所有版本和你的标记都已保存 —— 让 Agent 重新打开这一轮审阅即可继续。",
   "common.close": "关闭",
   "common.version": "版本",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "连接已暂停",
   "conn.accessExpired": "审阅权已过期 · 草稿保留",
   "conn.noAccess": "尚未取得审阅权",
+  "conn.reclaimed": "审阅已关闭 · 标记已保存",
   "conn.offline": "服务未运行",
   "conn.connectedNoAccess": "已连上工作台；取得审阅权之前不会加载模型。",
   "conn.dropped": "与服务的连接中断，草稿会保留。",

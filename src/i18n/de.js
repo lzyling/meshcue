@@ -4,6 +4,10 @@ export default {
   "app.tagline": "3D-Modelle prüfen und markieren",
   "app.preview": "Vorschau {version}",
 
+  "closing.pending":
+    "Einen Tag ungenutzt – diese Prüfung wird geschlossen. Alles, was Sie hier tun, hält sie offen.",
+  "closing.done":
+    "Nach einem Tag ohne Aktivität geschlossen. Alle Versionen und Ihre Markierungen sind gespeichert – bitten Sie den Agenten, diese Prüfung erneut zu öffnen.",
   "common.close": "Schließen",
   "common.version": "Version",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "Verbindung pausiert",
   "conn.accessExpired": "Zugriff abgelaufen · Entwurf bleibt erhalten",
   "conn.noAccess": "Noch kein Prüfzugriff",
+  "conn.reclaimed": "Prüfung geschlossen · Markierungen gespeichert",
   "conn.offline": "Dienst ist offline",
   "conn.connectedNoAccess":
     "Mit der Werkbank verbunden; bis zur Freigabe wird kein Modell geladen.",

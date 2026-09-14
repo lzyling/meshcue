@@ -142,6 +142,7 @@ app.innerHTML = `${SPRITE}
   <div id="resume-banner" class="pending-banner" hidden><span>${T("resume.text")}</span><button id="resume-review" class="quiet">${T("resume.action")}</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>${T("recovery.text")}</span><a id="download-recovery">${T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
+  <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
   <div id="precision-banner" class="pending-banner" hidden><span id="precision-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
@@ -154,6 +155,11 @@ sessionStorage.setItem("3d-review-client", clientId);
 const colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 let color = colors[0];
 let state = null,
+  // Sticky on purpose. Once the service has said it is reclaiming itself, the
+  // polls that follow fail — and a bare connection error is what a crash looks
+  // like. Remembering the reason is the only way the page can keep telling the
+  // truth after the thing that knew it has gone.
+  closingNotice = null,
   loadedId = null,
   // Named for the acceptance checks: with no download control on the page, a
   // test that wants to prove the bytes on screen belong to the version claimed
@@ -1376,9 +1382,20 @@ async function readState() {
         : t("conn.local");
     updateEcho(incoming);
     updateOutbox(incoming);
+    updateClosing(incoming.closing);
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
+    // A service that announced its own reclaim and then stopped answering did
+    // not fail. Saying "offline" here would describe a crash, and would leave
+    // the reviewer with no reason to believe their marks are still there.
+    if (closingNotice) {
+      $("#connection-status").textContent = t("conn.reclaimed");
+      $("#save-status").textContent = t("closing.done");
+      $("#closing-text").textContent = t("closing.done");
+      updateButtons();
+      return;
+    }
     $("#connection-status").textContent = accessBlocked
       ? t("conn.returnToChat")
       : t("conn.paused");
@@ -1389,6 +1406,14 @@ async function readState() {
       : t("conn.offline");
     updateButtons();
   }
+}
+// The warning can be called off: anything the reviewer does resets the clock,
+// and the service withdraws the notice on its own. So this follows the service
+// both ways while it is still answering, and only sticks once it stops.
+function updateClosing(notice) {
+  closingNotice = notice || null;
+  $("#closing-banner").hidden = !notice;
+  if (notice) $("#closing-text").textContent = t("closing.pending");
 }
 function updateReceipt() {
   if (submitting) return;

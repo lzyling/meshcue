@@ -4,6 +4,10 @@ export default {
   "app.tagline": "3D モデルのレビューと注記",
   "app.preview": "プレビュー {version}",
 
+  "closing.pending":
+    "1日操作がないため、このレビューを終了します。ここで何か操作すれば継続します。",
+  "closing.done":
+    "1日操作がなかったため終了しました。すべてのバージョンとマークは保存されています。エージェントにこのレビューを開き直すよう伝えてください。",
   "common.close": "閉じる",
   "common.version": "バージョン",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "接続を一時停止しました",
   "conn.accessExpired": "アクセス期限切れ · 下書きは保持",
   "conn.noAccess": "レビュー権限がまだありません",
+  "conn.reclaimed": "レビュー終了 · マークは保存済み",
   "conn.offline": "サービスが停止しています",
   "conn.connectedNoAccess":
     "ワークベンチに接続しました。アクセスが許可されるまでモデルは読み込まれません。",

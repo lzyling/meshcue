@@ -16,6 +16,8 @@ export async function startReview(
     workspace,
     managed = false,
     stallAfter,
+    idleHours,
+    idleTickMs,
   } = {},
 ) {
   const repo = process.cwd();
@@ -46,6 +48,12 @@ export async function startReview(
         REVIEW_SESSION_KEY: origin ? "" : "test-internal-http-session",
         REVIEW_BRIDGE: "on",
         REVIEW_OUTBOX_MS: "1000",
+        // Absent means the 24-hour default, which no test can sit through; a
+        // test that wants reclaiming says so in seconds.
+        ...(idleHours === undefined
+          ? {}
+          : { REVIEW_IDLE_HOURS: String(idleHours) }),
+        ...(idleTickMs ? { REVIEW_IDLE_TICK_MS: String(idleTickMs) } : {}),
         ...(stallAfter ? { REVIEW_STALL_AFTER: String(stallAfter) } : {}),
         REVIEW_ACCESS: protectedAccess ? "required" : "",
         REVIEW_ALLOWED_HOSTS: "review.test",
@@ -195,5 +203,12 @@ export async function startReview(
       throw new Error("Isolated fixture model failed to publish");
     return r.body.model;
   }
-  return { repo, dir, url, ipc, api, publish, restart };
+  const alive = () => child.exitCode === null && child.signalCode === null;
+  const waitExit = (ms = 5000) =>
+    alive()
+      ? Promise.race([once(child, "exit").then(() => true), delay(ms)]).then(
+          () => !alive(),
+        )
+      : Promise.resolve(true);
+  return { repo, dir, url, ipc, api, publish, restart, alive, waitExit };
 }

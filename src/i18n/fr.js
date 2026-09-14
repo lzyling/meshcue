@@ -4,6 +4,10 @@ export default {
   "app.tagline": "Revue et annotation de modèles 3D",
   "app.preview": "Aperçu {version}",
 
+  "closing.pending":
+    "Inactive depuis un jour, cette revue va se fermer. Toute action ici la maintient ouverte.",
+  "closing.done":
+    "Fermée après un jour sans activité. Toutes les versions et vos annotations sont enregistrées : demandez à l'agent de rouvrir cette revue.",
   "common.close": "Fermer",
   "common.version": "Version",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "Connexion en pause",
   "conn.accessExpired": "Accès expiré · brouillon conservé",
   "conn.noAccess": "Pas encore d'accès à la revue",
+  "conn.reclaimed": "Revue fermée · annotations enregistrées",
   "conn.offline": "Le service est hors ligne",
   "conn.connectedNoAccess":
     "Connecté à l'atelier ; aucun modèle ne sera chargé avant l'octroi de l'accès.",

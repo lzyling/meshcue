@@ -4,6 +4,10 @@ export default {
   "app.tagline": "3D model review and annotation",
   "app.preview": "Preview {version}",
 
+  "closing.pending":
+    "Idle for a day — this review is closing. Anything you do here keeps it open.",
+  "closing.done":
+    "Closed after a day with no activity. Every version and all your marks are saved — ask the Agent to open this review again.",
   "common.close": "Close",
   "common.version": "Version",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "Connection paused",
   "conn.accessExpired": "Access expired · draft kept",
   "conn.noAccess": "No review access yet",
+  "conn.reclaimed": "Review closed · marks saved",
   "conn.offline": "Service is offline",
   "conn.connectedNoAccess":
     "Connected to the workbench; no model loads until access is granted.",

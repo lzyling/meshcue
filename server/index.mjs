@@ -10,6 +10,7 @@ import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import { notifierFor, notifierSummary } from "./notify.mjs";
+import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import {
@@ -70,6 +71,11 @@ const config = fs.existsSync(configFile)
   ? JSON.parse(fs.readFileSync(configFile, "utf8"))
   : {};
 const instance = readInstance(config);
+// Every instance reclaims itself, managed or not: the longest-lived process
+// this was written for was an unmanaged one that had been listening for most of
+// four days. Zero is the only way to opt out.
+const idleMs = idleMsFrom(process.env.REVIEW_IDLE_HOURS ?? config.idleHours);
+const idle = idleMs > 0 ? new IdleWatch({ idleMs }) : null;
 let maintenanceUntil = 0;
 const managedEnabled = () =>
   !config.managed ||
@@ -191,6 +197,10 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "16mb" }));
+app.use((req, res, next) => {
+  if (idle && viewerUse(req.method, req.path)) idle.use();
+  next();
+});
 app.post("/api/access/claim", (req, res) => {
   if (!accessRequired)
     throw new AccessError("This entry does not use remote authorization.", 409);
@@ -345,6 +355,10 @@ function stateFor(clientId, full = false, versionId) {
     ...state,
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
+    // Present only while the service is about to reclaim itself. Reading the
+    // notice never advances the decision — the timer owns that — so a poll can
+    // report the warning without becoming the reason it was withdrawn.
+    ...(idle?.notice() ? { closing: idle.notice() } : {}),
   };
 }
 function saveManifest(versionId, meshes) {
@@ -485,6 +499,12 @@ app.get("/api/health", (req, res) =>
     instance,
     pid: process.pid,
     accessRequired,
+    // Said out loud so nobody has to infer it from a process that is simply
+    // gone one day. A runtime that predates reclaiming has no `idle` here at
+    // all, and that absence is the only way to tell the two apart from outside.
+    idle: idle
+      ? { forMs: Date.now() - idle.usedAt, limitMs: idleMs }
+      : { forMs: 0, limitMs: 0 },
   }),
 );
 app.get("/api/state", (req, res) =>
@@ -821,6 +841,10 @@ app.all("/api/chat", (req, res) =>
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
 const agentApp = express();
 agentApp.use(express.json({ limit: "16mb" }));
+agentApp.use((req, res, next) => {
+  if (idle && agentUse(req.method, req.path)) idle.use();
+  next();
+});
 // A batch nobody can deliver is invisible from the chat side: the one channel
 // that would report it is the one that is broken. Summarize it where the Agent
 // already looks, so it can say so in words instead of the reviewer noticing
@@ -857,6 +881,16 @@ agentApp.get("/status", (req, res) =>
       ),
     },
     viewerReceipts: store.state.viewerReceipts || {},
+    // Asking for status is not using the review, so reading this never moves
+    // it. That is the whole reason it can be reported honestly: a countdown
+    // that its own observer resets would only ever show the same number.
+    idle: idle
+      ? {
+          forMs: Date.now() - idle.usedAt,
+          limitMs: idleMs,
+          closing: idle.notice() !== null,
+        }
+      : { forMs: 0, limitMs: 0, closing: false },
     origin: store.state.reviewOrigin,
     instance,
     integrationApi: INTEGRATION_API,
@@ -1102,8 +1136,37 @@ const server = app.listen(port, network.host, () =>
     accessRequired,
   }),
 );
-for (const signal of ["SIGTERM", "SIGINT"])
-  process.on(signal, () => {
-    server.close();
-    agentServer.close(() => process.exit(0));
-  });
+function shutdown() {
+  server.close();
+  agentServer.close(() => process.exit(0));
+}
+for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, shutdown);
+
+// One tick of grace separates the notice from the exit, so the interval is also
+// how long the page has to explain itself — a minute is about twenty-seven of
+// the viewer's polls. Reclaiming is announced, never sudden.
+const idleTimer = idle
+  ? setInterval(
+      () => {
+        const phase = idle.tick();
+        if (phase === "closing")
+          log.info("service", "idle; announcing reclaim", {
+            idleHours: idleMs / 3_600_000,
+            instance: instance?.id,
+          });
+        else if (phase === "expired") {
+          log.info(
+            "service",
+            "reclaimed after idle; the round is kept on disk",
+            {
+              idleHours: idleMs / 3_600_000,
+              pid: process.pid,
+            },
+          );
+          shutdown();
+        }
+      },
+      Math.max(1000, Number(process.env.REVIEW_IDLE_TICK_MS) || 60_000),
+    )
+  : null;
+idleTimer?.unref();

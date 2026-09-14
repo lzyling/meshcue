@@ -4,6 +4,10 @@ export default {
   "app.tagline": "3D 模型審閱與標注",
   "app.preview": "試用版 {version}",
 
+  "closing.pending":
+    "閒置一天，這一輪審閱即將關閉。你在這裡做任何操作都會讓它繼續。",
+  "closing.done":
+    "閒置一天後已關閉。所有版本和你的標記都已保存 —— 讓 Agent 重新開啟這一輪審閱即可繼續。",
   "common.close": "關閉",
   "common.version": "版本",
 
@@ -15,6 +19,7 @@ export default {
   "conn.paused": "連線已暫停",
   "conn.accessExpired": "審閱權已過期 · 草稿保留",
   "conn.noAccess": "尚未取得審閱權",
+  "conn.reclaimed": "審閱已關閉 · 標記已保存",
   "conn.offline": "服務未運行",
   "conn.connectedNoAccess": "已連上工作台；取得審閱權之前不會載入模型。",
   "conn.dropped": "與服務的連線中斷，草稿會保留。",
