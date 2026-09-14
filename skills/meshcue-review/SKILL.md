@@ -1,6 +1,6 @@
 ---
 name: "meshcue-review"
-description: "Review a 3D model draft in a browser: mark surfaces, read the marks, publish the next version. 3D建模審閱、標記、改模再審"
+description: "Review a 3D model draft in a browser: mark surfaces, read the marks, publish the next version."
 ---
 
 # MeshCue model review
