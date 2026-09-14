@@ -34,6 +34,7 @@ export class ReviewStore {
           echoes: {},
           submissions: [],
           messages: [],
+          retainVersions: null,
           startedAt: Date.now(),
         };
     if (![1, 2].includes(this.state.schemaVersion))
@@ -42,6 +43,9 @@ export class ReviewStore {
         409,
         "STATE_VERSION",
       );
+    // A review saved before retention existed shows everything, which is what
+    // it was doing already — absence is the same as "no rule", not a migration.
+    this.state.retainVersions ??= null;
     this.restoreSubmissionAnnotations();
     // Keep immutable published assets downloadable even when an unsubmitted
     // view has not yet observed a newer active version.
@@ -236,32 +240,76 @@ export class ReviewStore {
   // Every version this review has published, oldest first. The workstation
   // shows them as tabs, so a marking made against an older model stays a
   // first-class act instead of something the reviewer has to describe in prose.
+  /* Twenty tabs is a wall of history in front of the model. Retention is a
+     standing rule rather than a one-off tidy-up, so the next version published
+     pushes the oldest out of view on its own — and it hides, never deletes:
+     the draft, the marks and the file of a hidden version are all still there,
+     and raising the number brings it back exactly as it was. */
+  retained(sorted) {
+    const keep = this.state.retainVersions;
+    if (!keep || sorted.length <= keep) return sorted;
+    const recent = new Set(sorted.slice(-keep).map((m) => m.id));
+    return sorted.filter((m) => recent.has(m.id) || this.mustShow(m.id));
+  }
+  // Three things outrank the rule: what is on screen, what someone is marking
+  // right now, and marks that have not been sent yet. Hiding any of those would
+  // take something away from the reviewer rather than tidy up behind them.
+  mustShow(versionId) {
+    if (this.state.active?.id === versionId) return "on screen";
+    if (this.livePresence(versionId)) return "being marked";
+    if (this.hasUnsubmitted(versionId)) return "holds unsubmitted marks";
+    return null;
+  }
+  inBindingOrder() {
+    return Object.values(this.state.models)
+      .filter((model) => this.versionInBinding(model.id))
+      .sort((a, b) => (a.publishedAt || 0) - (b.publishedAt || 0));
+  }
+  retain(keep) {
+    const value = Number.isFinite(keep) && keep > 0 ? Math.floor(keep) : null;
+    this.state.retainVersions = value;
+    this.save();
+    const all = this.inBindingOrder();
+    const shown = this.retained(all);
+    const shownIds = new Set(shown.map((m) => m.id));
+    const recent = value ? new Set(all.slice(-value).map((m) => m.id)) : null;
+    const name = (m) => ({ id: m.id, version: m.version });
+    return {
+      retain: value,
+      showing: shown.map(name),
+      hidden: all.filter((m) => !shownIds.has(m.id)).map(name),
+      // Said out loud, because "show the latest three" quietly showing four is
+      // the kind of thing the Agent has to be able to pass on.
+      keptVisible: recent
+        ? all
+            .filter((m) => !recent.has(m.id) && shownIds.has(m.id))
+            .map((m) => ({ ...name(m), because: this.mustShow(m.id) }))
+        : [],
+    };
+  }
   versions(clientId) {
     const s = this.state;
-    return Object.values(s.models)
-      .filter((model) => this.versionInBinding(model.id))
-      .sort((a, b) => (a.publishedAt || 0) - (b.publishedAt || 0))
-      .map((model) => {
-        const draft = s.drafts[model.id];
-        const presence = this.livePresence(model.id);
-        return {
-          id: model.id,
-          name: model.name,
-          version: model.version,
-          label: model.label || null,
-          triangles: model.triangles,
-          bytes: model.bytes,
-          publishedAt: model.publishedAt,
-          active: s.active?.id === model.id,
-          annotations: draft?.annotations.length || 0,
-          unsubmitted: this.hasUnsubmitted(model.id),
-          submissions: s.submissions.filter(
-            (item) =>
-              item.versionId === model.id && this.submissionInBinding(item),
-          ).length,
-          busy: !!presence && presence.clientId !== clientId,
-        };
-      });
+    return this.retained(this.inBindingOrder()).map((model) => {
+      const draft = s.drafts[model.id];
+      const presence = this.livePresence(model.id);
+      return {
+        id: model.id,
+        name: model.name,
+        version: model.version,
+        label: model.label || null,
+        triangles: model.triangles,
+        bytes: model.bytes,
+        publishedAt: model.publishedAt,
+        active: s.active?.id === model.id,
+        annotations: draft?.annotations.length || 0,
+        unsubmitted: this.hasUnsubmitted(model.id),
+        submissions: s.submissions.filter(
+          (item) =>
+            item.versionId === model.id && this.submissionInBinding(item),
+        ).length,
+        busy: !!presence && presence.clientId !== clientId,
+      };
+    });
   }
   livePresence(versionId, within = 30000) {
     const p = this.state.presence[versionId];

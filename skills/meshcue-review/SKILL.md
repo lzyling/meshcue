@@ -88,6 +88,19 @@ presence record) are not part of iteration: the next version is the end of the
 last one, the page gives the user no button to end a round, so never tell them
 to press one. Use `finish` only when they explicitly ask to close a version out.
 
+When a long strip starts getting in the way of the model, and only when the user
+asks for it, `retain` with `keep: 3` — or any count — shows just that many most
+recent versions. It hides and never deletes: the draft, the marks, the submitted
+batches and the file of a hidden version all stay, and `retain` with a larger
+count, or `keep: 0`, brings every one of them back unchanged. It is a standing
+rule rather than a one-off tidy-up, so each version published afterwards pushes
+the oldest out of view without being asked again. Three things outrank it and
+stay visible anyway: the version on screen, one somebody is marking at that
+moment, and one still holding unsubmitted marks. The reply lists those under
+`keptVisible` with the reason, so report what is actually showing rather than
+the number that was requested. The page applies this on its next poll, so never
+tell the user to reload or close it.
+
 ## 6. Reading marks and answering the intent
 
 On a submission notice, call `meshcue`'s `read` with the `project` and
@@ -113,15 +126,17 @@ compare. Done means the batch, the version and the intent all agree.
 
 Change the editable source with the original modelling tool, save a new version,
 `precheck`, then `open` the new GLB or STL in the same project. Keep old
-versions and the record of changes; they stay on the tab strip on their own and
-must not be deleted or overwritten. Use `status` to check the actually active
-version and each version's mark state, then say in the originating conversation
-what changed and which batch it answers. The review page has no download entry
-and the user never needs to export the marks themselves; files are delivered in
-the conversation, when they ask or when the work is final. GLB and STL are
-review meshes only — export STEP, 3MF and the like from the modelling tool and
-check units and scale; never describe a preview mesh as editable CAD. Done means
-the user reviewed the right new version and received the agreed files.
+versions and the record of changes: they must never be deleted or overwritten,
+and they stay on the tab strip on their own unless the user asks for a shorter
+one, which `retain` gives them without losing anything. Use `status` to check
+the actually active version and each version's mark state, then say in the
+originating conversation what changed and which batch it answers. The review
+page has no download entry and the user never needs to export the marks
+themselves; files are delivered in the conversation, when they ask or when the
+work is final. GLB and STL are review meshes only — export STEP, 3MF and the
+like from the modelling tool and check units and scale; never describe a preview
+mesh as editable CAD. Done means the user reviewed the right new version and
+received the agreed files.
 
 ## 8. Continuing and handling failures
 

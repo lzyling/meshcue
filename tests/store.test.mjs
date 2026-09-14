@@ -738,3 +738,81 @@ test("every reachable review state has an exit and no exit discards an unsubmitt
       }
   assert.equal(checked, 32);
 });
+
+/* Twenty versions is a wall of history in front of the model, and the reviewer
+ * asks for a shorter tab strip through the Agent. Before this existed the only
+ * way to shorten it was editing state.json from outside, which raced the
+ * running server: whoever saved last won, so it appeared to work only after
+ * the page had been closed. */
+test("retention hides the oldest versions and keeps hiding them as new ones arrive", (t) => {
+  const { store } = fixture(t);
+  const published = [];
+  for (let i = 1; i <= 6; i++) {
+    const model = {
+      id: `model-${i}`,
+      name: "sample",
+      version: `v${i}`,
+      sha256: String(i).repeat(64),
+      publishedAt: 1000 + i,
+    };
+    store.publish(model);
+    published.push(model);
+  }
+  const shown = () => store.versions("client").map((v) => v.version);
+  assert.deepEqual(shown(), ["v1", "v2", "v3", "v4", "v5", "v6"]);
+
+  const result = store.retain(3);
+  assert.equal(result.retain, 3);
+  assert.deepEqual(shown(), ["v4", "v5", "v6"]);
+  assert.deepEqual(
+    result.hidden.map((m) => m.version),
+    ["v1", "v2", "v3"],
+  );
+
+  // A rule, not a one-off tidy-up: the next version pushes the oldest out on
+  // its own, which is what "show the latest three" has to keep meaning.
+  store.publish({
+    id: "model-7",
+    name: "sample",
+    version: "v7",
+    sha256: "7".repeat(64),
+    publishedAt: 1007,
+  });
+  assert.deepEqual(shown(), ["v5", "v6", "v7"]);
+
+  // Nothing was deleted, so asking for more brings them back unchanged.
+  store.retain(0);
+  assert.deepEqual(shown(), ["v1", "v2", "v3", "v4", "v5", "v6", "v7"]);
+});
+
+test("retention never hides what is on screen, being marked, or unsent", (t) => {
+  const { store } = fixture(t);
+  for (let i = 1; i <= 5; i++)
+    store.publish({
+      id: `model-${i}`,
+      name: "sample",
+      version: `v${i}`,
+      sha256: String(i).repeat(64),
+      publishedAt: 1000 + i,
+    });
+  // Displayed model is the oldest, and someone is marking the second oldest.
+  store.activate("model-1");
+  store.state.presence["model-2"] = {
+    clientId: "someone",
+    touchedAt: Date.now(),
+  };
+  const result = store.retain(1);
+  const shown = store.versions("client").map((v) => v.version);
+  assert.ok(shown.includes("v5"), "the newest is always shown");
+  assert.ok(shown.includes("v1"), "the displayed version cannot be hidden");
+  assert.ok(shown.includes("v2"), "a version being marked cannot be hidden");
+  assert.deepEqual(
+    result.hidden.map((m) => m.version),
+    ["v3", "v4"],
+  );
+  // The Agent has to be able to say "three, not one, and here is why".
+  assert.deepEqual(
+    result.keptVisible.map((m) => `${m.version}: ${m.because}`),
+    ["v1: on screen", "v2: being marked"],
+  );
+});

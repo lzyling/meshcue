@@ -749,6 +749,21 @@ export class InstanceManager {
         });
         return { project: p.project, active: result.active };
       }
+      // "Show the latest three" is a rule, not a tidy-up: the next version
+      // published pushes the oldest out of view without being asked again.
+      // Nothing is deleted, so `retain` with a larger number brings them back.
+      if (input.action === "retain") {
+        const keep = input.keep ?? null;
+        if (keep !== null && !(Number.isInteger(keep) && keep >= 0))
+          fail(
+            "KEEP_REQUIRED",
+            "Say how many of the most recent versions to show, or 0 to show every one again.",
+          );
+        const result = await ipc(p.runtime, config.instance, "/retain", {
+          keep,
+        });
+        return { project: p.project, ...result };
+      }
       if (input.action === "finish") {
         const result = await ipc(p.runtime, config.instance, "/finish", {
           ...(input.versionId ? { versionId: input.versionId } : {}),

@@ -23,6 +23,7 @@ const ACTIONS = [
   "open",
   "status",
   "activate",
+  "retain",
   "read",
   "echo",
   "finish",
@@ -43,10 +44,12 @@ const FLAGS = {
   submission: "submissionId",
   summary: "summary",
   "version-id": "versionId",
+  keep: "keep",
   host: "host",
   "client-address": "confirmedClientAddress",
 };
 const BOOLEANS = { resume: "resume", "no-activate": "activate" };
+const NUMBERS = new Set(["keep"]);
 
 export function parseArgs(argv) {
   const [action, ...rest] = argv;
@@ -65,6 +68,18 @@ export function parseArgs(argv) {
     const value = rest[++i];
     if (value === undefined || value.startsWith("--"))
       throw new IntegrationError("BAD_USAGE", `--${flag} needs a value.`);
+    // Argv is strings all the way down, so a flag whose meaning is a number
+    // has to say so here — otherwise "3" reaches a caller expecting 3 and is
+    // refused for being the wrong type, which reads as the value being wrong.
+    if (NUMBERS.has(flag)) {
+      if (!/^\d+$/.test(value))
+        throw new IntegrationError(
+          "BAD_USAGE",
+          `--${flag} takes a whole number.`,
+        );
+      input[FLAGS[flag]] = Number(value);
+      continue;
+    }
     input[FLAGS[flag]] = value;
   }
   return { action, input };

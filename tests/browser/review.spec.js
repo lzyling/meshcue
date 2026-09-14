@@ -1728,6 +1728,80 @@ test("many versions stay on one row, and the one being marked stays reachable", 
     .toBe(true);
 });
 
+/* Twenty versions is a wall of history in front of the model, and the reviewer
+   asks the Agent for a shorter strip in the same conversation. Before this the
+   only lever was editing state.json from outside the running server, which
+   raced its saves — so it appeared to need the page closed first. Nothing here
+   is closed, reloaded, or lost. */
+test("the Agent can shorten the version strip while the page stays open", async ({
+  page,
+}) => {
+  await ready(page);
+  const sample = fs.readFileSync(
+    "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
+  );
+  const generator = Buffer.from("THREE.GLTFExporter");
+  const at = sample.indexOf(generator);
+  for (let i = 2; i <= 6; i++) {
+    const bytes = Buffer.from(sample);
+    Buffer.from(`MeshCueKeepTest${String(i).padStart(3, "0")}`).copy(bytes, at);
+    const file = path.join(dir, `keep-${i}.glb`);
+    fs.writeFileSync(file, bytes);
+    execFileSync(
+      process.execPath,
+      ["scripts/reviewctl.mjs", "publish", file, "--version", `v0.${i}`],
+      { cwd: repo, env, encoding: "utf8" },
+    );
+  }
+  const shown = () =>
+    page.evaluate(() =>
+      window.__reviewDiagnostics().versions.map((v) => v.version),
+    );
+  await expect.poll(shown).toHaveLength(6);
+
+  const viewing = await page.evaluate(() => {
+    const d = window.__reviewDiagnostics();
+    return d.versions.find((v) => v.id === d.versionId).version;
+  });
+  execFileSync(process.execPath, ["scripts/reviewctl.mjs", "retain", "3"], {
+    cwd: repo,
+    env,
+    encoding: "utf8",
+  });
+  // The page polls; it is not told, not reloaded, and never closed.
+  await expect.poll(async () => (await shown()).length).toBeLessThan(6);
+  const kept = await shown();
+  expect(kept).toEqual(expect.arrayContaining(["v0.4", "v0.5", "v0.6"]));
+  expect(kept).not.toContain("v0.2");
+  /* The version under the reviewer's eyes survives the rule — hiding what
+     someone is looking at would be taking something away rather than tidying
+     up behind them, so "the latest three" is four while they are still here. */
+  expect(kept).toContain(viewing);
+
+  // A rule, not a tidy-up: the next version keeps the promise by itself.
+  const bytes = Buffer.from(sample);
+  Buffer.from("MeshCueKeepTest777").copy(bytes, at);
+  const file = path.join(dir, "keep-7.glb");
+  fs.writeFileSync(file, bytes);
+  execFileSync(
+    process.execPath,
+    ["scripts/reviewctl.mjs", "publish", file, "--version", "v0.7"],
+    { cwd: repo, env, encoding: "utf8" },
+  );
+  await expect
+    .poll(shown)
+    .toEqual(expect.arrayContaining(["v0.5", "v0.6", "v0.7"]));
+  expect(await shown()).not.toContain("v0.4");
+
+  // Hidden is not gone: asking for all of them back returns every one.
+  execFileSync(process.execPath, ["scripts/reviewctl.mjs", "retain", "0"], {
+    cwd: repo,
+    env,
+    encoding: "utf8",
+  });
+  await expect.poll(shown).toHaveLength(7);
+});
+
 test("the Agent's understanding leaves on its own and comes back when asked", async ({
   page,
 }) => {

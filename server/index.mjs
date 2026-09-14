@@ -981,6 +981,17 @@ agentApp.post("/publish", (req, res) => {
 // Presentation is the Agent's to drive: it decides which version the reviewer
 // is looking at. Every version keeps its own draft, so switching costs nothing
 // and needs no permission from whoever has the page open.
+/* Hiding a version takes nothing away — the draft, the marks and the file all
+   stay — so this does not wait on presence the way rebinding does. It is the
+   reviewer's own conversation asking for a shorter tab strip, and the page
+   picks the change up on its next poll without being reloaded or closed. */
+agentApp.post("/retain", (req, res) => {
+  const p = z
+    .object({ keep: z.number().int().min(0).max(1000).nullable().optional() })
+    .strict()
+    .parse(req.body);
+  res.json(store.retain(p.keep ?? null));
+});
 agentApp.post("/activate", (req, res) => {
   const p = z.object({ versionId: id }).strict().parse(req.body);
   res.json({ active: store.activate(p.versionId) });

@@ -83,6 +83,11 @@ try {
     if (!/^[a-zA-Z0-9_-]{1,100}$/.test(args[0] || ""))
       throw new Error("Usage: read <submission-id>");
     endpoint = `/submissions/${args[0]}`;
+  } else if (command === "retain") {
+    if (!/^\d+$/.test(args[0] || ""))
+      throw new Error("Usage: retain <how-many-recent-versions|0>");
+    endpoint = "/retain";
+    body = { keep: Number(args[0]) };
   } else if (command === "echo") {
     const file = fs.realpathSync(path.resolve(args[0] || ""));
     if (!within(workspace, file))
@@ -91,7 +96,7 @@ try {
     endpoint = "/echo";
   } else
     throw new Error(
-      "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo",
+      "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo, retain",
     );
 } catch (error) {
   // Usage problems are the operator's, not a crash: print the reason alone.
