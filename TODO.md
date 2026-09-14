@@ -246,17 +246,59 @@ Kelven 用 0.11.1 做真实建模时报的四条。**每一条的病因都和它
 
 ---
 
-## 转公开前（时机由 Kelven 定，本节在公开时删除）
+## 0.14 · 转公开（方向已定，本节在公开时删除）
 
-本节的详细清单与已核实事实，在内部开发日志里，不必重查。
+Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正式公开仓库走。**
+仓库在全部做完、并由他本人过一遍之前**保持私有**。以下为当晚逐条拍板的结果。
 
-- [ ] 历史重写：清掉 `evidence/` 与内部工作笔记（`evidence/` 自 0.8.3 起已不再进新提交）
+### 已拍板
+
+| #   | 事项                                          | 决定                                                                               |
+| --- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 1   | 24 份内部阶段日志 + `scripts/sidebar-e2e.mjs` | **移，不删** → workspace `documents/meshcue/dev-log/`                              |
+| 2   | 三条陈旧远端分支                              | **删**（已核：各 0 个独有提交，内容 100% 在 `main`）                               |
+| 3   | CI                                            | **要**，两个 job                                                                   |
+| 4   | Skill Workshop 20 个 pending 提案             | **先分类再拍** —— 出「已吸收／还有真东西」清单                                     |
+| 5   | 浏览器窗口宽度                                | **≥1100px**（1920×1080 全屏）→ 三个下拉框标题看得见，**header 不用重做，此条结案** |
+
+### 待办
+
+- [ ] **修完唯一已知未做完的**：画笔盖章重叠，笔画内部一个面仍被存约 12 次
+      （解法是「一个面被盖满就塌缩成整面」，**不是**两两相减 —— 那次炸成 230,151 patch / 33MB）
+- [ ] **复核两份安全文档对代码是否仍然成立** ← 优先级最高
+      `SECURITY.md` + `docs/zh/BROWSER-TRUST.md` + `docs/zh/LAN-ADMISSION.md`。
+      准入层、回收机制、身份层这两天全动过。**发一份过时的安全文档比不发更糟。**
+- [ ] 移出 24 份内部日志 + `sidebar-e2e.mjs`（见上表第 1 条）
+- [ ] **整理公开版根目录**：只留 `README` / `SECURITY` / `AGENT-INTERFACE` / `LICENSE` 四份英文；
+      `TODO.md`（4127 汉字）和 `BROWSER-ACCESS-DECISION.md`（2643 汉字）归到 `docs/zh/`；
+      `TODO.md` 先摘掉本节 —— 施工图不是给使用者看的
+- [ ] 删三条陈旧分支：`docs/v0.5-integration-plan` / `feat/v0.4-lan-delivery` / `feat/v0.5-integration`
+- [ ] 加 `.github/`：
+      · job A（每次 push）`check:i18n` + `format:check` + `node --test` ≈ 40 秒
+      · job B（每次 push）`test:browser`（`playwright install chromium` + vite build）≈ 2–3 分钟
+      · `test:lan` **跑不了**（要真实局域网）—— 那正是现在那条 skip
+      · issue 模板
+- [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）
+- [ ] Skill Workshop 20 个 pending 提案出分类清单（**跨项目**：`meshcue-review` 7 个跟这里相关，
+      `functional-part-modeling` 9 个是 3D 打印那边的，其余 4 个各自独立。只有前 7 个影响转公开）
+
+### 需要单独再授权一次（不可逆，不在上面那批里）
+
+- [ ] 历史重写清 `evidence/` —— **它不在 git 跟踪内**（0 个跟踪文件，210MB 纯本地），
+      但**历史里有 2127 个文件曾被提交进去**。`.git` 只有 30M，所以重写很便宜。
+      ⚠️ 移出工作树 ≠ 移出历史，这两步是**一套**，只做前一半谁 clone 下来都能 `git log` 翻到
 - [ ] 删远端仓 → 同名重建 → 推 → 网页复核 → 才转 public
       （force-push 清不掉服务器上的旧对象，所以必须删仓重建）
 - [ ] 重新加一次 deploy key（删仓会连带删掉）
-- [ ] **复核两份安全文档对代码是否仍然成立** —— 发一份过时的安全文档比不发更糟
-- [ ] 加 `.github/`：CI（现有 125 个 node 测试没跑 CI）、issue 模板、SECURITY.md
-- [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）
+
+### 顺带记下的事实
+
+- `SECURITY.md` **早就有了**，在根目录 —— 旧清单里那条「要加 SECURITY.md」是错的
+- `README` / `SECURITY` / `AGENT-INTERFACE` **零个中文字**，纯英文
+- `docs/zh` 九份**都是简体**，符合「英文为主、简体为辅」那条规矩
+- 真繁体的只有 `HARDENING-20260911.md` 和 `ITERATION-V06.md` —— 都在要移出的名单里，自动解决
+- 最不该公开的两份：`FIELD-NOTES-20260913.md`（601 行，Kelven 真实建模任务的现场内容）
+  和 `TOKEN-USAGE-20260910.md`（项目 token 花费）
 
 ---
 
