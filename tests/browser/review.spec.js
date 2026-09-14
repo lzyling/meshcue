@@ -1905,6 +1905,55 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   await expect(page.locator(".model-pin.landing")).toHaveCount(0);
 });
 
+test("a mark arrives at its point instead of flying in from the corner", async ({
+  page,
+}) => {
+  await ready(page);
+  await page
+    .getByRole("button", { name: "Orbit and label", exact: true })
+    .click();
+  // Stretch the arrival so it can be measured while it is still running. Every
+  // existing assertion polls until the animation has settled, so none of them
+  // could see where a mark travelled on its way in — and travelling is the
+  // whole defect: individual transform properties compose translate → rotate →
+  // scale → transform, so a scale written next to a position in `transform`
+  // multiplies the position too, about the label layer's own origin.
+  await page.addStyleTag({
+    content:
+      ".model-pin.landing{animation-duration:20s !important}.pin-ripple{animation-duration:20s !important}",
+  });
+  const spot = await point(page);
+  await page.mouse.dblclick(spot.x, spot.y);
+  await expect(page.locator(".model-pin.landing")).toHaveCount(1);
+  // Long enough for the render loop to place the label, and 0.6% into an
+  // arrival that now lasts twenty seconds.
+  await page.waitForTimeout(120);
+  const travel = await page.evaluate(
+    ([x, y]) => {
+      const box = document.querySelector(".model-pin").getBoundingClientRect();
+      const ripple = document
+        .querySelector(".pin-ripple")
+        ?.getBoundingClientRect();
+      return {
+        pin: Math.abs(box.left + box.width / 2 - x),
+        ripple: ripple
+          ? Math.hypot(
+              ripple.left + ripple.width / 2 - x,
+              ripple.top + ripple.height / 2 - y,
+            )
+          : null,
+      };
+    },
+    [spot.x, spot.y],
+  );
+  expect(travel.pin).toBeLessThan(6);
+  // Not merely "near the point": a number at all. The ripple lived in the layer
+  // that is rebuilt whenever the marks change, so placing a mark removed the
+  // ripple acknowledging it in the same synchronous block — it had never been
+  // on screen for a single frame.
+  expect(travel.ripple).toBeLessThan(6);
+});
+
 test("a trackpad pans with two fingers where a mouse zooms with its wheel", async ({
   page,
 }) => {

@@ -90,6 +90,14 @@ export class ModelViewer {
     this.scene.add(this.agentOverlay, this.previewOverlay);
     this.annotationsVisible = true;
     this.fillTolerance = 6;
+    // Two layers, because they are cleared on different schedules. Every pin
+    // element is rebuilt whenever the marks change, so anything sharing that
+    // layer is wiped by the very edit it is acknowledging — which is what
+    // happened to the landing ripple: it was appended and then removed in the
+    // same synchronous block, before a single frame could show it.
+    this.effects = document.createElement("div");
+    this.effects.className = "pin-layer";
+    container.append(this.effects);
     this.labels = document.createElement("div");
     this.labels.className = "pin-layer";
     container.append(this.labels);
@@ -838,7 +846,13 @@ export class ModelViewer {
       // label used to be centred above the point with a near-square corner
       // hinting at a direction it was not actually anchored in, which left the
       // exact surface a mark referred to unreadable.
-      pin.el.style.transform = `translate(${((projected.x + 1) * rect.width) / 2}px,${((-projected.y + 1) * rect.height) / 2}px) translate(-50%,calc(-100% - 7px))`;
+      // Position belongs in `translate`, not `transform`: individual transform
+      // properties compose translate → rotate → scale → transform, so a scale
+      // written alongside a position in `transform` is applied to the position
+      // as well, about the layer's own origin. The landing animation scales, so
+      // putting the position after it is what keeps a mark on its point instead
+      // of flying it in from the corner of the screen.
+      pin.el.style.translate = `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
     }
   }
   /* Placing a mark is the one moment a reviewer makes something, and it used to
@@ -850,9 +864,11 @@ export class ModelViewer {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const mark = document.createElement("div");
     mark.className = "pin-ripple";
-    mark.style.transform = `translate(${clientX - rect.left}px,${clientY - rect.top}px)`;
+    // Same reason as the label above: the ripple only scales, so its position
+    // has to sit in `translate` or the scale carries it away from the point.
+    mark.style.translate = `${clientX - rect.left}px ${clientY - rect.top}px`;
     mark.addEventListener("animationend", () => mark.remove());
-    this.labels.append(mark);
+    this.effects.append(mark);
   }
   focusAnnotation(a) {
     const mesh = this.meshMap.get(

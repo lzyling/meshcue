@@ -870,21 +870,19 @@ a {
   pointer-events: none;
 }
 .model-pin.landing {
-  animation: pin-land 340ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  animation: pin-land 170ms ease-out;
 }
-/* Double-clicking a surface is the one moment a reviewer makes something. It
-   used to appear with no acknowledgement at all, which reads as the click
-   having been missed rather than taken. */
+/* Placing a mark is the one moment a reviewer makes something. It used to
+   appear with no acknowledgement at all, which reads as the click having been
+   missed rather than taken. Acknowledging it is all this has to do: a short
+   settle at the point, with no overshoot to follow across the screen. */
 @keyframes pin-land {
   0% {
     opacity: 0;
-    scale: 0.4;
-  }
-  55% {
-    opacity: 1;
-    scale: 1.12;
+    scale: 0.82;
   }
   100% {
+    opacity: 1;
     scale: 1;
   }
 }
@@ -899,16 +897,16 @@ a {
   border: 2px solid var(--pin-color);
   pointer-events: none;
   z-index: 2;
-  animation: pin-ripple 460ms ease-out forwards;
+  animation: pin-ripple 300ms ease-out forwards;
 }
 @keyframes pin-ripple {
   from {
-    opacity: 0.85;
-    scale: 0.35;
+    opacity: 0.6;
+    scale: 0.6;
   }
   to {
     opacity: 0;
-    scale: 2.6;
+    scale: 1.9;
   }
 }
 @media (prefers-reduced-motion: reduce) {
