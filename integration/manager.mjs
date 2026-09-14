@@ -94,16 +94,30 @@ export async function ipc(runtime, instance, route, body) {
             req.destroy(new Error("Response too large"));
         });
         res.on("end", () => {
+          let value;
           try {
-            const value = JSON.parse(data);
-            if (res.statusCode >= 400) {
-              const err = new Error(value.error || "MeshCue request failed");
-              err.code = value.code;
-              reject(err);
-            } else resolve(value);
-          } catch (error) {
-            reject(error);
+            value = JSON.parse(data);
+          } catch {
+            // A server older than the route answers with the framework's HTML
+            // 404, and forwarding the parse failure tells the caller a strange
+            // byte arrived instead of the thing that is true: this instance was
+            // started from a build that predates the action. Installing never
+            // replaces a running server, so the remedy is to open it again.
+            const old = res.statusCode === 404;
+            const err = new Error(
+              old
+                ? `This project is being served by a build that has no ${route}; open the project again to serve it from the installed one.`
+                : `The workbench answered ${route} with something that is not JSON (HTTP ${res.statusCode}).`,
+            );
+            err.code = old ? "OLD_RUNTIME" : "BAD_RESPONSE";
+            reject(err);
+            return;
           }
+          if (res.statusCode >= 400) {
+            const err = new Error(value.error || "MeshCue request failed");
+            err.code = value.code;
+            reject(err);
+          } else resolve(value);
         });
       },
     );

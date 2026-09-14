@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
@@ -597,4 +598,42 @@ test("the Agent can publish without taking the screen, then switch, finish and c
   });
   assert.equal(status.versions.length, 2);
   assert.equal(status.locked, false);
+});
+
+/* Installing a build does not replace a server that is already running, so the
+ * moment 0.13.0 landed, every live 0.11.1 instance answered `retain` with the
+ * framework's HTML 404. `ipc` handed the JSON.parse failure straight back, and
+ * what reached the agent was `Unexpected token '<', "<!DOCTYPE "...` — a string
+ * that reads like a corrupt response and says nothing about the one thing that
+ * would fix it. Hit on the first call after the 0.13.0 restart, 2026-09-15.
+ */
+test("a route the running build predates says so, instead of leaking a parse error", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-ipc-"));
+  const server = http.createServer((req, res) => {
+    if (req.url === "/status") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    // What Express answers for an unregistered route.
+    res.writeHead(404, { "Content-Type": "text/html" });
+    res.end(
+      '<!DOCTYPE html>\n<html><head><title>Error</title></head><body><pre>Cannot POST /retain</pre></body></html>',
+    );
+  });
+  await new Promise((r) => server.listen(path.join(dir, "agent.sock"), r));
+  t.after(() => {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  assert.deepEqual(await ipc(dir, null, "/status"), { ok: true });
+
+  const error = await ipc(dir, null, "/retain", { keep: 3 }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.equal(error?.code, "OLD_RUNTIME");
+  assert.match(error.message, /open the project again/);
+  assert.doesNotMatch(error.message, /JSON|token|DOCTYPE/);
 });

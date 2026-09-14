@@ -80,7 +80,6 @@ export const TOOL = {
       units: { type: "string" },
       versionId: { type: "string" },
       keep: { type: "integer", minimum: 0 },
-      keep: { type: "integer", minimum: 0 },
       submissionId: { type: "string" },
       summary: { type: "string" },
       annotations: { type: "array", items: { type: "object" } },
