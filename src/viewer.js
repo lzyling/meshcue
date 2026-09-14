@@ -18,6 +18,14 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 const V = THREE.Vector3;
+/* Coverage is stored as the clipped polygon; WebGL wants triangles. Fanning at
+   draw time costs nothing and keeps the stored form free of the sixty-odd
+   repetitions a stored fan carried. Three vertices fan to themselves, so
+   patches written before this change draw through the same path. */
+const fanInto = (coords, vertices) => {
+  for (let i = 1; i < vertices.length - 1; i++)
+    coords.push(...vertices[0], ...vertices[i], ...vertices[i + 1]);
+};
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
 // Let the browser actually paint before a long synchronous block starts. One
@@ -665,9 +673,14 @@ export class ModelViewer {
     const previous = this.lastPaintPoint || [x, y];
     const distance = Math.hypot(x - previous[0], y - previous[1]);
     if (this.lastPaintPoint && distance < 0.5) return;
+    /* Stamps along a drag only have to overlap enough that the swept band has
+       no notches. At half the radius the scallop between two stamps is 0.7 px
+       at the default brush; at a third of it — what this used to be — it is
+       0.3 px, three tenths of a pixel bought with half again as many stamps,
+       each of which stores its own outline on every face it touches. */
     const steps = Math.max(
       1,
-      Math.ceil(distance / Math.max(2, this.radius / 3)),
+      Math.ceil(distance / Math.max(2, this.radius / 2)),
     );
     const patches = [];
     for (let i = 1; i <= steps; i++) {
@@ -721,8 +734,7 @@ export class ModelViewer {
           const coords = [];
           if (["brush-v1", "source-v1"].includes(a.coverage)) {
             for (const patch of a.surfacePatches || []) {
-              if (patch.meshId === meshId)
-                for (const v of patch.vertices) coords.push(...v);
+              if (patch.meshId === meshId) fanInto(coords, patch.vertices);
             }
           } else
             for (const face of faces) {
@@ -969,7 +981,7 @@ export class ModelViewer {
     const groups = new Map();
     for (const p of patches) {
       if (!groups.has(p.meshId)) groups.set(p.meshId, []);
-      groups.get(p.meshId).push(...p.vertices.flat());
+      fanInto(groups.get(p.meshId), p.vertices);
     }
     for (const [id, coords] of groups) {
       const mesh = this.meshMap.get(id);

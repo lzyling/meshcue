@@ -138,3 +138,29 @@ test("bucket size follows the candidates, not a fixed pixel grid", () => {
     assert.equal(span / cell <= 64 || candidates.length === 1, true);
   }
 });
+
+/* One stamp used to cost about sixty-four patches whatever it landed on,
+   because the brush outline is a polygon and every clipped piece was fanned
+   into triangles before being stored — so what each stamp recorded was the
+   brush's own outline re-triangulated, not the model. On two large triangles
+   that was thirty-two patches per face. Storing the clipped polygon is the
+   same geometry; a fan at draw time costs nothing. */
+test("a stamp stores its outline once, not once per triangle it was cut into", () => {
+  const m = plane("front", 0),
+    c = camera();
+  const patches = brushPatches([m], c, rect, 400, 300, 22);
+  assert.ok(patches.length > 0);
+  // Two triangles in the plane, so at most one covered piece each.
+  assert.ok(
+    patches.length <= 2,
+    `a stamp on two triangles produced ${patches.length} patches`,
+  );
+  // The saving is real only if the corners went into the polygon rather than
+  // into extra patches: a circle-clipped piece has more than three of them.
+  assert.ok(patches.some((p) => p.vertices.length > 3));
+  // Coordinates are float32 in the geometry; storing more digits than that
+  // stores the arithmetic. Seven significant digits round-trips it exactly.
+  for (const p of patches)
+    for (const v of p.vertices)
+      for (const x of v) assert.equal(x, Number(x.toPrecision(7)));
+});

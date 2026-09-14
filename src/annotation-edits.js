@@ -1,4 +1,4 @@
-import { subtract } from "./brush.js";
+import { subtract, round } from "./brush.js";
 
 export function letterNumber(label) {
   return /^[A-Z]+$/.test(label)
@@ -56,11 +56,11 @@ export function erasePatches(patches, cutters) {
       polygons = polygons.flatMap((poly) =>
         subtract(poly, cut.vertices.map(project), minArea),
       );
-    return polygons.flatMap((poly) =>
-      Array.from({ length: Math.max(0, poly.length - 2) }, (_, i) => ({
-        ...p,
-        vertices: [poly[0], poly[i + 1], poly[i + 2]].map((q) => q.slice(2)),
-      })),
-    );
+    // Polygons, for the same reason the brush stores them: a fan repeats the
+    // patch's own identity once per triangle it was cut into.
+    return polygons.map((poly) => ({
+      ...p,
+      vertices: poly.map((q) => q.slice(2).map(round)),
+    }));
   });
 }

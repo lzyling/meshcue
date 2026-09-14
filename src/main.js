@@ -383,6 +383,18 @@ const colorName = (hex) => (colorKeys[hex] ? t(colorKeys[hex]) : hex);
 function regionName(a) {
   return t("marks.regionName", { color: colorName(a.color) });
 }
+/* Browsers give an origin about 5 MB of local storage, and a review has to fit
+   inside it with room for the recovery copy an unsynced draft is entitled to.
+   The estimate is deliberately rough and deliberately high: a coordinate that
+   rounds short costs fewer bytes than budgeted, never more. */
+const MAX_MARK_BYTES = 3_000_000;
+const patchBytes = (p) => 64 + (p.vertices?.length || 0) * 26;
+const draftBytes = () =>
+  annotations.reduce(
+    (n, a) =>
+      n + 120 + (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0),
+    0,
+  );
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
   if (mode === "erase") {
@@ -414,11 +426,15 @@ function onPaint(patches) {
     }
     return;
   }
-  const count = annotations.reduce(
-    (n, a) => n + (a.surfacePatches?.length || 0),
-    0,
-  );
-  if (count + patches.length > 40000) {
+  /* Measured in bytes, because bytes are what runs out. The old guard counted
+     patches and stopped at forty thousand of them — about eleven megabytes,
+     twice what a browser will hold — so the warning it exists to give could
+     never arrive before the quota did, and the reviewer met "local storage is
+     full" instead of "submit this batch". */
+  if (
+    draftBytes() + patches.reduce((n, p) => n + patchBytes(p), 0) >
+    MAX_MARK_BYTES
+  ) {
     toast(t("marks.nearStrokeLimit"));
     return;
   }

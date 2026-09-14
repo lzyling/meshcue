@@ -5,6 +5,9 @@ import { t } from "./i18n/index.js";
 // Screen coordinates carry perspective-correct local positions. Occluders are
 // subtracted before export, so rotating later cannot reveal paint on hidden faces.
 const EPS = 1e-8;
+// float32 carries about seven significant decimal digits; past that a stored
+// coordinate is recording the arithmetic, not the model.
+export const round = (v) => (v === 0 ? 0 : Number(v.toPrecision(7)));
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 export function clip(poly, distance) {
   const out = [];
@@ -102,9 +105,13 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
   camera.updateMatrixWorld();
   const candidates = [],
     circle = [];
-  // Inscribed 64-gon: under 0.08 CSS px error at maximum supported radius.
-  for (let i = 0; i < 64; i++) {
-    const theta = (i * Math.PI * 2) / 64;
+  /* Inscribed 32-gon: 0.29 CSS px error at the largest brush the slider
+     offers, 0.11 px at the default one — under a pixel where it matters, and
+     every corner of this outline is a corner the stroke stores on each face
+     it lands on. The 64-gon it replaces bought a precision no display could
+     show and charged for it in every stamp. */
+  for (let i = 0; i < 32; i++) {
+    const theta = (i * Math.PI * 2) / 32;
     circle.push([x + radius * Math.cos(theta), y + radius * Math.sin(theta)]);
   }
   const edges = circle.map((p, i) => edge(p, circle[(i + 1) % circle.length]));
@@ -215,19 +222,29 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
       pieces = pieces.flatMap((p) => subtract(p, cover));
       if (!pieces.length) break;
     }
-    const local = (p) => [p[4] / p[3], p[5] / p[3], p[6] / p[3]];
+    const local = (p) => [
+      // The geometry these come from is float32, so digits past the seventh
+      // are arithmetic noise being spelled out in full. Keeping them cost
+      // roughly two thirds of every stored coordinate.
+      round(p[4] / p[3]),
+      round(p[5] / p[3]),
+      round(p[6] / p[3]),
+    ];
+    const face = {
+      meshId: target.mesh.userData.reviewId,
+      faceIndex: target.faceIndex,
+      sourceFaceIndex:
+        target.mesh.geometry.userData.sourceFaces[target.faceIndex],
+    };
+    /* Store the clipped polygon, not a fan of triangles cut from it. The brush
+       outline is a 64-gon, so fanning charged roughly sixty-four patches for
+       every stamp — the same sixty-four whether the stamp landed on a dense
+       mesh or on a single large face, because what was being re-triangulated
+       and re-stored each time was the brush's own outline, not the model.
+       Each patch also repeats its mesh id and two face numbers, so sixty of
+       every sixty-two copies of those were the fan as well. */
     for (const piece of pieces)
-      for (let k = 1; k < piece.length - 1; k++) {
-        const tri = [piece[0], piece[k], piece[k + 1]];
-        if (useful(tri))
-          patches.push({
-            meshId: target.mesh.userData.reviewId,
-            faceIndex: target.faceIndex,
-            sourceFaceIndex:
-              target.mesh.geometry.userData.sourceFaces[target.faceIndex],
-            vertices: tri.map(local),
-          });
-      }
+      if (useful(piece)) patches.push({ ...face, vertices: piece.map(local) });
   });
   return patches;
 }

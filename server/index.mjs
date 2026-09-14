@@ -329,7 +329,10 @@ const annotation = z.discriminatedUnion("type", [
               meshId: id,
               faceIndex: z.number().int().min(0),
               sourceFaceIndex: z.number().int().min(0),
-              vertices: z.tuple([vec3, vec3, vec3]),
+              // A clipped polygon, not a triangle: the brush outline is a
+              // 64-gon, so a triangle cut by it can carry up to 67 corners,
+              // and an occluder subtracted from that a few more.
+              vertices: z.array(vec3).min(3).max(256),
             })
             .strict(),
         )
