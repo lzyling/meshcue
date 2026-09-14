@@ -138,7 +138,6 @@ export class ModelViewer {
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
-    canvas.addEventListener("dblclick", (e) => this.doubleClick(e));
     canvas.addEventListener("pointercancel", () => this.pointerUp());
     canvas.addEventListener(
       "pointerleave",
@@ -526,42 +525,6 @@ export class ModelViewer {
           },
     );
   }
-  async doubleClick(e) {
-    if (
-      e.button !== 0 ||
-      this.mode !== "orbit" ||
-      !this.enabled ||
-      this.pinPending ||
-      this.lastGestureDragged
-    )
-      return;
-    e.preventDefault();
-    const hit = this.rayAt(e.clientX, e.clientY);
-    if (!hit) return;
-    const epoch = this.editEpoch;
-    const pin = this.pinFromHit(hit),
-      modelId = this.model.id;
-    this.pinPending = true;
-    try {
-      if (
-        (await this.onEdit()) &&
-        modelId === this.model?.id &&
-        epoch === this.editEpoch
-      ) {
-        this.ripple(e.clientX, e.clientY);
-        // Consumed by the next render, so only the mark just placed lands.
-        // Every pin element is rebuilt on each pass, and animating whichever
-        // ones are new would make a page refresh look like a hailstorm.
-        this.placing = true;
-        this.onPin(pin);
-        this.onStrokeEnd();
-      }
-    } catch (err) {
-      this.onError(err.message);
-    } finally {
-      this.pinPending = false;
-    }
-  }
   async pointerDown(e) {
     this.gestureStart = [e.clientX, e.clientY];
     this.lastGestureDragged = false;
@@ -573,7 +536,7 @@ export class ModelViewer {
       this.pinPending
     )
       return;
-    if (!e.altKey && ["fill", "relocate"].includes(this.mode)) {
+    if (!e.altKey && ["label", "fill", "relocate"].includes(this.mode)) {
       e.stopImmediatePropagation();
       e.preventDefault();
       this.clickStart = [e.clientX, e.clientY];
@@ -1061,6 +1024,20 @@ export class ModelViewer {
     const epoch = this.editEpoch;
     const mode = this.mode,
       modelId = this.model?.id;
+    /* Placing a label used to need a double click, so the habit arrives with
+       the reviewer. Two single clicks in the same spot are that habit, not a
+       request for two labels stacked on one another. */
+    if (mode === "label") {
+      const now = Date.now(),
+        last = this.lastLabelAt;
+      if (
+        last &&
+        now - last.time < 450 &&
+        Math.hypot(e.clientX - last.x, e.clientY - last.y) < 8
+      )
+        return;
+      this.lastLabelAt = { time: now, x: e.clientX, y: e.clientY };
+    }
     if (mode === "fill") this.previewFill(e.clientX, e.clientY);
     if (mode === "fill" && this.fillTooLarge) {
       this.onError(t("tool.faceOverLimit"));
@@ -1078,6 +1055,14 @@ export class ModelViewer {
         return;
       if (mode === "relocate") this.onRelocate?.(pin);
       else if (mode === "fill" && patches?.length) this.onPaint(patches);
+      else if (mode === "label") {
+        this.ripple(e.clientX, e.clientY);
+        // Consumed by the next render, so only the mark just placed lands.
+        // Every pin element is rebuilt on each pass, and animating whichever
+        // ones are new would make a page refresh look like a hailstorm.
+        this.placing = true;
+        this.onPin(pin);
+      }
       this.onStrokeEnd();
     } catch (e) {
       this.onError(e.message);

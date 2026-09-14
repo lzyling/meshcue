@@ -143,10 +143,16 @@ export default {
   "cube.homeTitle": "Zurück zur Standardansicht",
   "cube.homeLabel": "Ansicht zurücksetzen",
 
-  "tool.orbit": "Drehen / Marke",
-  "tool.orbitLabel": "Drehen und markieren",
+  "tool.orbit": "Drehen",
+  "tool.orbitLabel": "Drehwerkzeug",
   "tool.orbitTitle":
-    "Doppelklick auf eine Fläche setzt eine Marke; die rechte Taste dreht",
+    "Modell drehen und ansehen; nichts wird gesetzt oder gemalt",
+  "tool.label": "Marke",
+  "tool.labelLabel": "Markenwerkzeug",
+  "tool.labelTitle":
+    "Klick auf eine Fläche setzt eine Marke; die rechte Taste dreht",
+  "hint.label":
+    "Auf eine Fläche klicken setzt eine Marke · die rechte Taste dreht weiterhin",
   "tool.brush": "Pinsel",
   "tool.brushLabel": "Pinselwerkzeug",
   "tool.brushTitle": "Der Pinsel markiert nur sichtbare Oberflächen",
@@ -174,7 +180,7 @@ export default {
     "Diese Fläche überschreitet die Grenze von 20.000 Dreiecken je Markierung; den Umfang verkleinern oder das Modell vereinfachen.",
 
   "hint.orbit":
-    "Rechts ziehen dreht · Doppelklick markiert · zwei Finger oder Mitte verschiebt · Rad zoomt",
+    "Rechts ziehen dreht · zwei Finger oder Mitte verschiebt · Rad zoomt",
   "hint.paint":
     "Sichtbare Oberfläche bemalen · die rechte Taste dreht weiterhin",
   "hint.erase":
@@ -258,7 +264,7 @@ export default {
   "help.p1":
     "Mit rechts ziehen dreht, mit der mittleren Taste oder zwei Fingern verschiebt, Rad oder Pinch zoomt. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
   "help.p2":
-    "Marken: Doppelklick auf die Oberfläche setzt A, B, C; ein einfacher Klick setzt nichts. Pinsel: malt nur auf der sichtbaren Oberfläche — und die rechte Taste dreht weiterhin, das Malen muss dafür nie unterbrochen werden.",
+    "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Pinsel: malt nur auf der sichtbaren Oberfläche — und die rechte Taste dreht weiterhin, das Malen muss dafür nie unterbrochen werden.",
   "help.p3":
     "Punktmarken erkennt man am Buchstaben, bemalte Flächen an der Farbe; die Farbe deckt nur die tatsächlichen Striche ab. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
   "help.p4":

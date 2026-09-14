@@ -136,10 +136,15 @@ export default {
   "cube.homeTitle": "Back to the default view",
   "cube.homeLabel": "Reset the view",
 
-  "tool.orbit": "Orbit / Label",
-  "tool.orbitLabel": "Orbit and label",
-  "tool.orbitTitle":
-    "Double-click a surface to drop a label; the right button orbits",
+  "tool.orbit": "Orbit",
+  "tool.orbitLabel": "Orbit tool",
+  "tool.orbitTitle": "Turn and inspect the model; nothing is placed or painted",
+  "tool.label": "Label",
+  "tool.labelLabel": "Label tool",
+  "tool.labelTitle":
+    "Click a surface to place a label; the right button orbits",
+  "hint.label":
+    "Click a surface to place a label · the right button still orbits",
   "tool.brush": "Brush",
   "tool.brushLabel": "Brush tool",
   "tool.brushTitle": "The brush only marks the surface you can see",
@@ -166,7 +171,7 @@ export default {
     "This surface exceeds the 20,000 triangle limit for one mark; narrow the spread or simplify the model.",
 
   "hint.orbit":
-    "Right-drag to orbit · double-click to label · two fingers or middle to pan · scroll to zoom",
+    "Right-drag to orbit · two fingers or middle to pan · scroll to zoom",
   "hint.paint": "Paint the visible surface · the right button still orbits",
   "hint.erase":
     "Erase visible strokes · leaves the model alone · the right button still orbits",
@@ -244,7 +249,7 @@ export default {
   "help.p1":
     "Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to zoom. The left button is never the camera's, so you can mark without putting a tool down.",
   "help.p2":
-    "Labels: double-click the model surface to place A, B, C; a plain single click places nothing. Brush: paints only the surface you can currently see — and the right button still orbits while you hold it, so painting never has to stop to turn the model.",
+    "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Brush: paints only the surface you can currently see — and the right button still orbits while you hold it, so painting never has to stop to turn the model.",
   "help.p3":
     "Point labels are identified by their letter, painted areas by their colour; the colour covers only the actual strokes. To separate another request, press “New area”. You can undo, redo, and delete individual marks.",
   "help.p4":

@@ -127,6 +127,7 @@ app.innerHTML = `${SPRITE}
    </div>
    <div class="toolbar" role="toolbar" aria-label="${T("a11y.toolbar")}">
     <button data-mode="orbit" class="tool active" title="${T("tool.orbitTitle")}" aria-label="${T("tool.orbitLabel")}">${icon("orbit")}<span>${T("tool.orbit")}</span></button>
+    <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
     <button data-mode="paint" class="tool" title="${T("tool.brushTitle")}" aria-label="${T("tool.brushLabel")}">${icon("brush")}<span>${T("tool.brush")}</span></button>
     <button data-mode="erase" class="tool" aria-label="${T("tool.eraserLabel")}" title="${T("tool.eraserTitle")}">${icon("eraser")}<span>${T("tool.eraser")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
@@ -854,7 +855,8 @@ function setMode(next) {
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
   $("#tool-options").hidden = false;
   $("#fill-control").hidden = next !== "fill";
-  $(".palette").hidden = ["erase", "relocate"].includes(next);
+  // Looking makes nothing, so there is nothing for a colour to apply to.
+  $(".palette").hidden = ["orbit", "erase", "relocate"].includes(next);
   $("#radius-control").hidden = !["paint", "erase"].includes(next);
   $("#new-region").hidden = next !== "paint";
   $("#tool-hint").textContent = {
@@ -862,6 +864,7 @@ function setMode(next) {
     erase: t("hint.erase"),
     fill: t("hint.fill"),
     relocate: t("hint.relocate"),
+    label: t("hint.label"),
     orbit: t("hint.orbit"),
   }[next];
 }

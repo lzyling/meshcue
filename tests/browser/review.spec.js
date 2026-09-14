@@ -50,7 +50,7 @@ async function ready(page) {
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "Orbit and label", exact: true }),
+    page.getByRole("button", { name: "Label tool", exact: true }),
   ).toBeEnabled();
 }
 async function point(page, dx = 0, dy = 0) {
@@ -61,11 +61,9 @@ async function point(page, dx = 0, dy = 0) {
   };
 }
 async function pin(page) {
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -272,7 +270,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   // Clobbering is prevented by the draft revision check, which is the only
   // guard that actually knows whether two edits conflict.
   await expect(
-    other.getByRole("button", { name: "Orbit and label", exact: true }),
+    other.getByRole("button", { name: "Label tool", exact: true }),
   ).toBeEnabled();
   await expect
     .poll(() => other.evaluate(() => window.__reviewDiagnostics().owned))
@@ -282,11 +280,9 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   ).toBe(1);
   // The tab that lost presence is told another window is here.
   await expect(page.locator("#resume-banner")).toBeVisible();
-  await other
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await other.getByRole("button", { name: "Label tool", exact: true }).click();
   const q = await point(other, 12, 12);
-  await other.mouse.dblclick(q.x, q.y);
+  await other.mouse.click(q.x, q.y);
   await expect
     .poll(() =>
       other.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -351,11 +347,9 @@ test("temporary save failure keeps local edits, then retries without losing the 
 }) => {
   await ready(page);
   await page.route("**/api/draft", (r) => r.abort());
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -581,7 +575,7 @@ test("review page has no conversation copy, history polling or second message in
   expect(fs.existsSync(path.join(dir, "fake-gateway.json"))).toBe(false);
 });
 
-test("the right button rotates, the left one only marks, and a single click still does nothing", async ({
+test("the looking tool places nothing, and the right button is what rotates", async ({
   page,
 }) => {
   await ready(page);
@@ -613,13 +607,35 @@ test("the right button rotates, the left one only marks, and a single click stil
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
-  await page.mouse.dblclick(p.x, p.y);
+  /* Everything above happened in the looking tool, which is why none of it
+     made a mark: turning the model can no longer produce one by accident.
+     Placing is a tool you choose, and then one click is enough. */
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  /* The gesture this replaces was a double click, so the habit arrives with
+     the reviewer — and it must leave one label, not two stacked on each other.
+     The wait is what makes this a second gesture rather than a continuation of
+     the first; without it the guard would rightly swallow the whole thing. */
+  await page.waitForTimeout(700);
+  await page.mouse.dblclick(p.x + 3, p.y + 2);
+  await page.waitForTimeout(400);
+  expect(
+    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+  ).toBe(2);
+  // A label meant for somewhere else is still a label, however soon it comes.
+  await page.mouse.click(p.x + 40, p.y + 25);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(3);
+  // Placing a label must not move the camera under the reviewer afterwards.
   const saved = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.waitForTimeout(150);
   expect(
@@ -627,7 +643,7 @@ test("the right button rotates, the left one only marks, and a single click stil
   ).toEqual(saved);
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
-  ).toBe(1);
+  ).toBe(3);
 });
 
 test("a lost draft acknowledgement replays its exact write before saving a newer edit", async ({
@@ -643,13 +659,11 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
     }
     return route.continue();
   });
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
-  await page.mouse.dblclick(p.x + 8, p.y + 8);
+  await page.mouse.click(p.x + 8, p.y + 8);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   expect(writes[1]).toEqual(writes[0]);
   expect(writes.at(-1).annotations).toHaveLength(2);
@@ -669,13 +683,11 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
     if (++writes === 1) await fetchThroughFixture(route);
     return route.abort();
   });
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
-  await page.mouse.dblclick(p.x + 8, p.y + 8);
+  await page.mouse.click(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -721,11 +733,9 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
   const before = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
@@ -756,11 +766,9 @@ test("a truly divergent cached draft is durably backed up before new edits can r
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
-  await page.mouse.dblclick(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   const clientId = await page.evaluate(() =>
@@ -785,10 +793,8 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(different);
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
-  await page.mouse.dblclick(p.x + 8, p.y + 8);
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await page.mouse.click(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -916,11 +922,9 @@ test("narrow embedded review fixture remains interactive without a duplicated co
     ),
   ).toBe(true);
   await expect(frame.locator("#chat-input")).toHaveCount(0);
+  await frame.getByRole("button", { name: "Label tool", exact: true }).click();
   const box = await frame.locator("#viewer").boundingBox();
-  await page.mouse.dblclick(
-    box.x + box.width * 0.55,
-    box.y + box.height * 0.45,
-  );
+  await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect
     .poll(() =>
       frame.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -955,10 +959,8 @@ test("painting never has to stop to turn the model, and does not consume point l
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
-  await page.mouse.dblclick(p.x, p.y);
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -1855,11 +1857,9 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const spot = await point(page);
-  await page.mouse.dblclick(spot.x, spot.y);
+  await page.mouse.click(spot.x, spot.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -1909,9 +1909,7 @@ test("a mark arrives at its point instead of flying in from the corner", async (
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Orbit and label", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
   // Stretch the arrival so it can be measured while it is still running. Every
   // existing assertion polls until the animation has settled, so none of them
   // could see where a mark travelled on its way in — and travelling is the
@@ -1923,7 +1921,7 @@ test("a mark arrives at its point instead of flying in from the corner", async (
       ".model-pin.landing{animation-duration:20s !important}.pin-ripple{animation-duration:20s !important}",
   });
   const spot = await point(page);
-  await page.mouse.dblclick(spot.x, spot.y);
+  await page.mouse.click(spot.x, spot.y);
   await expect(page.locator(".model-pin.landing")).toHaveCount(1);
   // Long enough for the render loop to place the label, and 0.6% into an
   // arrival that now lasts twenty seconds.

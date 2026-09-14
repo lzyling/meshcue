@@ -143,10 +143,15 @@ export default {
   "cube.homeTitle": "Revenir à la vue par défaut",
   "cube.homeLabel": "Réinitialiser la vue",
 
-  "tool.orbit": "Pivoter / Repère",
-  "tool.orbitLabel": "Pivoter et repérer",
-  "tool.orbitTitle":
-    "Double-cliquez une surface pour poser un repère ; le bouton droit pivote",
+  "tool.orbit": "Pivoter",
+  "tool.orbitLabel": "Outil pivoter",
+  "tool.orbitTitle": "Tourner et examiner le modèle ; rien n'est posé ni peint",
+  "tool.label": "Repère",
+  "tool.labelLabel": "Outil repère",
+  "tool.labelTitle":
+    "Cliquez une surface pour poser un repère ; le bouton droit pivote",
+  "hint.label":
+    "Cliquez une surface pour poser un repère · le bouton droit pivote toujours",
   "tool.brush": "Pinceau",
   "tool.brushLabel": "Outil pinceau",
   "tool.brushTitle": "Le pinceau ne marque que la surface visible",
@@ -174,7 +179,7 @@ export default {
     "Cette surface dépasse la limite de 20 000 triangles par marque ; réduisez l'étendue ou simplifiez le modèle.",
 
   "hint.orbit":
-    "Glisser à droite pour pivoter · double-clic pour repérer · deux doigts ou milieu pour déplacer · molette pour zoomer",
+    "Glisser à droite pour pivoter · deux doigts ou milieu pour déplacer · molette pour zoomer",
   "hint.paint": "Peindre la surface visible · le bouton droit pivote toujours",
   "hint.erase":
     "Effacer les tracés visibles · le modèle reste intact · le bouton droit pivote toujours",
@@ -254,7 +259,7 @@ export default {
   "help.p1":
     "Glisser avec le bouton droit pour pivoter, bouton du milieu ou deux doigts pour déplacer, molette ou pincement pour zoomer. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
   "help.p2":
-    "Repères : double-cliquez la surface pour poser A, B, C ; un simple clic ne pose rien. Pinceau : ne peint que la surface visible — et le bouton droit continue de pivoter, la peinture n'a jamais à s'interrompre pour tourner le modèle.",
+    "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pinceau : ne peint que la surface visible — et le bouton droit continue de pivoter, la peinture n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
     "Les repères se reconnaissent à leur lettre, les zones peintes à leur couleur ; la couleur ne couvre que les tracés réels. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Les marques peuvent être annulées, rétablies et supprimées une à une.",
   "help.p4":
