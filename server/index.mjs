@@ -854,7 +854,17 @@ app.all("/api/chat", (req, res) =>
 const agentApp = express();
 agentApp.use(express.json({ limit: "16mb" }));
 agentApp.use((req, res, next) => {
-  if (idle && agentUse(req.method, req.path)) idle.use();
+  if (!idle || !agentUse(req.method, req.path)) return next();
+  // Count it once it has reached a handler, not on arrival. A write to a route
+  // this build does not have matches nothing and does nothing, yet marking it
+  // on arrival bought the project another full day — and the requests that
+  // miss are precisely the ones a newer harness sends at an older runtime, so
+  // the instances most overdue for reclaiming were the ones kept alive.
+  // `req.route` is set by the router when a route matches, which keeps a
+  // handler's own 404 (`No such submission`) counting as the work it was.
+  res.on("finish", () => {
+    if (req.route) idle.use();
+  });
   next();
 });
 // A batch nobody can deliver is invisible from the chat side: the one channel

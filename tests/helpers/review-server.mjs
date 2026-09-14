@@ -101,11 +101,16 @@ export async function startReview(
             data += part;
           });
           res.on("end", () => {
+            // A route the server does not have answers in HTML, and a test
+            // about unroutable requests cannot assert on a response the
+            // fixture refused to hand back.
+            let body;
             try {
-              resolve({ status: res.statusCode, body: JSON.parse(data) });
+              body = JSON.parse(data);
             } catch {
-              reject(new Error("Invalid fixture response"));
+              body = undefined;
             }
+            resolve({ status: res.statusCode, body, text: data });
           });
         },
       );

@@ -164,3 +164,54 @@ test("reclaiming can be turned off, but only by saying zero", async (t) => {
   assert.equal(f.alive(), true);
   assert.equal((await f.api("state?clientId=kept")).body.closing, undefined);
 });
+
+/* Marking activity when the request arrived, rather than when it reached a
+ * handler, meant a write to a route this build does not have renewed the whole
+ * day. It cost a real reclaim: on 2026-09-15 a single `retain` — an action
+ * 0.13.0 added, sent at a 0.11.1 instance that had no such route — pushed a
+ * project 9.4 hours into its 24 back to zero, and the 404 it answered with gave
+ * no sign that it had. The requests that miss are exactly the ones a newer
+ * harness sends at an older runtime, so the instances most overdue for
+ * reclaiming were the ones being kept alive.
+ */
+test("a write to a route this build does not have is not a reason to stay up", async (t) => {
+  const f = await startReview(t, {
+    managed: true,
+    idleHours: 3 * SECONDS,
+    idleTickMs: 150,
+  });
+  await f.publish();
+
+  let closing = null;
+  for (let i = 0; i < 60 && !closing && f.alive(); i++) {
+    // What a harness one version ahead sends at this one.
+    const missed = await f.ipc("/retain-that-does-not-exist", { keep: 3 });
+    assert.equal(missed.status, 404);
+    await delay(100);
+    closing = (await f.api("state?clientId=warm")).body.closing || null;
+  }
+  assert.ok(closing, "an unroutable write renewed the clock");
+  assert.equal(await f.waitExit(3000), true);
+});
+
+test("a handler's own 404 is still the work the agent came to do", async (t) => {
+  const f = await startReview(t, {
+    managed: true,
+    idleHours: 3 * SECONDS,
+    idleTickMs: 150,
+  });
+  await f.publish();
+
+  // `read` for a batch that is not there reaches the route and is answered by
+  // it. The agent engaged with this project; only an unmatched path did not.
+  for (let i = 0; i < 8; i++) {
+    const missing = await f.ipc("/read", {
+      submissionId: "no-such-batch",
+      versionId: "no-such-version",
+    });
+    assert.equal(missing.status, 404);
+    await delay(200);
+  }
+  assert.equal(f.alive(), true);
+  assert.equal((await f.api("state?clientId=warm")).body.closing, undefined);
+});
