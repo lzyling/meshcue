@@ -39,7 +39,13 @@ const VIEWER_USE = new Set([
 ]);
 
 export function viewerUse(method, routePath) {
-  return VIEWER_USE.has(`${method} ${routePath}`);
+  if (VIEWER_USE.has(`${method} ${routePath}`)) return true;
+  // Asking for the model bytes is what separates a person opening the link from
+  // the page healing itself. Both re-issue /api/ready, but only a real load
+  // fetches a model — the recovery path reuses the receipt it already holds and
+  // never asks again. An agent-driven version switch lands here too, and that
+  // is right: the publish that caused it counted as well.
+  return method === "GET" && routePath.startsWith("/api/models/");
 }
 
 // The agent's reads are inspection: `status` is polled by tooling, by the
@@ -87,6 +93,14 @@ export class IdleWatch {
     return this.closingAt === null
       ? null
       : { reason: "idle", idleSince: this.usedAt, since: this.closingAt };
+  }
+  // Carried on every poll, not just during the announcement. A background tab
+  // is throttled to about one timer a minute, so the tab this feature exists to
+  // collect is precisely the one that can sleep straight through the announced
+  // window. Knowing how close the deadline was at its last successful reading
+  // lets it still say what happened instead of reporting a crash.
+  report(at = this.now(), graceMs = 0) {
+    return { forMs: at - this.usedAt, limitMs: this.idleMs, graceMs };
   }
 }
 

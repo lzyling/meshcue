@@ -75,7 +75,12 @@ const instance = readInstance(config);
 // this was written for was an unmanaged one that had been listening for most of
 // four days. Zero is the only way to opt out.
 const idleMs = idleMsFrom(process.env.REVIEW_IDLE_HOURS ?? config.idleHours);
+const idleTickMs = Math.max(
+  1000,
+  Number(process.env.REVIEW_IDLE_TICK_MS) || 60_000,
+);
 const idle = idleMs > 0 ? new IdleWatch({ idleMs }) : null;
+const idleReport = () => (idle ? idle.report(Date.now(), idleTickMs) : null);
 let maintenanceUntil = 0;
 const managedEnabled = () =>
   !config.managed ||
@@ -351,14 +356,20 @@ function stateFor(clientId, full = false, versionId) {
       camera: undefined,
       annotationCount: state.draft.annotations.length,
     };
+  const closing = idle?.notice() || null;
   return {
     ...state,
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
+    // The countdown rides along on every poll, not only during the
+    // announcement: a throttled background tab can sleep through the whole
+    // announced window, and its last reading is then the only thing it has to
+    // tell a reclaim apart from a crash.
+    idle: idleReport(),
     // Present only while the service is about to reclaim itself. Reading the
     // notice never advances the decision — the timer owns that — so a poll can
     // report the warning without becoming the reason it was withdrawn.
-    ...(idle?.notice() ? { closing: idle.notice() } : {}),
+    ...(closing ? { closing } : {}),
   };
 }
 function saveManifest(versionId, meshes) {
@@ -502,9 +513,7 @@ app.get("/api/health", (req, res) =>
     // Said out loud so nobody has to infer it from a process that is simply
     // gone one day. A runtime that predates reclaiming has no `idle` here at
     // all, and that absence is the only way to tell the two apart from outside.
-    idle: idle
-      ? { forMs: Date.now() - idle.usedAt, limitMs: idleMs }
-      : { forMs: 0, limitMs: 0 },
+    idle: idleReport() || { forMs: 0, limitMs: 0, graceMs: 0 },
   }),
 );
 app.get("/api/state", (req, res) =>
@@ -884,13 +893,10 @@ agentApp.get("/status", (req, res) =>
     // Asking for status is not using the review, so reading this never moves
     // it. That is the whole reason it can be reported honestly: a countdown
     // that its own observer resets would only ever show the same number.
-    idle: idle
-      ? {
-          forMs: Date.now() - idle.usedAt,
-          limitMs: idleMs,
-          closing: idle.notice() !== null,
-        }
-      : { forMs: 0, limitMs: 0, closing: false },
+    idle: {
+      ...(idleReport() || { forMs: 0, limitMs: 0, graceMs: 0 }),
+      closing: Boolean(idle?.notice()),
+    },
     origin: store.state.reviewOrigin,
     instance,
     integrationApi: INTEGRATION_API,
@@ -938,6 +944,16 @@ agentApp.post("/maintenance", (req, res) => {
   // A crashed manager cannot leave the old service paused indefinitely.
   maintenanceUntil = Date.now() + 15000;
   res.json({ paused: true });
+});
+// Handing the URL to a person is the plainest use there is, but on a warm
+// instance an open can touch nothing that counts: health and status are reads,
+// the origin only moves when it changes, and a reopen with no new model
+// publishes nothing. Without this an idle project could be reopened and then
+// reclaim itself out from under whoever was just sent there — or die inside the
+// announced window, seconds after the manager handed out its address.
+agentApp.post("/opened", (req, res) => {
+  z.object({}).strict().parse(req.body);
+  res.json({ opened: true, idle: idleReport() });
 });
 agentApp.post("/publish", (req, res) => {
   const p = z
@@ -1155,12 +1171,21 @@ const idleTimer = idle
             instance: instance?.id,
           });
         else if (phase === "expired") {
+          // A batch that never reached the host is not a reason to stay: a
+          // broken bridge would then make every instance immortal, which is the
+          // behaviour this replaced, reintroduced through a side door. It is a
+          // reason to say so — the outbox drains again the moment the project
+          // is reopened, and nobody should have to guess that.
+          const outbox = outboxSummary();
           log.info(
             "service",
             "reclaimed after idle; the round is kept on disk",
             {
               idleHours: idleMs / 3_600_000,
               pid: process.pid,
+              ...(outbox.pending
+                ? { undelivered: outbox.pending, retriesOnReopen: true }
+                : {}),
             },
           );
           shutdown();

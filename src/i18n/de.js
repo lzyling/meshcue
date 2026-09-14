@@ -5,9 +5,9 @@ export default {
   "app.preview": "Vorschau {version}",
 
   "closing.pending":
-    "Einen Tag ungenutzt – diese Prüfung wird geschlossen. Alles, was Sie hier tun, hält sie offen.",
+    "Diese Prüfung wurde eine Weile nicht genutzt und wird geschlossen. Alles, was Sie hier tun, hält sie offen.",
   "closing.done":
-    "Nach einem Tag ohne Aktivität geschlossen. Alle Versionen und Ihre Markierungen sind gespeichert – bitten Sie den Agenten, diese Prüfung erneut zu öffnen.",
+    "Nach längerem Leerlauf geschlossen. Alle Versionen und Ihre gespeicherten Markierungen bleiben erhalten – bitten Sie den Agenten, diese Prüfung erneut zu öffnen.",
   "common.close": "Schließen",
   "common.version": "Version",
 

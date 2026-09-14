@@ -589,23 +589,35 @@ export class InstanceManager {
           state = await this.status(p, config);
         } catch (error) {
           if (error.code === "WRONG_INSTANCE") throw error;
-          const lockFile = path.join(p.runtime, "instance.lock");
-          if (alive(readLock(lockFile)?.pid))
+          // An instance on the previous contract is understood, not suspect.
+          // It used to fall through to "fails its identity check", which is the
+          // one impression three-state detection exists to prevent: a process
+          // that is merely old sounding like one that is wrong. `status` now
+          // says what it is, and `stop` can still stop it — refusing both is
+          // how a process becomes one a person has to go and kill by hand.
+          if (error.code === "INSTANCE_OUTDATED") {
+            if (input.action !== "stop") throw error;
+            state = error.running;
+          }
+          if (!state) {
+            const lockFile = path.join(p.runtime, "instance.lock");
+            if (alive(readLock(lockFile)?.pid))
+              fail(
+                "INSTANCE_UNVERIFIED",
+                "The project process exists but fails its identity check; nothing was claimed stopped or killed.",
+              );
+            if (["status", "stop"].includes(input.action))
+              return {
+                project: p.project,
+                running: false,
+                stopped: true,
+                dataRetained: true,
+              };
             fail(
-              "INSTANCE_UNVERIFIED",
-              "The project process exists but fails its identity check; nothing was claimed stopped or killed.",
+              "NOT_RUNNING",
+              "This project is not running; continue it first.",
             );
-          if (["status", "stop"].includes(input.action))
-            return {
-              project: p.project,
-              running: false,
-              stopped: true,
-              dataRetained: true,
-            };
-          fail(
-            "NOT_RUNNING",
-            "This project is not running; continue it first.",
-          );
+          }
         }
       }
       if (!isDeepStrictEqual(state.origin, origin)) {
@@ -623,6 +635,10 @@ export class InstanceManager {
         state = await this.status(p, config);
       }
       if (opens) {
+        // Before anything else, because everything after it can fail: the
+        // instance has to know it was just handed to somebody. A runtime older
+        // than reclaiming has no such route and needs no such telling.
+        await ipc(p.runtime, config.instance, "/opened", {}).catch(() => {});
         let published;
         if (input.file)
           published = await ipc(p.runtime, config.instance, "/publish", {
@@ -824,27 +840,37 @@ export async function runtimesThatCannotReclaim(
     return [];
   }
   if (registry.schema !== 1) return [];
-  const stale = [];
-  for (const item of Object.values(registry.projects)) {
-    if (item.installRoot !== installRoot || item.project === exceptProject)
-      continue;
-    try {
-      const runtime = scopedPath(root, item.runtime, { directory: true });
-      const config = JSON.parse(
-        fs.readFileSync(path.join(runtime, "config.json"), "utf8"),
-      );
-      if (config.instance?.id !== item.instanceId) continue;
-      const status = await ipc(runtime, config.instance, "/status");
-      // A runtime that reclaims itself says so. Absence is the signal — an
-      // instance with reclaiming switched off reports a limit of zero, which
-      // is a decision somebody made and not a gap to report.
-      if (status && !status.idle)
-        stale.push({ project: item.project, version: status.version || null });
-    } catch {
-      /* not running, or unreachable: there is nothing here to report */
-    }
-  }
-  return stale;
+  // Opening is interactive, and this runs inside it. Each probe can cost the
+  // full 3s IPC timeout, so a project that is merely slow must not be paid for
+  // one after another: skip the ones whose recorded process is already gone —
+  // a file read, not a round trip — and ask the rest at the same time.
+  const probes = Object.values(registry.projects)
+    .filter(
+      (item) =>
+        item.installRoot === installRoot && item.project !== exceptProject,
+    )
+    .map(async (item) => {
+      try {
+        const runtime = scopedPath(root, item.runtime, { directory: true });
+        const config = JSON.parse(
+          fs.readFileSync(path.join(runtime, "config.json"), "utf8"),
+        );
+        if (config.instance?.id !== item.instanceId) return null;
+        if (!alive(readLock(path.join(runtime, "instance.lock"))?.pid))
+          return null;
+        const status = await ipc(runtime, config.instance, "/status");
+        // A runtime that reclaims itself says so. Absence is the signal — an
+        // instance with reclaiming switched off reports a limit of zero, which
+        // is a decision somebody made and not a gap to report.
+        return status && !status.idle
+          ? { project: item.project, version: status.version || null }
+          : null;
+      } catch {
+        /* not running, or unreachable: there is nothing here to report */
+        return null;
+      }
+    });
+  return (await Promise.all(probes)).filter(Boolean);
 }
 export function pauseRegistered(workspace, installRoot) {
   return eachRegistered(workspace, installRoot, "pause", (runtime, item) =>

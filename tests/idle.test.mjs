@@ -62,6 +62,14 @@ test("the viewer route that looks like a person arriving is the service healing 
   // Counting it would let a tab that recovers in the background renew a life
   // nobody asked to renew — the exact failure this whole table exists to avoid.
   assert.equal(viewerUse("POST", "/api/ready"), false);
+  // But a person opening the link is real use, and excluding /api/ready alone
+  // would have lost it. The model fetch is what tells the two apart: a real
+  // load asks for the bytes, the recovery path reuses the receipt it holds.
+  assert.equal(
+    viewerUse("GET", "/api/models/" + "a".repeat(64) + ".glb"),
+    true,
+  );
+  assert.equal(viewerUse("GET", "/api/state"), false);
 
   for (const request of [
     ["POST", "/api/access/activity"],
@@ -117,6 +125,22 @@ test("a day-long gap in both directions is what idle means; either side alone re
   assert.equal(watch.tick(), "active");
   time = 71 * HOUR;
   assert.equal(watch.tick(), "closing");
+});
+
+test("the countdown is published continuously, so a tab that missed the warning can still tell", () => {
+  let time = 0;
+  const watch = new IdleWatch({ idleMs: 24 * HOUR, now: () => time });
+  time = 23 * HOUR;
+  assert.deepEqual(watch.report(time, 60_000), {
+    forMs: 23 * HOUR,
+    limitMs: 24 * HOUR,
+    graceMs: 60_000,
+  });
+  // Reading it never moves it — a countdown its own observer resets would only
+  // ever show the same number.
+  assert.equal(watch.tick(time), "active");
+  watch.use(time);
+  assert.equal(watch.report(time).forMs, 0);
 });
 
 test("an unreadable idle setting falls back to the default, never to never", () => {

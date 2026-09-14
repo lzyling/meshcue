@@ -42,6 +42,16 @@ function registered(t, projects) {
       installRoot: INSTALL_ROOT,
     };
     if (!status) continue;
+    // Probing costs a round trip with a 3s ceiling, so a project whose recorded
+    // process is gone is skipped on the strength of this file alone. `pid: 0`
+    // stands for one that died without cleaning up.
+    fs.writeFileSync(
+      path.join(runtime, "instance.lock"),
+      JSON.stringify({
+        pid: status.deadProcess ? 0 : process.pid,
+        startedAt: Date.now(),
+      }),
+    );
     const socket = agentSocketPath(runtime, instance);
     prepareSocketDirectory(socket, instance);
     fs.rmSync(socket, { force: true });
@@ -71,6 +81,10 @@ test("opening one project names the others whose runtime is too old to reclaim i
     "deliberately-kept": { version: "0.11.0", idle: { forMs: 0, limitMs: 0 } },
     // Not running: there is nothing here to report either way.
     "never-started": null,
+    // A dead process that never cleaned up its lock. Opening is interactive and
+    // every probe can cost the full IPC timeout, so this one must be dismissed
+    // from the lock file without anybody waiting on a socket for it.
+    "died-without-tidying": { version: "0.6.1", deadProcess: true },
   });
 
   const stale = await runtimesThatCannotReclaim(workspace, INSTALL_ROOT, null);
@@ -82,6 +96,7 @@ test("opening one project names the others whose runtime is too old to reclaim i
 test("the project being opened is not reported to itself, and a foreign install is never touched", async (t) => {
   const workspace = registered(t, {
     "the-one-being-opened": { version: "0.6.1" },
+    "somebody-elses": { version: "0.6.1" },
   });
   assert.deepEqual(
     await runtimesThatCannotReclaim(
@@ -89,7 +104,7 @@ test("the project being opened is not reported to itself, and a foreign install 
       INSTALL_ROOT,
       "projects/the-one-being-opened",
     ),
-    [],
+    [{ project: "projects/somebody-elses", version: "0.6.1" }],
   );
   assert.deepEqual(
     await runtimesThatCannotReclaim(workspace, "/some/other/install", null),

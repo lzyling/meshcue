@@ -5,9 +5,9 @@ export default {
   "app.preview": "Aperçu {version}",
 
   "closing.pending":
-    "Inactive depuis un jour, cette revue va se fermer. Toute action ici la maintient ouverte.",
+    "Cette revue n'a pas servi depuis un moment et va se fermer. Toute action ici la maintient ouverte.",
   "closing.done":
-    "Fermée après un jour sans activité. Toutes les versions et vos annotations sont enregistrées : demandez à l'agent de rouvrir cette revue.",
+    "Fermée après une longue inactivité. Toutes les versions et les annotations enregistrées sont conservées : demandez à l'agent de rouvrir cette revue pour continuer.",
   "common.close": "Fermer",
   "common.version": "Version",
 

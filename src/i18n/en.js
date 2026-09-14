@@ -5,9 +5,9 @@ export default {
   "app.preview": "Preview {version}",
 
   "closing.pending":
-    "Idle for a day — this review is closing. Anything you do here keeps it open.",
+    "Nobody has used this review for a while, so it is closing. Anything you do here keeps it open.",
   "closing.done":
-    "Closed after a day with no activity. Every version and all your marks are saved — ask the Agent to open this review again.",
+    "Closed after being left idle. Every version and the marks you saved are kept — ask the Agent to open this review again to carry on.",
   "common.close": "Close",
   "common.version": "Version",
 

@@ -138,3 +138,18 @@ Use `stop` when maintenance needs the instance down; `REVIEW_BUSY` means someone
 is marking right now, so retry later rather than asking them to end their round.
 Done means data and session ownership are unchanged, or a legitimate handover is
 explicitly complete.
+
+## 9. A review that closed itself
+
+A review nobody has used for a day closes itself and its URL stops answering.
+This is not a fault and needs no diagnosis: every version, every draft and every
+saved mark stays on disk. When the user reports a dead or closed page, or the
+page tells them it was closed for being idle, `open` the same project again and
+give them the new entry — `status` beforehand will simply say it is not running.
+`status` also reports `idle` as `forMs` against `limitMs`, and asking never
+resets it, so it can be quoted as it stands. Publishing, reading, echoing and
+opening all count as use; polling status does not.
+
+`open` may return `runtimesNeedingReopen`: other projects still served by a
+build too old to close itself. Say which ones, so the user can decide to reopen
+them. Never stop somebody else's project on the strength of it.

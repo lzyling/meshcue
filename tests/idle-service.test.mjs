@@ -103,6 +103,56 @@ test("an agent that keeps publishing keeps the round; an agent that only asks st
   assert.equal(await watching.waitExit(3000), true);
 });
 
+test("a reopen has to say so, because the reads it makes on a warm instance are not use", async (t) => {
+  const f = await startReview(t, {
+    managed: true,
+    idleHours: 3 * SECONDS,
+    idleTickMs: 150,
+  });
+  await f.publish();
+
+  // Exactly what reopening an already-running project touches: ensure() probes
+  // health, then asks for status. Both are reads, and neither may renew a life.
+  let closing = null;
+  for (let i = 0; i < 60 && !closing && f.alive(); i++) {
+    await f.api("health");
+    await f.ipc("/status");
+    await delay(100);
+    closing = (await f.api("state?clientId=warm")).body.closing || null;
+  }
+  assert.ok(
+    closing,
+    "probing health and status renewed a clock they only read",
+  );
+});
+
+test("being handed to a person calls off a reclaim that was already announced", async (t) => {
+  const f = await startReview(t, {
+    managed: true,
+    idleHours: 2 * SECONDS,
+    // A window wide enough to catch the announcement and act inside it, which
+    // is the race a reopen would otherwise lose: the manager can hand out an
+    // address seconds before the instance behind it exits.
+    idleTickMs: 1500,
+  });
+  await f.publish();
+
+  let closing = null;
+  for (let i = 0; i < 80 && !closing && f.alive(); i++) {
+    closing = (await f.api("state?clientId=handed-over")).body.closing || null;
+    if (!closing) await delay(100);
+  }
+  assert.ok(closing, "expected the announcement first");
+
+  assert.equal((await f.ipc("/opened", {})).status, 200);
+  const after = await f.api("state?clientId=handed-over");
+  assert.equal(after.body.closing, undefined);
+  assert.ok(after.body.idle.forMs < 1000, "the clock did not go back to zero");
+
+  await delay(1600);
+  assert.equal(f.alive(), true, "it closed anyway after being reopened");
+});
+
 test("reclaiming can be turned off, but only by saying zero", async (t) => {
   const f = await startReview(t, {
     managed: true,

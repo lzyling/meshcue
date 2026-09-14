@@ -160,6 +160,12 @@ let state = null,
   // like. Remembering the reason is the only way the page can keep telling the
   // truth after the thing that knew it has gone.
   closingNotice = null,
+  // The last countdown the service published. A hidden tab is throttled to
+  // roughly one timer a minute, so the forgotten tab this whole mechanism
+  // exists to collect is exactly the one that can sleep through the announced
+  // window — and then all it has left is how close the deadline was when it
+  // last managed to ask.
+  lastIdle = null,
   loadedId = null,
   // Named for the acceptance checks: with no download control on the page, a
   // test that wants to prove the bytes on screen belong to the version claimed
@@ -1382,17 +1388,18 @@ async function readState() {
         : t("conn.local");
     updateEcho(incoming);
     updateOutbox(incoming);
-    updateClosing(incoming.closing);
+    updateClosing(incoming);
     updateButtons();
   } catch (e) {
     $(".connection-dot").classList.remove("online");
     // A service that announced its own reclaim and then stopped answering did
     // not fail. Saying "offline" here would describe a crash, and would leave
     // the reviewer with no reason to believe their marks are still there.
-    if (closingNotice) {
+    if (wasReclaimed()) {
       $("#connection-status").textContent = t("conn.reclaimed");
       $("#save-status").textContent = t("closing.done");
       $("#closing-text").textContent = t("closing.done");
+      $("#closing-banner").hidden = false;
       updateButtons();
       return;
     }
@@ -1410,10 +1417,21 @@ async function readState() {
 // The warning can be called off: anything the reviewer does resets the clock,
 // and the service withdraws the notice on its own. So this follows the service
 // both ways while it is still answering, and only sticks once it stops.
-function updateClosing(notice) {
-  closingNotice = notice || null;
-  $("#closing-banner").hidden = !notice;
-  if (notice) $("#closing-text").textContent = t("closing.pending");
+function updateClosing(incoming) {
+  closingNotice = incoming.closing || null;
+  lastIdle = incoming.idle || null;
+  $("#closing-banner").hidden = !closingNotice;
+  if (closingNotice) $("#closing-text").textContent = t("closing.pending");
+}
+// Nothing is left to ask, so this is read off the last thing the service said.
+// A reading taken within a couple of announcement ticks of a deadline the
+// service had published in advance, followed by silence, is that deadline
+// arriving — no outage lines up with it that precisely.
+function wasReclaimed() {
+  if (closingNotice) return true;
+  if (!lastIdle?.limitMs) return false;
+  const slack = Math.max(lastIdle.graceMs || 0, 60_000) * 2;
+  return lastIdle.forMs >= lastIdle.limitMs - slack;
 }
 function updateReceipt() {
   if (submitting) return;
