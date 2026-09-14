@@ -660,6 +660,12 @@ export class InstanceManager {
             address,
           });
         }
+        // Opening one project is the only moment anything looks at the others.
+        const stale = await runtimesThatCannotReclaim(
+          this.workspace,
+          this.installRoot,
+          p.project,
+        ).catch(() => []);
         return {
           project: p.project,
           instanceId: config.instance.id,
@@ -669,6 +675,8 @@ export class InstanceManager {
           publication: published?.status || "unchanged",
           admission,
           accessPolicy: "30 days inactive; renew on use",
+          reviewLifetime: "reclaimed after a day with no use; reopen to resume",
+          ...(stale.length ? { runtimesNeedingReopen: stale } : {}),
           sourceBound: true,
         };
       }
@@ -786,6 +794,57 @@ function eachRegistered(workspace, installRoot, verb, act) {
     }
   }
   return unavailable;
+}
+// Reclaiming belongs to the instance: it is the only thing that can see whether
+// anyone is still using it, so an instance able to do that needs nothing from
+// here. What it cannot cover is a project still served by a runtime published
+// before reclaiming existed — the 0.6.x services found listening for two and
+// three days were exactly that, and nothing in this system was counting them.
+//
+// So this names them instead of stopping them. A single health probe is not
+// grounds to decide somebody else's page is finished, and reopening the project
+// replaces its runtime anyway — saying which ones need it is the whole job.
+export async function runtimesThatCannotReclaim(
+  workspace,
+  installRoot,
+  exceptProject,
+) {
+  const root = fs.realpathSync(workspace);
+  const file = path.join(root, "projects/meshcue-state/registry.json");
+  if (!fs.existsSync(file)) return [];
+  let registry;
+  try {
+    registry = JSON.parse(
+      fs.readFileSync(
+        scopedPath(root, "projects/meshcue-state/registry.json"),
+        "utf8",
+      ),
+    );
+  } catch {
+    return [];
+  }
+  if (registry.schema !== 1) return [];
+  const stale = [];
+  for (const item of Object.values(registry.projects)) {
+    if (item.installRoot !== installRoot || item.project === exceptProject)
+      continue;
+    try {
+      const runtime = scopedPath(root, item.runtime, { directory: true });
+      const config = JSON.parse(
+        fs.readFileSync(path.join(runtime, "config.json"), "utf8"),
+      );
+      if (config.instance?.id !== item.instanceId) continue;
+      const status = await ipc(runtime, config.instance, "/status");
+      // A runtime that reclaims itself says so. Absence is the signal — an
+      // instance with reclaiming switched off reports a limit of zero, which
+      // is a decision somebody made and not a gap to report.
+      if (status && !status.idle)
+        stale.push({ project: item.project, version: status.version || null });
+    } catch {
+      /* not running, or unreachable: there is nothing here to report */
+    }
+  }
+  return stale;
 }
 export function pauseRegistered(workspace, installRoot) {
   return eachRegistered(workspace, installRoot, "pause", (runtime, item) =>
