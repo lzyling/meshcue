@@ -157,11 +157,48 @@ for (const reader of READERS) {
     /* Words are longer in some languages than others — Radierer against 橡皮擦
        against Gomme — so the room drawn for them has to hold all of them. */
     const overflowing = await page.evaluate(() =>
-      [...document.querySelectorAll(".toolbar .tool span, .orient-face")]
+      [
+        ...document.querySelectorAll(
+          ".toolbar .tool span, .orient-face, .setting > span",
+        ),
+      ]
         .filter((el) => el.scrollWidth > el.clientWidth + 1)
         .map((el) => `${el.className || "label"}: ${el.textContent}`),
     );
     expect(overflowing, "text wider than the space drawn for it").toEqual([]);
+
+    /* Each chooser says what it chooses. "Auto" on its own does not name what
+       is being detected, and the three of them are the widest thing in the
+       header — the locale with the longest words is the one that decides
+       whether the header still fits the window. */
+    await expect(page.locator(".setting > span")).toHaveText([
+      await page.locator("#locale-choice").getAttribute("aria-label"),
+      await page.locator("#device-choice").getAttribute("aria-label"),
+      await page.locator("#theme-choice").getAttribute("aria-label"),
+    ]);
+    const fits = () =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+    expect(await fits(), "the header pushed a horizontal scrollbar").toBe(true);
+    // The labels are hidden below 1100px, so 1101 is the narrowest window that
+    // claims to hold them — the width the breakpoint is actually a promise
+    // about, and the only one where a long translation can break it.
+    await page.setViewportSize({ width: 1101, height: 720 });
+    await expect(page.locator(".setting > span").first()).toBeVisible();
+    expect(await fits(), "the labels do not fit the width they claim").toBe(
+      true,
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    /* They are one kind of control, so they read as one: the pointing-device
+       chooser was added later and only picked up the shared button class,
+       which left it a size of its own between two matching neighbours. */
+    const sizes = await page.evaluate(() =>
+      ["#locale-choice", "#device-choice", "#theme-choice"].map((id) => {
+        const s = getComputedStyle(document.querySelector(id));
+        return `${s.fontFamily}|${s.fontSize}|${Math.round(document.querySelector(id).getBoundingClientRect().height)}`;
+      }),
+    );
+    expect(new Set(sizes).size, `mismatched choosers: ${sizes}`).toBe(1);
     const toolbar = await page.locator(".toolbar").boundingBox();
     const shell = await page.locator(".viewer-shell").boundingBox();
     expect(toolbar.width).toBeLessThan(shell.width);
