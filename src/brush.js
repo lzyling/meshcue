@@ -149,11 +149,20 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
         return overlaps(bb, [x - radius, y - radius, x + radius, y + radius]);
       },
       intersectsTriangle: (t, faceIndex) => {
-        let poly = [t.a, t.b, t.c].map(project);
-        poly = clip(poly, (q) => q[3] - EPS);
-        poly = clip(poly, (q) => q[2] + q[3]);
-        poly = clip(poly, (q) => q[3] - q[2]);
-        if (poly.length < 3) return false;
+        const raw = [t.a, t.b, t.c].map(project);
+        // A face the frustum did not touch still has all three of its own
+        // corners, which is half of what "the brush covered this whole face"
+        // needs to mean. The other half is the circle, tested below.
+        const entire = raw.every(
+          (q) => q[3] > EPS && q[2] >= -q[3] && q[2] <= q[3],
+        );
+        let poly = raw;
+        if (!entire) {
+          poly = clip(poly, (q) => q[3] - EPS);
+          poly = clip(poly, (q) => q[2] + q[3]);
+          poly = clip(poly, (q) => q[3] - q[2]);
+          if (poly.length < 3) return false;
+        }
         poly = poly.map(screen);
         const group = mesh.geometry.groups.find(
           (g) => faceIndex * 3 >= g.start && faceIndex * 3 < g.start + g.count,
@@ -172,14 +181,28 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
           return false;
         const depth = depthPlane(poly);
         if (!depth) return false;
-        for (const d of edges) {
-          poly = clip(poly, d);
-          if (poly.length < 3) return false;
-        }
+        // Inside every edge of the outline means inside the outline, because it
+        // is convex. Knowing this before clipping is worth the 32 sign tests
+        // twice over: the clip is skipped, and the stamp can say it took the
+        // whole face rather than a piece that happens to look like one.
+        const whole =
+          entire && edges.every((d) => poly.every((p) => d(p) >= 0));
+        if (!whole)
+          for (const d of edges) {
+            poly = clip(poly, d);
+            if (poly.length < 3) return false;
+          }
         if (candidates.length >= 6000)
           throw new Error(t("tool.strokeTooBroad"));
         if (useful(poly))
-          candidates.push({ mesh, faceIndex, poly, depth, box: bounds(poly) });
+          candidates.push({
+            mesh,
+            faceIndex,
+            poly,
+            depth,
+            whole,
+            box: bounds(poly),
+          });
         return false;
       },
     });
@@ -207,6 +230,11 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
   const patches = [];
   candidates.forEach((target, i) => {
     let pieces = [target.poly];
+    // Something in front of it took a bite, so what is left is no longer the
+    // face even if the brush covered all of it. `subtract` returns the subject
+    // itself when nothing overlapped, which is what makes this comparison an
+    // identity check rather than a geometric one.
+    let intact = target.whole;
     const neighbors = new Set(
       keys(target.box).flatMap((k) => bins.get(k) || []),
     );
@@ -219,7 +247,14 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
         (p) => target.depth(p) - other.depth(p) - EPS,
       );
       if (!useful(cover)) continue;
+      const before = pieces;
       pieces = pieces.flatMap((p) => subtract(p, cover));
+      if (
+        intact &&
+        (pieces.length !== before.length ||
+          pieces.some((p, k) => p !== before[k]))
+      )
+        intact = false;
       if (!pieces.length) break;
     }
     const local = (p) => [
@@ -243,8 +278,19 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
        and re-stored each time was the brush's own outline, not the model.
        Each patch also repeats its mesh id and two face numbers, so sixty of
        every sixty-two copies of those were the fan as well. */
+    /* `whole` is a hint for the accumulator, not part of a mark: one stamp
+       took this entire face, so every other polygon stored for it is already
+       inside this one. It is deliberately not persisted — a later stamp that
+       covers the face again re-derives it, and a draft read back from the
+       server collapses on the next stroke rather than carrying a flag whose
+       truth depends on geometry it no longer has. */
     for (const piece of pieces)
-      if (useful(piece)) patches.push({ ...face, vertices: piece.map(local) });
+      if (useful(piece))
+        patches.push({
+          ...face,
+          vertices: piece.map(local),
+          ...(intact && pieces.length === 1 ? { whole: true } : {}),
+        });
   });
   return patches;
 }

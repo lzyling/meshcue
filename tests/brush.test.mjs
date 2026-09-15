@@ -164,3 +164,87 @@ test("a stamp stores its outline once, not once per triangle it was cut into", (
     for (const v of p.vertices)
       for (const x of v) assert.equal(x, Number(x.toPrecision(7)));
 });
+
+/* A stamp now reports whether it took a whole face, so the accumulator can
+   throw away the copies overlapping stamps produce of it. The invariant that
+   makes that safe is narrow and has to stay narrow: `whole` must mean the
+   polygon is literally the face's own three corners. Anything looser and the
+   collapse drops paint the reviewer put down, or keeps paint they did not. */
+function grid(id, seg, size = 4) {
+  const g = new THREE.PlaneGeometry(size, size, seg, seg);
+  g.userData.sourceFaces = Array.from(
+    { length: g.index.count / 3 },
+    (_, i) => i,
+  );
+  g.computeBoundsTree = computeBoundsTree;
+  g.computeBoundsTree({ indirect: true });
+  const m = new THREE.Mesh(
+    g,
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  m.userData.reviewId = id;
+  m.updateMatrixWorld();
+  return m;
+}
+function triangleOf(mesh, faceIndex) {
+  const position = mesh.geometry.attributes.position;
+  const index = mesh.geometry.index;
+  return [0, 1, 2].map((k) => {
+    const v = index.getX(faceIndex * 3 + k);
+    return [position.getX(v), position.getY(v), position.getZ(v)];
+  });
+}
+const sameCorners = (a, b) => {
+  const key = (p) => p.map((n) => Number(n.toPrecision(7))).join();
+  return (
+    a.length === b.length &&
+    [...a].map(key).sort().join("|") === [...b].map(key).sort().join("|")
+  );
+};
+
+test("a face marked whole is the face, corner for corner", () => {
+  const m = grid("dense", 40),
+    c = camera();
+  const patches = brushPatches([m], c, rect, 400, 300, 30);
+  const marked = patches.filter((p) => p.whole);
+  assert.ok(
+    marked.length > 0,
+    "a 30px brush on a fine grid covers whole faces",
+  );
+  for (const p of marked)
+    assert.ok(
+      sameCorners(p.vertices, triangleOf(m, p.faceIndex)),
+      `face ${p.faceIndex} was called whole but is not its own triangle`,
+    );
+});
+test("a face the brush only clipped is not called whole", () => {
+  const m = grid("dense", 40),
+    c = camera();
+  const patches = brushPatches([m], c, rect, 400, 300, 30);
+  const partial = patches.filter((p) => !p.whole);
+  assert.ok(partial.length > 0, "the rim of the circle has to cut something");
+  for (const p of partial)
+    assert.ok(!sameCorners(p.vertices, triangleOf(m, p.faceIndex)));
+});
+test("a face larger than the brush is never whole", () => {
+  const m = plane("front", 0),
+    c = camera();
+  assert.ok(brushPatches([m], c, rect, 430, 295, 6).every((p) => !p.whole));
+});
+test("an occluder biting a covered face takes its whole away", () => {
+  const back = grid("back", 40),
+    front = grid("front", 1, 0.2),
+    c = camera();
+  front.position.z = 0.2;
+  front.updateMatrixWorld();
+  const clear = brushPatches([back], c, rect, 400, 300, 30).filter(
+    (p) => p.whole,
+  ).length;
+  const bitten = brushPatches([back, front], c, rect, 400, 300, 30).filter(
+    (p) => p.whole,
+  ).length;
+  assert.ok(
+    bitten < clear,
+    `something in front should cost some faces their whole (${clear} -> ${bitten})`,
+  );
+});

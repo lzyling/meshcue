@@ -21,6 +21,82 @@ export function facesOf(patches) {
   );
 }
 
+/* Stamps overlap on purpose — the spacing is half the brush radius, which
+   keeps the scallop between two of them under a pixel — so a face small enough
+   to sit inside the brush is handed over once per stamp that passed across it.
+   Measured on a 600px line over an 80,000-triangle mesh: 16,548 polygons
+   describing 5,119 faces, 3.2 copies of the same triangle each.
+
+   Two of those are dropped here and neither needs a boolean operation. A
+   polygon identical to one already stored for that face adds nothing. And once
+   some stamp reports it took a face whole, every other polygon on that face is
+   inside it by definition, including ones stored before it arrived — which is
+   what the filter at the end is for.
+
+   What this cannot see is left alone: a face larger than the brush, covered by
+   the union of several stamps and by no single one. Collapsing that needs real
+   polygon union. Reaching for it by subtracting patches from each other is the
+   attempt that turned one line into 230,151 patches and 33MB. */
+const faceKey = (p) => `${p.meshId}:${p.faceIndex}`;
+
+// Kept between stamps; rebuilding it per stamp would walk the whole draft each
+// time. Thrown away when the region is not the object it was built from, or
+// left a different number of patches behind. Erasing replaces the region
+// object, so identity catches that before the count is read. Nothing on disk
+// records which faces were taken whole, so a rebuilt index starts with none
+// and the next stamp across such a face reports it again.
+export function paintIndex(region, previous) {
+  if (
+    previous?.region === region &&
+    previous.count === region.surfacePatches.length
+  )
+    return previous;
+  const index = {
+    region,
+    count: region.surfacePatches.length,
+    shapes: new Map(),
+    whole: new Set(),
+  };
+  for (const p of region.surfacePatches) {
+    const key = faceKey(p);
+    if (!index.shapes.has(key)) index.shapes.set(key, new Set());
+    index.shapes.get(key).add(JSON.stringify(p.vertices));
+  }
+  return index;
+}
+
+// `whole` is the stamp's hint and never reaches the mark: it describes one
+// pass over the face, not the geometry, so storing it would outlive its truth.
+export function addPatches(region, patches, index) {
+  const collapsed = new Set(),
+    taken = new Set();
+  for (const { whole, ...p } of patches) {
+    const key = faceKey(p);
+    if (index.whole.has(key)) continue;
+    if (whole) {
+      index.whole.add(key);
+      index.shapes.delete(key);
+      collapsed.add(key);
+    }
+    const shape = JSON.stringify(p.vertices);
+    let shapes = index.shapes.get(key);
+    if (shapes?.has(shape)) continue;
+    if (!shapes) index.shapes.set(key, (shapes = new Set()));
+    shapes.add(shape);
+    (region.faces[p.meshId] ||= []).push(p.faceIndex);
+    region.surfacePatches.push(p);
+    if (whole) taken.add(p);
+  }
+  if (collapsed.size)
+    region.surfacePatches = region.surfacePatches.filter(
+      (p) => taken.has(p) || !collapsed.has(faceKey(p)),
+    );
+  index.count = region.surfacePatches.length;
+  for (const key of Object.keys(region.faces))
+    region.faces[key] = [...new Set(region.faces[key])].sort((a, b) => a - b);
+  return index;
+}
+
 // Both cutter and subject belong to the same immutable review triangle.
 // Project onto its dominant plane; carry XYZ through polygon interpolation.
 export function erasePatches(patches, cutters) {

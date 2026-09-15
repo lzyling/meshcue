@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { letterLabel, erasePatches } from "../src/annotation-edits.js";
+import {
+  letterLabel,
+  erasePatches,
+  paintIndex,
+  addPatches,
+} from "../src/annotation-edits.js";
 import { buildFillTopology, planarFaces } from "../src/planar-fill.js";
 
 /* Coverage is stored as the clipped polygon now, not as a fan of triangles cut
@@ -108,3 +113,110 @@ for (const scale of [1, 1e-5, 1e5])
     const area = out.reduce((sum, p) => sum + polygonArea(p.vertices), 0);
     assert.ok(Math.abs(area / (scale * scale) - 0.375) < 1e-8);
   });
+
+/* Overlapping stamps hand the same face over again and again. These pin the
+   two things the accumulator drops and, more importantly, the things it must
+   not: a polygon that is genuinely new, and the flag itself, which describes
+   one pass over a face rather than the mark and must never be stored. */
+const region = () => ({ faces: {}, surfacePatches: [] });
+const patch = (faceIndex, vertices, whole) => ({
+  meshId: "m",
+  faceIndex,
+  sourceFaceIndex: faceIndex,
+  vertices,
+  ...(whole ? { whole: true } : {}),
+});
+const FACE = [
+  [0, 0, 0],
+  [1, 0, 0],
+  [0, 1, 0],
+];
+const HALF = [
+  [0, 0, 0],
+  [0.5, 0, 0],
+  [0, 0.5, 0],
+];
+const OTHER_HALF = [
+  [1, 0, 0],
+  [0.5, 0, 0],
+  [0, 1, 0],
+];
+function paint(r, batches) {
+  let index = null;
+  for (const batch of batches) {
+    index = paintIndex(r, index);
+    index = addPatches(r, batch, index);
+  }
+  return r;
+}
+
+test("the same polygon handed over twice is stored once", () => {
+  const r = paint(region(), [[patch(7, HALF)], [patch(7, HALF)]]);
+  assert.equal(r.surfacePatches.length, 1);
+  assert.deepEqual(r.faces, { m: [7] });
+});
+test("a different polygon on the same face is kept", () => {
+  const r = paint(region(), [[patch(7, HALF)], [patch(7, OTHER_HALF)]]);
+  assert.equal(r.surfacePatches.length, 2);
+});
+test("taking a face whole discards the pieces already stored for it", () => {
+  const r = paint(region(), [
+    [patch(7, HALF)],
+    [patch(7, OTHER_HALF)],
+    [patch(7, FACE, true)],
+  ]);
+  assert.equal(r.surfacePatches.length, 1);
+  assert.deepEqual(r.surfacePatches[0].vertices, FACE);
+  assert.deepEqual(r.faces, { m: [7] });
+});
+test("a piece arriving after the face was taken whole is dropped", () => {
+  const r = paint(region(), [[patch(7, FACE, true)], [patch(7, HALF)]]);
+  assert.equal(r.surfacePatches.length, 1);
+  assert.deepEqual(r.surfacePatches[0].vertices, FACE);
+});
+test("collapsing one face leaves every other face alone", () => {
+  const r = paint(region(), [
+    [patch(7, HALF), patch(8, HALF), patch(9, OTHER_HALF)],
+    [patch(7, FACE, true)],
+  ]);
+  assert.equal(r.surfacePatches.length, 3);
+  assert.deepEqual(r.faces, { m: [7, 8, 9] });
+  assert.deepEqual(
+    r.surfacePatches.find((p) => p.faceIndex === 7).vertices,
+    FACE,
+  );
+});
+test("the whole flag never reaches a stored mark", () => {
+  const r = paint(region(), [[patch(7, FACE, true), patch(8, HALF)]]);
+  assert.ok(r.surfacePatches.every((p) => !("whole" in p)));
+});
+test("a rebuilt index still refuses a repeat and no longer claims a face is whole", () => {
+  const r = paint(region(), [[patch(7, FACE, true)]]);
+  // What a draft read back from the server looks like: the same patches, a new
+  // region object, nothing on disk saying face 7 was ever taken whole.
+  const reopened = {
+    faces: { ...r.faces },
+    surfacePatches: r.surfacePatches.map((p) => ({ ...p })),
+  };
+  const index = paintIndex(reopened, null);
+  assert.equal(index.whole.size, 0);
+  addPatches(reopened, [patch(7, FACE)], index);
+  assert.equal(reopened.surfacePatches.length, 1, "the repeat is still caught");
+  addPatches(reopened, [patch(7, HALF)], index);
+  assert.equal(reopened.surfacePatches.length, 2, "and a piece is believed");
+  addPatches(reopened, [patch(7, FACE, true)], index);
+  assert.equal(reopened.surfacePatches.length, 1, "until a stamp says whole");
+});
+test("erasing replaces the region, and the stale index is not reused", () => {
+  const r = paint(region(), [[patch(7, HALF), patch(8, HALF)]]);
+  let index = paintIndex(r, null);
+  const erased = {
+    faces: { m: [8] },
+    surfacePatches: r.surfacePatches.filter((p) => p.faceIndex === 8),
+  };
+  index = paintIndex(erased, index);
+  assert.notEqual(index.region, r);
+  // Face 7 was erased, so the same polygon has to be storable again.
+  addPatches(erased, [patch(7, HALF)], index);
+  assert.equal(erased.surfacePatches.length, 2);
+});

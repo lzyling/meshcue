@@ -18,6 +18,12 @@ jobs:
       - run: npm run check:i18n
       - run: npm run format:check
       - run: node --test tests/*.test.mjs
+      # The version lives in three manifests and only this build compares them.
+      # 0.13.1 shipped with the authoritative one left behind at 0.13.0, so the
+      # release could not be packaged at all and nothing said so for a day.
+      # tests/package-smoke.mjs cannot run here — it needs the host SDK from a
+      # global openclaw install — but the build that catches the drift can.
+      - run: npm run build:integration -- tmp/ci-package
 
   browser:
     name: browser tests

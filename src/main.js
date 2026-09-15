@@ -22,6 +22,8 @@ import {
   letterNumber,
   erasePatches,
   facesOf,
+  paintIndex,
+  addPatches,
 } from "./annotation-edits.js";
 
 /* index.html ships with a fixed lang, because the language is not known until
@@ -396,6 +398,7 @@ const draftBytes = () =>
       n + 120 + (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0),
     0,
   );
+let paint = null;
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
   if (mode === "erase") {
@@ -480,12 +483,7 @@ function onPaint(patches) {
     annotations.push(region);
     selectedId = region.id;
   }
-  for (const p of patches) {
-    (region.faces[p.meshId] ||= []).push(p.faceIndex);
-    region.surfacePatches.push(p);
-  }
-  for (const key of Object.keys(region.faces))
-    region.faces[key] = [...new Set(region.faces[key])].sort((a, b) => a - b);
+  paint = addPatches(region, patches, paintIndex(region, paint));
   changed();
 }
 const viewer = new ModelViewer($("#viewer"), {
