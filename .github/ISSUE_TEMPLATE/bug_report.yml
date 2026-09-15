@@ -1,0 +1,64 @@
+name: Bug report
+description: Something behaved differently from what the docs say it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not paste annotation content, model files, or anything from a
+        real project you would not publish. A description of the shape of the
+        problem is enough to start.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What `meshcue --version` prints, or the version in `/api/health`.
+      placeholder: "0.13.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where it happened
+      options:
+        - The review page in a browser
+        - The agent side (CLI, MCP, or a host adapter)
+        - Install or startup
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps that reproduce it
+      description: If it only happens on one model, say what is unusual about that model (triangle count, many flat spans, and so on) rather than attaching it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and version, Node version, browser and version.
+      placeholder: |
+        Host: macOS 26.6, Node 22.23.1
+        Browser: Chrome 141 on Windows 11
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error text
+      description: The exact message an agent or the page reported. Redact paths and session identifiers.
+      render: text

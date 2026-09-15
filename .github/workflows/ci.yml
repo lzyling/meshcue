@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    name: i18n, format, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run check:i18n
+      - run: npm run format:check
+      - run: node --test tests/*.test.mjs
+
+  browser:
+    name: browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      # playwright.config.js asks for channel "chrome", so the bundled
+      # chromium is not enough: the run needs real Google Chrome.
+      - run: npx playwright install --with-deps chrome
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-output
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+# test:lan is deliberately absent. It needs a real LAN interface and a second
+# device to reach the server, which no hosted runner has; the suite already
+# skips that case rather than pretending to cover it.

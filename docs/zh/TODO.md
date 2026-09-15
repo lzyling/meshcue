@@ -2,15 +2,18 @@
 
 **下一步：0.14 —— 修完已知 bug，然后朝正式公开仓库走。计划见最后那节。**
 
-2026-09-15 01:00 的三方状态：仓库 **0.13.1** ／ 装着 **0.13.0**（09-15 00:09 重启后生效，
-`retain` 已实测可调）／ 三个实例仍跑 **0.11.1**，各自会在闲置满 24 小时后自我回收。
-Kelven 决定 0.13.1 先不装，攒到下一批一起。
+2026-09-15 14:50 的三方状态：仓库 **0.13.1** ／ 装着 **0.13.0**（09-15 00:09 重启后生效，
+`retain` 已实测可调）／ 五个实例在跑，其中三个仍是 **0.11.1**，各自会在闲置满 24 小时后
+自我回收。Kelven 决定 0.13.1 先不装，攒到下一批一起。
 
 0.12.0 是四条界面修改意见；0.13.0 是第五条（版本标签栏太长）；
 0.13.1 是重启后第一通 `retain` 撞出来的两条。
 
 这份是「接下来做什么」的唯一清单。做完的整段在版本发布时移进 `ROADMAP.md`（历史记录），
 版本号怎么定见 `VERSIONING.md`。没有归属版本、也还没想清楚的，一律进最后那节，不要散落在别处。
+
+> 下文用反引号写、没有做成链接的文件名（`ITERATION-*`／`ACCEPTANCE-*`／`HANDOFF-*`／`SIDEBAR-*` 等）
+> 是开发期的阶段日志，2026-09-15 已移出仓库，留在开发者本地。引用它们只是为了说明某项决定的出处。
 
 ---
 
@@ -62,9 +65,9 @@ Kelven 决定 0.13.1 先不装，攒到下一批一起。
 - [x] 9 份中文设计文档 → `docs/zh/`，保持中文
 - [x] 界面 `zh-Hant` 原样保留；i18n 190 键 × 6 语
 
-留着没做、并且是有意的两处中文：`check-i18n.mjs`（CJK 正则与解释它的注释）、
-`sidebar-e2e.mjs`（**已取消的 Control UI 侧栏**的 E2E 脚本，09-09 之后没动过 ——
-给一个不存在的功能翻译脚本，是花力气把自己弄得像做完了）。**它其实该删，等你一句话。**
+留着没做、并且是有意的一处中文：`check-i18n.mjs`（CJK 正则与解释它的注释）。
+原本还有一处 `sidebar-e2e.mjs`（**已取消的 Control UI 侧栏**的 E2E 脚本）——
+2026-09-15 已随阶段日志一起移出仓库，这条自动结案。
 
 ---
 
@@ -270,16 +273,24 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
 - [ ] **复核两份安全文档对代码是否仍然成立** ← 优先级最高
       `SECURITY.md` + `docs/zh/BROWSER-TRUST.md` + `docs/zh/LAN-ADMISSION.md`。
       准入层、回收机制、身份层这两天全动过。**发一份过时的安全文档比不发更糟。**
-- [ ] 移出 24 份内部日志 + `sidebar-e2e.mjs`（见上表第 1 条）
-- [ ] **整理公开版根目录**：只留 `README` / `SECURITY` / `AGENT-INTERFACE` / `LICENSE` 四份英文；
-      `TODO.md`（4127 汉字）和 `BROWSER-ACCESS-DECISION.md`（2643 汉字）归到 `docs/zh/`；
-      `TODO.md` 先摘掉本节 —— 施工图不是给使用者看的
+- [x] 移出 24 份内部日志 + `sidebar-e2e.mjs` → `documents/meshcue/dev-log/`（见上表第 1 条）。
+      ⚠️ 它们被 `docs/zh/` 里四份文档引用了 **30 处**，链接会全部悬空 ——
+      已把这些链接就地改成「带反引号的文件名 + 一句说明」，`PROJECT.md` 与 `ROADMAP.md`
+      各加了一段解释。顺带修掉 **10 条早就断了的**（0.10 把设计文档搬进 `docs/zh/` 时
+      漏改的相对路径，以及指向 `evidence/`、`../../media/` 这些永远不会进仓库的目标）。
+- [x] **整理公开版根目录**：现在只剩 `README` / `SECURITY` / `AGENT-INTERFACE` / `LICENSE`
+      四份英文；`TODO.md` 和 `BROWSER-ACCESS-DECISION.md` 已归到 `docs/zh/`。
+      ⏳ **本节（§0.14）还留着** —— 它是这批活儿本身的施工图，摘掉就没得跟了。
+      **转 public 前的最后一步才摘**，跟历史重写同一批做。
 - [ ] 删三条陈旧分支：`docs/v0.5-integration-plan` / `feat/v0.4-lan-delivery` / `feat/v0.5-integration`
-- [ ] 加 `.github/`：
-      · job A（每次 push）`check:i18n` + `format:check` + `node --test` ≈ 40 秒
-      · job B（每次 push）`test:browser`（`playwright install chromium` + vite build）≈ 2–3 分钟
-      · `test:lan` **跑不了**（要真实局域网）—— 那正是现在那条 skip
-      · issue 模板
+- [x] 加 `.github/`：`workflows/ci.yml` 两个 job + `ISSUE_TEMPLATE/`（bug／feature／config）。
+      · job A `check:i18n` + `format:check` + `node --test`
+      · job B `test:browser`
+      · ⚠️ 原计划写的是 `playwright install chromium`，**不对** —— `playwright.config.js`
+      要的是 `channel: "chrome"`，装 chromium 起不来。实际用 `playwright install --with-deps chrome`。
+      · `test:lan` **没进 CI**（要真实局域网）—— 那正是现在那条 skip，yml 里写明了理由
+      · ⭐ 加完当场就抓到一条：`tests/integration.test.mjs` 没过 `format:check`（0.13.1 留下的
+      一行引号风格）。已修 —— 这条 CI 第一天就有回报。
 - [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）
 - [ ] Skill Workshop 20 个 pending 提案出分类清单（**跨项目**：`meshcue-review` 7 个跟这里相关，
       `functional-part-modeling` 9 个是 3D 打印那边的，其余 4 个各自独立。只有前 7 个影响转公开）
@@ -298,7 +309,10 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
 - `SECURITY.md` **早就有了**，在根目录 —— 旧清单里那条「要加 SECURITY.md」是错的
 - `README` / `SECURITY` / `AGENT-INTERFACE` **零个中文字**，纯英文
 - `docs/zh` 九份**都是简体**，符合「英文为主、简体为辅」那条规矩
-- 真繁体的只有 `HARDENING-20260911.md` 和 `ITERATION-V06.md` —— 都在要移出的名单里，自动解决
+- 真繁体的只有 `HARDENING-20260911.md` 和 `ITERATION-V06.md` —— 都在移出的名单里，已自动解决
+- `docs/zh/` 里的相对链接**在这次之前有 10 条是断的**，从 0.10 搬家那天起就断了，一直没人发现。
+  现在有一个一次性的检查脚本跑过（15 份 md，0 断链），但**它没进仓库、也没进 CI** ——
+  想要常设就得单独加一条 job
 - 最不该公开的两份：`FIELD-NOTES-20260913.md`（601 行，Kelven 真实建模任务的现场内容）
   和 `TOKEN-USAGE-20260910.md`（项目 token 花费）
 

@@ -618,7 +618,7 @@ test("a route the running build predates says so, instead of leaking a parse err
     // What Express answers for an unregistered route.
     res.writeHead(404, { "Content-Type": "text/html" });
     res.end(
-      '<!DOCTYPE html>\n<html><head><title>Error</title></head><body><pre>Cannot POST /retain</pre></body></html>',
+      "<!DOCTYPE html>\n<html><head><title>Error</title></head><body><pre>Cannot POST /retain</pre></body></html>",
     );
   });
   await new Promise((r) => server.listen(path.join(dir, "agent.sock"), r));

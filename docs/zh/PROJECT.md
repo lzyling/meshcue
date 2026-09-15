@@ -40,23 +40,26 @@
 
 **初版采用 Three.js + 轻量标注层 + 本地 Node 服务。** 3D-Annotator 保留为研究参考，不作为运行依赖。OCP 仅作后续 CAD 子链参考。初版 GLB／STL 使用同一审阅流程，原始媒体文件不被标注写回。
 
-0.2 已移除 0.1 的复制聊天框，保留原会话作为唯一入口。历史 Control UI 侧栏开发与用户阶段验收保留在 [侧栏验收](SIDEBAR-ACCEPTANCE-20260909.md)，不再构成未来产品依赖或验收门槛。Portal 入口任务已取消，既有宿主补丁未在本次回滚。能准确标记位置，不等于已支持任意模型自动精准修形。
+0.2 已移除 0.1 的复制聊天框，保留原会话作为唯一入口。历史 Control UI 侧栏开发与用户阶段验收保留在 侧栏验收（`SIDEBAR-ACCEPTANCE-20260909.md`），不再构成未来产品依赖或验收门槛。Portal 入口任务已取消，既有宿主补丁未在本次回滚。能准确标记位置，不等于已支持任意模型自动精准修形。
 
 ## 项目文件
 
+> 下文用反引号写、没有做成链接的文件名（`ITERATION-*`／`ACCEPTANCE-*`／`HANDOFF-*`／`SIDEBAR-*` 等）
+> 是开发期的阶段日志，留在开发者本地，不随仓库发布。引用它们只是为了说明某项决定的出处。
+
 - [产品定位补充与跨 harness 边界](POSITIONING.md)
 - [标准浏览器入口决策与范围变更](BROWSER-ACCESS-DECISION.md)
-- [仓库入口与版本管理约定](README.md)
+- [仓库入口与版本管理约定](../../README.md)
 - [需求与验收方向](REQUIREMENTS.md)
 - [阶段和待办](ROADMAP.md)
-- [0.4 内网交付与原会话闭环计划](ITERATION-V04-PLAN.md)
-- [0.4 候选结果与未交付边界](ITERATION-V04-RESULTS.md)
-- [产品／源码调查与维护复核](RESEARCH-20260909.md)
+- 0.4 内网交付与原会话闭环计划（`ITERATION-V04-PLAN.md`）
+- 0.4 候选结果与未交付边界（`ITERATION-V04-RESULTS.md`）
+- 产品／源码调查与维护复核（`RESEARCH-20260909.md`）
 - [官方参考素材](REFERENCES.md)
-- [实施记录](IMPLEMENTATION.md)
-- [Agent 操作接口](AGENT-INTERFACE.md)
-- [初版验收与限制](ACCEPTANCE-20260909.md)
-- [素材投递历史证据](evidence/20260909-media/)
+- 实施记录（`IMPLEMENTATION.md`）
+- [Agent 操作接口](../../AGENT-INTERFACE.md)
+- 初版验收与限制（`ACCEPTANCE-20260909.md`）
+- 素材投递历史证据（`evidence/20260909-media/`，本地留存，不随仓库发布）
 
 ## 管理约定
 
