@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # A dependency with a published fix and nobody watching is how a project like
+  # this gets compromised — not by anyone attacking it. image-size sat at 2.0.2
+  # with a high advisory while 2.0.4 existed, and nothing in the repository
+  # would ever have said so.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request for routine bumps; a security fix still arrives alone
+      # and stays visible instead of being buried in a batch of ten.
+      routine:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The workflow pins actions to commits on purpose, which means the SHAs go
+  # stale silently. This is what reads them and offers the next one.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

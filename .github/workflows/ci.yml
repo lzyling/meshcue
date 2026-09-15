@@ -4,13 +4,24 @@ on:
   push:
   pull_request:
 
+# A pull request from a fork runs that fork's code here. It gets a read-only
+# token by default, but "by default" is a repository setting somebody can
+# change, so the workflow states what it needs instead of inheriting it.
+# Nothing in either job writes to the repository.
+permissions:
+  contents: read
+
+# Actions are pinned to the commit a tag pointed at, not the tag. A tag is a
+# name its owner can move, so @v4 means "whatever that account publishes next",
+# which is the supply-chain hole this file would otherwise open on our behalf.
+# The comment says which release each SHA was, so upgrading stays readable.
 jobs:
   checks:
     name: i18n, format, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -24,13 +35,19 @@ jobs:
       # tests/package-smoke.mjs cannot run here — it needs the host SDK from a
       # global openclaw install — but the build that catches the drift can.
       - run: npm run build:integration -- tmp/ci-package
+      # A dependency with a published fix and nobody watching is the ordinary
+      # way this kind of project gets compromised. Advisory-only: it reports
+      # what is known now, and says so out loud rather than failing a build on
+      # somebody else's publishing schedule.
+      - run: npm audit --audit-level=high
+        continue-on-error: true
 
   browser:
     name: browser tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -39,7 +56,7 @@ jobs:
       # chromium is not enough: the run needs real Google Chrome.
       - run: npx playwright install --with-deps chrome
       - run: npm run test:browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: playwright-output
