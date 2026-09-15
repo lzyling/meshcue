@@ -291,9 +291,24 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
       · `test:lan` **没进 CI**（要真实局域网）—— 那正是现在那条 skip，yml 里写明了理由
       · ⭐ 加完当场就抓到一条：`tests/integration.test.mjs` 没过 `format:check`（0.13.1 留下的
       一行引号风格）。已修 —— 这条 CI 第一天就有回报。
-- [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）
-- [ ] Skill Workshop 20 个 pending 提案出分类清单（**跨项目**：`meshcue-review` 7 个跟这里相关，
-      `functional-part-modeling` 9 个是 3D 打印那边的，其余 4 个各自独立。只有前 7 个影响转公开）
+- [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）。
+      2026-09-15 查过：`meshcue` 与 `meshcue-mcp` 在 npm 上**都还没人占**。
+      发的理由只有一个但够硬：`bin` 里的 `meshcue-mcp` 是给别的 harness 用的 MCP server，
+      不发 npm 就只能叫人先 clone 再配绝对路径，`npx meshcue-mcp` 才是那条正常的路。
+      ⚠️ 名字一旦发出去就**永久占用**，撤回窗口只有 72 小时。**等 Kelven 拍。**
+- [x] Skill Workshop pending 提案分类 —— **数字是错的：实际 30 个，不是 20 个。**
+      `meshcue-review` **7**（原估对了）／`functional-part-modeling` **13**（原估 9）／
+      其余 **10**（原估 4，其中 `plugin-runtime-validation` 是 09-15 新出现的）。
+      **只有 `meshcue-review` 那 7 个影响转公开，结论是 7 个全部已被吸收，零遗漏**：
+      · `20260914-8646ace024` —— 跟现行 SKILL.md **逐字节相同**
+      · `20260914-446d1df551`／`20260913-9f5b1447d5`／`20260914-cc683107f9` —— 后两个彼此逐字节
+      相同；三个跟现行只差**同一段**，而那段正是 0.13 特意改掉的旧措辞
+      （「版本不得删除或覆写」，现行已改成「不删不覆写，但 `retain` 给得起」）。**采纳它们等于回退 0.13。**
+      · `20260911-3ed5ce1257`／`20260913-5eb7feb734`／`20260913-c5fe3bddfb` —— 44 行的**繁体**旧版，
+      0.10 英文化之前的。逐条核过它们仅有的四条实质规则（`viewerReceipts` 版本/SHA/`loadedAt` 对照、
+      `activate: false` 的唯一适用场景、`finish`／`unlock` 不属于正常迭代、审阅页没有下载入口）
+      —— 现行英文 SKILL.md 第 64／77–89／134 行**全都在**。
+      ⇒ 这 7 个可以一次性关掉，**不会丢任何东西**。另外 23 个跨项目的仍待各自处置。
 
 ### 需要单独再授权一次（不可逆，不在上面那批里）
 
