@@ -369,6 +369,35 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
       **顺带纠正**：`meshcue` 与 `meshcue-mcp` 是**同一个包的两个 `bin`**，不是两个包。
       但 `npx meshcue-mcp` 会去找一个**叫这个名字的包**，所以要那条一行装法，
       要么单发一个 `meshcue-mcp`，要么让用户写 `npx -p meshcue meshcue-mcp`。两个名字目前都没被占。
+
+      ### 🔴 2026-09-16 实测推翻了上面「非发不可」的前提
+
+      Kelven 问「仲有冇需要發 npm」。**没有。** 上面唯一那条硬理由是
+      「不发 npm，别人就只能 clone + `npm install` + 填绝对路径」——**这句是错的。**
+
+      本地造了一个最小复现包（`dist/` 被 `.gitignore`、`bin` 指向 `dist/`、靠 `prepare` 构建），
+      从 **bare git 仓**装了两次：
+
+      | 试验 | 结果 |
+      | --- | --- |
+      | `npm i git+file://…/pkg.git` | ✅ `prepare` 自动跑、`dist/` 被生成、`bin` 直接能执行 |
+      | 同上但 `"private": true` | ✅ **一样能装能跑** —— `private` 只挡 `npm publish`，不挡 git 安装 |
+
+      也就是说 `npx github:<owner>/meshcue` 这条路**本来就通**，只要补一个
+      `prepare` 构建 + `files` 白名单 —— 而那两样**发 npm 也照样要做**。
+      所以 npm 省下的不是「能不能装」，只是**命令短一点、能被 npm 搜到**。
+
+      **npm 真正还能买到的三样**：registry 的可发现性（MCP 圈的习惯确实是 `npx <包名>`）、
+      `integrity`／provenance 证明、以及一条更眼熟的安装命令。
+      **代价**：名字**永久占用**（撤回窗口 72 小时），而且 `npx meshcue-mcp` 一旦存在，
+      就欠下别人「每个版本都能装、semver 不能乱」的义务 —— 0.x、单人维护，这是真负担。
+
+      **⇒ 建议：不发，而且不承诺以后发。** 转公开时先给 git 安装那条路；
+      真有人开口要 npm 再发。**发布是单向的，不发是可逆的。**
+
+      **⇒ 连带简化 §0.15**：npm 若始终不存在，那条
+      「先 `npm publish` 成功才打 Release」的次序规矩就不需要了，
+      GitHub 作为唯一源变成**无条件**干净 —— 少一条会被破的例。
 - [x] Skill Workshop pending 提案分类 —— **数字是错的：实际 30 个，不是 20 个。**
       `meshcue-review` **7**（原估对了）／`functional-part-modeling` **13**（原估 9）／
       其余 **10**（原估 4，其中 `plugin-runtime-validation` 是 09-15 新出现的）。
@@ -461,6 +490,10 @@ Release。
 正确的解法不是加源，是**规定发布次序**：
 
 > **先 `npm publish`，成功之后才打 GitHub Release。**
+
+ℹ️ **2026-09-16 补**：§0.14 那条 npm 的结论已改成「**不发，也不承诺以后发**」
+（实测 `npx github:…` 本来就通，`private: true` 都不挡）。**npm 若始终不存在，
+这条次序规矩就是空的，GitHub 作为唯一源无条件成立。** 下面两段只在真发了 npm 之后才需要。
 
 这样 GitHub 的版本号**永远不会超前于任何一个渠道能给出的东西** —— 它是最后一步，
 所以它一出现就代表「两边都拿得到了」。上面那条「产物可装了才打 Release」是同一条规矩的一般形式。
