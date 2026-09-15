@@ -312,10 +312,15 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
       迁移，代码里早没有了，已标为历史。
       · 页脚原本写着「re-checked … for 0.10.0」—— 这句声明本身就过期，已改成 0.13.1 并列出实际核过的文件。
       ⚠️ **查出一条代码侧的（不是文档问题，未改）**：`server/index.mjs:45`
-      `fs.mkdirSync(runtime, { recursive: true })` 没给 mode，standalone 跑法下 runtime 目录随 umask
-      （一般 0755）；而 socket 的 `chmod 0600` 在 `listen` 回调里，创建到 chmod 之间有个窗口。
-      受管跑法下父目录由 `instance.mjs:56` 建成 0700（实测确认），所以这条只影响 standalone。
-      修法是一行：给它加 `mode: 0o700`。**等 Kelven 点头。**
+      `fs.mkdirSync(runtime, { recursive: true })` 没给 mode，所以 standalone 跑法下 runtime
+      目录的权限**取决于跑它的人的 umask**；而 socket 的 `chmod 0600` 在 `listen` 回调里，
+      创建到 chmod 之间有个窗口。那个 socket 是无鉴权的控制面 —— 能打开它就能 `publish`／
+      `retain`／`revoke`、读全部标注，**文件权限就是它唯一的密码**。
+      · 受管跑法父目录由 `instance.mjs:56` 显式建成 0700（实测确认），不受影响。
+      · ⚠️ **本机 umask 实测是 `077`，所以这台机器上 standalone 也已经是 0700，没有洞。**
+      原先估的「一般 0755」是按常见默认 umask 022 说的，**对本机不成立**。
+      · 所以这条是「别把一个无鉴权控制面的防护交给 umask 决定」，不是现成的漏洞。
+      修法一行：`mode: 0o700`。**等 Kelven 点头。**
 - [x] 移出 24 份内部日志 + `sidebar-e2e.mjs` → `documents/meshcue/dev-log/`（见上表第 1 条）。
       ⚠️ 它们被 `docs/zh/` 里四份文档引用了 **30 处**，链接会全部悬空 ——
       已把这些链接就地改成「带反引号的文件名 + 一句说明」，`PROJECT.md` 与 `ROADMAP.md`
@@ -325,7 +330,10 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
       四份英文；`TODO.md` 和 `BROWSER-ACCESS-DECISION.md` 已归到 `docs/zh/`。
       ⏳ **本节（§0.14）还留着** —— 它是这批活儿本身的施工图，摘掉就没得跟了。
       **转 public 前的最后一步才摘**，跟历史重写同一批做。
-- [ ] 删三条陈旧分支：`docs/v0.5-integration-plan` / `feat/v0.4-lan-delivery` / `feat/v0.5-integration`
+- [x] 删三条陈旧分支（2026-09-15，Kelven 明确同意后执行）。删前逐条复核过是 `main` 的祖先：
+      `docs/v0.5-integration-plan` `0b8c2ea` ／ `feat/v0.4-lan-delivery` `8da32db` ／
+      `feat/v0.5-integration` `238258f`。远端现在只剩 `main`，`v0.4.0-rc.1` 未动。
+      提交对象全部仍在 `main` 上可达，要回滚就 `git branch <名> <SHA>` 再推。
 - [x] 加 `.github/`：`workflows/ci.yml` 两个 job + `ISSUE_TEMPLATE/`（bug／feature／config）。
       · job A `check:i18n` + `format:check` + `node --test`
       · job B `test:browser`
@@ -334,11 +342,29 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
       · `test:lan` **没进 CI**（要真实局域网）—— 那正是现在那条 skip，yml 里写明了理由
       · ⭐ 加完当场就抓到一条：`tests/integration.test.mjs` 没过 `format:check`（0.13.1 留下的
       一行引号风格）。已修 —— 这条 CI 第一天就有回报。
-- [ ] 决定要不要发 npm（现在两个 manifest 都是 `private: true`）。
-      2026-09-15 查过：`meshcue` 与 `meshcue-mcp` 在 npm 上**都还没人占**。
-      发的理由只有一个但够硬：`bin` 里的 `meshcue-mcp` 是给别的 harness 用的 MCP server，
-      不发 npm 就只能叫人先 clone 再配绝对路径，`npx meshcue-mcp` 才是那条正常的路。
-      ⚠️ 名字一旦发出去就**永久占用**，撤回窗口只有 72 小时。**等 Kelven 拍。**
+- [ ] **npm —— 结论是「不在 0.14 里」，挪到转 public 之后。** 2026-09-15 查清：
+
+      **以前不用发**，因为唯一的消费者就是这台机器上的 OpenClaw：`build:integration` 打个包
+      拷进 `~/.openclaw/extensions/meshcue`，全程没有 registry。两个 `bin` 只在仓库 checkout
+      里够得着，而那时候只有一个人在这个 checkout 里。`private: true` 是对的，它挡住手滑的发布。
+
+      **现在有理由发**，因为 0.9 解耦的目的就是让别的 harness 当消费者，而 MCP server 的通用
+      装法是客户端配置里一行 `npx`。没有 npm，Codex 用户要 clone → `npm install`（六个运行时
+      依赖：three／express／zod／@noble/hashes／image-size／three-mesh-bvh）→ 再填绝对路径。
+      那不叫安装。
+
+      **但今天发不了，三个硬障碍：**
+      1. 🔴 **发出去的包跑不起来。** `mcp/server.mjs:106` 从 `dist/` 取审阅页面，而 `/dist/`
+         在 `.gitignore` 里。`npm pack --dry-run` 实测 **108 个文件 1.0MB，没有 `dist/`** ——
+         装了它 MCP server 起得来，但审阅页面是空的，它存在的唯一理由就没了。
+         得先有 `files` 白名单 + `prepack` 构建。
+      2. 现在会打进去的 108 个文件里，**32 个是 tests、11 个 scripts、11 个 docs/**，src 只有 19。
+      3. **`npm publish` 就是公开发布。** 代码上了 registry，仓库还私有毫无意义 ——
+         所以这件事**不可能早于转 public**。
+
+      **顺带纠正**：`meshcue` 与 `meshcue-mcp` 是**同一个包的两个 `bin`**，不是两个包。
+      但 `npx meshcue-mcp` 会去找一个**叫这个名字的包**，所以要那条一行装法，
+      要么单发一个 `meshcue-mcp`，要么让用户写 `npx -p meshcue meshcue-mcp`。两个名字目前都没被占。
 - [x] Skill Workshop pending 提案分类 —— **数字是错的：实际 30 个，不是 20 个。**
       `meshcue-review` **7**（原估对了）／`functional-part-modeling` **13**（原估 9）／
       其余 **10**（原估 4，其中 `plugin-runtime-validation` 是 09-15 新出现的）。
