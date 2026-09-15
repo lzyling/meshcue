@@ -42,7 +42,15 @@ const mediaDir = path.resolve(
   process.env.REVIEW_MEDIA_DIR ||
     path.join(workspace, "media/3d/3d-agent-review"),
 );
-fs.mkdirSync(runtime, { recursive: true });
+// The agent socket lives in here and carries no credential of its own: opening
+// the file is the whole of the authorization, so the directory's mode is what
+// stands between another local account and publish, retain and revoke. The
+// socket is chmod 0600, but only in the listen callback — for the moment
+// between creating it and that call it wears whatever the umask allows, and a
+// directory nobody else may enter is what makes that moment unreachable. The
+// managed path already builds its parents 0700; this is the standalone one,
+// where without a mode the answer came from whoever happened to run it.
+fs.mkdirSync(runtime, { recursive: true, mode: 0o700 });
 const instanceFile = path.join(runtime, "instance.lock");
 if (fs.existsSync(instanceFile)) {
   const previous = readLock(instanceFile);
