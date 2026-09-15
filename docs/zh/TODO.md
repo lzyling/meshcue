@@ -270,9 +270,31 @@ Kelven 2026-09-15 01:00 定方向：**下一版除了修已知 bug，就朝正�
 
 - [ ] **修完唯一已知未做完的**：画笔盖章重叠，笔画内部一个面仍被存约 12 次
       （解法是「一个面被盖满就塌缩成整面」，**不是**两两相减 —— 那次炸成 230,151 patch / 33MB）
-- [ ] **复核两份安全文档对代码是否仍然成立** ← 优先级最高
-      `SECURITY.md` + `docs/zh/BROWSER-TRUST.md` + `docs/zh/LAN-ADMISSION.md`。
-      准入层、回收机制、身份层这两天全动过。**发一份过时的安全文档比不发更糟。**
+- [x] **复核三份安全文档对代码是否仍然成立**（2026-09-15，对 0.13.1 逐条核过
+      `server/access.mjs`／`network.mjs`／`idle.mjs`／`index.mjs` 路由表）
+      · **没有一条是「代码比文档更不安全」** —— 原有断言全部成立：15 分钟一次性许可、30 天闲置、
+      `HttpOnly`+`SameSite=Strict`、只存 SHA-256 校验摘要、`timingSafeEqual`、撤销不动审阅数据、
+      绑定单个私有 IPv4、`0.0.0.0` 与公网地址永不绑定、发布走 Unix socket 所以网页改不了显示版本。
+      · **最大的一处是反过来的：0.11 的闲置回收三份文档零提及。** 文档读起来像「忘掉的审阅会在内网上
+      挂 30 天」，实际 24 小时就自我回收。**少报了一个防护**，而且把暴露面说得比真实情况大。已补一整节。
+      · 同样漏掉的安全相关开关：**`REVIEW_IDLE_HOURS=0` 能关掉回收**。已写进三份。
+      · 另外三层 CSRF 防护（`Host` 白名单 421 ／ 跨站 `Origin`·`Sec-Fetch-Site` 403 ／
+      `X-Review-Client` 标头）、`nosniff`／`no-referrer`／`/api/` 全 `no-store`、agent socket `chmod 0600`
+      —— 全都在代码里，**文档一个字没提**。已补。
+      · 收紧两处说得太满的：`/api/health` 原文「nothing more」，实际还免鉴权吐 version／pid／instance id／
+      idle 倒计时（无模型数据这点是对的）；「comparisons are constant-time」——`redeem()` 确实用
+      `timingSafeEqual`，但 session cookie 根本不做比较、是按摘要查表，措辞已改准。
+      · 新增一条 0.13 的语义澄清：**`retain` 是显示规则不是访问规则** —— 隐藏版本的草稿、标记、文件都还在，
+      已持有 session 的浏览器仍取得到。`modelInBinding()` 只看 binding 不看可见性，这是设计如此，但必须写明。
+      · 陈旧但不危险，已顺手改：两份中文文档只讲 `reviewctl.mjs`（0.9 之后 `meshcue` CLI／MCP 才是
+      别的 harness 的正常路径）；`BROWSER-TRUST.md` 那条「旧 60 分钟实现一次性接续发放」是 0.4→0.5 的
+      迁移，代码里早没有了，已标为历史。
+      · 页脚原本写着「re-checked … for 0.10.0」—— 这句声明本身就过期，已改成 0.13.1 并列出实际核过的文件。
+      ⚠️ **查出一条代码侧的（不是文档问题，未改）**：`server/index.mjs:45`
+      `fs.mkdirSync(runtime, { recursive: true })` 没给 mode，standalone 跑法下 runtime 目录随 umask
+      （一般 0755）；而 socket 的 `chmod 0600` 在 `listen` 回调里，创建到 chmod 之间有个窗口。
+      受管跑法下父目录由 `instance.mjs:56` 建成 0700（实测确认），所以这条只影响 standalone。
+      修法是一行：给它加 `mode: 0o700`。**等 Kelven 点头。**
 - [x] 移出 24 份内部日志 + `sidebar-e2e.mjs` → `documents/meshcue/dev-log/`（见上表第 1 条）。
       ⚠️ 它们被 `docs/zh/` 里四份文档引用了 **30 处**，链接会全部悬空 ——
       已把这些链接就地改成「带反引号的文件名 + 一句说明」，`PROJECT.md` 与 `ROADMAP.md`
