@@ -24,6 +24,7 @@ import {
   facesOf,
   paintIndex,
   addPatches,
+  wholeFaces,
 } from "./annotation-edits.js";
 
 /* index.html ships with a fixed lang, because the language is not known until
@@ -392,39 +393,70 @@ function regionName(a) {
    rounds short costs fewer bytes than budgeted, never more. */
 const MAX_MARK_BYTES = 3_000_000;
 const patchBytes = (p) => 64 + (p.vertices?.length || 0) * 26;
-const draftBytes = () =>
-  annotations.reduce(
-    (n, a) =>
-      n + 120 + (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0),
-    0,
-  );
+// A face taken whole is its own number in `faces` and nothing else: six digits
+// and a comma where a polygon repeating the same triangle charged 142 bytes.
+const WHOLE_FACE_BYTES = 8;
+const faceOf = (p) => `${p.meshId}:${p.faceIndex}`;
+const faceCountOf = (a) =>
+  a.type === "pin"
+    ? 1
+    : Object.values(a.faces || {}).reduce((m, f) => m + f.length, 0);
+const markBytes = (a) =>
+  120 +
+  (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0) +
+  (faceCountOf(a) - new Set((a.surfacePatches || []).map(faceOf)).size) *
+    WHOLE_FACE_BYTES;
+const draftBytes = () => annotations.reduce((n, a) => n + markBytes(a), 0);
+const splitFaceKey = (key) => {
+  const i = key.lastIndexOf(":");
+  return [key.slice(0, i), Number(key.slice(i + 1))];
+};
+const sortFaces = (faces) => {
+  for (const key of Object.keys(faces))
+    faces[key] = [...new Set(faces[key])].sort((a, b) => a - b);
+  return faces;
+};
 let paint = null;
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
   if (mode === "erase") {
-    const serialized = viewer.serializeAnnotations(annotations);
-    const next = serialized
+    const cut = new Set(patches.map(faceOf));
+    const next = annotations
       .map((a) => {
         if (a.type !== "region") return a;
-        const sourcePatches = (a.surfacePatches || []).map((p) => ({
-          ...p,
-          faceIndex: p.sourceFaceIndex,
-        }));
-        const remaining = erasePatches(sourcePatches, patches);
-        if (sameValue(sourcePatches, remaining)) return a;
+        /* Only the faces the eraser actually reached have to spell their
+           geometry out. A whole face it never crossed stays a number — which
+           is the difference between rubbing out one corner of a bucket fill
+           and rewriting the entire fill as polygons to do it. */
+        const kept =
+          a.coverage === "source-v2"
+            ? [...wholeFaces(a)].filter((key) => !cut.has(key))
+            : [];
+        const subject = (
+          a.coverage === "source-v2"
+            ? viewer.expandWholeFaces(a, cut)
+            : viewer.serializeAnnotations([a])[0].surfacePatches || []
+        ).map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
+        const remaining = erasePatches(subject, patches);
+        if (sameValue(subject, remaining)) return a;
+        const faces = facesOf(remaining);
+        for (const key of kept) {
+          const [meshId, face] = splitFaceKey(key);
+          (faces[meshId] ||= []).push(face);
+        }
         return {
           ...a,
-          coverage: "source-v1",
-          faces: facesOf(remaining),
+          coverage: "source-v2",
+          faces: sortFaces(faces),
           surfacePatches: remaining,
         };
       })
-      .filter((a) => a.type === "pin" || a.surfacePatches.length);
+      .filter((a) => a.type === "pin" || faceCountOf(a) > 0);
     if (next.reduce((n, a) => n + (a.surfacePatches?.length || 0), 0) > 40000) {
       toast(t("tool.eraseTooFine"));
       return;
     }
-    if (!sameValue(serialized, next)) {
+    if (!sameValue(annotations, next)) {
       annotations = next;
       changed();
     }
@@ -436,7 +468,11 @@ function onPaint(patches) {
      never arrive before the quota did, and the reviewer met "local storage is
      full" instead of "submit this batch". */
   if (
-    draftBytes() + patches.reduce((n, p) => n + patchBytes(p), 0) >
+    draftBytes() +
+      patches.reduce(
+        (n, p) => n + (p.whole ? WHOLE_FACE_BYTES : patchBytes(p)),
+        0,
+      ) >
     MAX_MARK_BYTES
   ) {
     toast(t("marks.nearStrokeLimit"));
@@ -447,24 +483,17 @@ function onPaint(patches) {
       a.id === selectedId &&
       a.type === "region" &&
       a.color === color &&
-      a.coverage === "source-v1",
+      a.coverage === "source-v2",
   );
   const targetFaces = new Set(
     Object.entries(region?.faces || {}).flatMap(([meshId, ids]) =>
       ids.map((id) => `${meshId}:${id}`),
     ),
   );
-  for (const p of patches) targetFaces.add(`${p.meshId}:${p.faceIndex}`);
+  for (const p of patches) targetFaces.add(faceOf(p));
   const otherFaces = annotations
     .filter((a) => a !== region)
-    .reduce(
-      (n, a) =>
-        n +
-        (a.type === "pin"
-          ? 1
-          : Object.values(a.faces).reduce((m, f) => m + f.length, 0)),
-      0,
-    );
+    .reduce((n, a) => n + faceCountOf(a), 0);
   if (otherFaces + targetFaces.size > 20000) {
     toast(t("marks.nearMarkLimit"));
     return;
@@ -476,7 +505,7 @@ function onPaint(patches) {
       type: "region",
       label: regionName({ color }),
       color,
-      coverage: "source-v1",
+      coverage: "source-v2",
       faces: {},
       surfacePatches: [],
     };
@@ -776,7 +805,7 @@ function renderAnnotations() {
       detail.textContent =
         a.type === "pin"
           ? t("marks.pinned")
-          : a.coverage === "source-v1"
+          : ["source-v1", "source-v2"].includes(a.coverage)
             ? t("marks.alongSurface")
             : t("marks.legacyFace");
       text.append(title, detail);

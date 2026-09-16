@@ -6,6 +6,7 @@ import {
   erasePatches,
   paintIndex,
   addPatches,
+  wholeFaces,
 } from "../src/annotation-edits.js";
 import { buildFillTopology, planarFaces } from "../src/planar-fill.js";
 
@@ -115,9 +116,12 @@ for (const scale of [1, 1e-5, 1e5])
   });
 
 /* Overlapping stamps hand the same face over again and again. These pin the
-   two things the accumulator drops and, more importantly, the things it must
-   not: a polygon that is genuinely new, and the flag itself, which describes
-   one pass over a face rather than the mark and must never be stored. */
+   things the accumulator drops and, more importantly, the one thing it must
+   not: a polygon that is genuinely new.
+
+   A face taken whole is kept as its number with no polygon beside it, so most
+   of these count patches expecting one fewer than there are faces. That
+   absence is the storage format, not a loss: `wholeFaces` reads it back. */
 const region = () => ({ faces: {}, surfacePatches: [] });
 const patch = (faceIndex, vertices, whole) => ({
   meshId: "m",
@@ -165,47 +169,61 @@ test("taking a face whole discards the pieces already stored for it", () => {
     [patch(7, OTHER_HALF)],
     [patch(7, FACE, true)],
   ]);
-  assert.equal(r.surfacePatches.length, 1);
-  assert.deepEqual(r.surfacePatches[0].vertices, FACE);
+  assert.equal(r.surfacePatches.length, 0, "not even the whole face itself");
   assert.deepEqual(r.faces, { m: [7] });
+  assert.deepEqual([...wholeFaces(r)], ["m:7"]);
+});
+test("a face taken whole costs its number and no coordinates", () => {
+  const r = paint(region(), [[patch(7, FACE, true)]]);
+  assert.deepEqual(r.faces, { m: [7] });
+  assert.equal(r.surfacePatches.length, 0);
+  // The measured shape of the fix: 142 bytes of repeated triangle become the
+  // six digits `faces` was already spending.
+  assert.ok(JSON.stringify(r).length < 40, JSON.stringify(r));
 });
 test("a piece arriving after the face was taken whole is dropped", () => {
   const r = paint(region(), [[patch(7, FACE, true)], [patch(7, HALF)]]);
-  assert.equal(r.surfacePatches.length, 1);
-  assert.deepEqual(r.surfacePatches[0].vertices, FACE);
+  assert.equal(r.surfacePatches.length, 0);
+  assert.deepEqual([...wholeFaces(r)], ["m:7"]);
 });
 test("collapsing one face leaves every other face alone", () => {
   const r = paint(region(), [
     [patch(7, HALF), patch(8, HALF), patch(9, OTHER_HALF)],
     [patch(7, FACE, true)],
   ]);
-  assert.equal(r.surfacePatches.length, 3);
+  assert.equal(r.surfacePatches.length, 2);
   assert.deepEqual(r.faces, { m: [7, 8, 9] });
-  assert.deepEqual(
-    r.surfacePatches.find((p) => p.faceIndex === 7).vertices,
-    FACE,
+  assert.equal(
+    r.surfacePatches.find((p) => p.faceIndex === 7),
+    undefined,
+    "face 7 went whole",
   );
+  assert.deepEqual([...wholeFaces(r)], ["m:7"]);
 });
 test("the whole flag never reaches a stored mark", () => {
   const r = paint(region(), [[patch(7, FACE, true), patch(8, HALF)]]);
   assert.ok(r.surfacePatches.every((p) => !("whole" in p)));
 });
-test("a rebuilt index still refuses a repeat and no longer claims a face is whole", () => {
+test("a rebuilt index reads wholeness back off the draft", () => {
   const r = paint(region(), [[patch(7, FACE, true)]]);
-  // What a draft read back from the server looks like: the same patches, a new
-  // region object, nothing on disk saying face 7 was ever taken whole.
+  /* What a draft read back from the server looks like. The old format stored a
+     polygon for face 7 and nothing saying it was whole, so a reopened draft
+     believed a half-face afterwards and had to wait for another stamp to
+     re-collapse it. Now the absence of a patch is the record. */
   const reopened = {
     faces: { ...r.faces },
     surfacePatches: r.surfacePatches.map((p) => ({ ...p })),
   };
   const index = paintIndex(reopened, null);
-  assert.equal(index.whole.size, 0);
+  assert.deepEqual([...index.whole], ["m:7"]);
   addPatches(reopened, [patch(7, FACE)], index);
-  assert.equal(reopened.surfacePatches.length, 1, "the repeat is still caught");
+  assert.equal(reopened.surfacePatches.length, 0, "the repeat is still caught");
   addPatches(reopened, [patch(7, HALF)], index);
-  assert.equal(reopened.surfacePatches.length, 2, "and a piece is believed");
-  addPatches(reopened, [patch(7, FACE, true)], index);
-  assert.equal(reopened.surfacePatches.length, 1, "until a stamp says whole");
+  assert.equal(
+    reopened.surfacePatches.length,
+    0,
+    "and a piece inside a whole face is not believed a second time",
+  );
 });
 test("erasing replaces the region, and the stale index is not reused", () => {
   const r = paint(region(), [[patch(7, HALF), patch(8, HALF)]]);

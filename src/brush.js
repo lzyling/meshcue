@@ -278,12 +278,11 @@ export function brushPatches(meshes, camera, rect, x, y, radius) {
        and re-stored each time was the brush's own outline, not the model.
        Each patch also repeats its mesh id and two face numbers, so sixty of
        every sixty-two copies of those were the fan as well. */
-    /* `whole` is a hint for the accumulator, not part of a mark: one stamp
-       took this entire face, so every other polygon stored for it is already
-       inside this one. It is deliberately not persisted — a later stamp that
-       covers the face again re-derives it, and a draft read back from the
-       server collapses on the next stroke rather than carrying a flag whose
-       truth depends on geometry it no longer has. */
+    /* `whole` is a hint for the accumulator: one stamp took this entire face,
+       so every other polygon stored for it is already inside this one. The
+       accumulator keeps it by storing nothing — the face number in `faces`
+       with no patch beside it — which is how the hint outlives the stroke
+       that raised it and a draft read back from the server still knows. */
     for (const piece of pieces)
       if (useful(piece))
         patches.push({

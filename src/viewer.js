@@ -501,28 +501,67 @@ export class ModelViewer {
         .toArray(),
     };
   }
+  // The triangle a source face number points at, in that mesh's local
+  // coordinates — the space brush patches are stored in. `triangle()` reads the
+  // review surface, whose indices only agree with source numbering by accident
+  // of alignment; `source-v2` counts source faces, so it reads the topology
+  // built from the geometry as it arrived.
+  sourceTriangle(mesh, sourceFaceIndex) {
+    return mesh.userData.fillTopology?.vertices[sourceFaceIndex] || null;
+  }
+  // Give every face a polygon, whatever the mark stores. A `source-v2` face
+  // with no patch is the whole face, so it is materialised here rather than at
+  // each of the places that wants geometry. Nothing materialised is written
+  // back: this is the expanded reading of a mark, not the mark.
+  expandWholeFaces(a, only) {
+    const whole = wholeFaces(a);
+    if (!whole.size) return a.surfacePatches || [];
+    const extra = [];
+    for (const key of whole) {
+      if (only && !only.has(key)) continue;
+      const [meshId, face] = [
+        key.slice(0, key.lastIndexOf(":")),
+        +key.slice(key.lastIndexOf(":") + 1),
+      ];
+      const mesh = this.meshMap.get(meshId);
+      const vertices = mesh && this.sourceTriangle(mesh, face);
+      if (vertices)
+        extra.push({
+          meshId,
+          faceIndex: face,
+          sourceFaceIndex: face,
+          vertices: vertices.map((v) => [...v]),
+        });
+    }
+    return [...(a.surfacePatches || []), ...extra];
+  }
   serializeAnnotations(annotations) {
     return annotations.map((a) =>
       a.type === "pin" || ["brush-v1", "source-v1"].includes(a.coverage)
         ? structuredClone(a)
-        : {
-            ...structuredClone(a),
-            surfacePatches: Object.entries(a.faces).flatMap(
-              ([meshId, faces]) => {
-                const mesh = this.meshMap.get(meshId);
-                return faces.map((faceIndex) => {
-                  const t = this.triangle(mesh, faceIndex);
-                  return {
-                    meshId,
-                    faceIndex,
-                    sourceFaceIndex:
-                      mesh.geometry.userData.sourceFaces[faceIndex],
-                    vertices: [t.a.toArray(), t.b.toArray(), t.c.toArray()],
-                  };
-                });
-              },
-            ),
-          },
+        : a.coverage === "source-v2"
+          ? {
+              ...structuredClone(a),
+              surfacePatches: this.expandWholeFaces(a),
+            }
+          : {
+              ...structuredClone(a),
+              surfacePatches: Object.entries(a.faces).flatMap(
+                ([meshId, faces]) => {
+                  const mesh = this.meshMap.get(meshId);
+                  return faces.map((faceIndex) => {
+                    const t = this.triangle(mesh, faceIndex);
+                    return {
+                      meshId,
+                      faceIndex,
+                      sourceFaceIndex:
+                        mesh.geometry.userData.sourceFaces[faceIndex],
+                      vertices: [t.a.toArray(), t.b.toArray(), t.c.toArray()],
+                    };
+                  });
+                },
+              ),
+            },
     );
   }
   async pointerDown(e) {
@@ -695,7 +734,22 @@ export class ModelViewer {
           const mesh = this.meshMap.get(meshId);
           if (!mesh) continue;
           const coords = [];
-          if (["brush-v1", "source-v1"].includes(a.coverage)) {
+          if (a.coverage === "source-v2") {
+            // Both halves of one mark: the faces a stroke took whole are drawn
+            // from their own triangles, the rest from the polygons stored for
+            // them. A face appears in exactly one of the two.
+            const partial = new Set();
+            for (const patch of a.surfacePatches || [])
+              if (patch.meshId === meshId) {
+                partial.add(patch.faceIndex);
+                fanInto(coords, patch.vertices);
+              }
+            for (const face of faces) {
+              if (partial.has(face)) continue;
+              const vertices = this.sourceTriangle(mesh, face);
+              if (vertices) fanInto(coords, vertices);
+            }
+          } else if (["brush-v1", "source-v1"].includes(a.coverage)) {
             for (const patch of a.surfacePatches || []) {
               if (patch.meshId === meshId) fanInto(coords, patch.vertices);
             }
@@ -850,14 +904,20 @@ export class ModelViewer {
       a.type === "pin" ? a.meshId : Object.keys(a.faces)[0],
     );
     if (!mesh) return;
+    const first = Object.values(a.faces || {})[0]?.[0];
     const p =
       a.type === "pin"
         ? new V().fromArray(a.position)
-        : ["brush-v1", "source-v1"].includes(a.coverage)
-          ? new V().fromArray(a.surfacePatches[0].vertices[0])
-          : this.triangle(mesh, Object.values(a.faces)[0][0]).getMidpoint(
-              new V(),
-            );
+        : a.coverage === "source-v2"
+          ? // A region whose every face was taken whole stores no polygon to
+            // aim at, so the face it does store answers instead.
+            new V().fromArray(
+              a.surfacePatches?.[0]?.vertices[0] ||
+                this.sourceTriangle(mesh, first)?.[0] || [0, 0, 0],
+            )
+          : ["brush-v1", "source-v1"].includes(a.coverage)
+            ? new V().fromArray(a.surfacePatches[0].vertices[0])
+            : this.triangle(mesh, first).getMidpoint(new V());
     mesh.localToWorld(p);
     const offset = this.camera.position.clone().sub(this.controls.target);
     this.camera.position.copy(p).add(offset);
@@ -1000,11 +1060,14 @@ export class ModelViewer {
     const selected = new Set(
       planarFaces(mesh.userData.fillTopology, seed, this.fillTolerance),
     );
+    // Every one of these is an entire source face by construction, so each is
+    // stored as its number alone. The bucket is the cheapest tool there is.
     const patches = [...selected].map((sourceFaceIndex) => ({
       meshId: mesh.userData.reviewId,
       faceIndex: sourceFaceIndex,
       sourceFaceIndex,
       vertices: mesh.userData.fillTopology.vertices[sourceFaceIndex],
+      whole: true,
     }));
     this.fillTooLarge = patches.length > 20000;
     this.fillPatches = this.fillTooLarge ? [] : patches;

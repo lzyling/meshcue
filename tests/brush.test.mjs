@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { computeBoundsTree } from "three-mesh-bvh";
 import { brushPatches, binSize } from "../src/brush.js";
+import { paintIndex, addPatches } from "../src/annotation-edits.js";
 
 function plane(id, z, size = 10) {
   const g = new THREE.PlaneGeometry(size, size);
@@ -246,5 +247,51 @@ test("an occluder biting a covered face takes its whole away", () => {
   assert.ok(
     bitten < clear,
     `something in front should cost some faces their whole (${clear} -> ${bitten})`,
+  );
+});
+
+/* The regime the whole-face format exists for: a mesh far finer than the brush,
+   which is where a stroke claims thousands of faces and nearly all of them end
+   up covered end to end. The claim being pinned here is not the saving itself
+   but the shape of it — polygons track the boundary of what was painted, and a
+   boundary grows with the perimeter while the faces grow with the area. So a
+   wider brush claims many more faces and stores no more polygons for them, and
+   that is what makes "paint as much as you like" reachable rather than a
+   larger allowance. */
+function sweep(mesh, radius) {
+  const c = camera();
+  const region = { faces: {}, surfacePatches: [] };
+  let index = null;
+  for (let x = 150; x <= 650; x += radius / 2) {
+    const patches = brushPatches([mesh], c, rect, x, 300, radius).map((p) => ({
+      ...p,
+      faceIndex: p.sourceFaceIndex,
+    }));
+    index = paintIndex(region, index);
+    index = addPatches(region, patches, index);
+  }
+  return {
+    faces: Object.values(region.faces).reduce((n, f) => n + f.length, 0),
+    polygons: region.surfacePatches.length,
+  };
+}
+test("on a mesh finer than the brush, most faces cost no polygon at all", () => {
+  const { faces, polygons } = sweep(grid("fine", 170), 34);
+  assert.ok(faces > 500, `the sweep has to claim real ground, got ${faces}`);
+  assert.ok(
+    polygons < faces / 2,
+    `most faces should be whole, got ${polygons} polygons for ${faces} faces`,
+  );
+});
+test("a wider brush claims far more faces without storing more polygons", () => {
+  const narrow = sweep(grid("narrow", 90), 22);
+  const wide = sweep(grid("wide", 90), 55);
+  assert.ok(
+    wide.faces > narrow.faces * 1.5,
+    `the wider brush must cover more ground (${narrow.faces} -> ${wide.faces})`,
+  );
+  assert.ok(
+    wide.polygons <= narrow.polygons * 1.1,
+    `polygons follow the boundary, not the area (${narrow.polygons} -> ${wide.polygons})`,
   );
 });

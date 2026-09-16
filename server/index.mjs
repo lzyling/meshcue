@@ -326,7 +326,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("region"),
-      coverage: z.enum(["brush-v1", "source-v1"]).optional(),
+      coverage: z.enum(["brush-v1", "source-v1", "source-v2"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       faces: z.record(id, z.array(z.number().int().min(0)).max(MAX_TRIANGLES)),
@@ -438,7 +438,8 @@ function validateAnnotations(versionId, annotations) {
         faces.some(
           (f) =>
             f >=
-            (a.type === "region" && a.coverage === "source-v1"
+            (a.type === "region" &&
+            ["source-v1", "source-v2"].includes(a.coverage)
               ? meshes.get(meshId).sourceTriangles
               : meshes.get(meshId).triangles),
         )
@@ -467,16 +468,29 @@ function validateAnnotations(versionId, annotations) {
           faces.map((f) => `${meshId}:${f}`),
         ),
       );
+      /* Every face has to be accounted for, and until `source-v2` the only
+         accounting was a polygon: one per face at least, or the mark was
+         calling itself incomplete. That is what charged a face covered end to
+         end 142 bytes to repeat the triangle its own number already named.
+
+         Under `source-v2` a face with no patch means the whole face, so the
+         patches name a subset of `faces` rather than all of it. Everything
+         else still holds — no patch may name a face the mark did not claim,
+         and the claim is still exact. */
+      const painted = new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`));
+      const whole = a.coverage === "source-v2";
       if (
-        (!["brush-v1", "source-v1"].includes(a.coverage) &&
+        (!["brush-v1", "source-v1", "source-v2"].includes(a.coverage) &&
           patches.length !== selected.size) ||
-        new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`)).size !==
-          selected.size ||
+        (whole
+          ? painted.size > selected.size
+          : painted.size !== selected.size) ||
         patches.some(
           (p) =>
             !selected.has(`${p.meshId}:${p.faceIndex}`) ||
             p.sourceFaceIndex >= meshes.get(p.meshId).sourceTriangles ||
-            (a.coverage === "source-v1" && p.faceIndex !== p.sourceFaceIndex),
+            (["source-v1", "source-v2"].includes(a.coverage) &&
+              p.faceIndex !== p.sourceFaceIndex),
         )
       )
         throw new ReviewError(
@@ -704,7 +718,7 @@ function deliverFeedback(item) {
           .map((a) =>
             a.type === "pin"
               ? `${a.label}: pin on ${a.meshId}, face ${a.faceIndex}`
-              : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position`,
+              : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1", "source-v2"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position`,
           )
           .join("\n");
         const message = `[MeshCue review marks ${item.id}]\nModel: ${item.model.name} / ${item.model.version}; version ${item.versionId}; SHA256 ${item.model.sha256}.\n${summary}\n\nThe full 3D annotations and camera are saved at ${localFile}. Agent instructions: ${path.join(repo, "AGENT-INTERFACE.md")}.\nThis is a batch of positions the reviewer sent with "Send to Agent". It is not an instruction to change anything. Read the complete submission from this instance with ${readCommand} and write the read receipt before confirming you have it; if the conversation does not already explain the marks, ask what each one means and what to change rather than guessing. Reply only in the conversation this batch came from — never forward it to another topic or channel. The reviewer has not finished, so do not replace the model on them.`;

@@ -39,12 +39,28 @@ export function facesOf(patches) {
    attempt that turned one line into 230,151 patches and 33MB. */
 const faceKey = (p) => `${p.meshId}:${p.faceIndex}`;
 
+/* A face covered end to end is spelled by its own number and nothing else.
+   `faces` already names it; a polygon repeating the triangle that number
+   points at costs about 142 bytes to say a second time what the index said
+   for six, and on a dense mesh under a wide brush that is most of the draft.
+   So under `source-v2` a face listed in `faces` with no patch beside it means
+   the whole face, and a face with patches means those patches and no more.
+
+   This is what lets the flag survive a reload, which the earlier design could
+   not: wholeness is no longer a stamp's passing hint but the shape of what is
+   stored, so a draft read back from the server still knows. */
+export const wholeFaces = (region) => {
+  const whole = new Set();
+  for (const [meshId, faces] of Object.entries(region.faces || {}))
+    for (const f of faces) whole.add(`${meshId}:${f}`);
+  for (const p of region.surfacePatches || []) whole.delete(faceKey(p));
+  return whole;
+};
+
 // Kept between stamps; rebuilding it per stamp would walk the whole draft each
 // time. Thrown away when the region is not the object it was built from, or
 // left a different number of patches behind. Erasing replaces the region
-// object, so identity catches that before the count is read. Nothing on disk
-// records which faces were taken whole, so a rebuilt index starts with none
-// and the next stamp across such a face reports it again.
+// object, so identity catches that before the count is read.
 export function paintIndex(region, previous) {
   if (
     previous?.region === region &&
@@ -55,7 +71,7 @@ export function paintIndex(region, previous) {
     region,
     count: region.surfacePatches.length,
     shapes: new Map(),
-    whole: new Set(),
+    whole: wholeFaces(region),
   };
   for (const p of region.surfacePatches) {
     const key = faceKey(p);
@@ -65,11 +81,10 @@ export function paintIndex(region, previous) {
   return index;
 }
 
-// `whole` is the stamp's hint and never reaches the mark: it describes one
-// pass over the face, not the geometry, so storing it would outlive its truth.
+// `whole` arrives as the stamp's hint and leaves as an absence: the face is
+// recorded, the polygon describing it is not.
 export function addPatches(region, patches, index) {
-  const collapsed = new Set(),
-    taken = new Set();
+  const collapsed = new Set();
   for (const { whole, ...p } of patches) {
     const key = faceKey(p);
     if (index.whole.has(key)) continue;
@@ -77,6 +92,8 @@ export function addPatches(region, patches, index) {
       index.whole.add(key);
       index.shapes.delete(key);
       collapsed.add(key);
+      (region.faces[p.meshId] ||= []).push(p.faceIndex);
+      continue;
     }
     const shape = JSON.stringify(p.vertices);
     let shapes = index.shapes.get(key);
@@ -85,11 +102,10 @@ export function addPatches(region, patches, index) {
     shapes.add(shape);
     (region.faces[p.meshId] ||= []).push(p.faceIndex);
     region.surfacePatches.push(p);
-    if (whole) taken.add(p);
   }
   if (collapsed.size)
     region.surfacePatches = region.surfacePatches.filter(
-      (p) => taken.has(p) || !collapsed.has(faceKey(p)),
+      (p) => !collapsed.has(faceKey(p)),
     );
   index.count = region.surfacePatches.length;
   for (const key of Object.keys(region.faces))
