@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
+import { DOC_FILES } from "../integration/manager.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(
@@ -84,10 +85,28 @@ for (const name of ["package.json", "openclaw.plugin.json"]) {
     );
   fs.copyFileSync(source, path.join(out, name));
 }
-fs.copyFileSync(
-  path.join(repo, "AGENT-INTERFACE.md"),
-  path.join(out, "AGENT-INTERFACE.md"),
-);
+// The project's own two declarations are the other half of the same drift.
+// They do not travel in this package, but the tag written into the install
+// instructions comes from the first and `npm ci` reads the second, so a release
+// where they disagree installs one version and tells the reader another.
+for (const name of ["package.json", "package-lock.json"]) {
+  const declared = JSON.parse(
+    fs.readFileSync(path.join(repo, name), "utf8"),
+  ).version;
+  if (declared !== pluginManifest.version)
+    throw new Error(
+      `${name} declares version ${declared} but the package declares ${pluginManifest.version}.`,
+    );
+}
+// `inspect` hands an agent an absolute path to each of these. npm puts README
+// in a tarball on its own and the files whitelist names the rest, so the other
+// packaging route carried them without anyone arranging it; this one copies
+// exactly what it is told, and for two releases it was told about one file.
+// Told what, now, is not a second list to keep in step: it is the same constant
+// `inspect` reports from, so a file dropped from one is dropped from both.
+for (const relative of Object.values(DOC_FILES))
+  if (!relative.startsWith("skills/"))
+    fs.copyFileSync(path.join(repo, relative), path.join(out, relative));
 // Workshop is the only authoring source. A vetted export can be supplied for
 // packaging; do not synthesize or patch SKILL.md in this build process.
 // skills/meshcue-review in the repository is such an export, committed so that
@@ -124,6 +143,18 @@ if (skillExport) {
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
   manifest.skills = ["./skills/meshcue-review"];
   fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + "\n");
+}
+// Copying is not shipping. `copyFileSync` only complains about a source that is
+// missing, so every check above still passes for a file nobody asked it to
+// copy -- which is exactly how the adapter package named four documents and
+// carried two. Read the output back instead: this is the one statement that
+// knows what was written rather than what was intended.
+for (const [key, relative] of Object.entries(DOC_FILES)) {
+  if (relative.startsWith("skills/") && !skillExport) continue;
+  if (!fs.existsSync(path.join(out, relative)))
+    throw new Error(
+      `The package is missing ${relative}, which inspect reports as ${key}.`,
+    );
 }
 execFileSync("openclaw", ["plugins", "build", "--root", out], {
   cwd: repo,

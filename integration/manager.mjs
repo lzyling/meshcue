@@ -167,15 +167,29 @@ export function installedVersion(root) {
   }
 }
 
+// Every packaging route has to carry all of these for `inspect` to report them.
+export const DOC_FILES = {
+  agentInterface: "AGENT-INTERFACE.md",
+  skill: "skills/meshcue-review/SKILL.md",
+  security: "SECURITY.md",
+  readme: "README.md",
+};
+
 // Absolute, because the reader is an agent that has to open them and may be
-// running with a working directory nowhere near the install.
+// running with a working directory nowhere near the install. Checked, because
+// composing a path is not the same as shipping a file: the adapter package
+// carried neither README.md nor SECURITY.md and `inspect` named both anyway. An
+// absolute path that does not open reads exactly like one that does, which is
+// the failure AGENT-INTERFACE.md tells agents to refuse to cause. Anything
+// missing here is a packaging bug, and the packaging tests are where it is
+// caught -- reporting it would only move the discovery to the agent.
 export function docPaths(root) {
-  return {
-    agentInterface: path.join(root, "AGENT-INTERFACE.md"),
-    skill: path.join(root, "skills/meshcue-review/SKILL.md"),
-    security: path.join(root, "SECURITY.md"),
-    readme: path.join(root, "README.md"),
-  };
+  const docs = {};
+  for (const [key, relative] of Object.entries(DOC_FILES)) {
+    const file = path.join(root, relative);
+    if (fs.existsSync(file)) docs[key] = file;
+  }
+  return docs;
 }
 
 // The skill tells an agent to call `inspect` first, on every host. It existed

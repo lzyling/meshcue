@@ -7,6 +7,7 @@ import { createRequire, registerHooks } from "node:module";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { DOC_FILES } from "../integration/manager.mjs";
 
 if (!process.argv[2])
   throw new Error(
@@ -83,6 +84,16 @@ const projects = ["projects/bracket-a", "projects/bracket-b"];
 try {
   const info = await call({ action: "inspect" });
   assert.equal(info.context.sessionGeneration, true);
+  // The first call an agent makes on a new host hands back absolute paths to
+  // the documentation it is told to read. This package used to name two files
+  // it did not contain, and an unopenable path looks just like a working one.
+  assert.deepEqual(
+    Object.keys(info.docs).sort(),
+    Object.keys(DOC_FILES).sort(),
+    "the built package is missing a document inspect should report",
+  );
+  for (const [key, file] of Object.entries(info.docs))
+    assert.equal(fs.existsSync(file), true, `inspect names a missing ${key}`);
   // Sizing has to work from the installed bundle before any project exists,
   // because its whole purpose is to run before a caller commits to a review.
   const sized = await call({ action: "precheck", file: "part.stl" });
