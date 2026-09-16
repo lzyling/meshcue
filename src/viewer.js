@@ -12,6 +12,7 @@ import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { fanInto } from "./triangulate.js";
+import { wholeFaces } from "./annotation-edits.js";
 import { t } from "./i18n/index.js";
 import { createDeviceSense, resolveDevice } from "./pointer-profile.js";
 
@@ -256,6 +257,70 @@ export class ModelViewer {
     return {
       position: this.camera.position.toArray(),
       target: this.controls.target.toArray(),
+    };
+  }
+  /* Where a mark is and how much of the model it covers, in world units, so
+     that the agent can be told without being handed the geometry.
+
+     It has to be computed here because this is the only place that can. The
+     service keeps counts and a transform per mesh, not triangles, and under
+     `source-v2` a mark whose faces were all taken whole carries no coordinate
+     at all — the extent is a list of face numbers, and only the loaded model
+     knows where those are. So the browser works it out once per save and sends
+     it along, at about a hundred bytes for a mark of any size. */
+  annotationBounds(a) {
+    if (a.type !== "region") return null;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    const total = [0, 0, 0];
+    let area = 0;
+    let count = 0;
+    const cross = [0, 0, 0];
+    const take = (mesh, vertices) => {
+      const world = vertices.map((p) =>
+        mesh.localToWorld(new V().fromArray(p)).toArray(),
+      );
+      for (const p of world) {
+        for (let i = 0; i < 3; i++) {
+          lo[i] = Math.min(lo[i], p[i]);
+          hi[i] = Math.max(hi[i], p[i]);
+          total[i] += p[i];
+        }
+        count++;
+      }
+      // Newell's sum, which is the polygon's true area whether it is convex or
+      // not; a fan from the first vertex would over-count a concave union.
+      cross[0] = cross[1] = cross[2] = 0;
+      for (let i = 0; i < world.length; i++) {
+        const p = world[i];
+        const q = world[(i + 1) % world.length];
+        cross[0] += p[1] * q[2] - p[2] * q[1];
+        cross[1] += p[2] * q[0] - p[0] * q[2];
+        cross[2] += p[0] * q[1] - p[1] * q[0];
+      }
+      area += Math.hypot(...cross) / 2;
+    };
+    const whole = wholeFaces(a);
+    for (const [meshId, faces] of Object.entries(a.faces || {})) {
+      const mesh = this.meshMap.get(meshId);
+      if (!mesh) continue;
+      for (const face of faces) {
+        if (!whole.has(`${meshId}:${face}`)) continue;
+        const triangle = this.sourceTriangle(mesh, face);
+        if (triangle) take(mesh, triangle);
+      }
+    }
+    for (const patch of a.surfacePatches || []) {
+      const mesh = this.meshMap.get(patch.meshId);
+      if (mesh) take(mesh, patch.vertices);
+    }
+    if (!count) return null;
+    const round = (v) => Number(v.toPrecision(6));
+    return {
+      centroid: total.map((v) => round(v / count)),
+      min: lo.map(round),
+      max: hi.map(round),
+      area: round(area),
     };
   }
   restoreCamera(data) {

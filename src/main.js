@@ -688,7 +688,13 @@ async function flushDraft() {
   pendingWrite ||= {
     revision,
     labelCursor,
-    annotations: clone(annotations),
+    // Bounds travel with the mark so the service can describe it without
+    // holding geometry, and so the agent can be told where a mark is without
+    // being handed every coordinate in it.
+    annotations: clone(annotations).map((a) => {
+      const bounds = viewer.annotationBounds(a);
+      return bounds ? { ...a, bounds } : a;
+    }),
     camera: viewer.cameraState(),
     seq: editSeq,
   };

@@ -19,6 +19,7 @@ import {
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
+import { summarizeSubmission } from "./summarize.mjs";
 import {
   workspaceContext,
   contextSummary,
@@ -768,12 +769,23 @@ export class InstanceManager {
             "WRONG_ORIGIN",
             "That batch belongs to another session; nothing was read back or forwarded.",
           );
-        // Full immutable payload is returned, not just a list summary.
+        /* Described, not handed over. The batch is immutable and complete
+           either way; what changes is whether its coordinates come with it.
+           They almost never need to — see `integration/summarize.mjs` — and
+           when they do, `geometry: true` returns the batch untouched.
+
+           Marking the batch read is the same call regardless: the reviewer is
+           owed the acknowledgement whether or not the agent asked for the
+           polygons. */
         const receipt = await ipc(p.runtime, config.instance, "/read", {
           submissionId: batch.id,
           versionId: batch.versionId,
         });
-        return { submission: batch, receipt };
+        return {
+          submission:
+            input.geometry === true ? batch : summarizeSubmission(batch),
+          receipt,
+        };
       }
       if (input.action === "echo") {
         const batch = await ipc(

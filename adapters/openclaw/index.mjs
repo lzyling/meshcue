@@ -68,6 +68,7 @@ const parameters = {
         "Client LAN IPv4 already confirmed by the user, never inferred from the first visitor.",
     },
     submissionId: { type: "string" },
+    geometry: { type: "boolean" },
     summary: { type: "string" },
     annotations: {
       type: "array",

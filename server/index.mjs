@@ -329,6 +329,17 @@ const annotation = z.discriminatedUnion("type", [
       coverage: z.enum(["brush-v1", "source-v1", "source-v2"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      /* Where the mark is and how much surface it covers, in world units,
+         worked out by the browser because nothing else can: this service keeps
+         a triangle count and a transform per mesh, not triangles, and a
+         `source-v2` mark whose faces were all taken whole carries no
+         coordinate of its own. It is descriptive — nothing is authorised by it
+         and no geometry is derived from it — which is why a hundred bytes of
+         it is worth carrying for a mark of any size. */
+      bounds: z
+        .object({ centroid: vec3, min: vec3, max: vec3, area: z.number() })
+        .strict()
+        .optional(),
       faces: z.record(id, z.array(z.number().int().min(0)).max(MAX_TRIANGLES)),
       surfacePatches: z
         .array(

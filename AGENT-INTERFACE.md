@@ -217,12 +217,26 @@ A submission is a set of positions, not an instruction to change anything.
 - A pin's `position` and `normal` are in the source mesh's local coordinates and
   `sourceFaceIndex` is the original triangle; `faceIndex` and `barycentric`
   belong to the subdivided review mesh.
-- A region with `coverage: "source-v1"` indexes the **original** mesh:
-  `faces`, and each patch's `faceIndex` and `sourceFaceIndex`, all point at
-  source triangles. `surfacePatches` is the only true extent — each patch holds
-  three vertices in that mesh's local coordinates, and one face may carry
-  several patches. **Never widen a stroke to the whole face.** A source face
-  index does not mean the whole face was painted; read the patch vertices.
+- **`read` describes a batch; it does not hand over its geometry.** Each mark
+  arrives as its identity, its `faces` count per mesh, how many of those faces
+  were taken whole against how many hold polygons, and — in world units —
+  `centroid`, `min`, `max` and `area`. That is the same size for a mark of
+  twenty-five faces and one of twenty thousand, and it is what tells you where
+  the reviewer painted and how much. `geometry: "omitted"` says so on the batch.
+- **Read again with `geometry: true` only when the polygons themselves are
+  needed** — to echo a region back, or to measure one exactly. It is never
+  needed in order to work out what a mark means, and on a large batch it is
+  hundreds of kilobytes of coordinates.
+- A region with `coverage: "source-v2"` or `"source-v1"` indexes the
+  **original** mesh: `faces`, and each patch's `faceIndex` and
+  `sourceFaceIndex`, all point at source triangles. In the full geometry a
+  patch holds a polygon in that mesh's local coordinates, and one face may
+  carry several. **Never widen a stroke to the whole face.** Under
+  `source-v1` a source face index does not mean the whole face was painted —
+  read the patch vertices. Under `source-v2` a face listed in `faces` with
+  **no** patch beside it does mean the whole face, and a face that has patches
+  means those patches and no more; `wholeFaces` and `partialFaces` in the
+  summary are that same split, already counted.
 - `coverage: "brush-v1"` is the earlier form of the same idea, indexed against
   the review mesh instead. Regions with no `coverage` are older whole-face marks
   and are read as such. History carries no original stroke data, so a precise

@@ -82,6 +82,7 @@ export const TOOL = {
       versionId: { type: "string" },
       keep: { type: "integer", minimum: 0 },
       submissionId: { type: "string" },
+      geometry: { type: "boolean" },
       summary: { type: "string" },
       annotations: { type: "array", items: { type: "object" } },
       activate: { type: "boolean" },
