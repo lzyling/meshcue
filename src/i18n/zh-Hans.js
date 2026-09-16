@@ -82,8 +82,9 @@ export default {
   "marks.expand": "展开标记列表",
   "marks.empty": "将想修改的位置\n标记在模型上。",
   "marks.limit": "一轮最多 200 个标记。",
-  "marks.nearStrokeLimit": "本轮笔迹接近上限，请先提交这一批。",
-  "marks.nearMarkLimit": "本轮标记接近上限，请先提交这一批。",
+  "marks.nearStrokeLimit":
+    "本轮标记已占满浏览器能保存的容量。提交这一批，下一轮从空白开始。",
+  "marks.nearMarkLimit": "本轮已经标记了这个模型的每一个面。",
   "marks.pin": "点标签",
   "marks.regionName": "{color}区域",
   "marks.pinned": "已钉在表面",
@@ -151,9 +152,6 @@ export default {
   "tool.eraseTooFine": "擦除后碎片过多，请改用较小的范围。",
   "tool.strokeTooBroad":
     "这一笔涉及太多表面，请放大模型或缩小画笔；已有笔迹会保留。",
-  "tool.faceOverLimit":
-    "此平面超过本轮 20,000 面标注上限；可收窄范围或先简化模型。",
-
   "hint.orbit": "右键拖动旋转 · 双指或中键平移 · 滚轮缩放",
   "hint.paint": "涂抹看得见的表面 · 右键照样旋转",
   "hint.erase": "擦除看得见的笔迹 · 不改动模型 · 右键照样旋转",

@@ -9,6 +9,7 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
+import { MAX_ROUND_BYTES, MARK_WHOLE_FACE_BYTES } from "./budget.mjs";
 import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
@@ -445,7 +446,8 @@ function validateAnnotations(versionId, annotations) {
   );
   const usedIds = new Set();
   let faceCount = 0,
-    patchCount = 0;
+    patchCount = 0,
+    markCost = 0;
   for (const a of annotations) {
     if (usedIds.has(a.id))
       throw new ReviewError("Duplicate annotation id.", 400);
@@ -518,15 +520,33 @@ function validateAnnotations(versionId, annotations) {
           "BAD_GEOMETRY",
         );
     }
+    /* A round used to stop at 20,000 faces and 40,000 polygons. Both were the
+       same limit written twice — the browser's storage budget, back when a
+       face covered end to end still stored a polygon repeating its own
+       triangle. Under `source-v2` a whole face costs its number, and the two
+       numbers stopped meaning anything: a bucket fill over a connected surface
+       is a few kilobytes, and every face of a 97,280-triangle model is 19% of
+       the budget.
+
+       What is left is the budget itself, counted the way the page counts it.
+       The ceiling here sits above the page's so that a reviewer meets the
+       toast that tells them to submit, and never this. A round that arrives
+       over it did not come from our page. */
     patchCount += a.surfacePatches?.length || 0;
-    if (patchCount > 40000)
+    const patches = a.surfacePatches || [];
+    const claimed =
+      a.type === "pin"
+        ? 1
+        : Object.values(a.faces).reduce((n, list) => n + list.length, 0);
+    const onFaces = new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`))
+      .size;
+    markCost +=
+      120 +
+      Math.max(0, claimed - onFaces) * MARK_WHOLE_FACE_BYTES +
+      patches.reduce((n, p) => n + 64 + p.vertices.length * 26, 0);
+    if (markCost > MAX_ROUND_BYTES)
       throw new ReviewError(
-        "This round has reached its stroke limit; submit in batches.",
-        400,
-      );
-    if (faceCount > 20000)
-      throw new ReviewError(
-        "A round is limited to 20,000 review faces; submit in batches.",
+        "This round holds more marking than a browser will keep; submit in batches.",
         400,
       );
   }

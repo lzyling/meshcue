@@ -100,9 +100,9 @@ export default {
   "marks.empty": "Markieren Sie die Stellen,\ndie geändert werden sollen.",
   "marks.limit": "Eine Runde fasst höchstens 200 Markierungen.",
   "marks.nearStrokeLimit":
-    "Diese Runde nähert sich der Strichgrenze. Bitte diesen Stapel zuerst senden.",
+    "Diese Runde enthält so viele Markierungen, wie der Browser speichern kann. Senden Sie diesen Stapel; die nächste Runde beginnt leer.",
   "marks.nearMarkLimit":
-    "Diese Runde nähert sich der Markierungsgrenze. Bitte diesen Stapel zuerst senden.",
+    "In dieser Runde ist bereits jede Fläche dieses Modells markiert.",
   "marks.pin": "Punktmarke",
   "marks.regionName": "{color} Fläche",
   "marks.pinned": "An der Oberfläche fixiert",
@@ -176,9 +176,6 @@ export default {
     "Beim Radieren sind zu viele kleine Bruchstücke entstanden. Bitte eine kleinere Fläche verwenden.",
   "tool.strokeTooBroad":
     "Dieser Strich berührt zu viele Flächen. Näher heranzoomen oder einen kleineren Pinsel verwenden; vorhandene Striche bleiben erhalten.",
-  "tool.faceOverLimit":
-    "Diese Fläche überschreitet die Grenze von 20.000 Dreiecken je Markierung; den Umfang verkleinern oder das Modell vereinfachen.",
-
   "hint.orbit":
     "Rechts ziehen dreht · zwei Finger oder Mitte verschiebt · Rad zoomt",
   "hint.paint":

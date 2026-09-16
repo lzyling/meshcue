@@ -100,9 +100,9 @@ export default {
   "marks.empty": "Marquez sur le modèle\nles endroits à modifier.",
   "marks.limit": "Un tour contient au plus 200 marques.",
   "marks.nearStrokeLimit":
-    "Ce tour approche sa limite de tracés. Envoyez d'abord ce lot.",
+    "Cette série contient autant d'annotations que le navigateur peut conserver. Envoyez ce lot ; la suivante repartira de zéro.",
   "marks.nearMarkLimit":
-    "Ce tour approche sa limite de marques. Envoyez d'abord ce lot.",
+    "Chaque face de ce modèle est déjà marquée dans cette série.",
   "marks.pin": "Repère",
   "marks.regionName": "Zone {color}",
   "marks.pinned": "Fixé à la surface",
@@ -175,9 +175,6 @@ export default {
     "L'effacement a produit trop de petits fragments. Utilisez une zone plus petite.",
   "tool.strokeTooBroad":
     "Ce tracé touche trop de surfaces. Zoomez ou réduisez le pinceau ; les tracés existants sont conservés.",
-  "tool.faceOverLimit":
-    "Cette surface dépasse la limite de 20 000 triangles par marque ; réduisez l'étendue ou simplifiez le modèle.",
-
   "hint.orbit":
     "Glisser à droite pour pivoter · deux doigts ou milieu pour déplacer · molette pour zoomer",
   "hint.paint": "Peindre la surface visible · le bouton droit pivote toujours",

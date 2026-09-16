@@ -94,9 +94,9 @@ export default {
   "marks.empty": "Mark the spots you want changed\non the model.",
   "marks.limit": "A round holds at most 200 marks.",
   "marks.nearStrokeLimit":
-    "This round is near its stroke limit. Submit this batch first.",
+    "This round has as much marking as the browser will keep. Submit this batch and the next one starts empty.",
   "marks.nearMarkLimit":
-    "This round is near its mark limit. Submit this batch first.",
+    "Every face of this model is already marked in this round.",
   "marks.pin": "Point label",
   "marks.regionName": "{color} area",
   "marks.pinned": "Pinned to the surface",
@@ -167,9 +167,6 @@ export default {
     "Erasing produced too many small fragments. Use a smaller area.",
   "tool.strokeTooBroad":
     "That stroke touches too many surfaces. Zoom in or use a smaller brush; existing strokes are kept.",
-  "tool.faceOverLimit":
-    "This surface exceeds the 20,000 triangle limit for one mark; narrow the spread or simplify the model.",
-
   "hint.orbit":
     "Right-drag to orbit · two fingers or middle to pan · scroll to zoom",
   "hint.paint": "Paint the visible surface · the right button still orbits",

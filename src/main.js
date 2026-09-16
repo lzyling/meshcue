@@ -516,7 +516,17 @@ function onPaint(patches) {
   const otherFaces = annotations
     .filter((a) => a !== region)
     .reduce((n, a) => n + faceCountOf(a), 0);
-  if (otherFaces + targetFaces.size > 20000) {
+  /* A round used to stop at twenty thousand faces. That number was never about
+     faces — it was the byte budget written a second way, back when a face cost
+     a polygon repeating its own triangle: twenty thousand times about 142
+     bytes is very nearly the three megabytes above. Under `source-v2` a whole
+     face costs its number, so the same budget now holds the whole of any model
+     up to roughly 440,000 source faces. Measured: every one of the self-test
+     slab's 97,280 faces is 572,800 bytes, 19% of the budget.
+
+     So the model is the limit, which is what a limit here should have been all
+     along, and the bytes above are the one that can still be reached. */
+  if (otherFaces + targetFaces.size > viewer.sourceFaceCount()) {
     toast(t("marks.nearMarkLimit"));
     return;
   }

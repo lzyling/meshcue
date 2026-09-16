@@ -259,6 +259,14 @@ export class ModelViewer {
       target: this.controls.target.toArray(),
     };
   }
+  // Every source triangle in the loaded model: the most a round could possibly
+  // claim, and since `source-v2` the only ceiling on claiming that is honest.
+  sourceFaceCount() {
+    return this.meshes.reduce(
+      (n, mesh) => n + (mesh.userData.fillTopology?.vertices.length || 0),
+      0,
+    );
+  }
   /* Where a mark is and how much of the model it covers, in world units, so
      that the agent can be told without being handed the geometry.
 
@@ -1127,8 +1135,13 @@ export class ModelViewer {
       vertices: mesh.userData.fillTopology.vertices[sourceFaceIndex],
       whole: true,
     }));
-    this.fillTooLarge = patches.length > 20000;
-    this.fillPatches = this.fillTooLarge ? [] : patches;
+    /* The bucket had a ceiling of its own — twenty thousand faces, the round's
+       old face limit, which was the byte budget in disguise back when each of
+       those faces would have stored a polygon repeating its own triangle.
+       Every one of them is now its number alone, so a fill spanning a whole
+       connected surface is a few kilobytes and there is nothing left here to
+       protect. The budget is still checked, where the marks are stored. */
+    this.fillPatches = patches;
     this.drawPatches(this.previewOverlay, this.fillPatches, "#fcfcfc");
   }
   async clickEdit(e) {
@@ -1160,10 +1173,6 @@ export class ModelViewer {
       this.lastLabelAt = { time: now, x: e.clientX, y: e.clientY };
     }
     if (mode === "fill") this.previewFill(e.clientX, e.clientY);
-    if (mode === "fill" && this.fillTooLarge) {
-      this.onError(t("tool.faceOverLimit"));
-      return;
-    }
     const patches = this.fillPatches,
       pin = this.pinFromHit(hit);
     this.pinPending = true;
