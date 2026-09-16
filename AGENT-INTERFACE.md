@@ -27,7 +27,7 @@ second and runs the `prepare` script in it.
 
 | Host             | Install                                                                                                                     | It worked when                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Any MCP client   | `npm i -g "github:lzyling/meshcue#v0.15.0"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
+| Any MCP client   | `npm i -g "github:lzyling/meshcue#v0.16.0"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
 | CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
 | OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
 
@@ -167,19 +167,18 @@ controls. "Look, mark, then say what to change."
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
-  Brush: paints only the surface you can currently see — and the right button
-  still orbits while you hold it, so painting never has to stop to turn the
-  model.
+  Paint bucket: click a surface to mark the whole connected area — and the right
+  button still orbits while you hold it, so marking never has to stop to turn
+  the model.
 
-- Point labels are identified by their letter, painted areas by their colour;
-  the colour covers only the actual strokes. To separate another request, press
-  “New area”. You can undo, redo, and delete individual marks.
+- Point labels are identified by their letter, marked areas by their colour.
+  To separate another request, press “New area”. You can undo, redo, and delete
+  individual marks.
 
-- The eraser removes visible strokes only and leaves the model's own materials
-  alone. The paint bucket previews the connected near-flat area and fills it on
-  a click; the spread slider appears only for the bucket. The bucket works on a
-  whole connected surface, which can include parts hidden behind other objects;
-  the brush and eraser do not pass through.
+- The paint bucket previews the connected near-flat area and fills it on a
+  click; the spread slider sets how far that area may run. It works on a whole
+  connected surface, which can include parts hidden behind other objects. To
+  take a fill back, undo it or delete the mark from the list.
 
 - Marks are told apart by pattern and can be hidden in one press; plain view
   is only a viewing aid. Marks live in the review alone — the model file the

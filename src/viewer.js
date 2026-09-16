@@ -9,9 +9,7 @@ import {
   disposeBoundsTree,
 } from "three-mesh-bvh";
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
-import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
-import { fanInto } from "./triangulate.js";
 import { wholeFaces } from "./annotation-edits.js";
 import { t } from "./i18n/index.js";
 import { createDeviceSense, resolveDevice } from "./pointer-profile.js";
@@ -20,6 +18,18 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 const V = THREE.Vector3;
+/* Coverage is stored as the clipped polygon; WebGL wants triangles. Fanning at
+   draw time costs nothing and keeps the stored form free of the sixty-odd
+   repetitions a stored fan carried. Three vertices fan to themselves.
+
+   A fan is enough again because every polygon that can still reach here is
+   convex: `source-v1` marks were clipped with half-planes, and `source-v2`
+   stores whole faces as numbers and no polygons at all. Ear clipping arrived
+   with the union of brush stamps, which is concave, and left with it. */
+const fanInto = (coords, vertices) => {
+  for (let i = 1; i < vertices.length - 1; i++)
+    coords.push(...vertices[0], ...vertices[i], ...vertices[i + 1]);
+};
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
 // Let the browser actually paint before a long synchronous block starts. One
@@ -103,9 +113,6 @@ export class ModelViewer {
     this.labels = document.createElement("div");
     this.labels.className = "pin-layer";
     container.append(this.labels);
-    this.cursor = document.createElement("div");
-    this.cursor.className = "brush-cursor";
-    container.append(this.cursor);
     this.ray = new THREE.Raycaster();
     this.ray.firstHitOnly = true;
     this.meshes = [];
@@ -122,9 +129,7 @@ export class ModelViewer {
     this.occlusionValid = false;
     this.markMaterials = new Map();
     this.mode = "orbit";
-    this.radius = 22;
     this.enabled = false;
-    this.drawing = false;
     this.loadingEpoch = 0;
     this.pendingFrame = null;
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -133,10 +138,6 @@ export class ModelViewer {
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
     canvas.addEventListener("pointercancel", () => this.pointerUp());
-    canvas.addEventListener(
-      "pointerleave",
-      () => (this.cursor.style.display = "none"),
-    );
     window.addEventListener("pointerup", (e) => {
       this.clickEdit(e);
       this.pointerUp();
@@ -232,26 +233,15 @@ export class ModelViewer {
   setMode(mode) {
     this.editEpoch = (this.editEpoch || 0) + 1;
     this.clickStart = null;
-    this.pendingPoints = [];
-    if (this.drawing) {
-      this.drawing = false;
-      this.onStrokeEnd();
-    }
     this.controls.enabled = true;
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
     this.mode = mode;
     // Rotation no longer competes with the mode: it is on a button that marking
-    // never uses, so the camera stays available while painting.
+    // never uses, so the camera stays available while marking.
     this.controls.enableRotate = true;
-    this.cursor.style.display = "none";
     this.renderer.domElement.style.cursor =
       mode === "orbit" ? "grab" : "crosshair";
-  }
-  setRadius(n) {
-    this.radius = n;
-    this.cursor.style.width = `${n * 2}px`;
-    this.cursor.style.height = `${n * 2}px`;
   }
   cameraState() {
     return {
@@ -601,36 +591,42 @@ export class ModelViewer {
     }
     return [...(a.surfacePatches || []), ...extra];
   }
+  /* The wire form of a mark, and the form it is stored in. `source-v2` goes out
+     exactly as it is held: a whole face is its number, and materialising a
+     polygon for it here would undo the entire point of the format one step
+     before the mark leaves the page.
+
+     It did exactly that for a release. The page held a fill in the compact
+     form, counted its bytes in the compact form, and then sent the expanded
+     one — 142 bytes a face on the wire, on disk, and in what the service reads
+     back — while every number reported about the saving was read off the page.
+     Expansion belongs to drawing, which is what `expandWholeFaces` is for. */
   serializeAnnotations(annotations) {
     return annotations.map((a) =>
-      a.type === "pin" || ["brush-v1", "source-v1"].includes(a.coverage)
+      a.type === "pin" ||
+      ["brush-v1", "source-v1", "source-v2"].includes(a.coverage)
         ? structuredClone(a)
-        : a.coverage === "source-v2"
-          ? {
-              ...structuredClone(a),
-              surfacePatches: this.expandWholeFaces(a),
-            }
-          : {
-              ...structuredClone(a),
-              surfacePatches: Object.entries(a.faces).flatMap(
-                ([meshId, faces]) => {
-                  const mesh = this.meshMap.get(meshId);
-                  return faces.map((faceIndex) => {
-                    const t = this.triangle(mesh, faceIndex);
-                    return {
-                      meshId,
-                      faceIndex,
-                      sourceFaceIndex:
-                        mesh.geometry.userData.sourceFaces[faceIndex],
-                      vertices: [t.a.toArray(), t.b.toArray(), t.c.toArray()],
-                    };
-                  });
-                },
-              ),
-            },
+        : {
+            ...structuredClone(a),
+            surfacePatches: Object.entries(a.faces).flatMap(
+              ([meshId, faces]) => {
+                const mesh = this.meshMap.get(meshId);
+                return faces.map((faceIndex) => {
+                  const t = this.triangle(mesh, faceIndex);
+                  return {
+                    meshId,
+                    faceIndex,
+                    sourceFaceIndex:
+                      mesh.geometry.userData.sourceFaces[faceIndex],
+                    vertices: [t.a.toArray(), t.b.toArray(), t.c.toArray()],
+                  };
+                });
+              },
+            ),
+          },
     );
   }
-  async pointerDown(e) {
+  pointerDown(e) {
     this.gestureStart = [e.clientX, e.clientY];
     this.lastGestureDragged = false;
     if (
@@ -641,45 +637,16 @@ export class ModelViewer {
       this.pinPending
     )
       return;
-    if (!e.altKey && ["label", "fill", "relocate"].includes(this.mode)) {
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      this.clickStart = [e.clientX, e.clientY];
-      return;
-    }
-    // Option on the left button still declines to paint, which is the habit the
+    // Option on the left button still declines to mark, which is the habit the
     // old scheme taught. Rotating no longer needs it — the right button does
-    // that in every mode — so it is kept as a way to not draw, nothing more.
+    // that in every mode — so it is kept as a way to not mark, nothing more.
     if (e.altKey) return;
     e.stopImmediatePropagation();
     e.preventDefault();
-    const epoch = this.editEpoch;
-    const point = [e.clientX, e.clientY],
-      modelId = this.model?.id;
-    if (!this.rayAt(...point)) return;
-    this.drawing = true;
-    this.pointerHeld = true;
-    this.editPending = true;
-    this.pendingPoints = [];
-    this.lastPaintPoint = null;
-    this.controls.enabled = false;
-    try {
-      const allowed = await this.onEdit();
-      this.editPending = false;
-      if (!allowed || modelId !== this.model?.id || epoch !== this.editEpoch) {
-        this.drawing = false;
-        this.controls.enabled = true;
-        return;
-      }
-      this.paint(...point);
-      this.flushPaintPoints();
-      if (!this.pointerHeld) this.pointerUp();
-    } catch (err) {
-      this.editPending = false;
-      this.drawing = false;
-      this.controls.enabled = true;
-      this.onError(err.message);
-    }
+    /* Every remaining tool places its mark on a click, not on a drag, so the
+       press only records where the click began; `click` asks `onEdit` for the
+       draft and does the work. The drag branch left with the brush. */
+    this.clickStart = [e.clientX, e.clientY];
   }
   pointerMove(e) {
     if (this.mode === "fill" && !e.buttons)
@@ -692,80 +659,11 @@ export class ModelViewer {
       ) > 4
     )
       this.lastGestureDragged = true;
-    const r = this.container.getBoundingClientRect();
-    if (
-      ["paint", "erase"].includes(this.mode) &&
-      this.enabled &&
-      this.annotationsVisible
-    ) {
-      this.cursor.style.display = "block";
-      this.cursor.style.left = `${e.clientX - r.left}px`;
-      this.cursor.style.top = `${e.clientY - r.top}px`;
-    }
-    if (this.drawing && ["paint", "erase"].includes(this.mode)) {
-      this.pendingPoints.push([e.clientX, e.clientY]);
-      if (!this.pendingFrame && !this.editPending)
-        this.pendingFrame = requestAnimationFrame(() => {
-          this.pendingFrame = null;
-          if (this.drawing) this.flushPaintPoints();
-        });
-    }
-  }
-  flushPaintPoints() {
-    const points = this.pendingPoints || [];
-    this.pendingPoints = [];
-    try {
-      for (const p of points) this.paint(...p);
-    } catch (err) {
-      this.onError(err.message);
-      this.drawing = false;
-      this.controls.enabled = true;
-      this.onStrokeEnd();
-    }
   }
   pointerUp() {
-    this.pointerHeld = false;
     this.gestureStart = null;
     if (this.editPending) return;
-    if (this.drawing) {
-      this.flushPaintPoints();
-      this.drawing = false;
-      this.lastPaintPoint = null;
-      this.onStrokeEnd();
-    }
     this.controls.enabled = true;
-  }
-  paint(x, y) {
-    if (!this.enabled || !this.model) return;
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const previous = this.lastPaintPoint || [x, y];
-    const distance = Math.hypot(x - previous[0], y - previous[1]);
-    if (this.lastPaintPoint && distance < 0.5) return;
-    /* Stamps along a drag only have to overlap enough that the swept band has
-       no notches. At half the radius the scallop between two stamps is 0.7 px
-       at the default brush; at a third of it — what this used to be — it is
-       0.3 px, three tenths of a pixel bought with half again as many stamps,
-       each of which stores its own outline on every face it touches. */
-    const steps = Math.max(
-      1,
-      Math.ceil(distance / Math.max(2, this.radius / 2)),
-    );
-    const patches = [];
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      patches.push(
-        ...brushPatches(
-          this.meshes,
-          this.camera,
-          rect,
-          previous[0] + (x - previous[0]) * t,
-          previous[1] + (y - previous[1]) * t,
-          this.radius,
-        ),
-      );
-    }
-    this.lastPaintPoint = [x, y];
-    if (patches.length) this.onPaint(patches);
   }
   setAnnotations(annotations, selectedId) {
     this.clearOverlay(this.overlay);
@@ -1034,7 +932,6 @@ export class ModelViewer {
     this.overlay.visible = visible;
     this.agentOverlay.visible = visible && !this.agentHidden;
     this.previewOverlay.visible = visible;
-    this.cursor.style.display = "none";
   }
   setNeutral(neutral) {
     for (const mesh of this.meshes) {
@@ -1093,8 +990,10 @@ export class ModelViewer {
     this.agentEcho = echo;
     const annotations =
       echo?.versionId === this.model?.id ? echo.annotations : [];
-    const patches = this.serializeAnnotations(annotations || []).flatMap(
-      (a) => a.surfacePatches || [],
+    // Drawing, so this is the side that wants every face materialised — the
+    // echo comes back in whatever form it was stored in.
+    const patches = this.serializeAnnotations(annotations || []).flatMap((a) =>
+      a.type === "pin" ? [] : this.expandWholeFaces(a),
     );
     this.drawPatches(this.agentOverlay, patches, "#f5dc72", true);
   }

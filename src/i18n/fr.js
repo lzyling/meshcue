@@ -152,12 +152,6 @@ export default {
     "Cliquez une surface pour poser un repère ; le bouton droit pivote",
   "hint.label":
     "Cliquez une surface pour poser un repère · le bouton droit pivote toujours",
-  "tool.brush": "Pinceau",
-  "tool.brushLabel": "Outil pinceau",
-  "tool.brushTitle": "Le pinceau ne marque que la surface visible",
-  "tool.eraser": "Gomme",
-  "tool.eraserLabel": "Outil gomme",
-  "tool.eraserTitle": "N'efface que les marques",
   "tool.bucket": "Remplir",
   "tool.bucketLabel": "Outil pot de peinture",
   "tool.bucketTitle":
@@ -165,21 +159,13 @@ export default {
   "tool.undo": "Annuler",
   "tool.undoTitle": "Annuler Ctrl/⌘ Z",
   "tool.redo": "Rétablir",
-  "tool.size": "Taille",
-  "tool.brushSize": "Taille du pinceau",
   "tool.spread": "Étendue",
   "tool.bucketSpread": "Étendue du remplissage",
   "tool.newRegion": "Nouvelle zone",
-  "tool.newRegionHint": "Le prochain tracé formera sa propre zone de couleur.",
-  "tool.eraseTooFine":
-    "L'effacement a produit trop de petits fragments. Utilisez une zone plus petite.",
-  "tool.strokeTooBroad":
-    "Ce tracé touche trop de surfaces. Zoomez ou réduisez le pinceau ; les tracés existants sont conservés.",
+  "tool.newRegionHint":
+    "Le prochain remplissage formera sa propre zone de couleur.",
   "hint.orbit":
     "Glisser à droite pour pivoter · deux doigts ou milieu pour déplacer · molette pour zoomer",
-  "hint.paint": "Peindre la surface visible · le bouton droit pivote toujours",
-  "hint.erase":
-    "Effacer les tracés visibles · le modèle reste intact · le bouton droit pivote toujours",
   "hint.fill":
     "Survoler pour prévisualiser · cliquer pour remplir · le bouton droit pivote toujours",
   "hint.relocate": "Cliquez une surface pour déplacer le repère · Échap annule",
@@ -214,7 +200,7 @@ export default {
     "Les marques ont changé — corrigez la compréhension dans la conversation d'origine",
 
   "precision.overBudget":
-    "Ce modèle a épuisé le budget du maillage de revue (il demande {wanted} triangles, le budget est de {budget}). Les grandes surfaces planes cessent d'être subdivisées, le pinceau y avance par blocs entiers ; les détails ne sont pas affectés. Pour des tracés plus fins, demandez à l'Agent de réexporter avec une hauteur de corde plus faible.",
+    "Ce modèle a épuisé le budget du maillage de revue (il demande {wanted} triangles, le budget est de {budget}). Les grandes surfaces planes cessent d'être subdivisées, un remplissage les prend donc par blocs entiers ; les détails ne sont pas affectés. Pour un marquage plus fin, demandez à l'Agent de réexporter avec une hauteur de corde plus faible.",
 
   "outbox.reason": "Raison : {message}",
   "outbox.reasonUnknown": "Raison inconnue",
@@ -256,11 +242,11 @@ export default {
   "help.p1":
     "Glisser avec le bouton droit pour pivoter, bouton du milieu ou deux doigts pour déplacer, molette ou pincement pour zoomer. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
   "help.p2":
-    "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pinceau : ne peint que la surface visible — et le bouton droit continue de pivoter, la peinture n'a jamais à s'interrompre pour tourner le modèle.",
+    "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
-    "Les repères se reconnaissent à leur lettre, les zones peintes à leur couleur ; la couleur ne couvre que les tracés réels. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Les marques peuvent être annulées, rétablies et supprimées une à une.",
+    "Les repères se reconnaissent à leur lettre, les zones marquées à leur couleur. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Les marques peuvent être annulées, rétablies et supprimées une à une.",
   "help.p4":
-    "La gomme n'enlève que les tracés visibles et laisse intacts les matériaux du modèle. Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue n'apparaît que pour lui. Le remplissage agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets ; le pinceau et la gomme ne traversent pas.",
+    "Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue fixe jusqu'où cette zone peut s'étendre. Il agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets. Pour revenir sur un remplissage, annulez-le ou supprimez la marque dans la liste.",
   "help.p5":
     "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
   "help.p6":

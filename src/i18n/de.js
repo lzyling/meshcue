@@ -153,12 +153,6 @@ export default {
     "Klick auf eine Fläche setzt eine Marke; die rechte Taste dreht",
   "hint.label":
     "Auf eine Fläche klicken setzt eine Marke · die rechte Taste dreht weiterhin",
-  "tool.brush": "Pinsel",
-  "tool.brushLabel": "Pinselwerkzeug",
-  "tool.brushTitle": "Der Pinsel markiert nur sichtbare Oberflächen",
-  "tool.eraser": "Radierer",
-  "tool.eraserLabel": "Radierwerkzeug",
-  "tool.eraserTitle": "Entfernt nur Markierungen",
   "tool.bucket": "Füllen",
   "tool.bucketLabel": "Füllwerkzeug",
   "tool.bucketTitle":
@@ -166,22 +160,12 @@ export default {
   "tool.undo": "Rückgängig",
   "tool.undoTitle": "Rückgängig Strg/⌘ Z",
   "tool.redo": "Wiederholen",
-  "tool.size": "Größe",
-  "tool.brushSize": "Pinselgröße",
   "tool.spread": "Umfang",
   "tool.bucketSpread": "Füllumfang",
   "tool.newRegion": "Neue Fläche",
-  "tool.newRegionHint": "Der nächste Strich beginnt eine eigene Farbfläche.",
-  "tool.eraseTooFine":
-    "Beim Radieren sind zu viele kleine Bruchstücke entstanden. Bitte eine kleinere Fläche verwenden.",
-  "tool.strokeTooBroad":
-    "Dieser Strich berührt zu viele Flächen. Näher heranzoomen oder einen kleineren Pinsel verwenden; vorhandene Striche bleiben erhalten.",
+  "tool.newRegionHint": "Die nächste Füllung beginnt eine eigene Farbfläche.",
   "hint.orbit":
     "Rechts ziehen dreht · zwei Finger oder Mitte verschiebt · Rad zoomt",
-  "hint.paint":
-    "Sichtbare Oberfläche bemalen · die rechte Taste dreht weiterhin",
-  "hint.erase":
-    "Sichtbare Striche löschen · das Modell bleibt unberührt · die rechte Taste dreht weiterhin",
   "hint.fill":
     "Zum Vorschauen schweben · klicken zum Füllen · die rechte Taste dreht weiterhin",
   "hint.relocate":
@@ -218,7 +202,7 @@ export default {
     "Die Markierungen haben sich geändert — korrigieren Sie das Verständnis im ursprünglichen Gespräch",
 
   "precision.overBudget":
-    "Dieses Modell hat das Budget des Prüfnetzes ausgeschöpft (es benötigt {wanted} Dreiecke, das Budget beträgt {budget}). Große ebene Flächen werden nicht weiter unterteilt, der Pinsel springt dort in ganzen Stücken; Details sind nicht betroffen. Für feinere Striche bitten Sie den Agenten um einen Export mit kleinerer Sehnenhöhe.",
+    "Dieses Modell hat das Budget des Prüfnetzes ausgeschöpft (es benötigt {wanted} Dreiecke, das Budget beträgt {budget}). Große ebene Flächen werden nicht weiter unterteilt, eine Füllung nimmt sie daher in ganzen Stücken; Details sind nicht betroffen. Für feineres Markieren bitten Sie den Agenten um einen Export mit kleinerer Sehnenhöhe.",
 
   "outbox.reason": "Grund: {message}",
   "outbox.reasonUnknown": "Grund unbekannt",
@@ -261,11 +245,11 @@ export default {
   "help.p1":
     "Mit rechts ziehen dreht, mit der mittleren Taste oder zwei Fingern verschiebt, Rad oder Pinch zoomt. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
   "help.p2":
-    "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Pinsel: malt nur auf der sichtbaren Oberfläche — und die rechte Taste dreht weiterhin, das Malen muss dafür nie unterbrochen werden.",
+    "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":
-    "Punktmarken erkennt man am Buchstaben, bemalte Flächen an der Farbe; die Farbe deckt nur die tatsächlichen Striche ab. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
+    "Punktmarken erkennt man am Buchstaben, markierte Flächen an der Farbe. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
   "help.p4":
-    "Der Radierer entfernt nur sichtbare Striche und lässt die Materialien des Modells unberührt. Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler erscheint nur dafür. Füllen wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile; Pinsel und Radierer dringen nicht durch.",
+    "Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler bestimmt, wie weit diese Fläche reichen darf. Es wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile. Um eine Füllung zurückzunehmen, machen Sie sie rückgängig oder löschen Sie die Markierung aus der Liste.",
   "help.p5":
     "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
   "help.p6":

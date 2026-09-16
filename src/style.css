@@ -61,8 +61,6 @@
      fixed rather than themed — a pin must stay legible against its own colour. */
   --pin-ink: #16201c;
   --pin-ring: #ffffff;
-  --brush-fill: #6d877817;
-  --brush-ring: #ffffff8c;
 
   color: var(--ink);
   background: var(--surface);
@@ -114,8 +112,6 @@
   --shadow-1: 0 1px 2px #00000059, 0 2px 8px #00000047;
   --shadow-2: 0 4px 18px #00000073;
   --shadow-3: 0 20px 60px #00000099;
-
-  --brush-ring: #0000008c;
 }
 * {
   box-sizing: border-box;
@@ -949,17 +945,6 @@ a {
 .model-pin.selected {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-.brush-cursor {
-  position: absolute;
-  pointer-events: none;
-  border: 1px solid var(--ink-faint);
-  background: var(--brush-fill);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  display: none;
-  box-shadow: 0 0 0 1px var(--brush-ring);
-  z-index: 4;
 }
 #toast {
   position: fixed;

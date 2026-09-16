@@ -20,14 +20,9 @@ import {
 import {
   letterLabel,
   letterNumber,
-  erasePatches,
-  facesOf,
   paintIndex,
   addPatches,
-  wholeFaces,
-  compactRegion,
 } from "./annotation-edits.js";
-import { unionFace } from "./polygon-union.js";
 
 /* index.html ships with a fixed lang, because the language is not known until
    the reviewer's own preferences have been read. Correcting it here is what
@@ -53,8 +48,6 @@ applyTheme(themeChoice, darkQuery);
 const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-brand" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2 20.4 8v8L12 20.8 3.6 16V8z"/><path d="M3.6 8 12 12.8 20.4 8M12 12.8v8" stroke-width="1.2" opacity=".55"/></g>
 <g id="mc-orbit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7" stroke-width="1.2" opacity=".55"/></g>
-<g id="mc-brush" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14.5 3.6l5.9 5.9-7.2 7.2a3 3 0 0 1-1.5.8l-1.6.3-1.9-1.9.3-1.6a3 3 0 0 1 .8-1.5z"/><path d="M13.2 5 19 10.8" stroke-width="1.2" opacity=".55"/><path d="M7.6 15.2c-1.6.5-2.3 1.7-2.6 3.1-.2 1-.7 1.5-1.6 1.9 1.4 1.1 3.6 1.2 4.9.1 1-.9 1.3-2.2 1.1-3.4z" fill="currentColor" stroke="none"/></g>
-<g id="mc-eraser" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8.9 19.4 4.3 14.8a2 2 0 0 1 0-2.8l8-8a2 2 0 0 1 2.8 0l4.6 4.6a2 2 0 0 1 0 2.8l-7.8 8z"/><path d="M8.6 8.4 15.6 15.4" stroke-width="1.3" opacity=".55"/><path d="M9 19.4h11" stroke-linecap="round"/></g>
 <g id="mc-fill" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M11 2.6 20 11.6a1.6 1.6 0 0 1 0 2.3l-6 6a1.6 1.6 0 0 1-2.3 0l-6-6a1.6 1.6 0 0 1 0-2.3l6-6"/><path d="M5.6 13.2h14.2l-5.8 5.8a1.6 1.6 0 0 1-2.3 0z" fill="currentColor" stroke="none" opacity=".32"/><path d="M21.4 15.6c.9 1.2 1.4 2.1 1.4 2.8a1.4 1.4 0 1 1-2.8 0c0-.7.5-1.6 1.4-2.8z" fill="currentColor" stroke="none"/></g>
 <g id="mc-undo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h9a5 5 0 0 1 0 10H9"/><path d="M7.5 6 3.5 10l4 4"/></g>
 <g id="mc-redo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-9a5 5 0 0 0 0 10h4"/><path d="M16.5 6l4 4-4 4"/></g>
@@ -133,12 +126,10 @@ app.innerHTML = `${SPRITE}
    <div class="toolbar" role="toolbar" aria-label="${T("a11y.toolbar")}">
     <button data-mode="orbit" class="tool active" title="${T("tool.orbitTitle")}" aria-label="${T("tool.orbitLabel")}">${icon("orbit")}<span>${T("tool.orbit")}</span></button>
     <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
-    <button data-mode="paint" class="tool" title="${T("tool.brushTitle")}" aria-label="${T("tool.brushLabel")}">${icon("brush")}<span>${T("tool.brush")}</span></button>
-    <button data-mode="erase" class="tool" aria-label="${T("tool.eraserLabel")}" title="${T("tool.eraserTitle")}">${icon("eraser")}<span>${T("tool.eraser")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
    </div>
-   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="${T("a11y.palette")}"></div><label id="radius-control" hidden>${T("tool.size")} <input id="brush-size" type="range" min="6" max="60" value="22" aria-label="${T("tool.brushSize")}"></label><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
+   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="${T("a11y.palette")}"></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
@@ -409,81 +400,14 @@ const markBytes = (a) =>
   (faceCountOf(a) - new Set((a.surfacePatches || []).map(faceOf)).size) *
     WHOLE_FACE_BYTES;
 const draftBytes = () => annotations.reduce((n, a) => n + markBytes(a), 0);
-const splitFaceKey = (key) => {
-  const i = key.lastIndexOf(":");
-  return [key.slice(0, i), Number(key.slice(i + 1))];
-};
-const sortFaces = (faces) => {
-  for (const key of Object.keys(faces))
-    faces[key] = [...new Set(faces[key])].sort((a, b) => a - b);
-  return faces;
-};
-// The mesh lookup the pure compaction needs, and the only part of it that
-// knows what a mesh is.
-let strokeStart = null;
-const compactStroke = (region) => {
-  const since = strokeStart?.region === region ? strokeStart.at : 0;
-  strokeStart = null;
-  const changedIt = compactRegion(
-    region,
-    (meshId, face) => {
-      const mesh = viewer.meshMap.get(meshId);
-      return mesh && viewer.sourceTriangle(mesh, face);
-    },
-    unionFace,
-    since,
-  );
-  if (changedIt) {
-    paint = null;
-    changed();
-  }
-};
 let paint = null;
+/* Every tool that still reaches this hands over entire source faces — the
+   bucket by construction — so a mark is the numbers of the faces it claims and
+   nothing else. Partial coverage of a face arrived with the brush and left with
+   it; `source-v1` marks already on disk still carry polygons and still render,
+   but nothing new writes one. */
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
-  if (mode === "erase") {
-    const cut = new Set(patches.map(faceOf));
-    const next = annotations
-      .map((a) => {
-        if (a.type !== "region") return a;
-        /* Only the faces the eraser actually reached have to spell their
-           geometry out. A whole face it never crossed stays a number — which
-           is the difference between rubbing out one corner of a bucket fill
-           and rewriting the entire fill as polygons to do it. */
-        const kept =
-          a.coverage === "source-v2"
-            ? [...wholeFaces(a)].filter((key) => !cut.has(key))
-            : [];
-        const subject = (
-          a.coverage === "source-v2"
-            ? viewer.expandWholeFaces(a, cut)
-            : viewer.serializeAnnotations([a])[0].surfacePatches || []
-        ).map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
-        const remaining = erasePatches(subject, patches);
-        if (sameValue(subject, remaining)) return a;
-        const faces = facesOf(remaining);
-        for (const key of kept) {
-          const [meshId, face] = splitFaceKey(key);
-          (faces[meshId] ||= []).push(face);
-        }
-        return {
-          ...a,
-          coverage: "source-v2",
-          faces: sortFaces(faces),
-          surfacePatches: remaining,
-        };
-      })
-      .filter((a) => a.type === "pin" || faceCountOf(a) > 0);
-    if (next.reduce((n, a) => n + (a.surfacePatches?.length || 0), 0) > 40000) {
-      toast(t("tool.eraseTooFine"));
-      return;
-    }
-    if (!sameValue(annotations, next)) {
-      annotations = next;
-      changed();
-    }
-    return;
-  }
   /* Measured in bytes, because bytes are what runs out. The old guard counted
      patches and stopped at forty thousand of them — about eleven megabytes,
      twice what a browser will hold — so the warning it exists to give could
@@ -544,9 +468,6 @@ function onPaint(patches) {
     annotations.push(region);
     selectedId = region.id;
   }
-  // Where this stroke's own patches begin, so the union that runs when it
-  // lifts can take the stroke on its own before trying the whole face.
-  strokeStart ||= { region, at: region.surfacePatches.length };
   paint = addPatches(region, patches, paintIndex(region, paint));
   changed();
 }
@@ -559,7 +480,6 @@ const viewer = new ModelViewer($("#viewer"), {
   onPin,
   onPaint,
   onStrokeEnd: () => {
-    compactStroke(annotations.find((a) => a.id === selectedId));
     clearTimeout(saveTimer);
     flushDraft().catch((e) => toast(e.message));
   },
@@ -684,7 +604,6 @@ viewer.onRelocate = (pin) => {
   setMode("orbit");
   changed();
 };
-viewer.setRadius(22);
 
 async function flushDraft() {
   if (saveFlight) {
@@ -698,9 +617,15 @@ async function flushDraft() {
   pendingWrite ||= {
     revision,
     labelCursor,
-    // Bounds travel with the mark so the service can describe it without
-    // holding geometry, and so the agent can be told where a mark is without
-    // being handed every coordinate in it.
+    /* Bounds travel with the mark so the service can describe it without
+       holding geometry, and so the agent can be told where a mark is without
+       being handed every coordinate in it.
+
+       They are attached on the way out and dropped on the way back in
+       (`withoutBounds`). Bounds are a projection of the faces, not a second
+       fact about the mark, and the page always has the geometry to recompute
+       them. Keeping them only on the wire is what makes a mark read back equal
+       to the mark that was made — which it was not, for exactly one release. */
     annotations: clone(annotations).map((a) => {
       const bounds = viewer.annotationBounds(a);
       return bounds ? { ...a, bounds } : a;
@@ -925,12 +850,9 @@ function setMode(next) {
   $("#tool-options").hidden = false;
   $("#fill-control").hidden = next !== "fill";
   // Looking makes nothing, so there is nothing for a colour to apply to.
-  $(".palette").hidden = ["orbit", "erase", "relocate"].includes(next);
-  $("#radius-control").hidden = !["paint", "erase"].includes(next);
-  $("#new-region").hidden = next !== "paint";
+  $(".palette").hidden = ["orbit", "relocate"].includes(next);
+  $("#new-region").hidden = next !== "fill";
   $("#tool-hint").textContent = {
-    paint: t("hint.paint"),
-    erase: t("hint.erase"),
     fill: t("hint.fill"),
     relocate: t("hint.relocate"),
     label: t("hint.label"),
@@ -958,9 +880,6 @@ updatePalette();
 document
   .querySelectorAll("[data-mode]")
   .forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-$("#brush-size").addEventListener("input", (e) =>
-  viewer.setRadius(Number(e.target.value)),
-);
 $("#fill-range").addEventListener("input", (e) =>
   viewer.setFillTolerance(Number(e.target.value)),
 );
@@ -1045,7 +964,7 @@ $("#home-view").addEventListener("click", () => viewer.home());
 $("#new-region").addEventListener("click", () => {
   selectedId = null;
   renderAnnotations();
-  setMode("paint");
+  setMode("fill");
   toast(t("tool.newRegionHint"));
 });
 $("#toggle-annotations").addEventListener("click", () => {
@@ -1116,8 +1035,17 @@ function showRecovery(backup) {
   $("#download-recovery").download = `meshcue-${loadedId}-unsynced.json`;
   $("#recovery-banner").hidden = false;
 }
+// The other half of the note beside `bounds` in `flushDraft`: what the service
+// added for its own description is taken back off, so the page holds marks in
+// one shape whether it just made them or just read them.
+const withoutBounds = (list) =>
+  (list || []).map((a) => {
+    if (!a?.bounds) return a;
+    const { bounds: _bounds, ...rest } = a;
+    return rest;
+  });
 async function restoreDraft(draft) {
-  annotations = clone(draft?.annotations || []);
+  annotations = withoutBounds(clone(draft?.annotations));
   labelCursor = Math.max(
     draft?.labelCursor || 0,
     ...annotations
@@ -1149,7 +1077,7 @@ async function restoreDraft(draft) {
   try {
     state = await api("review/begin", owner());
     draft = state.draft;
-    annotations = clone(draft?.annotations || []);
+    annotations = withoutBounds(clone(draft?.annotations));
     labelCursor = Math.max(
       draft?.labelCursor || 0,
       ...annotations

@@ -145,33 +145,18 @@ export default {
     "Click a surface to place a label; the right button orbits",
   "hint.label":
     "Click a surface to place a label · the right button still orbits",
-  "tool.brush": "Brush",
-  "tool.brushLabel": "Brush tool",
-  "tool.brushTitle": "The brush only marks the surface you can see",
-  "tool.eraser": "Eraser",
-  "tool.eraserLabel": "Eraser tool",
-  "tool.eraserTitle": "Erases marks only",
   "tool.bucket": "Bucket",
   "tool.bucketLabel": "Paint bucket tool",
   "tool.bucketTitle": "Previews the connected near-flat area; click to fill",
   "tool.undo": "Undo",
   "tool.undoTitle": "Undo Ctrl/⌘ Z",
   "tool.redo": "Redo",
-  "tool.size": "Size",
-  "tool.brushSize": "Brush size",
   "tool.spread": "Spread",
   "tool.bucketSpread": "Bucket spread",
   "tool.newRegion": "New area",
-  "tool.newRegionHint": "The next stroke starts its own colour area.",
-  "tool.eraseTooFine":
-    "Erasing produced too many small fragments. Use a smaller area.",
-  "tool.strokeTooBroad":
-    "That stroke touches too many surfaces. Zoom in or use a smaller brush; existing strokes are kept.",
+  "tool.newRegionHint": "The next fill starts its own colour area.",
   "hint.orbit":
     "Right-drag to orbit · two fingers or middle to pan · scroll to zoom",
-  "hint.paint": "Paint the visible surface · the right button still orbits",
-  "hint.erase":
-    "Erase visible strokes · leaves the model alone · the right button still orbits",
   "hint.fill":
     "Hover to preview · click to fill · the right button still orbits",
   "hint.relocate": "Click a surface to move the label · Esc cancels",
@@ -206,7 +191,7 @@ export default {
     "The marks changed — correct the understanding in the original conversation",
 
   "precision.overBudget":
-    "This model has used up the review mesh budget (it wants {wanted} triangles, the budget is {budget}). Large flat areas stop subdividing, so the brush jumps across them in whole patches; detail is unaffected. For finer strokes, ask the Agent to re-export at a lower chord height.",
+    "This model has used up the review mesh budget (it wants {wanted} triangles, the budget is {budget}). Large flat areas stop subdividing, so a fill claims them in whole patches; detail is unaffected. For finer marking, ask the Agent to re-export at a lower chord height.",
 
   "outbox.reason": "Reason: {message}",
   "outbox.reasonUnknown": "Reason unknown",
@@ -246,11 +231,11 @@ export default {
   "help.p1":
     "Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to zoom. The left button is never the camera's, so you can mark without putting a tool down.",
   "help.p2":
-    "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Brush: paints only the surface you can currently see — and the right button still orbits while you hold it, so painting never has to stop to turn the model.",
+    "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":
-    "Point labels are identified by their letter, painted areas by their colour; the colour covers only the actual strokes. To separate another request, press “New area”. You can undo, redo, and delete individual marks.",
+    "Point labels are identified by their letter, marked areas by their colour. To separate another request, press “New area”. You can undo, redo, and delete individual marks.",
   "help.p4":
-    "The eraser removes visible strokes only and leaves the model's own materials alone. The paint bucket previews the connected near-flat area and fills it on a click; the spread slider appears only for the bucket. The bucket works on a whole connected surface, which can include parts hidden behind other objects; the brush and eraser do not pass through.",
+    "The paint bucket previews the connected near-flat area and fills it on a click; the spread slider sets how far that area may run. It works on a whole connected surface, which can include parts hidden behind other objects. To take a fill back, undo it or delete the mark from the list.",
   "help.p5":
     "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
   "help.p6":

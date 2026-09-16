@@ -76,31 +76,41 @@ test.afterEach(async () => {
    catalogue for that reader uses for the brush — one word is enough to tell
    catalogues apart, and it is one a reader would notice was wrong. */
 const READERS = [
-  { locale: "en-US", languages: ["en-US", "en"], lang: "en", brush: "Brush" },
+  { locale: "en-US", languages: ["en-US", "en"], lang: "en", bucket: "Bucket" },
   {
     locale: "zh-CN",
     languages: ["zh-CN", "zh"],
     lang: "zh-Hans",
-    brush: "画笔",
+    bucket: "油漆桶",
   },
   {
     locale: "zh-TW",
     languages: ["zh-TW", "zh"],
     lang: "zh-Hant",
-    brush: "畫筆",
+    bucket: "油漆桶",
   },
-  { locale: "zh-HK", languages: ["zh-HK"], lang: "zh-Hant", brush: "畫筆" },
-  { locale: "de-DE", languages: ["de-DE", "de"], lang: "de", brush: "Pinsel" },
-  { locale: "fr-FR", languages: ["fr-FR", "fr"], lang: "fr", brush: "Pinceau" },
-  { locale: "ja-JP", languages: ["ja-JP", "ja"], lang: "ja", brush: "ブラシ" },
+  { locale: "zh-HK", languages: ["zh-HK"], lang: "zh-Hant", bucket: "油漆桶" },
+  { locale: "de-DE", languages: ["de-DE", "de"], lang: "de", bucket: "Füllen" },
+  {
+    locale: "fr-FR",
+    languages: ["fr-FR", "fr"],
+    lang: "fr",
+    bucket: "Remplir",
+  },
+  {
+    locale: "ja-JP",
+    languages: ["ja-JP", "ja"],
+    lang: "ja",
+    bucket: "塗りつぶし",
+  },
   // Nobody has a catalogue for Icelandic, and the source language is the answer.
-  { locale: "is-IS", languages: ["is-IS", "is"], lang: "en", brush: "Brush" },
+  { locale: "is-IS", languages: ["is-IS", "is"], lang: "en", bucket: "Bucket" },
   // A reader whose first choice we cannot serve but whose second we can.
   {
     locale: "pt-BR",
     languages: ["pt-BR", "ja-JP"],
     lang: "ja",
-    brush: "ブラシ",
+    bucket: "塗りつぶし",
   },
 ];
 
@@ -121,8 +131,8 @@ for (const reader of READERS) {
     // The document says which language it is in, so hyphenation, font choice
     // and a screen reader's pronunciation all follow the words on the page.
     await expect(page.locator("html")).toHaveAttribute("lang", reader.lang);
-    await expect(page.locator('.toolbar [data-mode="paint"] span')).toHaveText(
-      reader.brush,
+    await expect(page.locator('.toolbar [data-mode="fill"] span')).toHaveText(
+      reader.bucket,
     );
 
     /* Nothing from another catalogue, and nothing the service wrote in its own

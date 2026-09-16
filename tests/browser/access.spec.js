@@ -58,12 +58,14 @@ async function ready(page, context) {
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "Brush tool", exact: true }),
+    page.getByRole("button", { name: "Paint bucket tool", exact: true }),
   ).toBeEnabled();
   expect(await page.evaluate(() => isSecureContext)).toBe(false);
 }
 async function mark(page) {
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect
@@ -152,7 +154,11 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   );
   const submission = (await f.ipc("/submissions")).body[0];
   expect(submission.annotations[0].type).toBe("region");
-  expect(submission.annotations[0].surfacePatches.length).toBeGreaterThan(0);
+  // The extent of a fill is the faces it claims, not a polygon repeating each.
+  expect(
+    Object.values(submission.annotations[0].faces).flat().length,
+  ).toBeGreaterThan(0);
+  expect(submission.annotations[0].surfacePatches).toEqual([]);
   const calls = JSON.parse(
     fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"),
   ).calls;

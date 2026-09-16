@@ -138,17 +138,15 @@ test("actual double click creates a surface pin; refresh restores it and geometr
   });
 });
 
-test("brush produces real face sets; undo, redo, delete and refresh retain the correct draft", async ({
+test("a fill produces real face sets; undo, redo, delete and refresh retain the correct draft", async ({
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page, -35, 0);
-  await page.mouse.move(p.x, p.y);
-  await page.mouse.down();
-  await page.waitForTimeout(250);
-  await page.mouse.move(p.x + 65, p.y + 40, { steps: 10 });
-  await page.mouse.up();
+  await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -300,12 +298,25 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   await other.close();
 });
 
-test("visible-only brush never selects the occluded mesh and its patches match the brush footprint", async ({
+/* The bucket crosses a connected surface on purpose, including round the back
+   of it, so "only what you can see" was the brush's rule and left with it. What
+   is still true, and is what this now pins, is that a fill stays on the mesh it
+   was clicked: it walks one mesh's topology and cannot step onto a different
+   object standing behind.
+
+   The second half is the assertion this release exists for. A fill claims whole
+   source faces, and a whole face is stored as its number alone — so a mark made
+   by the bucket carries no coordinates at all. Coordinates were 142 bytes per
+   face spent saying a second time what the face number already said, and for a
+   whole release nothing in this suite would have noticed them come back. */
+test("a bucket fill stays on the mesh it was clicked and stores no coordinates", async ({
   page,
 }) => {
   publish("occlusion-check.glb", "occlusion-test");
   await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -323,23 +334,22 @@ test("visible-only brush never selects the occluded mesh and its patches match t
     back = manifest.meshes.find((m) => m.name === "hidden-back");
   expect(Object.keys(a.faces)).toEqual([front.id]);
   expect(a.faces[back.id]).toBeUndefined();
-  expect(a.surfacePatches.length).toBeGreaterThan(4);
-  const box = await page.locator("#viewer").boundingBox(),
-    camera = new THREE.PerspectiveCamera(38, box.width / box.height, 0.01, 100);
-  camera.position.fromArray(d.camera.position);
-  camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
-  camera.updateMatrixWorld();
-  const matrix = new THREE.Matrix4().fromArray(front.matrixWorld);
-  for (const patch of a.surfacePatches)
-    for (const vertex of patch.vertices) {
-      const v = new THREE.Vector3()
-        .fromArray(vertex)
-        .applyMatrix4(matrix)
-        .project(camera);
-      const x = box.x + ((v.x + 1) * box.width) / 2,
-        y = box.y + ((1 - v.y) * box.height) / 2;
-      expect(Math.hypot(x - p.x, y - p.y)).toBeLessThanOrEqual(22.001);
-    }
+  expect(a.coverage).toBe("source-v2");
+  expect(a.faces[front.id].length).toBeGreaterThan(0);
+  expect(a.surfacePatches).toEqual([]);
+  expect(JSON.stringify(a)).not.toContain("vertices");
+  /* What the service wrote down, not only what the page is holding — the two
+     were not the same thing, and the page was the one being believed. Only
+     `source-v2` is held to this: a v1 draft restored from disk legitimately
+     carries its polygons and always will. */
+  const saved = JSON.parse(
+    fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+  );
+  const v2 = Object.values(saved.drafts)
+    .flatMap((d) => d.annotations)
+    .filter((m) => m.coverage === "source-v2");
+  expect(v2.length).toBeGreaterThan(0);
+  for (const mark of v2) expect(mark.surfacePatches ?? []).toEqual([]);
 });
 
 test("temporary save failure keeps local edits, then retries without losing the stroke", async ({
@@ -373,7 +383,9 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -389,8 +401,14 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   const stored = JSON.parse(
     fs.readFileSync(path.join(dir, "submissions", `${s.id}.json`), "utf8"),
   );
-  expect(stored.annotations[0].surfacePatches.length).toBeGreaterThan(0);
-  expect(stored.annotations[0].coverage).toBe("source-v1");
+  /* A fill's extent is the faces it claims. It carries no polygons, which is
+     what `source-v2` is: the submission the agent reads is the compact form,
+     not a materialised copy of it. */
+  expect(stored.annotations[0].coverage).toBe("source-v2");
+  expect(stored.annotations[0].surfacePatches).toEqual([]);
+  expect(
+    Object.values(stored.annotations[0].faces).flat().length,
+  ).toBeGreaterThan(0);
   const sent = JSON.parse(
     fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
   ).calls.find((c) => c.method === "chat.send");
@@ -451,8 +469,12 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
-  await expect(page.locator("#brush-size")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
+  // The tool's own control has room at this width; it was the brush's size
+  // slider that stood here before the brush was shelved.
+  await expect(page.locator("#fill-range")).toBeVisible();
   await page.screenshot({
     path: path.resolve(
       "../../media/images/2026-09-09-3d-review-v02-compact-tested.png",
@@ -818,46 +840,7 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   ).toBe(2);
 });
 
-test("small brush rendered pixels follow the circular cursor instead of filling whole faces", async ({
-  page,
-}) => {
-  publish("occlusion-check.glb", "pixel-check");
-  await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
-  await page.locator("#brush-size").fill("6");
-  const p = await point(page);
-  await page.mouse.click(p.x, p.y);
-  await expect(page.locator("#save-status")).toHaveText("Draft saved");
-  await page.mouse.move(5, 5);
-  const png = await page.screenshot();
-  const data = JSON.parse(
-    execFileSync(
-      "python3",
-      [
-        "-c",
-        `
-import sys,io,json,math
-from PIL import Image
-im=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert('RGB')
-x,y=map(float,sys.argv[1:])
-points=[]
-for b in range(int(y)-50,int(y)+51):
- for a in range(int(x)-50,int(x)+51):
-  r,g,v=im.getpixel((a,b))
-  if r>180 and r>g*1.35 and r>v*1.35:points.append(math.hypot(a+0.5-x,b+0.5-y))
-print(json.dumps({'count':len(points),'radius':max(points,default=0)}))
-`,
-        String(p.x),
-        String(p.y),
-      ],
-      { input: png, encoding: "utf8" },
-    ),
-  );
-  expect(data.count).toBeGreaterThan(60);
-  expect(data.radius).toBeLessThan(7.5);
-});
-
-test("legacy pins and paint fixture restore unchanged alongside new precise strokes", async ({
+test("legacy pins and paint fixture restore unchanged alongside a new fill", async ({
   page,
 }) => {
   await ready(page);
@@ -890,7 +873,9 @@ test("legacy pins and paint fixture restore unchanged alongside new precise stro
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -900,8 +885,12 @@ test("legacy pins and paint fixture restore unchanged alongside new precise stro
     .toBe(4);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const after = await page.evaluate(() => window.__reviewDiagnostics());
+  /* The three restored marks come back byte for byte in the format they were
+     written in — that is the whole point of the fixture — while the new one
+     beside them is written in the current format. Both live in one draft. */
   expect(after.annotations.slice(0, 3)).toEqual(legacy.annotations);
-  expect(after.annotations[3].coverage).toBe("source-v1");
+  expect(after.annotations[3].coverage).toBe("source-v2");
+  expect(after.annotations[3].surfacePatches).toEqual([]);
 });
 
 test("narrow embedded review fixture remains interactive without a duplicated conversation", async ({
@@ -937,17 +926,19 @@ test("narrow embedded review fixture remains interactive without a duplicated co
   );
 });
 
-test("painting never has to stop to turn the model, and does not consume point label numbers", async ({
+test("marking never has to stop to turn the model, and does not consume point label numbers", async ({
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const before = await page.evaluate(() => window.__reviewDiagnostics());
   // The friction this replaces: with the camera on the left button too, turning
-  // the model mid-stroke meant holding Option or switching back to the view
+  // the model between marks meant holding Option or switching back to the view
   // tool and switching out again. The right button was free the whole time.
   await page.mouse.move(p.x, p.y);
   await page.mouse.down({ button: "right" });
@@ -1061,7 +1052,13 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await expect(page.locator("#submit-feedback")).toBeVisible();
 });
 
-test("iteration: bucket preview equals filled coverage and eraser is partial and undoable", async ({
+/* The preview has to be the promise: what the cursor shades before the click is
+   exactly what the click claims, face for face.
+
+   The second half used to erase part of the fill. With the eraser shelved, the
+   way back from a fill is to undo it or delete the mark, and that is what is
+   pinned here instead — a reviewer who fills the wrong surface is not stuck. */
+test("iteration: bucket preview equals filled coverage, and a fill can be taken back", async ({
   page,
 }) => {
   await ready(page);
@@ -1086,30 +1083,29 @@ test("iteration: bucket preview equals filled coverage and eraser is partial and
   const filled = await page.evaluate(
     () => window.__reviewDiagnostics().annotations,
   );
-  expect(filled[0].surfacePatches.length).toBe(count);
-  await page.getByRole("button", { name: "Eraser tool", exact: true }).click();
-  await page.locator("#brush-size").fill("6");
-  await page.mouse.click(p.x, p.y);
+  // The faces are the coverage now; the fill stores no polygons at all.
+  expect(Object.values(filled[0].faces).flat().length).toBe(count);
+  expect(filled[0].surfacePatches).toEqual([]);
+  await page.locator(".delete-annotation").first().click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(0);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
-    .not.toEqual(filled);
-  await expect(page.locator("#save-status")).toHaveText("Draft saved");
-  const erased = await page.evaluate(
-    () => window.__reviewDiagnostics().annotations,
-  );
-  expect(erased).not.toEqual(filled);
-  expect(erased[0].id).toBe(filled[0].id);
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().annotations),
-  ).toEqual(filled);
+    .toEqual(filled);
 });
 
 test("iteration: explicit Agent read receipt and separate echo survive corrections without moving the camera", async ({
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Brush tool", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Paint bucket tool", exact: true })
+    .click();
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -1249,7 +1245,9 @@ test("iteration: changing tool cancels a bucket action awaiting edit ownership",
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => entered).toBe(true);
-  await page.locator('[data-mode="paint"]').click();
+  // Any other tool will do; what is being cancelled is the fill still waiting
+  // for the draft to be claimed.
+  await page.locator('[data-mode="label"]').click();
   release();
   await expect
     .poll(async () => (await request("GET", "state")).data.locked)
@@ -1370,12 +1368,9 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   expect(colored.red).toBeGreaterThan(1000);
   expect(colored.blue).toBeGreaterThan(1000);
   await pin(page);
-  await page.locator('[data-mode="paint"]').click();
+  await page.locator('[data-mode="fill"]').click();
   const p = await point(page);
-  await page.mouse.move(p.x, p.y);
-  await page.mouse.down();
-  await page.mouse.move(p.x + 75, p.y, { steps: 10 });
-  await page.mouse.up();
+  await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   await expect
     .poll(() =>
@@ -1675,6 +1670,10 @@ test("many versions stay on one row, and the one being marked stays reachable", 
     )
     .toBe(17);
   const strip = page.locator("#version-tabs");
+  /* The strip is drawn a tick after the state that describes it, so waiting on
+     the state alone measured an empty bar and called it one row. Wait for the
+     tabs themselves; the row count is only meaningful once they are there. */
+  await expect(strip.locator(".version-tab")).toHaveCount(17);
   const rows = await strip.evaluate((bar) => {
     const tops = new Set(
       [...bar.querySelectorAll(".version-tab")].map((t) =>

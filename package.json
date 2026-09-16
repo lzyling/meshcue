@@ -1,6 +1,6 @@
 {
   "name": "meshcue",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "license": "Apache-2.0",
   "author": "Kelven Ling <kelvenlinglzy@gmail.com>",
@@ -49,7 +49,6 @@
     "@noble/hashes": "2.4.0",
     "express": "^5.1.0",
     "image-size": "^2.0.4",
-    "martinez-polygon-clipping": "^0.8.1",
     "three": "^0.180.0",
     "three-mesh-bvh": "^0.9.14",
     "zod": "^4.1.0"
