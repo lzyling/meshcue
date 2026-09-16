@@ -2,13 +2,13 @@
 
 2026-09-10 17:14，Kelven明确采纳 **MeshCue** 为正式产品名，并要求完成项目命名修改；GitHub仓库由Kelven创建。
 
-| 用途 | 正式名称 |
-| --- | --- |
-| 产品名 | **MeshCue** |
-| GitHub仓库／npm包名 | `meshcue` |
-| 中文说明 | 面向Agent协作的3D模型审阅与标注工作台 |
-| 中文一句话 | 在模型上标清楚，让Agent改明白。 |
-| 英文描述 | Browser-based 3D review and annotation for agent-assisted modeling. |
+| 用途                | 正式名称                                                            |
+| ------------------- | ------------------------------------------------------------------- |
+| 产品名              | **MeshCue**                                                         |
+| GitHub仓库／npm包名 | `meshcue`                                                           |
+| 中文说明            | 面向Agent协作的3D模型审阅与标注工作台                               |
+| 中文一句话          | 在模型上标清楚，让Agent改明白。                                     |
+| 英文描述            | Browser-based 3D review and annotation for agent-assisted modeling. |
 
 Mesh指3D模型网格，Cue指修改提示与指引。品牌不绑定OpenClaw、Telegram或某个建模工具；它是审阅协作工作台，不是完整CAD或另一个独立Agent。
 

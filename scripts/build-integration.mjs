@@ -156,14 +156,30 @@ for (const [key, relative] of Object.entries(DOC_FILES)) {
       `The package is missing ${relative}, which inspect reports as ${key}.`,
     );
 }
-execFileSync("openclaw", ["plugins", "build", "--root", out], {
-  cwd: repo,
-  stdio: "pipe",
-});
+/* The last step asks the host to bless the package, which needs a global
+   `openclaw` on PATH. CI has no such thing, and it is not a dependency of this
+   project -- adding one so a workflow can finish is a global npm install on a
+   runner, which is the supply-chain surface this repository spent a night
+   reducing. Everything before this point is what CI is actually here for:
+   the packaging, the four-way version guard, and reading the documents back
+   out of the output. Without a skip, the first push after going public would
+   have been red for a reason that has nothing to do with the code, and the
+   guards would have reported correctly into a wall of failure.
+
+   Skipping is stated in the result, never inferred from a missing binary. A
+   build that quietly decided the host step was optional would be the same
+   mistake as a copy that never checked what it wrote. */
+const hostBuild = process.env.MESHCUE_SKIP_HOST_BUILD !== "1";
+if (hostBuild)
+  execFileSync("openclaw", ["plugins", "build", "--root", out], {
+    cwd: repo,
+    stdio: "pipe",
+  });
 console.log(
   JSON.stringify({
     output: path.relative(repo, out),
     bundledSkill: !!skillExport,
     skillSource: process.env.MESHCUE_SKILL_EXPORT ? "export" : "repository",
+    hostBuild,
   }),
 );
