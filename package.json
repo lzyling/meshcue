@@ -47,7 +47,7 @@
   "dependencies": {
     "@noble/hashes": "2.4.0",
     "express": "^5.1.0",
-    "image-size": "^2.0.2",
+    "image-size": "^2.0.4",
     "three": "^0.180.0",
     "three-mesh-bvh": "^0.9.14",
     "zod": "^4.1.0"
