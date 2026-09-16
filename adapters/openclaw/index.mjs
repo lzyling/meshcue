@@ -6,12 +6,9 @@ import {
   InstanceManager,
   pauseRegistered,
   resumeRegistered,
-  installedVersion,
+  inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel } from "../../integration/precheck.mjs";
-// Derived from the same table the guards read, so the probe cannot report a
-// field the guards no longer look at, or stay silent about one they added.
-import { contextSummary } from "../../integration/context.mjs";
 
 const parameters = {
   type: "object",
@@ -122,11 +119,7 @@ const plugin = defineToolPlugin({
             try {
               let result;
               if (params.action === "inspect")
-                result = {
-                  product: "MeshCue",
-                  integrationVersion: installedVersion(api.rootDir),
-                  context: contextSummary(ctx),
-                };
+                result = inspectInstall(ctx, api.rootDir);
               // Sizing a file needs the workspace root and nothing else. Going
               // through InstanceManager would start or adopt a project instance
               // just to read a header, which is exactly what a caller wants to

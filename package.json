@@ -33,6 +33,7 @@
     "build:integration": "node scripts/build-integration.mjs",
     "start": "node server/index.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "sync:docs": "node scripts/sync-reviewer-help.mjs",
     "test": "npm run check:i18n && node --test tests/*.test.mjs",
     "test:browser": "npm run check:i18n && vite build --outDir tmp/refinement-dist && playwright test",
     "test:lan": "node scripts/test-lan.mjs",

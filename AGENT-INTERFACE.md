@@ -8,31 +8,54 @@ configured. See [SECURITY.md](SECURITY.md) for the network and trust model.
 
 ## Three ways in, one implementation
 
-| Entry point | Call it as | Who owns a review |
-| --- | --- | --- |
-| OpenClaw extension | the native `meshcue` tool | derived from the host session and channel |
-| `meshcue` CLI | `meshcue <action> --owner <id> …` | **stated by the caller**; it is never invented |
-| `meshcue-mcp` | one `meshcue` tool over stdio MCP | the workspace, or `MESHCUE_OWNER` |
+| Entry point        | Call it as                        | Who owns a review                              |
+| ------------------ | --------------------------------- | ---------------------------------------------- |
+| OpenClaw extension | the native `meshcue` tool         | derived from the host session and channel      |
+| `meshcue` CLI      | `meshcue <action> --owner <id> …` | **stated by the caller**; it is never invented |
+| `meshcue-mcp`      | one `meshcue` tool over stdio MCP | the workspace, or `MESHCUE_OWNER`              |
 
 All three drive the same instance manager. Ownership decides who may change a
 draft or switch the displayed version, and it did not loosen when the entry
 points multiplied: a second owner asking about the same project is refused with
 `RESUME_REQUIRED` until someone continues it explicitly with `resume: true`.
 
+## Installing it
+
+When the tool is not there at all, this is what to install. Pin a tag: a bare
+`github:lzyling/meshcue` installs whatever the default branch holds at that
+second and runs the `prepare` script in it.
+
+| Host             | Install                                                                                                                     | It worked when                                                            |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Any MCP client   | `npm i -g "github:lzyling/meshcue#v0.14.0"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
+| CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
+| OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
+
+MeshCue is **not published on npm**. A package named `meshcue` or `meshcue-mcp`
+on that registry is not this project; every release states the SHA-256 of its
+own artifact, and that is what to check an install against.
+
+`inspect` is the first call on every host: it reports the workspace, agent and
+session a review would belong to. When it fails, say what is actually missing.
+A guessed command, a guessed port or a remembered URL from another topic is
+worse than stopping, because it looks like a working setup right up until
+someone sends marks into nothing.
+
 ## Actions
 
 `inspect` · `precheck` · `open` · `status` · `activate` · `read` · `echo` ·
 `finish` · `unlock` · `stop`
 
-| Action | Does | Notes |
-| --- | --- | --- |
-| `open` | publishes a model and **shows it** | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
-| `activate` | switches which version is displayed | takes `versionId` (from `status.versions`) or the `version` string |
-| `status` | every version with its mark count, unsubmitted count, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only |
-| `read` | the full submission, and writes your read receipt | never claim to have read a batch you only saw summarised |
-| `echo` | shows the reviewer which surface you understood | a statement of understanding, not a change |
-| `finish` | closes a round on one version | unsubmitted marks are **sealed into a batch**, not discarded |
-| `unlock` | clears a stale presence record | presence is a hint and never blocked anyone |
+| Action     | Does                                                                                                                                       | Notes                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `inspect`  | where you are, which version is installed, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
+| `open`     | publishes a model and **shows it**                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
+| `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
+| `status`   | every version with its mark count, unsubmitted count, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
+| `read`     | the full submission, and writes your read receipt                                                                                          | never claim to have read a batch you only saw summarised                                                              |
+| `echo`     | shows the reviewer which surface you understood                                                                                            | a statement of understanding, not a change                                                                            |
+| `finish`   | closes a round on one version                                                                                                              | unsubmitted marks are **sealed into a batch**, not discarded                                                          |
+| `unlock`   | clears a stale presence record                                                                                                             | presence is a hint and never blocked anyone                                                                           |
 
 Every published version stays. Each keeps its own draft, presence and echo, and
 the reviewer can return to any of them and keep marking. Publishing therefore
@@ -92,12 +115,12 @@ Mention a conspicuous number; never delete one yourself.
 
 ## Model limits and `precheck`
 
-| Limit | Threshold | On exceeding |
-| --- | --- | --- |
-| Triangles | **600,000** | refused, `MODEL_LIMIT`, with the measured count |
-| File size | **80 MB** | refused, `MODEL_LIMIT`, with the measured size |
-| Texture pixels | 8192×8192 each, **33,554,432** total | refused, `TEXTURE_LIMIT` |
-| Subdivision budget | 600,000 (the same source as the face limit) | **no error** — see below |
+| Limit              | Threshold                                   | On exceeding                                    |
+| ------------------ | ------------------------------------------- | ----------------------------------------------- |
+| Triangles          | **600,000**                                 | refused, `MODEL_LIMIT`, with the measured count |
+| File size          | **80 MB**                                   | refused, `MODEL_LIMIT`, with the measured size  |
+| Texture pixels     | 8192×8192 each, **33,554,432** total        | refused, `TEXTURE_LIMIT`                        |
+| Subdivision budget | 600,000 (the same source as the face limit) | **no error** — see below                        |
 
 The review mesh divides 600,000 triangles across every source face, and each
 face costs at least its own. A model of N source faces leaves `600000 − N` for
@@ -128,6 +151,58 @@ Two ways to simplify, in order of preference:
    they are looking at original precision.
 
 Re-run `precheck` after simplifying, then `open`.
+
+## What the reviewer sees
+
+<!-- reviewer-help:begin -- generated from src/i18n/en.js by scripts/sync-reviewer-help.mjs -->
+
+These are the words the reviewer is reading in the help panel, in the
+catalogue's own English. Answer from them rather than from memory: a tool that
+promises addresses instead of descriptions cannot afford to guess at its own
+controls. "Look, mark, then say what to change."
+
+- Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to
+  zoom. The left button is never the camera's, so you can mark without putting a
+  tool down.
+
+- Labels: pick the Label tool and click the surface to place A, B, C; the
+  Orbit tool places nothing, so you can turn the model without making marks.
+  Brush: paints only the surface you can currently see — and the right button
+  still orbits while you hold it, so painting never has to stop to turn the
+  model.
+
+- Point labels are identified by their letter, painted areas by their colour;
+  the colour covers only the actual strokes. To separate another request, press
+  “New area”. You can undo, redo, and delete individual marks.
+
+- The eraser removes visible strokes only and leaves the model's own materials
+  alone. The paint bucket previews the connected near-flat area and fills it on
+  a click; the spread slider appears only for the bucket. The bucket works on a
+  whole connected surface, which can include parts hidden behind other objects;
+  the brush and eraser do not pass through.
+
+- Marks are told apart by pattern and can be hidden in one press; plain view
+  is only a viewing aid. Marks live in the review alone — the model file the
+  Agent holds never carries them.
+
+- “Send to Agent” saves and submits the marks. Return to the original
+  conversation to say what you want changed; the Agent will ask if anything is
+  unclear. Submitting does not change the model by itself.
+
+- The tabs along the top list every version the Agent has delivered. Press any
+  of them to look back, and you can mark and submit on an older version directly
+  — each version keeps its own draft, and switching does not affect the others.
+  The marks the Agent receives state which version they target.
+
+- “Send to Agent” sends this batch; the Agent replies with a new version and
+  you carry on marking that one. Nothing has to be closed off, and drafts save
+  themselves.
+
+- First release: GLB/STL, up to 80 MB and 600,000 triangles. Animation,
+  skeletons and compressed GLB are not supported yet. This is a review tool; it
+  does not sculpt the model.
+
+<!-- reviewer-help:end -->
 
 ## Reading marks
 

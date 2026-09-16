@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { InstanceManager } from "../integration/manager.mjs";
+import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 
@@ -60,6 +60,7 @@ export const TOOL = {
       action: {
         type: "string",
         enum: [
+          "inspect",
           "precheck",
           "open",
           "status",
@@ -139,9 +140,11 @@ export function createHandler({
         });
       try {
         const result =
-          input.action === "precheck"
-            ? precheckModel(context, input.file)
-            : await manager().execute(input);
+          input.action === "inspect"
+            ? inspectInstall(context, root)
+            : input.action === "precheck"
+              ? precheckModel(context, input.file)
+              : await manager().execute(input);
         return reply({
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
           structuredContent: result,

@@ -11,7 +11,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { InstanceManager } from "../integration/manager.mjs";
+import {
+  InstanceManager,
+  inspectInstall,
+  docPaths,
+} from "../integration/manager.mjs";
 import { precheckModel } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 import { IntegrationError } from "../integration/context.mjs";
@@ -20,6 +24,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const INSTALL_ROOT = path.resolve(HERE, "..");
 
 const ACTIONS = [
+  "inspect",
   "open",
   "status",
   "activate",
@@ -50,6 +55,20 @@ const FLAGS = {
 };
 const BOOLEANS = { resume: "resume", "no-activate": "activate" };
 const NUMBERS = new Set(["keep"]);
+
+// An MCP client is handed the operating instructions during `initialize`. A
+// caller reaching this binary gets no such handshake, so the only chance to say
+// where the documentation lives is the answer to the question everybody asks
+// first. Absolute paths, because the reader is an agent that has to open them.
+export function help(installRoot = INSTALL_ROOT) {
+  return {
+    usage: `meshcue <${ACTIONS.join("|")}> [--option value]…`,
+    actions: ACTIONS,
+    start:
+      "Read AGENT-INTERFACE.md before the first call: it states what each answer does and does not mean, and how to check an install. SKILL.md is the procedure for running a review.",
+    docs: docPaths(installRoot),
+  };
+}
 
 export function parseArgs(argv) {
   const [action, ...rest] = argv;
@@ -113,13 +132,23 @@ export async function run(
     environment,
   } = {},
 ) {
+  if (!argv.length || ["help", "--help", "-h"].includes(argv[0]))
+    return help(installRoot);
   const { action, input } = parseArgs(argv);
   if (!action || !ACTIONS.includes(action))
     throw new IntegrationError(
       "BAD_USAGE",
-      `Usage: meshcue <${ACTIONS.join("|")}> [--option value]…`,
+      `Usage: meshcue <${ACTIONS.join("|")}> [--option value]… — run "meshcue help" for the documentation paths.`,
     );
   const workspace = fs.realpathSync(input.workspace || cwd);
+  // Orientation comes before ownership: an agent calls this to find out where it
+  // is, and demanding --owner first would make the answer conditional on
+  // knowing it.
+  if (action === "inspect")
+    return inspectInstall(
+      { workspaceDir: workspace, agentId: "cli" },
+      installRoot,
+    );
   // Measuring a file needs no instance, no owner and no project.
   if (action === "precheck") {
     if (!input.file)

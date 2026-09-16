@@ -21,6 +21,7 @@ import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import {
   workspaceContext,
+  contextSummary,
   trustedOrigin,
   sameRoute,
   scopedPath,
@@ -165,6 +166,35 @@ export function installedVersion(root) {
     return "unknown";
   }
 }
+
+// Absolute, because the reader is an agent that has to open them and may be
+// running with a working directory nowhere near the install.
+export function docPaths(root) {
+  return {
+    agentInterface: path.join(root, "AGENT-INTERFACE.md"),
+    skill: path.join(root, "skills/meshcue-review/SKILL.md"),
+    security: path.join(root, "SECURITY.md"),
+    readme: path.join(root, "README.md"),
+  };
+}
+
+// The skill tells an agent to call `inspect` first, on every host. It existed
+// only in the OpenClaw adapter, so on the CLI that first instruction answered
+// BAD_USAGE, and over MCP it fell past the action list into the manager and came
+// back as PROJECT_REQUIRED -- the tool answering a question nobody had asked,
+// while the agent was still trying to find out where it was. One implementation,
+// so the first instruction is true wherever it is read.
+export function inspectInstall(context, root) {
+  return {
+    product: "MeshCue",
+    integrationVersion: installedVersion(root),
+    // Derived from the same table the guards read, so the probe cannot report a
+    // field the guards no longer look at, or stay silent about one they added.
+    context: contextSummary(context),
+    docs: docPaths(root),
+  };
+}
+
 // Three answers, not two. A foreign instance must never be touched; an
 // outdated one is ours and is exactly what reopening replaces; anything else is
 // usable. Merging the first two is what turned an upgrade into a stuck project.
