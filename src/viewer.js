@@ -11,6 +11,7 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { brushPatches } from "./brush.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
+import { fanInto } from "./triangulate.js";
 import { t } from "./i18n/index.js";
 import { createDeviceSense, resolveDevice } from "./pointer-profile.js";
 
@@ -18,14 +19,6 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 const V = THREE.Vector3;
-/* Coverage is stored as the clipped polygon; WebGL wants triangles. Fanning at
-   draw time costs nothing and keeps the stored form free of the sixty-odd
-   repetitions a stored fan carried. Three vertices fan to themselves, so
-   patches written before this change draw through the same path. */
-const fanInto = (coords, vertices) => {
-  for (let i = 1; i < vertices.length - 1; i++)
-    coords.push(...vertices[0], ...vertices[i], ...vertices[i + 1]);
-};
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
 // Let the browser actually paint before a long synchronous block starts. One

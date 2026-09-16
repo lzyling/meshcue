@@ -337,10 +337,18 @@ const annotation = z.discriminatedUnion("type", [
               meshId: id,
               faceIndex: z.number().int().min(0),
               sourceFaceIndex: z.number().int().min(0),
-              // A clipped polygon, not a triangle: the brush outline is a
-              // 64-gon, so a triangle cut by it can carry up to 67 corners,
-              // and an occluder subtracted from that a few more.
-              vertices: z.array(vec3).min(3).max(256),
+              /* A clipped polygon, not a triangle: the brush outline is a
+                 64-gon, so a triangle cut by it can carry up to 67 corners,
+                 and an occluder subtracted from that a few more.
+
+                 Since `source-v2` a polygon may also be the union of every
+                 stamp that crossed one face, whose boundary is as long as the
+                 stroke was — measured at 530 corners for a quarter of one
+                 coarse face. The ceiling that matters is the round's total,
+                 counted below; this one only has to sit past anything a single
+                 boundary reaches. `MAX_POLYGON_VERTICES` in
+                 `src/polygon-union.js` holds the client to the same number. */
+              vertices: z.array(vec3).min(3).max(4096),
             })
             .strict(),
         )
