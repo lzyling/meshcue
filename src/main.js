@@ -25,6 +25,7 @@ import {
   paintIndex,
   addPatches,
   wholeFaces,
+  compactRegion,
 } from "./annotation-edits.js";
 import { unionFace } from "./polygon-union.js";
 
@@ -417,56 +418,26 @@ const sortFaces = (faces) => {
     faces[key] = [...new Set(faces[key])].sort((a, b) => a - b);
   return faces;
 };
-/* Run when the stroke lifts, not per stamp. Per stamp it would re-union a
-   boundary that grows all the way along the drag, and the reviewer would pay
-   for the whole stroke at every dab of it. At the end there is one pass over
-   the faces the stroke actually left pieces on.
-
-   Faces the brush took whole are already stored as their number and are not
-   here to be compacted. This is the other regime: a face larger than the brush,
-   where no stamp ever covered it alone. If the union turns out to cover it
-   after all, it stops costing anything at all — which is where the two halves
-   of the fix meet. */
-function compactRegion(region) {
-  if (region?.type !== "region" || region.coverage !== "source-v2") return;
-  const byFace = new Map();
-  for (const p of region.surfacePatches) {
-    const key = faceOf(p);
-    if (!byFace.has(key)) byFace.set(key, []);
-    byFace.get(key).push(p);
+// The mesh lookup the pure compaction needs, and the only part of it that
+// knows what a mesh is.
+let strokeStart = null;
+const compactStroke = (region) => {
+  const since = strokeStart?.region === region ? strokeStart.at : 0;
+  strokeStart = null;
+  const changedIt = compactRegion(
+    region,
+    (meshId, face) => {
+      const mesh = viewer.meshMap.get(meshId);
+      return mesh && viewer.sourceTriangle(mesh, face);
+    },
+    unionFace,
+    since,
+  );
+  if (changedIt) {
+    paint = null;
+    changed();
   }
-  const replaced = new Map();
-  const whole = new Set();
-  for (const [key, patches] of byFace) {
-    if (patches.length < 2) continue;
-    const [meshId, face] = splitFaceKey(key);
-    const mesh = viewer.meshMap.get(meshId);
-    const triangle = mesh && viewer.sourceTriangle(mesh, face);
-    if (!triangle) continue;
-    const union = unionFace(
-      patches.map((p) => p.vertices),
-      triangle,
-    );
-    if (!union) continue;
-    if (union.whole) whole.add(key);
-    else
-      replaced.set(
-        key,
-        union.polygons.map((vertices) => ({ ...patches[0], vertices })),
-      );
-  }
-  if (!replaced.size && !whole.size) return;
-  region.surfacePatches = region.surfacePatches.flatMap((p) => {
-    const key = faceOf(p);
-    if (whole.has(key)) return [];
-    if (!replaced.has(key)) return [p];
-    const next = replaced.get(key);
-    replaced.delete(key);
-    return next;
-  });
-  paint = null;
-  changed();
-}
+};
 let paint = null;
 function onPaint(patches) {
   patches = patches.map((p) => ({ ...p, faceIndex: p.sourceFaceIndex }));
@@ -563,6 +534,9 @@ function onPaint(patches) {
     annotations.push(region);
     selectedId = region.id;
   }
+  // Where this stroke's own patches begin, so the union that runs when it
+  // lifts can take the stroke on its own before trying the whole face.
+  strokeStart ||= { region, at: region.surfacePatches.length };
   paint = addPatches(region, patches, paintIndex(region, paint));
   changed();
 }
@@ -575,7 +549,7 @@ const viewer = new ModelViewer($("#viewer"), {
   onPin,
   onPaint,
   onStrokeEnd: () => {
-    compactRegion(annotations.find((a) => a.id === selectedId));
+    compactStroke(annotations.find((a) => a.id === selectedId));
     clearTimeout(saveTimer);
     flushDraft().catch((e) => toast(e.message));
   },

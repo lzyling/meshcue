@@ -7,6 +7,7 @@ import {
   paintIndex,
   addPatches,
   wholeFaces,
+  compactRegion,
 } from "../src/annotation-edits.js";
 import { buildFillTopology, planarFaces } from "../src/planar-fill.js";
 
@@ -237,4 +238,83 @@ test("erasing replaces the region, and the stale index is not reused", () => {
   // Face 7 was erased, so the same polygon has to be storable again.
   addPatches(erased, [patch(7, HALF)], index);
   assert.equal(erased.surfacePatches.length, 2);
+});
+
+/* Compaction replaces what it compacts. The first version added the union to
+   the soup instead: the entry was deleted from the replacement map as it was
+   emitted, so every later polygon on that face looked untouched and was kept.
+   Nothing caught it, because this lived in the module that draws the page and
+   had no test — the measurement did, by showing stored polygons tracking the
+   stamp count exactly. */
+const triangleOf = () => [
+  [0, 0, 0],
+  [4, 0, 0],
+  [0, 4, 0],
+];
+const fakeUnion = (polygons) =>
+  polygons.length < 2
+    ? null
+    : { polygons: [[[9, 9, 9]]], whole: false, coverage: 0.5 };
+const wholeUnion = () => ({ polygons: [], whole: true, coverage: 1 });
+
+test("compaction replaces every polygon on the face, not just the first", () => {
+  const r = paint(region(), [
+    [patch(7, HALF), patch(7, OTHER_HALF), patch(7, FACE)],
+    [patch(8, HALF)],
+  ]);
+  r.type = "region";
+  r.coverage = "source-v2";
+  assert.equal(r.surfacePatches.length, 4);
+  assert.equal(compactRegion(r, triangleOf, fakeUnion), true);
+  const onSeven = r.surfacePatches.filter((p) => p.faceIndex === 7);
+  assert.equal(onSeven.length, 1, "three polygons became one");
+  assert.deepEqual(onSeven[0].vertices, [[9, 9, 9]]);
+  // Face 8 held a single polygon, so it was never a candidate.
+  assert.equal(r.surfacePatches.filter((p) => p.faceIndex === 8).length, 1);
+  assert.deepEqual(r.faces, { m: [7, 8] });
+});
+
+test("a face the union finds covered stops costing anything", () => {
+  const r = paint(region(), [[patch(7, HALF), patch(7, OTHER_HALF)]]);
+  r.type = "region";
+  r.coverage = "source-v2";
+  assert.equal(compactRegion(r, triangleOf, wholeUnion), true);
+  assert.equal(r.surfacePatches.length, 0);
+  assert.deepEqual(r.faces, { m: [7] });
+  assert.deepEqual([...wholeFaces(r)], ["m:7"]);
+});
+
+test("compaction leaves the older formats alone", () => {
+  for (const coverage of ["source-v1", "brush-v1", undefined]) {
+    const r = paint(region(), [[patch(7, HALF), patch(7, OTHER_HALF)]]);
+    r.type = "region";
+    r.coverage = coverage;
+    assert.equal(compactRegion(r, triangleOf, fakeUnion), false);
+    assert.equal(r.surfacePatches.length, 2);
+  }
+});
+
+test("compacting one stroke does not unpaint the strokes before it", () => {
+  /* The pass that takes a stroke on its own must consume only that stroke's
+     polygons. Taking them by face instead would union the last few dabs and
+     then drop everything else on the face — erasing what earlier strokes
+     covered, in a step whose whole purpose is to change nothing but the size. */
+  const r = paint(region(), [[patch(7, HALF), patch(7, OTHER_HALF)]]);
+  r.type = "region";
+  r.coverage = "source-v2";
+  const before = r.surfacePatches.length;
+  const since = before;
+  paint(r, [[patch(7, FACE), patch(7, [...HALF].reverse())]]);
+  assert.equal(r.surfacePatches.length, before + 2);
+  // Declines anything but a pair, standing in for the reason the whole-face
+  // pass really does decline: slivers between strokes are holes it must keep.
+  const pairOnly = (polygons) =>
+    polygons.length === 2 ? fakeUnion(polygons) : null;
+  assert.equal(compactRegion(r, triangleOf, pairOnly, since), true);
+  const onSeven = r.surfacePatches.filter((p) => p.faceIndex === 7);
+  assert.equal(onSeven.length, 3, "two kept, the stroke's two became one");
+  assert.equal(
+    onSeven.filter((p) => JSON.stringify(p.vertices) === "[[9,9,9]]").length,
+    1,
+  );
 });

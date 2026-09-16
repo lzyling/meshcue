@@ -113,6 +113,92 @@ export function addPatches(region, patches, index) {
   return index;
 }
 
+/* Run when a stroke lifts, not per stamp. Per stamp it would re-union a
+   boundary that grows the whole length of the drag, and the reviewer would pay
+   for the entire stroke at every dab of it.
+
+   Faces the brush took whole are already stored as their number alone and are
+   not here to be compacted. This is the other regime — a face larger than the
+   brush, which no stamp ever covered by itself. When the union turns out to
+   cover such a face after all it stops costing anything, which is where the
+   two halves of the fix meet.
+
+   `triangleOf` is passed in rather than looked up: the source triangle lives on
+   the loaded mesh, and nothing else in this file knows about meshes.
+
+   `since` is where this stroke's own patches start, and it matters more than it
+   looks. Within one stroke the dabs overlap by construction — the spacing is
+   half the brush radius — so their union is one simply connected region and
+   comes back clean. Across strokes it very often does not: two passes laid
+   side by side leave a row of slivers between them, and every sliver is a hole
+   the union has to keep, because the reviewer did leave that surface alone.
+   Measured on four passes over one coarse face: 38 holes, then 76, then 114.
+
+   So the stroke that just finished is compacted on its own, which always
+   works, and the whole face is then tried as a bonus that usually will not.
+   Either way the growth is one or two polygons per stroke rather than one per
+   dab, and a stroke is a thing a hand can only produce so many of. */
+export function compactRegion(region, triangleOf, union, since = 0) {
+  if (region?.type !== "region" || region.coverage !== "source-v2")
+    return false;
+  const fresh = compactPatches(region, triangleOf, union, since);
+  const all = compactPatches(region, triangleOf, union, 0);
+  return fresh || all;
+}
+function compactPatches(region, triangleOf, union, since) {
+  const byFace = new Map();
+  for (const p of region.surfacePatches.slice(since)) {
+    const key = faceKey(p);
+    if (!byFace.has(key)) byFace.set(key, []);
+    byFace.get(key).push(p);
+  }
+  /* Consumed by identity, not by face. A pass over one stroke's patches must
+     not take away polygons that stroke never saw: unioning the last six dabs
+     and then dropping everything else on that face would throw away the two
+     strokes before it and quietly unpaint what they covered. */
+  const consumed = new Set();
+  const replaced = new Map();
+  const whole = new Set();
+  for (const [key, patches] of byFace) {
+    if (patches.length < 2) continue;
+    const triangle = triangleOf(patches[0].meshId, patches[0].faceIndex);
+    if (!triangle) continue;
+    const result = union(
+      patches.map((p) => p.vertices),
+      triangle,
+    );
+    if (!result) continue;
+    for (const p of patches) consumed.add(p);
+    if (result.whole) whole.add(key);
+    else
+      replaced.set(
+        key,
+        result.polygons.map((vertices) => ({ ...patches[0], vertices })),
+      );
+  }
+  if (!consumed.size) return false;
+  // A face contributes its union once and the polygons behind it go. An
+  // earlier version deleted the entry as it emitted, which left every later
+  // polygon on that face looking untouched, so the union was added to the soup
+  // rather than replacing it.
+  const emitted = new Set();
+  region.surfacePatches = region.surfacePatches.flatMap((p) => {
+    if (!consumed.has(p)) return [p];
+    const key = faceKey(p);
+    if (whole.has(key) || emitted.has(key)) return [];
+    emitted.add(key);
+    return replaced.get(key) || [];
+  });
+  /* A face the union found covered end to end keeps its number and loses every
+     polygon on it, including ones this pass did not look at: they were inside
+     the covered area by definition. */
+  if (whole.size)
+    region.surfacePatches = region.surfacePatches.filter(
+      (p) => !whole.has(faceKey(p)),
+    );
+  return true;
+}
+
 // Both cutter and subject belong to the same immutable review triangle.
 // Project onto its dominant plane; carry XYZ through polygon interpolation.
 export function erasePatches(patches, cutters) {
