@@ -29,7 +29,7 @@ address, not a description, and can say back which surface it understood.
 5. The agent calls `read`, replies in your conversation, and `open`s the next
    version. Older versions keep their own marks and stay selectable.
 
-There is no "finish the round" button. The next version *is* the end of the last
+There is no "finish the round" button. The next version _is_ the end of the last
 one.
 
 ## Three ways in, one implementation
@@ -37,11 +37,11 @@ one.
 The core does not know which harness is talking to it. All three entry points
 drive the same instance manager, with the same actions and the same results.
 
-| Entry point | How | Who owns a review |
-| --- | --- | --- |
-| OpenClaw extension | native `meshcue` tool | derived from the host's session |
-| `meshcue` CLI | `meshcue <action> --owner <id> …`, JSON in, JSON out | stated by the caller |
-| `meshcue-mcp` | stdio MCP server, added to your client's `mcp_servers` | the workspace, or `MESHCUE_OWNER` |
+| Entry point        | How                                                    | Who owns a review                 |
+| ------------------ | ------------------------------------------------------ | --------------------------------- |
+| OpenClaw extension | native `meshcue` tool                                  | derived from the host's session   |
+| `meshcue` CLI      | `meshcue <action> --owner <id> …`, JSON in, JSON out   | stated by the caller              |
+| `meshcue-mcp`      | stdio MCP server, added to your client's `mcp_servers` | the workspace, or `MESHCUE_OWNER` |
 
 Ownership decides who may change a draft or switch the displayed version.
 A second owner asking about the same project is refused with `RESUME_REQUIRED`
@@ -61,12 +61,12 @@ they are done rather than waiting for a message that cannot arrive.
 
 ## Model limits
 
-| Limit | Threshold | On exceeding |
-| --- | --- | --- |
-| Triangles | 600,000 | publish refused, `MODEL_LIMIT` |
-| File size | 80 MB | publish refused, `MODEL_LIMIT` |
-| Texture pixels | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
-| Subdivision budget | 600,000 | **no error** — see below |
+| Limit              | Threshold                        | On exceeding                     |
+| ------------------ | -------------------------------- | -------------------------------- |
+| Triangles          | 600,000                          | publish refused, `MODEL_LIMIT`   |
+| File size          | 80 MB                            | publish refused, `MODEL_LIMIT`   |
+| Texture pixels     | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
+| Subdivision budget | 600,000                          | **no error** — see below         |
 
 The review mesh divides one budget across every source face, and each face costs
 at least one triangle of it. Past roughly 300,000 source faces the remainder per
@@ -79,6 +79,8 @@ verdict is `degraded` or `reject`.
 
 Node.js 22 or newer, and a browser with WebGL.
 
+From a clone, for development:
+
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
@@ -86,20 +88,38 @@ npm test             # 140 unit and integration tests
 npm run test:browser # 55 real-Chromium tests, isolated port and data
 ```
 
-For an OpenClaw install, build and install the extension:
+For an OpenClaw install, build and install the extension from that clone:
 
 ```sh
 npm run build:integration -- tmp/candidate/package
 openclaw plugins install ./tmp/candidate/package
 ```
 
-For any MCP client, point it at the server:
+For any MCP client, install a tagged commit and point the client at it:
+
+```sh
+npm i -g "github:lzyling/meshcue#v0.14.0"
+```
+
+```toml
+[mcp_servers.meshcue]
+command = "meshcue-mcp"
+```
+
+Or start it without installing, at the cost of a fetch and a build each time:
 
 ```toml
 [mcp_servers.meshcue]
 command = "npx"
-args = ["meshcue-mcp"]
+args = ["-p", "github:lzyling/meshcue#v0.14.0", "meshcue-mcp"]
 ```
+
+Pin the tag. Without one, npm takes whatever the default branch holds at that
+second and runs the `prepare` script in it; every release states the SHA-256 of
+its own artifact so you can check what arrived.
+
+MeshCue is not published on npm. A package named `meshcue` or `meshcue-mcp` on
+that registry is not this project.
 
 The workbench listens on the loopback address by default. LAN mode binds one
 verified private IPv4 and always requires authorization — see
