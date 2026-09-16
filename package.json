@@ -16,9 +16,20 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "files": [
+    "cli/",
+    "mcp/",
+    "server/",
+    "integration/",
+    "skills/",
+    "dist/",
+    "AGENT-INTERFACE.md",
+    "SECURITY.md"
+  ],
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 43175",
     "build": "npm run check:i18n && vite build",
+    "prepare": "npm run build",
     "build:integration": "node scripts/build-integration.mjs",
     "start": "node server/index.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
