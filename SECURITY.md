@@ -28,7 +28,7 @@ cannot change which version is displayed.
 LAN mode always requires authorization. There is no mode where a private address
 is served without it.
 
-1. The agent creates a **single-use grant**, valid for **15 minutes**, for a
+1. The agent creates a **single-use grant**, valid for **one hour**, for a
    client IPv4 the user has confirmed. The address is never inferred from the
    first visitor or a User-Agent string.
 2. Issuing a new grant immediately invalidates any unused earlier one. Browsers

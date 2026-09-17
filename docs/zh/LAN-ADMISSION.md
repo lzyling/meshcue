@@ -20,7 +20,7 @@ REVIEW_DATA_DIR=tmp/isolated-review node scripts/reviewctl.mjs status
 
 ## 授权规则与边界
 
-- 本机 Unix IPC 的 `/access/admit` 接收已核对地址，创建内存内15分钟一次性许可；没有浏览器授权管理接口。
+- 本机 Unix IPC 的 `/access/admit` 接收已核对地址，创建内存内1小时一次性许可；没有浏览器授权管理接口。
 - `POST /api/access/claim` 只接受空 JSON，经既有 Host／Origin／自定义标头保护，使用 TCP `socket.remoteAddress` 匹配。请求正文、`X-Forwarded-For`、`X-Real-IP`、`Forwarded` 均不能指定领取者。
 - 匹配成功，立即消费许可并建立30天闲置到期的浏览器授权，实际使用自动续期；HTTP 响应通过 `Set-Cookie` 交给浏览器。Cookie 为 HttpOnly／SameSite=Strict；领取响应 no-store、正文不含凭据，URL、日志、CLI、Git 也不包含凭据。普通内网 HTTP 不是 TLS。
 - 已有有效 cookie 的重复领取保持同一身份与原截止时间，也不消耗新签发的许可。新的未用许可替换旧未用许可；普通发行与定向发行共用一个许可槽。

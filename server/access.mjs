@@ -86,7 +86,10 @@ export class ReviewAccess {
   constructor({
     scope,
     now = Date.now,
-    grantMs = 15 * 60_000,
+    // The window runs from the moment the agent admits an address, not from the
+    // moment the person reads the message that carries the link. In a tool whose
+    // links arrive in a conversation, half an hour between those two is ordinary.
+    grantMs = 60 * 60_000,
     sessionMs = 30 * 24 * 60 * 60_000,
     file = null,
     protectedClients = () => [],

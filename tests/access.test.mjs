@@ -6,7 +6,7 @@ import { ReviewAccess, sessionCookie } from "../server/access.mjs";
 import { listenerConfig, lanAddresses } from "../server/network.mjs";
 import { inspectModel } from "../server/models.mjs";
 
-test("admission expires at 15 minutes; browser use renews a 30-day idle deadline but polling and issuance do not", () => {
+test("admission expires at an hour; browser use renews a 30-day idle deadline but polling and issuance do not", () => {
   const minute = 60_000;
   const idle = 30 * 24 * 60 * minute;
   let time = 0;
@@ -15,11 +15,11 @@ test("admission expires at 15 minutes; browser use renews a 30-day idle deadline
     now: () => time,
   });
   const expired = access.issue();
-  time += 15 * minute;
+  time += 60 * minute;
   assert.throws(() => access.redeem(expired.value), { code: "ACCESS_EXPIRED" });
 
   const admission = access.issue();
-  time += 15 * minute - 1;
+  time += 60 * minute - 1;
   const session = access.redeem(admission.value);
   const deadline = session.expiresAt;
   assert.equal(deadline - time, idle);
@@ -119,7 +119,7 @@ test("address admission is one-use, private, rotated and scoped; active cookies 
     "expiresAt",
     "singleUse",
   ]);
-  assert.equal(issued.expiresAt, 15 * 60_000);
+  assert.equal(issued.expiresAt, 60 * 60_000);
   assert.throws(() => access.claimAddress("192.168.1.23"), {
     code: "ACCESS_REQUIRED",
   });
