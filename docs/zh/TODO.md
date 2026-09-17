@@ -573,6 +573,14 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 
 ---
 
+## 1.0 之后再评估 · 样例夹具写在仓库外面
+
+`npm run samples` 的默认输出是 `<repo>/../../media/3d/3d-agent-review/samples` —— **仓库外两级**，对应的是「服务端从工作区取模型」这个前提。在我们这台机器上它正好落进 workspace 的 media 目录，所以一直没人察觉；但陌生人 `git clone /tmp/x` 之后跑这一步，解析出来是 `/media/3d/...`，**直接 EACCES**（2026-09-17 实测）。克隆到家目录下则会在他家目录里凭空造一个 `media/3d/3d-agent-review/`。
+
+1.0.1 只做了两件**不动路径策略**的事：CI 补上 `npm run samples`，README 说明它写到哪。真正的修法要把夹具挪回仓库内，连带改 `tests/helpers/review-server.mjs` 的 `file:` 前缀、浏览器 spec 里四处硬编码的相对路径，以及 `server/index.mjs:44` 那条允许的媒体根 —— 最后那条是**产品行为**，DEV-06 那几个实例和 Agent 给的 `file:` 路径都落在它上面，**不能在发版当天动**。
+
+---
+
 ## 搁置 · 未定
 
 - **回传的触发机制** —— MCP 没有任何让 server 唤醒一轮对话的原语（协议级，不是某个客户端的问题）。

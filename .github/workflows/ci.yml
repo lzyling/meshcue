@@ -26,6 +26,11 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      # The suites publish real fixture models, and those are generated, not
+      # committed. Without this step 29 unit tests and the whole browser suite
+      # fail on "fixture model failed to publish" — which is what every run
+      # since the workflow was added actually did.
+      - run: npm run samples
       - run: npm run check:i18n
       - run: npm run format:check
       - run: node --test tests/*.test.mjs
@@ -58,6 +63,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: npm run samples
       # playwright.config.js asks for channel "chrome", so the bundled
       # chromium is not enough: the run needs real Google Chrome.
       - run: npx playwright install --with-deps chrome

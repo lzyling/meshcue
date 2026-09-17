@@ -487,13 +487,25 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
   page,
 }) => {
   test.setTimeout(120000);
-  await ready(page);
-  const metrics = [];
-  for (const [file, name] of [
+  // These are real models from the developer's own media library, not fixtures
+  // this repository ships or generates: a textured GLB, the same head at full
+  // density, and an STL. The case is worth keeping — nothing generated stresses
+  // texture upload the way it does — but on a clone that does not have them it
+  // has to say so instead of failing, the way the LAN case already does.
+  const heavy = [
     ["TRex_Head_retopo.glb", "恐龍頭 · 重拓撲"],
     ["TRex_Head_baked.glb", "恐龍頭 · 高面數"],
     ["3dbenchy.stl", "STL 小船"],
-  ]) {
+  ];
+  test.skip(
+    !heavy.every(([file]) =>
+      fs.existsSync(path.join(repo, "../../media/3d", file)),
+    ),
+    "needs the local media library: media/3d/TRex_Head_*.glb and 3dbenchy.stl",
+  );
+  await ready(page);
+  const metrics = [];
+  for (const [file, name] of heavy) {
     const t = Date.now();
     const result = JSON.parse(
       execFileSync(

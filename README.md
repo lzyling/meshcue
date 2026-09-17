@@ -86,6 +86,13 @@ npm test             # 187 unit and integration tests
 npm run test:browser # 63 real-Chromium tests, isolated port and data
 ```
 
+`npm run samples` writes to `../../media/3d/3d-agent-review/samples`, two levels
+above the clone: the suites publish through the server, which serves models from
+a workspace rather than from the repository. Clone somewhere that grandparent
+directory can be created in, or pass `--output`. Cases that need models this
+repository does not ship — the LAN case and one heavy-texture case — skip
+themselves and say why.
+
 For an OpenClaw install, build and install the extension from that clone:
 
 ```sh
@@ -113,8 +120,9 @@ args = ["-p", "github:lzyling/meshcue#v1.0.0", "meshcue-mcp"]
 ```
 
 Pin the tag. Without one, npm takes whatever the default branch holds at that
-second and runs the `prepare` script in it; every release states the SHA-256 of
-its own artifact so you can check what arrived.
+second and runs the `prepare` script in it. A tag is a name its owner can move,
+so every release states the commit it was cut from: check that against
+`git rev-parse v1.0.0^{commit}` and you know what you built.
 
 MeshCue is not published on the npm registry, and the names `meshcue`,
 `meshcue-mcp` and `@lzyling/meshcue` are not held by this project. **A package
