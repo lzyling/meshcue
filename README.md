@@ -85,8 +85,8 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 140 unit and integration tests
-npm run test:browser # 55 real-Chromium tests, isolated port and data
+npm test             # 187 unit and integration tests
+npm run test:browser # 63 real-Chromium tests, isolated port and data
 ```
 
 For an OpenClaw install, build and install the extension from that clone:
@@ -99,7 +99,7 @@ openclaw plugins install ./tmp/candidate/package
 For any MCP client, install a tagged commit and point the client at it:
 
 ```sh
-npm i -g "github:lzyling/meshcue#v0.16.2"
+npm i -g "github:lzyling/meshcue#v1.0.0"
 ```
 
 ```toml
@@ -112,15 +112,17 @@ Or start it without installing, at the cost of a fetch and a build each time:
 ```toml
 [mcp_servers.meshcue]
 command = "npx"
-args = ["-p", "github:lzyling/meshcue#v0.16.2", "meshcue-mcp"]
+args = ["-p", "github:lzyling/meshcue#v1.0.0", "meshcue-mcp"]
 ```
 
 Pin the tag. Without one, npm takes whatever the default branch holds at that
 second and runs the `prepare` script in it; every release states the SHA-256 of
 its own artifact so you can check what arrived.
 
-MeshCue is not published on npm. A package named `meshcue` or `meshcue-mcp` on
-that registry is not this project.
+MeshCue is not distributed through npm. The names `meshcue`, `meshcue-mcp` and
+`@lzyling/meshcue` are held on that registry so that nobody else can answer to
+them; whatever is published under them installs nothing and promises nothing.
+This repository, pinned to a tag, is the only way in.
 
 The workbench listens on the loopback address by default. LAN mode binds one
 verified private IPv4 and always requires authorization — see
