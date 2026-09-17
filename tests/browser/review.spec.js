@@ -1227,6 +1227,24 @@ test("iteration: superseded unsubmitted model is still served to the current vie
     current.sha256,
   );
 });
+test("iteration: the options panel is gone whenever the tool has no options", async ({
+  page,
+}) => {
+  await ready(page);
+  const panel = page.locator("#tool-options");
+  const palette = page.locator(".palette");
+  // The page opens on the orbit tool, so the colours must already be gone —
+  // not merely gone once some other tool has been visited first.
+  await expect(palette).toBeHidden();
+  await expect(panel).toBeHidden();
+  await page.locator('[data-mode="label"]').click();
+  await expect(palette).toBeVisible();
+  await expect(panel).toBeVisible();
+  await page.locator('[data-mode="orbit"]').click();
+  await expect(palette).toBeHidden();
+  // An empty frame still reads as a window that failed to close.
+  await expect(panel).toBeHidden();
+});
 test("iteration: changing tool cancels a bucket action awaiting edit ownership", async ({
   page,
 }) => {

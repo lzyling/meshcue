@@ -129,7 +129,7 @@ app.innerHTML = `${SPRITE}
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
    </div>
-   <div id="tool-options" class="tool-options"><div class="palette" role="group" aria-label="${T("a11y.palette")}"></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
+   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
@@ -847,11 +847,15 @@ function setMode(next) {
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
-  $("#tool-options").hidden = false;
   $("#fill-control").hidden = next !== "fill";
   // Looking makes nothing, so there is nothing for a colour to apply to.
   $(".palette").hidden = ["orbit", "relocate"].includes(next);
   $("#new-region").hidden = next !== "fill";
+  // Once every option inside it is gone the frame is all that is left, and an
+  // empty frame still reads as a window that failed to close.
+  $("#tool-options").hidden = [...$("#tool-options").children].every(
+    (el) => el.hidden,
+  );
   $("#tool-hint").textContent = {
     fill: t("hint.fill"),
     relocate: t("hint.relocate"),
