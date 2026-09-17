@@ -119,10 +119,11 @@ Pin the tag. Without one, npm takes whatever the default branch holds at that
 second and runs the `prepare` script in it; every release states the SHA-256 of
 its own artifact so you can check what arrived.
 
-MeshCue is not distributed through npm. The names `meshcue`, `meshcue-mcp` and
-`@lzyling/meshcue` are held on that registry so that nobody else can answer to
-them; whatever is published under them installs nothing and promises nothing.
-This repository, pinned to a tag, is the only way in.
+MeshCue is not published on the npm registry, and the names `meshcue`,
+`meshcue-mcp` and `@lzyling/meshcue` are not held by this project. **A package
+under any of those names is not this project**, whatever it claims. This
+repository, pinned to a tag, is the only way in — the install commands above use
+npm as the package manager, not as the source.
 
 The workbench listens on the loopback address by default. LAN mode binds one
 verified private IPv4 and always requires authorization — see

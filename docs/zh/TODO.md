@@ -546,9 +546,18 @@ displays host credentials」直接冲突。**技术上不可能提前，不只�
       **不允许被环境变量或运行时配置覆盖**；拿到的版本/链接在交给用户之前要校验是同一个 owner/repo。
 - [ ] **Release 产物没有校验和、没有签名** —— 附件被换掉无从发现。
       最低成本做法：Release body 里贴 SHA-256。签名（minisign／cosign）成本更高，另议。
-- [ ] **npm 占名 placeholder** —— `meshcue`／`meshcue-mcp`／`@lzyling/meshcue` 三个名字至今无人占。
-      不发功能包不等于不占名：占名不承诺任何功能，只说明真实安装方式，两者代价完全不同。
-      发布需要 npm 账号与 2FA，属于维护者本人的凭据。
+- ~~**npm 占名 placeholder**~~ —— **决定不做**（Kelven 2026-09-17）。三个名字
+      `meshcue`／`meshcue-mcp`／`@lzyling/meshcue` 当天实测仍全部无人占用，但为占名要先注册
+      npm 账号，而 npm 已把建账号收进网页，网页对机房 IP 一律回 403（实测：网页 403、
+      `registry.npmjs.org` 200），整条路要为一个纯防御动作绕住宅 IP 折腾一轮。
+
+      **留下的风险要说清楚**：这三个名字对任何人开放，将来有人发一个叫 `meshcue` 的包，
+      而某个 Agent 猜一条 `npm i meshcue` 就会装到陌生人的东西。当前的缓解是**文档层面**：
+      README 明写「不在 npm 上，这些名字不属于本项目，叫这个名字的包不是我们」，
+      `AGENT-INTERFACE.md` 给的是钉了 tag 的 `github:` 安装式，SKILL.md §2 要求工具缺失时
+      说清楚缺什么、**绝不猜命令**。
+
+      **这扇门没关死**：项目真有人用之后随时可以回来占，代价只是那时的名字可能已经有人拿走。
 
 ---
 
