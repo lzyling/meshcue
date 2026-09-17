@@ -2,7 +2,7 @@
    讀書面中文沒有障礙，多開一個 yue-Hant 目錄卻要多養一份文案。 */
 export default {
   "app.tagline": "3D 模型審閱與標注",
-  "app.preview": "試用版 {version}",
+  "app.version": "正在執行的版本",
 
   "closing.pending":
     "這一輪審閱已經有一段時間沒人使用，即將關閉。你在這裡做任何操作都會讓它繼續。",

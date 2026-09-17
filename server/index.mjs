@@ -390,6 +390,10 @@ function stateFor(clientId, full = false, versionId) {
   const closing = idle?.notice() || null;
   return {
     ...state,
+    // What is actually running, said on every poll. The page ships its own
+    // version compiled in, but that is the build it was cut from; a reviewer
+    // asking what they are looking at means the service answering them.
+    version,
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
     // The countdown rides along on every poll, not only during the

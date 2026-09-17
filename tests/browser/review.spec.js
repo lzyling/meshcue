@@ -1047,8 +1047,12 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#annotations-list")).toBeHidden();
   expect(await iconRef()).toBe("#mc-expand-right");
-  // Sending the marks stays possible with the list collapsed: it lives outside
-  // the part that folds, so folding cannot take the page's one action with it.
+  // Folding the panel is a request for the model to have the room, and a
+  // send button left standing in the gap is most of the width back again.
+  // Handing the marks over is something you do while looking at them, so it
+  // folds with them and comes back when they do.
+  await expect(page.locator("#submit-feedback")).toBeHidden();
+  await page.locator("#toggle-annotations").click();
   await expect(page.locator("#submit-feedback")).toBeVisible();
 });
 
@@ -1226,6 +1230,46 @@ test("iteration: superseded unsubmitted model is still served to the current vie
   expect(createHash("sha256").update(served).digest("hex")).toBe(
     current.sha256,
   );
+});
+test("iteration: the version beside the name is the one the service is running", async ({
+  page,
+}) => {
+  await ready(page);
+  const running = (await request("GET", "health")).data.version;
+  expect(running).not.toBe("unknown");
+  // Asking what you are looking at is a question about the service, not about
+  // the build this tab happened to be cut from.
+  await expect(page.locator("#app-version")).toHaveText(running);
+  // It sits with the name rather than in a framed slot of its own.
+  await expect(page.locator(".brand-title #app-version")).toBeVisible();
+  expect(await page.locator(".prototype").count()).toBe(0);
+});
+test("iteration: the view switches live in the toolbar and say how they are set", async ({
+  page,
+}) => {
+  await ready(page);
+  const marks = page.locator(".toolbar #toggle-marks");
+  const plain = page.locator(".toolbar #neutral-view");
+  // They used to float over the model in a corner of their own, which is the
+  // one place on the page that is meant to be the model.
+  await expect(marks).toBeVisible();
+  await expect(plain).toBeVisible();
+  const iconOf = (b) => b.locator("use").getAttribute("href");
+  expect(await iconOf(marks)).toBe("#mc-eye");
+  await expect(marks).toHaveAttribute("aria-label", "Hide marks");
+  await marks.click();
+  // No room for a caption at this size, so the icon carries the state and the
+  // name says what pressing it again will do.
+  expect(await iconOf(marks)).toBe("#mc-eye-off");
+  await expect(marks).toHaveAttribute("aria-pressed", "true");
+  await expect(marks).toHaveAttribute("aria-label", "Show marks");
+  await plain.click();
+  await expect(plain).toHaveAttribute("aria-pressed", "true");
+  await expect(plain).toHaveAttribute("aria-label", "Original colours");
+  // Picking a tool brings the marks back, so the switch has to admit it.
+  await page.locator('[data-mode="label"]').click();
+  expect(await iconOf(marks)).toBe("#mc-eye");
+  await expect(marks).toHaveAttribute("aria-pressed", "false");
 });
 test("iteration: the options panel is gone whenever the tool has no options", async ({
   page,
@@ -1519,6 +1563,23 @@ test("a cube face reframes from a named side without changing the framing", asyn
   await expect
     .poll(() => page.locator("#orient-cube").getAttribute("style"))
     .not.toBe(spun);
+});
+
+test("the home view stands upright again after a look straight down", async ({
+  page,
+}) => {
+  publish();
+  await ready(page);
+  const up = () => page.evaluate(() => window.__reviewDiagnostics().cameraUp);
+  expect(await up()).toEqual([0, 1, 0]);
+  // Looking straight down leaves the usual up vector parallel to the view,
+  // where it no longer says which way is up, so it has to lie on the floor.
+  await page.locator('.orient-face[data-view="0,1,0"]').click();
+  await expect.poll(async () => Math.abs((await up())[1])).toBeLessThan(0.01);
+  await page.locator("#home-view").click();
+  // Home is a whole view and not merely a place to stand: keeping the
+  // floor-bound up vector leaves the default view rolled onto its side.
+  await expect.poll(up).toEqual([0, 1, 0]);
 });
 
 /* Six named sides are the views you can describe; the three-quarter views are
@@ -2049,8 +2110,13 @@ test("a trackpad pans with two fingers where a mouse zooms with its wheel", asyn
   await ready(page);
   const p = await point(page);
   const start = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  // The chooser is no longer on screen — detection is trusted to get this
+  // right — but it is still the switch the detection sets, so it is still how
+  // a test says which kind of device is being held.
+  const choose = (kind) =>
+    page.locator("#device-choice").selectOption(kind, { force: true });
   // A mouse has a wheel and a middle button, so the wheel is free to zoom.
-  await page.locator("#device-choice").selectOption("mouse");
+  await choose("mouse");
   await page.mouse.move(p.x, p.y);
   await page.mouse.wheel(0, 240);
   await page.waitForTimeout(200);
@@ -2060,7 +2126,7 @@ test("a trackpad pans with two fingers where a mouse zooms with its wheel", asyn
 
   // A trackpad has no middle button at all, so panning has to live somewhere
   // else — and it has something a mouse does not: a two-axis drag.
-  await page.locator("#device-choice").selectOption("trackpad");
+  await choose("trackpad");
   const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.mouse.move(p.x, p.y);
   await page.mouse.wheel(40, 60);

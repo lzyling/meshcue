@@ -335,6 +335,10 @@ export class ModelViewer {
     this.controls.update();
     this.camera.position.set(4, 2.8, 5);
     this.controls.target.set(0, 0, 0);
+    // A straight-down look leaves the up vector lying on the floor, and coming
+    // home from one used to keep it: the camera stood in the right place with
+    // the whole model rolled onto its side.
+    this.camera.up.set(0, 1, 0);
     this.controls.update();
     this.controls.enableDamping = damping;
   }

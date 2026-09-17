@@ -2,7 +2,7 @@
    „Radiergummi“ —, weil sie in einer Leiste nebeneinander stehen. */
 export default {
   "app.tagline": "3D-Modelle prüfen und markieren",
-  "app.preview": "Vorschau {version}",
+  "app.version": "Laufende Version",
 
   "closing.pending":
     "Diese Prüfung wurde eine Weile nicht genutzt und wird geschlossen. Alles, was Sie hier tun, hält sie offen.",

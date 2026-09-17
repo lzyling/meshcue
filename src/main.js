@@ -64,6 +64,9 @@ const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 12S5.6 5.8 12 5.8 22.2 12 22.2 12 18.4 18.2 12 18.2 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></g>
 <g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.6 6.2A9.6 9.6 0 0 1 12 5.8c6.4 0 10.2 6.2 10.2 6.2a17 17 0 0 1-3.2 3.8M6.1 8.2A17 17 0 0 0 1.8 12S5.6 18.2 12 18.2c1.2 0 2.2-.2 3.2-.5"/><path d="M10 10a2.8 2.8 0 0 0 3.9 3.9"/><path d="M3.5 3.5l17 17"/></g>
 <g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></g>
+<g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 0 0 16.8z" fill="currentColor" stroke="none"/></g>
+<g id="mc-language" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><path d="M12 3.6a12.6 12.6 0 0 1 0 16.8a12.6 12.6 0 0 1 0-16.8z"/></g>
+<g id="mc-theme" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></g>
 </defs></svg>`;
 const icon = (name) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
@@ -108,7 +111,7 @@ const serverMessage = (json) =>
   json?.error ||
   t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
-<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><strong>MeshCue</strong><span>${T("app.tagline")}</span></div><span class="prototype">${T("app.preview", { version: __MESHCUE_VERSION__ })}</span><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><label class="setting"><span aria-hidden="true">${T("settings.language")}</span><select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select></label><label class="setting"><span aria-hidden="true">${T("settings.device")}</span><select class="quiet" id="device-choice" aria-label="${T("settings.device")}"><option value="auto">${T("settings.deviceAuto")}</option><option value="mouse">${T("settings.deviceMouse")}</option><option value="trackpad">${T("settings.deviceTrackpad")}</option></select></label><label class="setting"><span aria-hidden="true">${T("settings.theme")}</span><select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select></label><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${T("app.version")}">${__MESHCUE_VERSION__}</span></div><span>${T("app.tagline")}</span></div><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><label class="setting">${icon("language")}<select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select></label><label class="setting" hidden>${icon("orbit")}<select class="quiet" id="device-choice" aria-label="${T("settings.device")}"><option value="auto">${T("settings.deviceAuto")}</option><option value="mouse">${T("settings.deviceMouse")}</option><option value="trackpad">${T("settings.deviceTrackpad")}</option></select></label><label class="setting">${icon("theme")}<select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select></label><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
   <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
@@ -118,7 +121,6 @@ app.innerHTML = `${SPRITE}
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span><span class="scene-pill subtle" id="model-info"></span></div>
-   <div class="view-actions"><button id="toggle-marks" class="quiet-dark" aria-pressed="false">${T("marks.hide")}</button><button id="neutral-view" class="quiet-dark" aria-pressed="false">${T("view.plain")}</button></div>
    <div class="orient">
     <div class="orient-stage"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div></div>
     <button class="orient-home quiet-dark" id="home-view" title="${T("cube.homeTitle")}" aria-label="${T("cube.homeLabel")}">${icon("home")}</button>
@@ -128,6 +130,7 @@ app.innerHTML = `${SPRITE}
     <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
+    <div class="tool-divider"></div><button class="tool small" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}</button><button class="tool small" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}</button>
    </div>
    <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
@@ -841,8 +844,7 @@ function setMode(next) {
   mode = next;
   if (next !== "relocate") relocatingId = null;
   viewer.setVisible(true);
-  $("#toggle-marks").textContent = t("marks.hide");
-  $("#toggle-marks").setAttribute("aria-pressed", "false");
+  showMarksToggle();
   viewer.setMode(next);
   document
     .querySelectorAll("[data-mode]")
@@ -887,22 +889,36 @@ document
 $("#fill-range").addEventListener("input", (e) =>
   viewer.setFillTolerance(Number(e.target.value)),
 );
+/* These two are switches, not tools, and they moved off the model into the
+   toolbar where every other control already was. A button that size has no
+   room for a caption, so the state is in the icon and the name says what the
+   next press will do. */
+function showToggle(id, pressed, key, name) {
+  const button = $(id);
+  button.setAttribute("aria-pressed", String(pressed));
+  button.setAttribute("aria-label", t(key));
+  button.title = t(key);
+  button.innerHTML = icon(name);
+}
+const showMarksToggle = () =>
+  showToggle(
+    "#toggle-marks",
+    !viewer.annotationsVisible,
+    viewer.annotationsVisible ? "marks.hide" : "marks.show",
+    viewer.annotationsVisible ? "eye" : "eye-off",
+  );
 $("#toggle-marks").addEventListener("click", () => {
   viewer.setVisible(!viewer.annotationsVisible);
-  $("#toggle-marks").textContent = viewer.annotationsVisible
-    ? t("marks.hide")
-    : t("marks.show");
-  $("#toggle-marks").setAttribute(
-    "aria-pressed",
-    String(!viewer.annotationsVisible),
-  );
+  showMarksToggle();
 });
 $("#neutral-view").addEventListener("click", () => {
   viewer.setNeutral(!viewer.neutral);
-  $("#neutral-view").textContent = viewer.neutral
-    ? t("view.original")
-    : t("view.plain");
-  $("#neutral-view").setAttribute("aria-pressed", String(viewer.neutral));
+  showToggle(
+    "#neutral-view",
+    viewer.neutral,
+    viewer.neutral ? "view.original" : "view.plain",
+    "plain",
+  );
 });
 /* The Agent's understanding used to sit across the model until it was dismissed
    by hand, every round. It says itself once, gets out of the way on its own, and
@@ -986,6 +1002,9 @@ $("#toggle-annotations").addEventListener("click", () => {
     "collapsed",
     $("#annotations-list").hidden,
   );
+  // Handing the marks over is done while looking at them, so it folds with
+  // them; a send button left standing in the gap gives most of the width back.
+  $(".panel-actions").hidden = collapsed;
   // A plus beside a list of marks reads as "add a mark", which is a thing this
   // page can actually do — just not here. The control moves a panel sideways,
   // so it points the way the panel will go.
@@ -1401,6 +1420,10 @@ async function readState() {
     if (recovered && state?.owned && editSeq > savedSeq && !recoveryBlocked)
       await flushDraft();
     $(".connection-dot").classList.add("online");
+    // The compiled-in version is the build this page was cut from, which is
+    // only the running one until somebody upgrades the service under an open
+    // tab. Once the service has said which it is, it is the one that counts.
+    if (incoming.version) $("#app-version").textContent = incoming.version;
     $("#connection-status").textContent = incoming.notifier?.send
       ? t("conn.origin")
       : incoming.owned || state?.submissions?.length
@@ -1672,6 +1695,10 @@ window.__reviewDiagnostics = () => ({
   dirty: editSeq > savedSeq,
   annotations: viewer.serializeAnnotations(annotations),
   camera: viewer.cameraState(),
+  // Which way the camera calls up. It is deliberately not part of the camera a
+  // draft stores — that one is a place to stand, and this is how a view can be
+  // upright from the right place and still be lying on its side.
+  cameraUp: viewer.camera.up.toArray(),
   viewer: viewer.stats(),
   locked: state?.locked,
   owned: state?.owned,

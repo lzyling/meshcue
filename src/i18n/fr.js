@@ -2,7 +2,7 @@
    barre : « Gomme », pas « Outil gomme ». */
 export default {
   "app.tagline": "Revue et annotation de modèles 3D",
-  "app.preview": "Aperçu {version}",
+  "app.version": "Version en cours",
 
   "closing.pending":
     "Cette revue n'a pas servi depuis un moment et va se fermer. Toute action ici la maintient ouverte.",

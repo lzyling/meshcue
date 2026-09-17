@@ -2,7 +2,7 @@
    is checked against its key set; see scripts/check-i18n.mjs. */
 export default {
   "app.tagline": "3D model review and annotation",
-  "app.preview": "Preview {version}",
+  "app.version": "Running version",
 
   "closing.pending":
     "Nobody has used this review for a while, so it is closing. Anything you do here keeps it open.",

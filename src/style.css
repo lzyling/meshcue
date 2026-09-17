@@ -227,19 +227,22 @@ a {
   letter-spacing: 0.1em;
   font-weight: 650;
 }
-.brand span {
+.brand > span {
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--ink-faint);
 }
-.prototype {
+/* The version belongs to the name, so it stands beside it rather than taking a
+   framed slot of its own further along the header. */
+.brand-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.brand-title .app-version {
   font-size: 10px;
-  color: var(--ink-muted);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 4px 7px;
-  margin-left: 10px;
   letter-spacing: 0.05em;
+  color: var(--ink-muted);
 }
 .header-right {
   margin-left: auto;
@@ -253,21 +256,19 @@ a {
      horizontal scrollbar onto the whole page. */
   min-width: 0;
 }
-/* A chooser whose subject is not written down is a guess: "auto" alone does not
-   say what is being detected. The accessible name has always been right, so the
-   visible label is the same string, and the select keeps `aria-label` so the
-   name is announced once rather than twice. */
+/* A chooser says its subject with a mark rather than a word: the header has to
+   sit above a 460px panel, and a written label is the widest thing in it in
+   every language. The accessible name stays on the select, so nothing that was
+   ever announced is lost. */
 .setting {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 0;
 }
-.setting > span {
+.setting > .icon {
   color: var(--ink-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: none;
 }
 /* All three are the same control and are sized by one rule. The pointing-device
    chooser arrived later and only ever picked up `.quiet`, which left it 12px
@@ -281,14 +282,6 @@ a {
   min-height: 27px;
   font-size: 11px;
   text-overflow: ellipsis;
-}
-/* Three labels and three choosers do not fit a header that also has to work
-   inside a 460px panel. The label is what gives way; the accessible name it
-   duplicates stays on the select, so nothing is actually lost. */
-@media (max-width: 1100px) {
-  .setting > span {
-    display: none;
-  }
 }
 .connection-dot,
 .tiny-dot {
@@ -548,11 +541,15 @@ a {
   font-size: 9px;
   letter-spacing: 0.05em;
 }
-.tool.active {
+/* A tool is the one you are using; a switch is one that is left on. They look
+   the same because they read the same from across the room — this is the state
+   the toolbar is in. */
+.tool.active,
+.tool[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.tool:hover:not(:disabled):not(.active) {
+.tool:hover:not(:disabled):not(.active):not([aria-pressed="true"]) {
   background: var(--surface-sunken);
 }
 .tool.small {
@@ -1109,9 +1106,6 @@ dialog .muted {
   .axis-label {
     display: none;
   }
-  .prototype {
-    display: none;
-  }
   .header-right {
     font-size: 10px;
   }
@@ -1152,8 +1146,10 @@ dialog .muted {
   .model-meta {
     gap: 6px;
   }
-  .prototype,
-  .brand span,
+  /* The tagline is the line that gives way when the header is short of room.
+     The version stays: it is three characters, and it is the answer to the
+     question this header is most often asked. */
+  .brand > span,
   .scene-pill.subtle,
   .axis-label {
     display: none;
@@ -1202,8 +1198,7 @@ dialog .muted {
   font-size: 13px;
   letter-spacing: 0.04em;
 }
-.brand span,
-.prototype {
+.brand > span {
   display: none;
 }
 .workspace {
@@ -1378,23 +1373,6 @@ dialog .muted {
   background: var(--surface-raised);
   color: var(--ink-muted);
   box-shadow: var(--shadow-1);
-}
-.view-actions {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  display: flex;
-  gap: 4px;
-}
-.view-actions button {
-  border-radius: 6px;
-  background: var(--surface-raised);
-  padding: 5px 7px;
-  border: 1px solid var(--line);
-}
-.view-actions [aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 .tool-options {
   bottom: 92px;

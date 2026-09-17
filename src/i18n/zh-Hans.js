@@ -2,7 +2,7 @@
    转换器换不出来。 */
 export default {
   "app.tagline": "3D 模型审阅与标注",
-  "app.preview": "试用版 {version}",
+  "app.version": "正在运行的版本",
 
   "closing.pending":
     "这一轮审阅已经有一段时间没人使用，即将关闭。你在这里做任何操作都会让它继续。",
