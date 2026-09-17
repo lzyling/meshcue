@@ -159,6 +159,8 @@ export default {
   "tool.undo": "Annuler",
   "tool.undoTitle": "Annuler Ctrl/⌘ Z",
   "tool.redo": "Rétablir",
+  "tool.marks": "Marques",
+  "tool.plain": "Neutre",
   "tool.spread": "Étendue",
   "tool.bucketSpread": "Étendue du remplissage",
   "tool.newRegion": "Nouvelle zone",

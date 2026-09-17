@@ -137,6 +137,8 @@ export default {
   "tool.undo": "撤销",
   "tool.undoTitle": "撤销 Ctrl/⌘ Z",
   "tool.redo": "重做",
+  "tool.marks": "标注",
+  "tool.plain": "素色",
   "tool.spread": "范围",
   "tool.bucketSpread": "油漆桶范围",
   "tool.newRegion": "新区域",

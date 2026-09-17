@@ -151,6 +151,8 @@ export default {
   "tool.undo": "Undo",
   "tool.undoTitle": "Undo Ctrl/⌘ Z",
   "tool.redo": "Redo",
+  "tool.marks": "Marks",
+  "tool.plain": "Plain",
   "tool.spread": "Spread",
   "tool.bucketSpread": "Bucket spread",
   "tool.newRegion": "New area",

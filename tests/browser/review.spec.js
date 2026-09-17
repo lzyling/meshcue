@@ -1052,8 +1052,15 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   // Handing the marks over is something you do while looking at them, so it
   // folds with them and comes back when they do.
   await expect(page.locator("#submit-feedback")).toBeHidden();
+  // Folded is the button and nothing else. A heading that stays behind keeps
+  // the column roughly as wide as the words in it, in every language.
+  await expect(page.locator(".annotations-heading strong")).toBeHidden();
+  await expect(page.locator("#toggle-annotations")).toBeVisible();
+  const folded = await page.locator(".annotations-panel").boundingBox();
+  expect(folded.width).toBeLessThan(60);
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#submit-feedback")).toBeVisible();
+  await expect(page.locator(".annotations-heading strong")).toBeVisible();
 });
 
 /* The preview has to be the promise: what the cursor shades before the click is
@@ -1244,6 +1251,35 @@ test("iteration: the version beside the name is the one the service is running",
   await expect(page.locator(".brand-title #app-version")).toBeVisible();
   expect(await page.locator(".prototype").count()).toBe(0);
 });
+test("iteration: no heading row above the model, and saving is still said", async ({
+  page,
+}) => {
+  await ready(page);
+  // A name that arrived with the link, a version the tab strip already carries
+  // and a word about saving held a whole row across the top of the page. The
+  // height is the model's now.
+  expect(await page.locator(".model-heading").count()).toBe(0);
+  const panel = await page.locator(".review-panel").boundingBox();
+  const shell = await page.locator(".viewer-shell").boundingBox();
+  expect(shell.y - panel.y).toBeLessThan(16);
+  // Taking the row away is not the same as going quiet. The state is still
+  // written down where a screen reader reaches it, and a save that fails still
+  // says so out loud in a toast.
+  await expect(page.locator("#save-status")).toHaveText("No marks yet");
+  const said = await page.locator(".review-panel > .sr-only").boundingBox();
+  expect(said.height).toBeLessThanOrEqual(1);
+});
+test("iteration: the orientation cube sits in the corner it is read from", async ({
+  page,
+}) => {
+  await ready(page);
+  const shell = await page.locator(".viewer-shell").boundingBox();
+  const cube = await page.locator(".orient-stage").boundingBox();
+  // It was parked a row below the top, clearing a pill that never appears on
+  // that side — which reads as a widget that drifted out of its corner.
+  expect(cube.y - shell.y).toBeLessThan(16);
+  expect(shell.x + shell.width - (cube.x + cube.width)).toBeLessThan(16);
+});
 test("iteration: the view switches live in the toolbar and say how they are set", async ({
   page,
 }) => {
@@ -1257,10 +1293,14 @@ test("iteration: the view switches live in the toolbar and say how they are set"
   const iconOf = (b) => b.locator("use").getAttribute("href");
   expect(await iconOf(marks)).toBe("#mc-eye");
   await expect(marks).toHaveAttribute("aria-label", "Hide marks");
+  // Named on the face like every other button in the row. The caption is what
+  // the switch is about; the icon is which way it is set.
+  await expect(marks.locator("span")).toHaveText("Marks");
+  await expect(plain.locator("span")).toHaveText("Plain");
   await marks.click();
-  // No room for a caption at this size, so the icon carries the state and the
-  // name says what pressing it again will do.
   expect(await iconOf(marks)).toBe("#mc-eye-off");
+  // Redrawing the icon must not take the caption with it.
+  await expect(marks.locator("span")).toHaveText("Marks");
   await expect(marks).toHaveAttribute("aria-pressed", "true");
   await expect(marks).toHaveAttribute("aria-label", "Show marks");
   await plain.click();

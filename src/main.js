@@ -114,7 +114,12 @@ app.innerHTML = `${SPRITE}
 <header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${T("app.version")}">${__MESHCUE_VERSION__}</span></div><span>${T("app.tagline")}</span></div><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><label class="setting">${icon("language")}<select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select></label><label class="setting" hidden>${icon("orbit")}<select class="quiet" id="device-choice" aria-label="${T("settings.device")}"><option value="auto">${T("settings.deviceAuto")}</option><option value="mouse">${T("settings.deviceMouse")}</option><option value="trackpad">${T("settings.deviceTrackpad")}</option></select></label><label class="setting">${icon("theme")}<select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select></label><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
-  <div class="model-heading"><div><h2 id="model-name">${T("model.awaiting")}</h2></div><div class="model-meta"><span class="version-chip" id="model-version">—</span><span id="save-status">${T("save.preparing")}</span></div></div>
+  <!-- The name arrived with the link, the tab strip carries the version, and a
+       save that fails says so in a toast. None of it was worth a row of the
+       page across the top of the model — but a reviewer who cannot see the
+       screen has no toast and no tab strip, so the three of them stay here,
+       out of the layout and still in the accessibility tree. -->
+  <div class="sr-only"><h2 id="model-name">${T("model.awaiting")}</h2><span id="model-version">—</span><span id="save-status" aria-live="polite">${T("save.preparing")}</span></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
   <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
@@ -130,7 +135,7 @@ app.innerHTML = `${SPRITE}
     <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
-    <div class="tool-divider"></div><button class="tool small" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}</button><button class="tool small" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}</button>
+    <div class="tool-divider"></div><button class="tool" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}<span>${T("tool.marks")}</span></button><button class="tool" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}<span>${T("tool.plain")}</span></button>
    </div>
    <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
@@ -890,15 +895,17 @@ $("#fill-range").addEventListener("input", (e) =>
   viewer.setFillTolerance(Number(e.target.value)),
 );
 /* These two are switches, not tools, and they moved off the model into the
-   toolbar where every other control already was. A button that size has no
-   room for a caption, so the state is in the icon and the name says what the
-   next press will do. */
-function showToggle(id, pressed, key, name) {
+   toolbar where every other control already was. An unlabelled icon among
+   captioned buttons reads as an unfinished one, so each is named on the face
+   by what it is about; the icon carries which way it is set, and the name it
+   is announced by says what the next press will do. The caption is a noun for
+   that reason — it would have to contradict itself as a verb. */
+function showToggle(id, pressed, key, name, caption) {
   const button = $(id);
   button.setAttribute("aria-pressed", String(pressed));
   button.setAttribute("aria-label", t(key));
   button.title = t(key);
-  button.innerHTML = icon(name);
+  button.innerHTML = `${icon(name)}<span>${esc(t(caption))}</span>`;
 }
 const showMarksToggle = () =>
   showToggle(
@@ -906,6 +913,7 @@ const showMarksToggle = () =>
     !viewer.annotationsVisible,
     viewer.annotationsVisible ? "marks.hide" : "marks.show",
     viewer.annotationsVisible ? "eye" : "eye-off",
+    "tool.marks",
   );
 $("#toggle-marks").addEventListener("click", () => {
   viewer.setVisible(!viewer.annotationsVisible);
@@ -918,6 +926,7 @@ $("#neutral-view").addEventListener("click", () => {
     viewer.neutral,
     viewer.neutral ? "view.original" : "view.plain",
     "plain",
+    "tool.plain",
   );
 });
 /* The Agent's understanding used to sit across the model until it was dismissed

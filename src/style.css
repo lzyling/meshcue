@@ -338,39 +338,6 @@ a {
   min-width: 0;
   min-height: 0;
 }
-.model-heading {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-  min-height: 45px;
-}
-.model-heading .eyebrow {
-  margin-bottom: 7px;
-  font-size: 8px;
-  letter-spacing: 0.24em;
-}
-.model-heading h2 {
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.035em;
-}
-.model-meta {
-  margin-left: auto;
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  font-size: 10px;
-  color: var(--ink-faint);
-}
-.version-chip {
-  border: 1px solid var(--line);
-  padding: 5px 9px;
-  border-radius: 20px;
-  color: var(--ink-muted);
-  font-size: 10px;
-}
-
 /* Every version the Agent published stays reachable, so the tab strip is a
    primary control rather than history: it is where an older model is chosen. */
 .version-tabs {
@@ -638,6 +605,16 @@ a {
 }
 .annotations-panel.collapsed {
   width: auto;
+}
+/* Folded, the column is the button that unfolds it and nothing else. A heading
+   left standing holds the width of its own words — in some languages most of
+   what folding was asked to give back — and the count it carries is a fact
+   about a list that is not on screen. */
+.annotations-panel.collapsed .annotations-heading {
+  border-bottom: none;
+}
+.annotations-panel.collapsed .annotations-heading strong {
+  display: none;
 }
 .annotations-heading {
   display: flex;
@@ -1026,12 +1003,6 @@ dialog .muted {
   .tool-options {
     gap: 9px;
   }
-  .model-heading h2 {
-    font-size: 15px;
-  }
-  .model-meta {
-    gap: 8px;
-  }
   .primary-button {
     padding: 12px;
   }
@@ -1045,9 +1016,6 @@ dialog .muted {
   .scene-pill {
     font-size: 9px;
     padding: 6px 8px;
-  }
-  .model-meta #save-status {
-    max-width: 75px;
   }
 }
 @media (max-width: 860px) {
@@ -1081,9 +1049,6 @@ dialog .muted {
   .viewer-shell {
     min-height: 370px;
   }
-  .model-heading {
-    margin-bottom: 14px;
-  }
   .tool-options {
     bottom: 104px;
     max-width: calc(100% - 20px);
@@ -1109,12 +1074,6 @@ dialog .muted {
   .header-right {
     font-size: 10px;
   }
-  .model-meta #save-status {
-    font-size: 9px;
-  }
-  .model-meta {
-    gap: 7px;
-  }
 }
 
 /* A review surface must fit a narrow host side panel without a second chat. */
@@ -1134,17 +1093,6 @@ dialog .muted {
   }
   .workspace {
     height: calc(100dvh - 58px);
-  }
-  .model-heading {
-    gap: 8px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
-  .model-heading h2 {
-    font-size: 14px;
-  }
-  .model-meta {
-    gap: 6px;
   }
   /* The tagline is the line that gives way when the header is short of room.
      The version stays: it is three characters, and it is the answer to the
@@ -1213,28 +1161,6 @@ dialog .muted {
   flex: 1;
   padding: 6px 8px;
 }
-.model-heading {
-  min-height: 30px;
-  margin-bottom: 5px;
-  gap: 8px;
-  flex-wrap: nowrap;
-}
-.model-heading > div:first-child {
-  min-width: 0;
-}
-.model-heading h2 {
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.model-meta {
-  flex-shrink: 0;
-  gap: 8px;
-}
-.version-chip {
-  padding: 3px 7px;
-}
 .viewer-shell {
   min-height: 290px;
   border-radius: 10px;
@@ -1274,7 +1200,10 @@ dialog .muted {
    canvas's projection. */
 .orient {
   position: absolute;
-  top: 44px;
+  /* Level with the status pill on the other side. It used to clear a second
+     pill that this layout never shows, and an offset kept for an absent
+     neighbour reads as a widget that slid out of its own corner. */
+  top: 8px;
   right: 10px;
   display: flex;
   flex-direction: column;
@@ -1495,10 +1424,6 @@ dialog .muted {
     margin-left: 5px;
   }
   #feedback-status {
-    font-size: 9px;
-  }
-  .model-meta #save-status {
-    max-width: 65px;
     font-size: 9px;
   }
   .primary-button {

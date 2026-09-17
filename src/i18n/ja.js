@@ -153,6 +153,8 @@ export default {
   "tool.undo": "取り消し",
   "tool.undoTitle": "取り消し Ctrl/⌘ Z",
   "tool.redo": "やり直し",
+  "tool.marks": "印表示",
+  "tool.plain": "単色",
   "tool.spread": "範囲",
   "tool.bucketSpread": "塗りつぶしの範囲",
   "tool.newRegion": "新しい領域",

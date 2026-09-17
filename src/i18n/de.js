@@ -160,6 +160,8 @@ export default {
   "tool.undo": "Rückgängig",
   "tool.undoTitle": "Rückgängig Strg/⌘ Z",
   "tool.redo": "Wiederholen",
+  "tool.marks": "Markierungen",
+  "tool.plain": "Neutral",
   "tool.spread": "Umfang",
   "tool.bucketSpread": "Füllumfang",
   "tool.newRegion": "Neue Fläche",
