@@ -22,9 +22,10 @@ address, not a description, and can say back which surface it understood.
 
 1. The agent runs `precheck` on the model file, then `open` to publish it.
 2. You open the URL in Chrome, Safari or any modern WebGL browser.
-3. Pick the label tool and click a surface to drop a lettered pin; paint
-   regions with the brush, eraser and fill. The orbit tool places nothing, so
-   turning the model never marks it. Nothing is submitted until you say so.
+3. Pick the label tool and click a surface to drop a lettered pin; the paint
+   bucket fills the connected near-flat area around the face you click. The
+   orbit tool places nothing, so turning the model never marks it. Nothing is
+   submitted until you say so.
 4. Press **Send to Agent**. The batch is frozen against the version you marked.
 5. The agent calls `read`, replies in your conversation, and `open`s the next
    version. Older versions keep their own marks and stay selectable.
