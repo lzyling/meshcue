@@ -115,29 +115,22 @@ Mention a conspicuous number; never delete one yourself.
 
 ## Model limits and `precheck`
 
-| Limit              | Threshold                                   | On exceeding                                    |
-| ------------------ | ------------------------------------------- | ----------------------------------------------- |
-| Triangles          | **600,000**                                 | refused, `MODEL_LIMIT`, with the measured count |
-| File size          | **80 MB**                                   | refused, `MODEL_LIMIT`, with the measured size  |
-| Texture pixels     | 8192×8192 each, **33,554,432** total        | refused, `TEXTURE_LIMIT`                        |
-| Subdivision budget | 600,000 (the same source as the face limit) | **no error** — see below                        |
+| Limit          | Threshold                            | On exceeding                                    |
+| -------------- | ------------------------------------ | ----------------------------------------------- |
+| Triangles      | **600,000**                          | refused, `MODEL_LIMIT`, with the measured count |
+| File size      | **80 MB**                            | refused, `MODEL_LIMIT`, with the measured size  |
+| Texture pixels | 8192×8192 each, **33,554,432** total | refused, `TEXTURE_LIMIT`                        |
 
-The review mesh divides 600,000 triangles across every source face, and each
-face costs at least its own. A model of N source faces leaves `600000 − N` for
-subdivision: **past roughly 300,000 source faces the remainder per face falls
-below one, large flat spans stop subdividing, and the brush skips across them.**
-That model publishes successfully and the interface says nothing, which is why
-this has to be caught before publishing rather than after.
+These are the only limits. Nothing degrades quietly under them: a mark names a
+source face, and the review mesh's own tessellation never enters the answer.
 
 **Run `precheck` on every file before `open`.** It is read-only, starts no
 instance and writes nothing.
 
 - `ok` — publish.
-- `degraded` — publishable, but annotation precision is already reduced.
-  Simplify to `simplify.recommendedRatio` first, and say in the conversation
-  that you did.
-- `reject` — publishing will be refused. `simplify.requiredRatio` passes the
-  gate; `simplify.recommendedRatio` keeps the precision. **Prefer the latter.**
+- `reject` — publishing will be refused. Decimate by
+  `simplify.requiredRatio`, which is measured from this file and lands inside
+  the cap.
 
 Two ways to simplify, in order of preference:
 

@@ -192,9 +192,6 @@ export default {
   "echo.dismiss": "しまう",
   "echo.stale": "印が変わりました。元の会話で理解を訂正してください",
 
-  "precision.overBudget":
-    "このモデルはレビューメッシュの割り当てを使い切りました（必要 {wanted} 面、割り当て {budget} 面）。広い平面は細分化が止まるため、塗りつぶしはそこを面単位でまとめて取ります。細部には影響しません。より細かく印を付けたい場合は、弦高を小さくして書き出すようエージェントに依頼してください。",
-
   "outbox.reason": "理由：{message}",
   "outbox.reasonUnknown": "理由不明",
   "outbox.stuck":

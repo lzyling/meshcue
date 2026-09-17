@@ -203,9 +203,6 @@ export default {
   "echo.stale":
     "Die Markierungen haben sich geändert — korrigieren Sie das Verständnis im ursprünglichen Gespräch",
 
-  "precision.overBudget":
-    "Dieses Modell hat das Budget des Prüfnetzes ausgeschöpft (es benötigt {wanted} Dreiecke, das Budget beträgt {budget}). Große ebene Flächen werden nicht weiter unterteilt, eine Füllung nimmt sie daher in ganzen Stücken; Details sind nicht betroffen. Für feineres Markieren bitten Sie den Agenten um einen Export mit kleinerer Sehnenhöhe.",
-
   "outbox.reason": "Grund: {message}",
   "outbox.reasonUnknown": "Grund unbekannt",
   "outbox.stuck":

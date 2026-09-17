@@ -148,7 +148,6 @@ app.innerHTML = `${SPRITE}
   <div id="recovery-banner" class="pending-banner" hidden><span>${T("recovery.text")}</span><a id="download-recovery">${T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
   <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
-  <div id="precision-banner" class="pending-banner" hidden><span id="precision-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
 <dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p5")}</p><p>${T("help.p6")}</p><p>${T("help.p7")}</p><p>${T("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
@@ -1326,7 +1325,11 @@ async function loadVersion(fullState) {
       format: model.format.toUpperCase(),
       units: model.units,
     });
-    updatePrecision(stats);
+    // The mesh budget is still measured and still reported to acceptance
+    // checks; it no longer warns anyone, because nothing about marking changes
+    // when it runs out. See server/models.mjs for the measurement that settled
+    // it.
+    loadedPrecision = stats;
     await restoreDraft(fullState.draft);
     initialDraftRestored = true;
     renderAnnotations();
@@ -1511,21 +1514,6 @@ function updateReceipt() {
     (editSeq > savedSeq || revision !== last.revision
       ? t("feedback.alsoUnsubmitted")
       : "");
-}
-// Hitting the subdivision budget produces no error and no visible defect until
-// the reviewer tries to paint a large flat face and the brush jumps a whole
-// panel at a time — which looks exactly like a bug that was fixed for a
-// different reason. Say it up front, in the wording precheck already uses on
-// the Agent side, so both halves of the conversation name the same thing.
-function updatePrecision(stats) {
-  loadedPrecision = stats || null;
-  const short = stats?.rationed;
-  $("#precision-banner").hidden = !short;
-  if (!short) return;
-  $("#precision-text").textContent = t("precision.overBudget", {
-    wanted: stats.wanted.toLocaleString(),
-    budget: stats.budget.toLocaleString(),
-  });
 }
 // The one channel that would report a delivery failure is the channel that is
 // failing, so the reviewer is the only person present to tell. A single missed

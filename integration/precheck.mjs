@@ -5,16 +5,19 @@ import {
   MAX_BYTES,
   MAX_TRIANGLES,
   MAX_TEXTURE_PIXELS,
-  DEGRADE_TRIANGLES,
 } from "../server/models.mjs";
 import { workspaceContext, scopedPath, fail } from "./context.mjs";
 
 // Publishing already rejects an oversized model, but only after the caller has
-// picked a name, a version and a project — and the caller learns nothing about
-// the band below the cap where publishing succeeds and the brush quietly loses
-// precision. This answers both questions from the file alone, with no instance
-// running and nothing written, so a caller can size a model before it commits
-// to a review round.
+// picked a name, a version and a project, and it answers with a message rather
+// than a number to decimate by. This sizes a model from the file alone, with no
+// instance running and nothing written, before the caller commits to a round.
+//
+// It used to carry a second verdict for the band under the cap where the review
+// mesh runs out of subdivision budget. That band belonged to the brush; with
+// every tool marking whole source faces it costs a reviewer nothing, so the
+// verdict said "simplify" about a model that needed no simplifying. Removed in
+// 1.0.0 — the hard limits are the only limits left.
 //
 // The measurement itself is inspectModel, the same function the publish path
 // uses. Nothing here counts triangles independently: a second counter that
@@ -30,7 +33,6 @@ export function precheckModel(ctx, file) {
   const format = path.extname(actual).slice(1).toLowerCase();
   const limits = {
     maxTriangles: MAX_TRIANGLES,
-    degradeAboveTriangles: DEGRADE_TRIANGLES,
     maxBytes: MAX_BYTES,
     maxTexturePixels: MAX_TEXTURE_PIXELS,
   };
@@ -47,7 +49,7 @@ export function precheckModel(ctx, file) {
       triangles: null,
       verdict: "reject",
       reason: `${(stat.size / 1048576).toFixed(1)} MB exceeds the ${MAX_BYTES / 1048576} MB limit; too large to count faces. Simplify or re-export, then run precheck again for a face count.`,
-      simplify: { targetTriangles: DEGRADE_TRIANGLES, requiredRatio: null },
+      simplify: { targetTriangles: MAX_TRIANGLES, requiredRatio: null },
     };
   let metadata;
   try {
@@ -63,40 +65,24 @@ export function precheckModel(ctx, file) {
       triangles: over,
       verdict: "reject",
       reason: error.message,
-      // Both ratios come from the measured count, so a caller decimates once:
-      // requiredRatio is what publishing will accept, recommendedRatio is what
-      // keeps the brush precise. Prefer the second unless the user has said the
-      // extra detail matters more than annotation accuracy.
+      // The ratio comes from the measured count, so a caller decimates once and
+      // publishes, instead of guessing and republishing until one happens to fit.
       simplify: over
         ? {
-            targetTriangles: DEGRADE_TRIANGLES,
+            targetTriangles: MAX_TRIANGLES,
             requiredRatio: ratio(MAX_TRIANGLES, over),
-            recommendedRatio: ratio(DEGRADE_TRIANGLES, over),
           }
         : error.code === "MODEL_LIMIT"
-          ? { targetTriangles: DEGRADE_TRIANGLES, requiredRatio: null }
+          ? { targetTriangles: MAX_TRIANGLES, requiredRatio: null }
           : null,
     };
   }
   const { triangles, texturePixels = 0 } = metadata;
   const result = { ...base, triangles, texturePixels };
-  if (triangles > DEGRADE_TRIANGLES)
-    return {
-      ...result,
-      verdict: "degraded",
-      // Publishing this succeeds. Say what the user will actually experience,
-      // because nothing downstream will say it for them.
-      reason: `${triangles} triangles is within the limit and publishable, but past ${DEGRADE_TRIANGLES} the review mesh has under one triangle of subdivision left per face: large flat spans stop subdividing and the brush skips across them. Simplify before publishing.`,
-      simplify: {
-        targetTriangles: DEGRADE_TRIANGLES,
-        requiredRatio: null,
-        recommendedRatio: ratio(DEGRADE_TRIANGLES, triangles),
-      },
-    };
   return {
     ...result,
     verdict: "ok",
-    reason: `${triangles} triangles, ${(stat.size / 1048576).toFixed(2)} MB: within the limits with subdivision budget to spare. Publish as is.`,
+    reason: `${triangles} triangles, ${(stat.size / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
     simplify: null,
   };
 }

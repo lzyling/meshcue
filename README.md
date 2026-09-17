@@ -62,19 +62,16 @@ they are done rather than waiting for a message that cannot arrive.
 
 ## Model limits
 
-| Limit              | Threshold                        | On exceeding                     |
-| ------------------ | -------------------------------- | -------------------------------- |
-| Triangles          | 600,000                          | publish refused, `MODEL_LIMIT`   |
-| File size          | 80 MB                            | publish refused, `MODEL_LIMIT`   |
-| Texture pixels     | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
-| Subdivision budget | 600,000                          | **no error** — see below         |
+| Limit          | Threshold                        | On exceeding                     |
+| -------------- | -------------------------------- | -------------------------------- |
+| Triangles      | 600,000                          | publish refused, `MODEL_LIMIT`   |
+| File size      | 80 MB                            | publish refused, `MODEL_LIMIT`   |
+| Texture pixels | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
 
-The review mesh divides one budget across every source face, and each face costs
-at least one triangle of it. Past roughly 300,000 source faces the remainder per
-face drops below one, large flat spans stop subdividing, and the brush skips
-across them. That model publishes successfully and says nothing, which is why
-`precheck` exists: run it on every file before `open` and simplify when the
-verdict is `degraded` or `reject`.
+A mark names a source face, so a model at the cap marks exactly as precisely as
+a small one — there is no band below these limits where something quietly gets
+worse. `precheck` measures a file before `open` and, when it is over, answers
+with the ratio to decimate by instead of a refusal after the fact.
 
 ## Running it
 

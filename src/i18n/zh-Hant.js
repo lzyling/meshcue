@@ -172,9 +172,6 @@ export default {
   "echo.dismiss": "收起",
   "echo.stale": "標注已更新，請在原對話更正理解",
 
-  "precision.overBudget":
-    "這個模型已用盡審閱網格配額（需要 {wanted} 面，配額為 {budget}）。大片平面停止細分，填色會整塊認領它們；細節部位不受影響。想要更細的標記，可請 Agent 以更小的弦高重新匯出。",
-
   "outbox.reason": "原因：{message}",
   "outbox.reasonUnknown": "原因不明",
   "outbox.stuck":

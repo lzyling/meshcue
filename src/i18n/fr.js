@@ -201,9 +201,6 @@ export default {
   "echo.stale":
     "Les marques ont changé — corrigez la compréhension dans la conversation d'origine",
 
-  "precision.overBudget":
-    "Ce modèle a épuisé le budget du maillage de revue (il demande {wanted} triangles, le budget est de {budget}). Les grandes surfaces planes cessent d'être subdivisées, un remplissage les prend donc par blocs entiers ; les détails ne sont pas affectés. Pour un marquage plus fin, demandez à l'Agent de réexporter avec une hauteur de corde plus faible.",
-
   "outbox.reason": "Raison : {message}",
   "outbox.reasonUnknown": "Raison inconnue",
   "outbox.stuck":

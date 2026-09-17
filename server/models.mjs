@@ -13,13 +13,14 @@ disableTypes(
 export const MAX_BYTES = 80 * 1024 * 1024;
 export const MAX_TRIANGLES = 600000;
 export const MAX_TEXTURE_PIXELS = 33554432;
-// The review tessellation shares MAX_TRIANGLES across every source face, and a
-// face can never emit fewer than the triangle it already is. So a model of N
-// source faces has MAX_TRIANGLES - N triangles left to spend on subdivision:
-// past half the cap that spare drops below one per face, flat spans stop being
-// refined, and the brush starts snapping across them. Publishing still succeeds
-// there — nothing rejects it — which is exactly why callers need the number.
-export const DEGRADE_TRIANGLES = MAX_TRIANGLES / 2;
+// There was a second threshold here, at half the cap, where the review
+// tessellation runs out of subdivision budget. It existed for the brush, whose
+// strokes were stored against the refined triangles. The brush was shelved in
+// 0.16.0 and every tool left marks whole source faces, read from the source
+// topology — so running the budget dry costs a model nothing a reviewer can
+// see, and the threshold was telling people to simplify for no reason.
+// Measured 2026-09-17 on 352,560 faces: every source face stayed clickable,
+// and stayed clickable with subdivision switched off entirely.
 const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 // Every limit message states the measured value beside the cap, and carries it
 // as a number too. Without it a caller is told to "simplify" with no way to
@@ -176,7 +177,7 @@ export function inspectModel(buffer, format) {
     }
     if (!triangles || triangles > MAX_TRIANGLES)
       throw limitError(
-        `The limit is ${MAX_TRIANGLES} triangles; this model has ${triangles}. Simplify below ${MAX_TRIANGLES} — below ${DEGRADE_TRIANGLES} keeps annotation precision.`,
+        `The limit is ${MAX_TRIANGLES} triangles; this model has ${triangles}. Simplify below ${MAX_TRIANGLES} and publish again.`,
         "MODEL_LIMIT",
         { triangles },
       );
@@ -190,7 +191,7 @@ export function inspectModel(buffer, format) {
     if (!triangles || triangles > MAX_TRIANGLES)
       throw limitError(
         triangles
-          ? `The limit is ${MAX_TRIANGLES} triangles; this STL has ${triangles}. Simplify below ${MAX_TRIANGLES} — below ${DEGRADE_TRIANGLES} keeps annotation precision.`
+          ? `The limit is ${MAX_TRIANGLES} triangles; this STL has ${triangles}. Simplify below ${MAX_TRIANGLES} and publish again.`
           : "The STL could not be recognised.",
         "MODEL_LIMIT",
         { triangles },

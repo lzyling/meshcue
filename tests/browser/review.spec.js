@@ -1564,15 +1564,15 @@ test("switching versions reports its own cost, sweeps dead draft caches and keep
     expect(
       await page.evaluate((k) => localStorage.getItem(k), key),
     ).not.toBeNull();
-  // Rationing the subdivision budget produces no error and no visible defect
-  // until a brush skips a whole flat panel, so the page has to be able to say
-  // it. These fixtures fit, and claiming otherwise would be the worse failure.
+  // The mesh budget is still measured and still reported here; since 1.0.0 it
+  // warns nobody, because marking reads the source topology and does not care
+  // whether the review mesh got to subdivide.
   const precision = await page.evaluate(
     () => window.__reviewDiagnostics().precision,
   );
   expect(precision.rationed).toBe(false);
   expect(precision.wanted).toBeLessThanOrEqual(precision.budget);
-  await expect(page.locator("#precision-banner")).toBeHidden();
+  expect(await page.locator("#precision-banner").count()).toBe(0);
 });
 
 test("a cube face reframes from a named side without changing the framing", async ({

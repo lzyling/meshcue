@@ -192,9 +192,6 @@ export default {
   "echo.stale":
     "The marks changed — correct the understanding in the original conversation",
 
-  "precision.overBudget":
-    "This model has used up the review mesh budget (it wants {wanted} triangles, the budget is {budget}). Large flat areas stop subdividing, so a fill claims them in whole patches; detail is unaffected. For finer marking, ask the Agent to re-export at a lower chord height.",
-
   "outbox.reason": "Reason: {message}",
   "outbox.reasonUnknown": "Reason unknown",
   "outbox.stuck":

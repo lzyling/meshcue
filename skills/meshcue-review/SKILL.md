@@ -31,17 +31,16 @@ project and one originating session.
 ## 3. Measuring before publishing
 
 Run `precheck` on the same file before every `open`; it only reads and starts no
-instance. The hard limits are 600000 triangles and 80 MB, but past 300000 faces
-the subdivision budget is already under one triangle per face, large flat spans
-stop subdividing, and the brush skips across them.
+instance. The limits are 600000 triangles and 80 MB, and they are the only ones
+— a dense model marks exactly as precisely as a sparse one.
 
-`verdict: "ok"` publishes as is. On `reject` or `degraded`, simplify first and
-say in the conversation that you simplified, at what ratio, and from how many
-faces to how many. `simplify.requiredRatio` passes the gate;
-`recommendedRatio` keeps annotation precision. Prefer re-exporting from STEP or
-a modelling script with a looser chord height — geometry stays exact. Use
-headless Blender decimation only when there is a mesh and no source. Done means
-the user knows whether they are reviewing original or simplified geometry.
+`verdict: "ok"` publishes as is. On `reject`, simplify first and say in the
+conversation that you simplified, at what ratio, and from how many faces to how
+many; `simplify.requiredRatio` is measured from that file and lands inside the
+cap. Prefer re-exporting from STEP or a modelling script with a looser chord
+height — geometry stays exact. Use headless Blender decimation only when there
+is a mesh and no source. Done means the user knows whether they are reviewing
+original or simplified geometry.
 
 ## 4. Publishing a draft and delivering the URL
 

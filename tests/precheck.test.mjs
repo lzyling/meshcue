@@ -3,12 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { precheckModel } from "../integration/precheck.mjs";
-import {
-  inspectModel,
-  MAX_TRIANGLES,
-  MAX_BYTES,
-  DEGRADE_TRIANGLES,
-} from "../server/models.mjs";
+import { inspectModel, MAX_TRIANGLES, MAX_BYTES } from "../server/models.mjs";
 
 const repo = process.cwd();
 // Binary STL: the reader trusts the header count only when it matches the file
@@ -36,50 +31,44 @@ function setup(t) {
   return { workspace, ctx, write };
 }
 
-test("a model with subdivision headroom passes with nothing to do", (t) => {
+test("a model inside both limits passes with nothing to do", (t) => {
   const { ctx, write } = setup(t);
   const result = precheckModel(ctx, write("small.stl", binaryStl(1000)));
   assert.equal(result.verdict, "ok");
   assert.equal(result.triangles, 1000);
   assert.equal(result.simplify, null);
   assert.equal(result.limits.maxTriangles, MAX_TRIANGLES);
-  assert.equal(result.limits.degradeAboveTriangles, DEGRADE_TRIANGLES);
+  assert.equal(result.limits.degradeAboveTriangles, undefined);
 });
 
-test("a model past the degrade threshold still publishes but says so", (t) => {
+// This model used to come back "degraded" with a ratio to decimate by. It sits
+// far past the old half-cap threshold and under the hard one, and nothing about
+// marking it differs from a small model, so the only honest answer is publish.
+test("a dense model under the cap is told to publish, not to simplify", (t) => {
   const { ctx, write } = setup(t);
-  const count = DEGRADE_TRIANGLES + 100000;
+  const count = MAX_TRIANGLES / 2 + 100000;
   const result = precheckModel(ctx, write("dense.stl", binaryStl(count)));
-  // Nothing rejects this model, which is the whole reason the verdict exists.
   assert.doesNotThrow(() => inspectModel(binaryStl(count), "stl"));
-  assert.equal(result.verdict, "degraded");
+  assert.equal(result.verdict, "ok");
   assert.equal(result.triangles, count);
-  assert.equal(result.simplify.requiredRatio, null);
-  assert.ok(result.simplify.recommendedRatio < 1);
-  assert.ok(
-    count * result.simplify.recommendedRatio <= DEGRADE_TRIANGLES,
-    "the recommended ratio must actually land under the degrade threshold",
-  );
+  assert.equal(result.simplify, null);
+  assert.doesNotMatch(result.reason, /simplif/i);
 });
 
-test("an over-cap model reports both ratios and each one lands", (t) => {
+test("an over-cap model reports a ratio that lands", (t) => {
   const { ctx, write } = setup(t);
   const count = MAX_TRIANGLES + 200000;
   const result = precheckModel(ctx, write("huge.stl", binaryStl(count)));
   assert.equal(result.verdict, "reject");
   assert.equal(result.triangles, count);
   assert.match(result.reason, new RegExp(String(count)));
-  // The ratios are the entire point of measuring: applying either one has to
-  // produce a model the publish path accepts, or the caller is still guessing.
+  // The ratio is the entire point of measuring: applying it has to produce a
+  // model the publish path accepts, or the caller is still guessing.
   assert.ok(
     count * result.simplify.requiredRatio <= MAX_TRIANGLES,
     "requiredRatio must land inside the hard cap",
   );
-  assert.ok(
-    count * result.simplify.recommendedRatio <= DEGRADE_TRIANGLES,
-    "recommendedRatio must land inside the degrade threshold",
-  );
-  assert.ok(result.simplify.recommendedRatio < result.simplify.requiredRatio);
+  assert.equal(result.simplify.recommendedRatio, undefined);
 });
 
 test("an oversized file is judged without being read", (t) => {
