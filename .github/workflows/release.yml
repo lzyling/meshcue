@@ -45,7 +45,15 @@ jobs:
           if [ -z "${notes// /}" ]; then
             notes="$(git tag -l --format='%(contents:subject)' "$tag")"
           fi
+          # README tells the reader that every release states the commit it was
+          # cut from, so that a moved tag is visible. Append it here rather than
+          # trusting whoever writes the next annotation to remember.
+          commit="$(git rev-parse "$tag^{commit}")"
+          {
+            printf '%s\n\n' "$notes"
+            printf 'This release is commit %s.\n' "$commit"
+          } > "$RUNNER_TEMP/notes.md"
           gh release create "$tag" \
             --title "MeshCue ${tag#v}" \
-            --notes "$notes" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             --verify-tag
