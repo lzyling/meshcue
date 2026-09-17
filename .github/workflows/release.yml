@@ -30,15 +30,20 @@ jobs:
         run: |
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
+          # checkout leaves refs/tags/<tag> pointing straight at the commit, so
+          # asking for the tag message here returns the commit message instead,
+          # with nothing to say it did — which is what 1.0.1 published. Fetch
+          # the tag object itself and refuse to continue if it is not one.
+          git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
+          if [ "$(git cat-file -t "$(git rev-parse "$tag")")" != "tag" ]; then
+            echo "::error::$tag is not an annotated tag; its notes would silently be the commit message" >&2
+            exit 1
+          fi
           notes="$(git tag -l --format='%(contents:body)' "$tag")"
           # A tag written as one line has a subject and no body; use it rather
           # than publishing a release with nothing in it.
           if [ -z "${notes// /}" ]; then
             notes="$(git tag -l --format='%(contents:subject)' "$tag")"
-          fi
-          if [ -z "${notes// /}" ]; then
-            echo "::error::$tag is not an annotated tag, so there are no notes to publish" >&2
-            exit 1
           fi
           gh release create "$tag" \
             --title "MeshCue ${tag#v}" \
