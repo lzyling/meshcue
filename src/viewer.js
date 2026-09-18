@@ -32,6 +32,12 @@ const fanInto = (coords, vertices) => {
 };
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
+/* Where the ground sits when nothing pushes it down. A model is fitted into
+   three units and centred, so whichever axis is longest reaches ±1.5 — and a
+   floor at -1.4 was cutting through the base of every model that stands
+   taller than it is wide. The floor gives way to the model, never the other
+   way round. */
+const GRID_Y = -1.4;
 // Let the browser actually paint before a long synchronous block starts. One
 // animation frame only schedules the work; the second is what proves it ran.
 // Off-screen callers — the geometry tests drive this same load path in Node —
@@ -42,6 +48,38 @@ const nextPaint = () =>
       ? requestAnimationFrame(() => requestAnimationFrame(resolve))
       : setTimeout(resolve, 0),
   );
+/* The one grey for a model that does not bring its own. */
+const reviewGrey = () =>
+  new THREE.MeshStandardMaterial({
+    color: 0xb9cbd0,
+    roughness: 0.6,
+    metalness: 0.08,
+  });
+/* glTF says a primitive with no material takes "a default material", and the
+   default it describes is a fully rough metal. A metal has no diffuse at all,
+   so the hemisphere light — the only light under the model — cannot reach it,
+   and every face pointing away from the two lamps overhead renders black.
+   Exporters that write geometry and nothing else produce exactly that file.
+
+   The question asked here is what the file declares, not what the material
+   looks like once loaded: a model that really did ask for bare metal keeps it.
+   `tests/browser/lighting.spec.js` publishes a file of each kind. */
+const declaresNoMaterials = (data) => {
+  const view = new DataView(data);
+  if (view.byteLength < 20) return false;
+  if (view.getUint32(0, true) !== 0x46546c67) return false; // "glTF"
+  if (view.getUint32(16, true) !== 0x4e4f534a) return false; // "JSON"
+  const length = view.getUint32(12, true);
+  if (20 + length > view.byteLength) return false;
+  try {
+    const json = JSON.parse(
+      new TextDecoder().decode(new Uint8Array(data, 20, length)),
+    );
+    return !json.materials?.length;
+  } catch {
+    return false; // Malformed here is the loader's error to report, not ours.
+  }
+};
 export class ModelViewer {
   constructor(
     container,
@@ -92,6 +130,7 @@ export class ModelViewer {
     const fill = new THREE.DirectionalLight(0xd3e3ff, 2);
     fill.position.set(-5, 3, -4);
     this.scene.add(fill);
+    this.gridY = GRID_Y;
     this.applyTheme();
     this.root = new THREE.Group();
     this.scene.add(this.root);
@@ -220,8 +259,12 @@ export class ModelViewer {
       new THREE.Color(token("--canvas-grid-line") || "#c3cdc5"),
       new THREE.Color(token("--canvas-grid") || "#d7ddd8"),
     );
-    this.grid.position.y = -1.4;
+    this.grid.position.y = this.gridY;
     this.scene.add(this.grid);
+  }
+  setGridY(y) {
+    this.gridY = y;
+    if (this.grid) this.grid.position.y = y;
   }
   resize() {
     const { width, height } = this.container.getBoundingClientRect();
@@ -374,6 +417,7 @@ export class ModelViewer {
     this.root.clear();
     this.root.position.set(0, 0, 0);
     this.root.scale.setScalar(1);
+    this.setGridY(GRID_Y);
     this.meshes = [];
     this.meshMap.clear();
     this.occlusionValid = false;
@@ -394,17 +438,16 @@ export class ModelViewer {
     if (model.format === "glb") {
       const gltf = await new GLTFLoader().parseAsync(data, "");
       object = gltf.scene;
+      if (declaresNoMaterials(data)) {
+        const grey = reviewGrey();
+        object.traverse((o) => {
+          if (o.isMesh) o.material = grey;
+        });
+      }
     } else {
       const geometry = new STLLoader().parse(data);
       geometry.computeVertexNormals();
-      object = new THREE.Mesh(
-        geometry,
-        new THREE.MeshStandardMaterial({
-          color: 0xb9cbd0,
-          roughness: 0.6,
-          metalness: 0.08,
-        }),
-      );
+      object = new THREE.Mesh(geometry, reviewGrey());
       object.name = model.name;
       // STL has no standard up axis; preserve the original model coordinates.
     }
@@ -423,6 +466,9 @@ export class ModelViewer {
     this.root.scale.setScalar(scale);
     this.root.position.copy(center).multiplyScalar(-scale);
     this.root.updateMatrixWorld(true);
+    this.setGridY(
+      Math.min(GRID_Y, new THREE.Box3().setFromObject(this.root).min.y - 0.02),
+    );
     const source = [];
     this.root.traverse((o) => {
       if (o.isMesh) source.push(o);
@@ -796,6 +842,11 @@ export class ModelViewer {
   }
   render() {
     this.controls.update();
+    /* Seen from underneath, the ground is between the reviewer and the thing
+       they went under there to look at, and every line of it lands on the
+       surface being inspected. It is a floor: stand below it and it is not
+       in the way, it is simply not there. */
+    if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
     this.renderer.render(this.scene, this.camera);
     this.reportOrientation();
     if (!this.pins.length) return;
@@ -1114,6 +1165,12 @@ export class ModelViewer {
       // The canvas takes its colour from the theme tokens by hand rather than
       // by rule, so whether it followed a theme change is only checkable here.
       background: this.scene.background?.getHexString() || null,
+      // Same reason as the background: the ground is placed against the model
+      // and hidden against the camera, both by hand, so where it ended up is
+      // only answerable from in here.
+      ground: this.grid
+        ? { y: +this.gridY.toFixed(3), visible: this.grid.visible }
+        : null,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
     };

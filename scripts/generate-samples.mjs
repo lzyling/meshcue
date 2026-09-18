@@ -155,6 +155,32 @@ for (const [name, offset] of [
   p.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
   occlusion.add(p);
 }
+/* Strips every material out of a finished GLB, leaving the primitives with no
+   material of their own. A CAD exporter that writes geometry and nothing else
+   produces this same file, and it is the only shape of file that reaches
+   glTF's default material — so it is the only fixture that can hold the
+   viewer's fallback honest. Built from the bracket so that the two differ in
+   materials alone. */
+function stripMaterials(binary) {
+  const buffer = Buffer.from(binary);
+  const jsonLength = buffer.readUInt32LE(12);
+  const json = JSON.parse(buffer.subarray(20, 20 + jsonLength).toString());
+  delete json.materials;
+  for (const mesh of json.meshes || [])
+    for (const primitive of mesh.primitives) delete primitive.material;
+  let chunk = Buffer.from(JSON.stringify(json));
+  if (chunk.length % 4)
+    chunk = Buffer.concat([chunk, Buffer.alloc(4 - (chunk.length % 4), 0x20)]);
+  const rest = buffer.subarray(20 + jsonLength);
+  const header = Buffer.alloc(20);
+  header.write("glTF", 0);
+  header.writeUInt32LE(2, 4);
+  header.writeUInt32LE(20 + chunk.length + rest.length, 8);
+  header.writeUInt32LE(chunk.length, 12);
+  header.write("JSON", 16);
+  return Buffer.concat([header, chunk, rest]);
+}
+const written = new Map();
 for (const [name, obj] of [
   [args["bracket-name"] || "parametric-bracket.glb", bracket],
   ["bunny-figurine.glb", bunny],
@@ -163,5 +189,12 @@ for (const [name, obj] of [
   const data = await exporter.parseAsync(obj, { binary: true });
   const target = path.join(output, path.basename(name));
   fs.writeFileSync(target, Buffer.from(data));
+  written.set(name, data);
   console.log(path.relative(repo, target));
 }
+const bare = path.join(output, "no-material-bracket.glb");
+fs.writeFileSync(
+  bare,
+  stripMaterials(written.get(args["bracket-name"] || "parametric-bracket.glb")),
+);
+console.log(path.relative(repo, bare));
