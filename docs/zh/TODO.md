@@ -563,7 +563,11 @@ displays host credentials」直接冲突。**技术上不可能提前，不只�
 
 ---
 
-## 1.0.2 · 从下面看，模型是黑的 —— 已完成
+## 1.0.2 · 从下面看，模型是黑的 —— 已发布（2026-09-18 20:1x）
+
+> Release https://github.com/lzyling/meshcue/releases/tag/v1.0.2 ，latest；
+> tag 与 `616359a` 均已推，CI 在 main 与 tag 上都绿。**发布 ≠ 在跑** —— 已开着的审阅实例
+> 要重新 `open` 才换 server。
 
 Kelven 2026-09-18 18:36 报：转到模型底下看细节时「漆黑一片」。
 按 00:04 的新规矩办的第一批：先扫完同类、出完整清单，再一次修完。
@@ -659,10 +663,10 @@ glTF 规定「没有材质的 primitive 用默认材质」，而那个默认材�
 - **已知具名 flaky**：`tests/browser/review.spec.js:2112`「a mark arrives at its point instead of
   flying in from the corner」—— 量标记落点动效，慢机器上抖。CI 上 `retries: 2` + GitHub reporter
   会把它单独报成 flaky（数字仍可见，不是遮丑）。**不阻塞，但别当它不存在。**
-- **`release.yml` 那两条修复尚未被证实**：正文取 tag 注解（而非静默回落到提交信息）、
-  自动追加 commit 行 —— **要等下一次真发版才算验过**，在那之前不得称已验证。
-  **1.0.2 就是那次发版**：推 tag 之后第一件事是读回 Release 正文，
-  确认它取的是 tag 注解、且带 commit 行；没读回之前仍然不算验过。
+- ~~**`release.yml` 那两条修复尚未被证实**~~ —— **✅ 1.0.2 发版时已读回实证，本条结案。**
+  Release 正文与 tag 注解逐字一致（提交信息是完全不同的一句，静默回落会立刻露馅），
+  结尾带着自动追加的 `This release is commit 616359a8…`。装机端到端也复验过：
+  74 包、`prepare` 真跑、`inspect` 自报 1.0.2 且四份文档路径都在。
 - **「检查更新」（§0.15 C）前置条件已满足**：仓库已 public，`/releases/latest` **未认证可读**（09-17 实测）。
   可以开发了；入口方案见 §0.15 C。
 
