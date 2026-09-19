@@ -1,6 +1,6 @@
 {
   "name": "@meshcue/openclaw",
-  "version": "1.1.1-dev",
+  "version": "1.1.1",
   "private": true,
   "license": "Apache-2.0",
   "author": "Kelven Ling <kelvenlinglzy@gmail.com>",
