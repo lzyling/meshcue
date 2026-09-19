@@ -6,6 +6,10 @@ updates:
   # would ever have said so.
   - package-ecosystem: npm
     directory: /
+    # Against dev, not the default branch: main only ever fast-forwards from
+    # dev, so a pull request aimed at it would have to be unpicked to keep that
+    # true. See CONTRIBUTING.md.
+    target-branch: dev
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -20,5 +24,6 @@ updates:
   # stale silently. This is what reads them and offers the next one.
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: monthly

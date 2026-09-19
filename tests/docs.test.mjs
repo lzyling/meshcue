@@ -30,14 +30,27 @@ test("the agent reads the same reviewer help the panel shows", async () => {
 /* The install line names a tag, which is the whole point: a bare github: URL
  * installs the default branch as it stands that second. A named tag is also the
  * one kind of documentation that goes quietly wrong on release day, so the
- * version bump has to drag it along. */
+ * version bump has to drag it along.
+ *
+ * Between releases the version carries a `-dev` suffix and the tag it names does
+ * not exist yet, so the same line has to be held from the other side: whatever
+ * the documentation points at, it must not be the version being worked towards.
+ * A reader who follows a tag that was written ahead of its release gets nothing
+ * at all. See CONTRIBUTING.md. */
 test("the documented install tag is this version", () => {
   const { version } = JSON.parse(read("package.json"));
+  const [released, inProgress] = version.split("-");
   for (const file of ["README.md", "AGENT-INTERFACE.md"]) {
     const tags = [...read(file).matchAll(/meshcue#v([0-9]+\.[0-9]+\.[0-9]+)/g)];
     assert.ok(tags.length, `${file} documents no pinned install tag`);
     for (const [, tag] of tags)
-      assert.equal(tag, version, `${file} still points at v${tag}`);
+      if (inProgress)
+        assert.notEqual(
+          tag,
+          released,
+          `${file} points at v${tag}, which is still being worked on`,
+        );
+      else assert.equal(tag, version, `${file} still points at v${tag}`);
   }
 });
 

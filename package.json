@@ -1,6 +1,6 @@
 {
   "name": "meshcue",
-  "version": "1.1.0",
+  "version": "1.1.1-dev",
   "private": true,
   "license": "Apache-2.0",
   "author": "Kelven Ling <kelvenlinglzy@gmail.com>",
