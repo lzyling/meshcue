@@ -813,11 +813,28 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 
 ---
 
-## 1.0 之后再评估 · 样例夹具写在仓库外面
+## 🔜 下一个开工项 · 陌生人的第一次运行是坏的（Kelven 2026-09-20 02:40 批准，排在当天）
 
 `npm run samples` 的默认输出是 `<repo>/../../media/3d/3d-agent-review/samples` —— **仓库外两级**，对应的是「服务端从工作区取模型」这个前提。在我们这台机器上它正好落进 workspace 的 media 目录，所以一直没人察觉；但陌生人 `git clone /tmp/x` 之后跑这一步，解析出来是 `/media/3d/...`，**直接 EACCES**（2026-09-17 实测）。克隆到家目录下则会在他家目录里凭空造一个 `media/3d/3d-agent-review/`。
 
-1.0.1 只做了两件**不动路径策略**的事：CI 补上 `npm run samples`，README 说明它写到哪。真正的修法要把夹具挪回仓库内，连带改 `tests/helpers/review-server.mjs` 的 `file:` 前缀、浏览器 spec 里四处硬编码的相对路径，以及 `server/index.mjs:44` 那条允许的媒体根 —— 最后那条是**产品行为**，DEV-06 那几个实例和 Agent 给的 `file:` 路径都落在它上面，**不能在发版当天动**。
+1.0.1 只做了两件**不动路径策略**的事：CI 补上 `npm run samples`，README 说明它写到哪。
+
+🟢 **本条原先写着「`server/index.mjs` 那条媒体根是产品行为，实例都落在它上面，不能在发版当天动」—— 2026-09-20 实测推翻了它。**
+三个在跑的实例（XR 外壳、色卡盒、加油站）`ps eww` 读出来 `REVIEW_WORKSPACE`、`REVIEW_DATA_DIR`、`REVIEW_MEDIA_DIR` **全部显式传值**；而且不是巧合，`integration/manager.mjs:507-509` 结构上永远会传。
+**默认值只服务「陌生人裸跑一个 clone」这一条路径，够不到任何托管实例。** 风险比原先记的小得多。
+
+**按「先扫完同类再批量修」，这一类就是 4 处默认值：**
+
+| 位置 | 默认值 | 陌生人撞到什么 |
+| ---- | ------ | -------------- |
+| `server/index.mjs:37` | workspace = `repo/../..` | 服务起来了但看不到自己的模型 |
+| `server/index.mjs:43` | mediaDir = workspace 下 `media/3d/3d-agent-review` | 同上 |
+| `scripts/reviewctl.mjs:10` | 同一条 workspace 默认 | 手动 publish 找不到路 |
+| `scripts/generate-samples.mjs:29` | 输出到仓库外两级 | **EACCES，第一步就死** |
+
+⚠️ **真成本在测试夹具，不在这 4 行**：浏览器套件**没有**传 `REVIEW_WORKSPACE`，它靠的就是这条默认值去 publish `../../media/...`。所以改默认值必须连带改 `tests/helpers/review-server.mjs` 的 `file:` 前缀、浏览器 spec 里几处硬编码相对路径，以及 `scripts/record-demo.mjs`（1.1.1 新增，同样写死了这条相对路径）。
+
+**验收**：跑满 node + 浏览器全套，再**模拟陌生人在 `/tmp` 下 clone 一次跑通** —— 这条是这批修复唯一真正的验收，本机跑通不算数。
 
 ---
 
