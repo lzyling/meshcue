@@ -48,10 +48,18 @@ const nextPaint = () =>
       ? requestAnimationFrame(() => requestAnimationFrame(resolve))
       : setTimeout(resolve, 0),
   );
-/* The one grey for a model that does not bring its own. */
+/* The one grey for a model that does not bring its own.
+
+   0.73 albedo was far too bright for these lights: an unpainted part came out
+   at 216 of 255 against a 226 backdrop and washed straight into the paper,
+   with the fillets and the parting lines flattened out of it. This is what a
+   reviewer picked from renders of a real part at five values. Darker trades
+   away the underside — the range top to bottom is fixed by the lamps, so the
+   albedo only slides that window — and this one keeps the shaded side at
+   roughly twice the luminance that reads as black. */
 const reviewGrey = () =>
   new THREE.MeshStandardMaterial({
-    color: 0xb9cbd0,
+    color: 0x7d878d,
     roughness: 0.6,
     metalness: 0.08,
   });

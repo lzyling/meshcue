@@ -100,6 +100,57 @@ async function viewerLuminance(page) {
   }, shot.toString("base64"));
 }
 
+/* How far the model sits from the paper it is drawn on, read from the middle
+   of the frame — which at the opening view is model and nothing else, no
+   toolbar, no cube, no ground. */
+async function separationFromBackdrop(page) {
+  const box = await page.locator("#viewer").boundingBox();
+  const shot = await page.screenshot({
+    clip: {
+      x: box.x + box.width * 0.3,
+      y: box.y + box.height * 0.3,
+      width: box.width * 0.4,
+      height: box.height * 0.4,
+    },
+  });
+  const backdrop = await page.evaluate(
+    () => window.__reviewDiagnostics().viewer.background,
+  );
+  return page.evaluate(
+    async ([b64, bg]) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      c.getContext("2d").drawImage(img, 0, 0);
+      const px = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const flat = [0, 2, 4].map((i) => parseInt(bg.slice(i, i + 2), 16));
+      const bgLum = lum(...flat);
+      const hist = [];
+      let onBackdrop = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        hist.push(lum(px[i], px[i + 1], px[i + 2]));
+        if (flat.every((v, k) => Math.abs(px[i + k] - v) < 6)) onBackdrop++;
+      }
+      hist.sort((a, b) => a - b);
+      const median = hist[Math.floor(hist.length * 0.5)];
+      return {
+        bgLum: +bgLum.toFixed(1),
+        median: +median.toFixed(1),
+        gap: +(bgLum - median).toFixed(1),
+        // If the model ever stops filling the middle this stops being a
+        // measurement of the model, and the case should say so rather than
+        // quietly grade the paper.
+        onBackdrop: +(onBackdrop / hist.length).toFixed(3),
+      };
+    },
+    [shot.toString("base64"), backdrop],
+  );
+}
+
 async function bottomView(page) {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto(url);
@@ -132,6 +183,27 @@ test("a model with no materials at all is readable from below", async ({
   const seen = await bottomView(page);
   console.log("NO MATERIALS", JSON.stringify(seen));
   expect(seen.darkFraction).toBeLessThan(0.02);
+});
+
+/* The other edge of the same knife. 1.0.2 fixed a black underside by giving
+   these models a grey, and the grey it gave them was bright enough that a part
+   lit from above came out level with the paper: the shape was there, the
+   fillets and the parting lines were not. Only the dark end was nailed down,
+   so the fix was free to run past the far end without a single case going red.
+   Both ends are nailed down now. */
+test("a model stands out from the paper it is drawn on", async ({ page }) => {
+  publish("no-material-bracket.glb", "washout");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(url);
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Label tool", exact: true }),
+  ).toBeEnabled();
+  await page.waitForTimeout(1200);
+  const seen = await separationFromBackdrop(page);
+  console.log("WASHOUT", JSON.stringify(seen));
+  expect(seen.onBackdrop).toBeLessThan(0.45);
+  expect(seen.gap).toBeGreaterThan(30);
 });
 
 /* The substitute is for a file that names no material at all. A file that does
