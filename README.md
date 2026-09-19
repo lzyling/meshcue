@@ -1,6 +1,15 @@
 # MeshCue
 
+[![CI](https://github.com/lzyling/meshcue/actions/workflows/ci.yml/badge.svg)](https://github.com/lzyling/meshcue/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 **Point at the model. Let the Agent read what you meant.**
+
+![A reviewer turns a bracket with the right mouse button, drops lettered pins A and B on two surfaces, fills a face with the paint bucket, and presses Send to Agent](docs/media/demo.gif)
+
+<sub>Recorded from the application by `scripts/record-demo.mjs` — a real server, a
+real publish, real Chromium. The Agent on the other end of the last step is the
+same test double the suites use; everything the browser does is the product.</sub>
 
 MeshCue is a browser workbench for reviewing 3D models with an AI agent. The
 agent publishes a draft, you open it in your own browser, mark the surfaces that
