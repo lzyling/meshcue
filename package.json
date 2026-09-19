@@ -49,9 +49,9 @@
     "@noble/hashes": "2.4.0",
     "express": "^5.1.0",
     "image-size": "^2.0.4",
-    "three": "^0.180.0",
-    "three-mesh-bvh": "^0.9.14",
-    "zod": "^4.1.0"
+    "three": "^0.186.0",
+    "three-mesh-bvh": "^0.9.15",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
