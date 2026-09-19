@@ -41,6 +41,54 @@ test("the documented install tag is this version", () => {
   }
 });
 
+/* README counts both suites, for anyone deciding whether this is tested. It
+ * said 63 browser cases while the suite ran 68, and had done since the day a
+ * file was added: a number stated once and never asked again. Adding the case
+ * you are reading dated the other number in the same breath, which is the
+ * argument for asking rather than remembering.
+ *
+ * The two are counted differently because they have to be. Playwright answers
+ * for itself — `--list` reads the files and starts no browser — and it has to,
+ * because one spec writes its cases in a loop. The node files declare one case
+ * per `test(` at the top of a line and none in a loop, so they can be counted
+ * where they stand; running them to count them would mean running this case
+ * inside itself. Write a loop there and this goes red saying so, which is the
+ * moment to count them some other way. */
+function readmeCount(suite, pattern, actual) {
+  const claimed = read("README.md").match(pattern)?.[1];
+  assert.ok(claimed, `README states no ${suite} test count`);
+  assert.ok(actual, `counted no ${suite} cases at all`);
+  assert.equal(
+    Number(claimed),
+    actual,
+    `README says ${claimed} ${suite} cases, there are ${actual}`,
+  );
+}
+/* Spelt out rather than looped, because a loop is the one thing the node count
+   above cannot see — and writing these two in a loop is how that was found. */
+test("README counts the node cases the suite actually has", () => {
+  const cases = fs
+    .readdirSync(path.join(repo, "tests"))
+    .filter((f) => f.endsWith(".test.mjs"))
+    .reduce(
+      (n, f) => n + (read(`tests/${f}`).match(/^[ \t]*test\(/gm)?.length || 0),
+      0,
+    );
+  readmeCount("node", /npm test\s*#\s*(\d+) unit and integration tests/, cases);
+});
+test("README counts the browser cases the suite actually has", () => {
+  const listed = execFileSync("npx", ["playwright", "test", "--list"], {
+    cwd: repo,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  readmeCount(
+    "browser",
+    /npm run test:browser\s*#\s*(\d+) real-Chromium tests/,
+    Number(listed.match(/Total: (\d+) tests?/)?.[1]),
+  );
+});
+
 /* An install root is the only place an agent can read from, and `inspect` is
  * the only thing that tells it where. A named path that does not open is worse
  * than a missing one: it looks exactly like an install that worked. */

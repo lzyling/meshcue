@@ -82,8 +82,8 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 187 unit and integration tests
-npm run test:browser # 63 real-Chromium tests, isolated port and data
+npm test             # 189 unit and integration tests
+npm run test:browser # 68 real-Chromium tests, isolated port and data
 ```
 
 `npm run samples` writes to `../../media/3d/3d-agent-review/samples`, two levels
