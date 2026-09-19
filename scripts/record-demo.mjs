@@ -213,6 +213,14 @@ await sleep(650);
 await page.mouse.click(c.x, c.y);
 await sleep(800);
 await shot("marks");
+/* The viewer on its own, for the social card: a link preview is read at the
+   size of a thumbnail, and at that size a screenshot of the whole interface is
+   a grey rectangle with something small happening in it. */
+await page.evaluate(() => window.__demoCursor?.hide());
+await page
+  .locator("#viewer")
+  .screenshot({ path: path.join(out, "viewer.png") });
+await page.evaluate(() => window.__demoCursor?.show());
 
 // Handing the batch over.
 const send = page.getByRole("button", { name: /Send to Agent/ });
@@ -227,12 +235,52 @@ await shot("sent");
 const tail = (Date.now() - started) / 1000 - head + 0.3;
 
 await context.close();
+
+/* 5 · The social card — the picture GitHub, Telegram and the rest hand to
+      someone who has not clicked yet. It is built here, in a context of its
+      own so the film does not record it being built, and its only picture is
+      the one the application just drew. GitHub wants 1280×640 and refuses
+      anything over a megabyte. */
+say("social card");
+const viewerShot = fs
+  .readFileSync(path.join(out, "viewer.png"))
+  .toString("base64");
+const card = await browser.newContext({
+  viewport: { width: 1280, height: 640 },
+  deviceScaleFactor: 1,
+});
+const cardPage = await card.newPage();
+await cardPage.setContent(`<!doctype html><meta charset="utf-8"><style>
+  * { margin: 0; box-sizing: border-box; }
+  body { width: 1280px; height: 640px; display: flex; overflow: hidden;
+    background: #eef2f4; color: #14161a;
+    font: 400 16px/1.5 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; }
+  .say { flex: 0 0 47%; padding: 74px 0 74px 76px; display: flex;
+    flex-direction: column; justify-content: center; }
+  .name { font-size: 62px; font-weight: 640; letter-spacing: -1.6px; }
+  .line { margin-top: 22px; font-size: 27px; line-height: 1.34; font-weight: 500;
+    letter-spacing: -.4px; color: #2b3138; }
+  .foot { margin-top: 40px; font-size: 17px; color: #5d666e; letter-spacing: .1px; }
+  .shot { flex: 1; position: relative; }
+  .shot img { position: absolute; top: 50%; left: 14px; transform: translateY(-50%);
+    width: 128%; border-radius: 14px 0 0 14px;
+    box-shadow: 0 18px 48px rgba(20, 32, 45, .22); }
+</style>
+<div class="say">
+  <div class="name">MeshCue</div>
+  <div class="line">Point at the model.<br>Let the Agent read what you meant.</div>
+  <div class="foot">Browser 3D review for agent-assisted modelling · Apache-2.0</div>
+</div>
+<div class="shot"><img src="data:image/png;base64,${viewerShot}"></div>`);
+await cardPage.waitForLoadState("networkidle");
+await cardPage.screenshot({ path: path.join(out, "social-card.png") });
+await card.close();
 await browser.close();
 server.kill("SIGTERM");
 await Promise.race([once(server, "exit"), sleep(3000)]);
 fs.rmSync(dir, { recursive: true, force: true });
 
-/* 5 · One recording, three shapes: a GIF because it is the only moving image
+/* 6 · One recording, three shapes: a GIF because it is the only moving image
       GitHub renders inline in a README, an MP4 because the GIF has to stay
       small enough to load, and the stills for anywhere a loop would be
       noise. */
@@ -283,7 +331,13 @@ ff([
 ]);
 say(`clip ${tail.toFixed(1)}s, cut from ${head.toFixed(1)}s`);
 
-for (const f of ["demo.gif", "demo.mp4", "marks.png", "sent.png"]) {
+for (const f of [
+  "demo.gif",
+  "demo.mp4",
+  "social-card.png",
+  "marks.png",
+  "sent.png",
+]) {
   const p = path.join(out, f);
   say(`${f} — ${(fs.statSync(p).size / 1024 / 1024).toFixed(2)} MB`);
 }
