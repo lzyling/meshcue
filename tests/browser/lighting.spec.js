@@ -100,17 +100,19 @@ async function viewerLuminance(page) {
   }, shot.toString("base64"));
 }
 
-/* How far the model sits from the paper it is drawn on, read from the middle
-   of the frame — which at the opening view is model and nothing else, no
-   toolbar, no cube, no ground. */
-async function separationFromBackdrop(page) {
+/* Read from the middle of the frame, which at these views is model and nothing
+   else: no toolbar, no cube, no ground. Everything the rig has to hold — how
+   far the model sits from its paper, how much tone it occupies, how dark its
+   shaded side goes — is a number out of this one crop. */
+async function centreStats(page, frac = 0.4) {
   const box = await page.locator("#viewer").boundingBox();
+  const edge = (1 - frac) / 2;
   const shot = await page.screenshot({
     clip: {
-      x: box.x + box.width * 0.3,
-      y: box.y + box.height * 0.3,
-      width: box.width * 0.4,
-      height: box.height * 0.4,
+      x: box.x + box.width * edge,
+      y: box.y + box.height * edge,
+      width: box.width * frac,
+      height: box.height * frac,
     },
   });
   const backdrop = await page.evaluate(
@@ -130,17 +132,35 @@ async function separationFromBackdrop(page) {
       const flat = [0, 2, 4].map((i) => parseInt(bg.slice(i, i + 2), 16));
       const bgLum = lum(...flat);
       const hist = [];
-      let onBackdrop = 0;
+      let onBackdrop = 0,
+        colour = 0,
+        onModel = 0;
       for (let i = 0; i < px.length; i += 4) {
         hist.push(lum(px[i], px[i + 1], px[i + 2]));
-        if (flat.every((v, k) => Math.abs(px[i + k] - v) < 6)) onBackdrop++;
+        if (flat.every((v, k) => Math.abs(px[i + k] - v) < 6)) {
+          onBackdrop++;
+          continue;
+        }
+        onModel++;
+        const hi = Math.max(px[i], px[i + 1], px[i + 2]),
+          lo = Math.min(px[i], px[i + 1], px[i + 2]);
+        colour += hi ? (hi - lo) / hi : 0;
       }
       hist.sort((a, b) => a - b);
-      const median = hist[Math.floor(hist.length * 0.5)];
+      const q = (p) => +hist[Math.floor(hist.length * p)].toFixed(1);
       return {
         bgLum: +bgLum.toFixed(1),
-        median: +median.toFixed(1),
-        gap: +(bgLum - median).toFixed(1),
+        p05: q(0.05),
+        median: q(0.5),
+        p95: q(0.95),
+        gap: +(bgLum - q(0.5)).toFixed(1),
+        // What is left of the model once the curve has had it. A washed-out
+        // render is a silhouette with no modelling inside it.
+        spread: +(q(0.95) - q(0.05)).toFixed(1),
+        // How much colour is left in the pixels that are the model. A curve
+        // with a shoulder pulls everything bright towards white and takes the
+        // hue with it, and that shows here long before it shows in luminance.
+        colour: +(onModel ? colour / onModel : 0).toFixed(3),
         // If the model ever stops filling the middle this stops being a
         // measurement of the model, and the case should say so rather than
         // quietly grade the paper.
@@ -151,19 +171,28 @@ async function separationFromBackdrop(page) {
   );
 }
 
-async function bottomView(page) {
-  await page.emulateMedia({ colorScheme: "light" });
+async function goHome(page, { dark = false } = {}) {
+  await page.emulateMedia({ colorScheme: dark ? "dark" : "light" });
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
     page.getByRole("button", { name: "Label tool", exact: true }),
   ).toBeEnabled();
+  await page.waitForTimeout(1200);
+}
+
+async function turnUnder(page) {
   // The bottom face is on the far side of the cube from home, so it cannot be
   // clicked directly: go via the front-bottom edge, exactly as a reviewer does.
   await page.locator('[data-view="0,-1,1"]').click();
   await page.waitForTimeout(900);
   await page.locator('[data-view="0,-1,0"]').click();
   await page.waitForTimeout(1200); // orbit damping settles
+}
+
+async function bottomView(page) {
+  await goHome(page);
+  await turnUnder(page);
   return viewerLuminance(page);
 }
 
@@ -193,14 +222,8 @@ test("a model with no materials at all is readable from below", async ({
    Both ends are nailed down now. */
 test("a model stands out from the paper it is drawn on", async ({ page }) => {
   publish("no-material-bracket.glb", "washout");
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.goto(url);
-  await expect(page.locator("#loading")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Label tool", exact: true }),
-  ).toBeEnabled();
-  await page.waitForTimeout(1200);
-  const seen = await separationFromBackdrop(page);
+  await goHome(page);
+  const seen = await centreStats(page);
   console.log("WASHOUT", JSON.stringify(seen));
   expect(seen.onBackdrop).toBeLessThan(0.45);
   expect(seen.gap).toBeGreaterThan(30);
@@ -275,4 +298,56 @@ test("the ground stays out of the way of the model and of a look from below", as
     () => window.__reviewDiagnostics().viewer.ground,
   );
   expect(below.visible).toBe(false);
+});
+
+/* Plain view exists to take a model's own colours off it and show it in the
+   one grey an unpainted model already wears. On a model that never had any,
+   there is by definition nothing to take off, so the button has nothing to do
+   — and for two versions it did something anyway, because the grey it painted
+   with was a second constant that had drifted away from the first. */
+test("plain view leaves an already unpainted model alone", async ({ page }) => {
+  publish("no-material-bracket.glb", "plain");
+  await goHome(page);
+  const before = await centreStats(page);
+  await page.locator("#neutral-view").click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().viewer.neutral),
+    )
+    .toBe(true);
+  await page.waitForTimeout(600);
+  const after = await centreStats(page);
+  console.log("PLAIN", JSON.stringify({ before, after }));
+  expect(before.onBackdrop).toBeLessThan(0.45);
+  expect(Math.abs(after.median - before.median)).toBeLessThan(4);
+});
+
+/* The shaded side has a floor as well as a ceiling. "Not black" was the only
+   rail it had, and a rig change slid the whole window down until the underside
+   was a hair above black with every case still green. */
+test("the shaded side keeps enough light to read", async ({ page }) => {
+  // The part that carries its own colour, because that is the one a change to
+  // the lamps takes down: an unpainted one has its grey re-solved with them.
+  publish("parametric-bracket.glb", "floor");
+  await goHome(page);
+  await turnUnder(page);
+  const seen = await centreStats(page);
+  console.log("FLOOR", JSON.stringify(seen));
+  expect(seen.onBackdrop).toBeLessThan(0.45);
+  expect(seen.median).toBeGreaterThan(45);
+});
+
+/* A model that brought its own colours has to keep the tone that distinguishes
+   one surface from the next. A curve with a shoulder rolls them together at
+   the top: a whole building came back as one flat sheet of near-white with a
+   silhouette around it. */
+test("a coloured model keeps the tone between its surfaces", async ({
+  page,
+}) => {
+  publish("bunny-figurine.glb", "tone");
+  await goHome(page);
+  const seen = await centreStats(page);
+  console.log("TONE", JSON.stringify(seen));
+  expect(seen.onBackdrop).toBeLessThan(0.8);
+  expect(seen.colour).toBeGreaterThan(0.15);
 });

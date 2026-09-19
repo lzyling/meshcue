@@ -48,21 +48,28 @@ const nextPaint = () =>
       ? requestAnimationFrame(() => requestAnimationFrame(resolve))
       : setTimeout(resolve, 0),
   );
-/* The one grey for a model that does not bring its own.
+/* The one grey for a model that does not bring its own, and the one grey the
+   plain view paints every model with. They were two constants that happened to
+   agree until one of them was tuned, after which plain view came out brighter
+   than the colours it was meant to be standing in for. One number now.
 
-   0.73 albedo was far too bright for these lights: an unpainted part came out
-   at 216 of 255 against a 226 backdrop and washed straight into the paper,
-   with the fillets and the parting lines flattened out of it. This is what a
-   reviewer picked from renders of a real part at five values. Darker trades
-   away the underside — the range top to bottom is fixed by the lamps, so the
-   albedo only slides that window — and this one keeps the shaded side at
-   roughly twice the luminance that reads as black. */
+   The number itself only means anything next to the lamps: an albedo lands
+   where the rig puts it, so this was solved against the rendered result a
+   reviewer approved rather than picked for its own sake. The rails in
+   `tests/browser/lighting.spec.js` hold that result, which is what makes the
+   next change to the rig announce itself. */
+const REVIEW_GREY = 0xcdd7dc;
 const reviewGrey = () =>
   new THREE.MeshStandardMaterial({
-    color: 0x7d878d,
+    color: REVIEW_GREY,
     roughness: 0.6,
     metalness: 0.08,
   });
+/* The plain view rewrites diffuse inside the shader, where colour is linear. */
+const PLAIN_DIFFUSE = new THREE.Color(REVIEW_GREY)
+  .toArray()
+  .map((c) => c.toFixed(4))
+  .join(",");
 /* glTF says a primitive with no material takes "a default material", and the
    default it describes is a fully rough metal. A metal has no diffuse at all,
    so the hemisphere light — the only light under the model — cannot reach it,
@@ -112,8 +119,17 @@ export class ModelViewer {
     });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.3;
+    /* ACES is built for film, and its shoulder is doing the wrong job here: it
+       rolls everything bright into a narrow band near white and takes the
+       colour with it. A whole modelled scene came out with its canopy at 241
+       and its walls at 228 — thirteen levels for the entire building. Nothing
+       was clipping; the curve simply had no room left to separate anything.
+
+       Khronos' PBR Neutral is the curve written for showing an object rather
+       than for grading a frame. On that same scene it nearly doubles the tonal
+       range the model occupies and doubles what is left of its colour. */
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1;
     this.renderer.domElement.setAttribute("aria-label", t("a11y.viewer"));
     container.append(this.renderer.domElement);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -131,11 +147,18 @@ export class ModelViewer {
     };
     this.deviceSense = createDeviceSense();
     this.deviceChoice = "auto";
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8d9ba8, 2.6));
-    const key = new THREE.DirectionalLight(0xfff4dc, 3.3);
+    /* Directions and colours unchanged. The two lamps overhead come down hard
+       and the sky barely moves, because they are not doing the same job: the
+       lamps are what drove the lit faces into the top of the range, while the
+       hemisphere is the only thing lighting a face that points away from them.
+       Scaling all three together — the first thing tried — fixed the glare and
+       halved every underside with it, which is the same mistake as 1.0.2 made
+       in the other direction. */
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8d9ba8, 2.21));
+    const key = new THREE.DirectionalLight(0xfff4dc, 1.39);
     key.position.set(4, 7, 5);
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xd3e3ff, 2);
+    const fill = new THREE.DirectionalLight(0xd3e3ff, 0.84);
     fill.position.set(-5, 3, -4);
     this.scene.add(fill);
     this.gridY = GRID_Y;
@@ -1005,7 +1028,7 @@ export class ModelViewer {
           neutral.onBeforeCompile = (shader) => {
             shader.fragmentShader = shader.fragmentShader.replace(
               "#include <color_fragment>",
-              "#include <color_fragment>\ndiffuseColor.rgb=vec3(0.52,0.56,0.58);",
+              `#include <color_fragment>\ndiffuseColor.rgb=vec3(${PLAIN_DIFFUSE});`,
             );
           };
           neutral.customProgramCacheKey = () => "review-neutral";

@@ -83,7 +83,7 @@ From a clone, for development:
 npm ci
 npm run samples      # generate the parametric sample models
 npm test             # 189 unit and integration tests
-npm run test:browser # 68 real-Chromium tests, isolated port and data
+npm run test:browser # 71 real-Chromium tests, isolated port and data
 ```
 
 `npm run samples` writes to `../../media/3d/3d-agent-review/samples`, two levels
@@ -103,7 +103,7 @@ openclaw plugins install ./tmp/candidate/package
 For any MCP client, install a tagged commit and point the client at it:
 
 ```sh
-npm i -g "github:lzyling/meshcue#v1.0.3"
+npm i -g "github:lzyling/meshcue#v1.1.0"
 ```
 
 ```toml
@@ -116,7 +116,7 @@ Or start it without installing, at the cost of a fetch and a build each time:
 ```toml
 [mcp_servers.meshcue]
 command = "npx"
-args = ["-p", "github:lzyling/meshcue#v1.0.3", "meshcue-mcp"]
+args = ["-p", "github:lzyling/meshcue#v1.1.0", "meshcue-mcp"]
 ```
 
 Pin the tag. Without one, npm takes whatever the default branch holds at that
