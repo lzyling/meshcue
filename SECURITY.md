@@ -1,9 +1,10 @@
 # Security
 
 MeshCue runs a local HTTP server and asks a person to open it in their own
-browser. That is the whole exposure, and this document describes it — not as a
-footnote, but because admitting a browser is the first thing a new user runs
-into, and a step you cannot see the reason for is a step you cannot trust.
+browser. That, plus one outbound request to GitHub that can be turned off, is
+the whole exposure, and this document describes it — not as a footnote, but
+because admitting a browser is the first thing a new user runs into, and a step
+you cannot see the reason for is a step you cannot trust.
 
 ## What listens, and where
 
@@ -85,6 +86,29 @@ every `/api/` response is `no-store`.
 **display rule, not an access rule**. A hidden version keeps its draft, its
 marks and its file, and a browser already holding a session can still fetch it.
 Nothing is revoked by hiding it, because nothing was meant to be.
+
+## What it sends outward
+
+Exactly one request, to exactly one host, and the reviewer's browser is not the
+one making it.
+
+| | |
+| --- | --- |
+| Where | `https://api.github.com/repos/lzyling/meshcue/releases/latest` |
+| Who | The service process. The page only ever polls its own `/api/state`. |
+| What leaves | Nothing but the request itself — no version, no project, no identifier, no review content. GitHub sees an unauthenticated GET, and the IP it came from. |
+| How often | At most once every 6 hours, and only while somebody has the review open. An instance nobody is looking at asks nothing. A failed request waits 30 minutes, so an unreachable network cannot turn into a retry loop. |
+| Why | To tell a reviewer that the copy in front of them is behind the current release. |
+
+Turn it off with `REVIEW_UPDATE_CHECK=off` (or `updateCheck: false` in the
+instance config) and the service makes **no outbound requests at all** — which
+is what it did before this existed, and remains a supported way to run it.
+`REVIEW_UPDATE_URL` points the check somewhere else; it is how the test suite
+avoids the internet.
+
+The check never reports failure to the reviewer. Whether GitHub was reachable
+says nothing about the model on screen, and a review tool that starts narrating
+network weather has changed what it is for.
 
 ## What MeshCue does not do
 

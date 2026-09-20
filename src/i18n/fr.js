@@ -3,6 +3,8 @@
 export default {
   "app.tagline": "Revue et annotation de modèles 3D",
   "app.version": "Version en cours",
+  "app.updateHint":
+    "La version {version} est disponible. Demandez à votre agent de mettre à jour MeshCue.",
 
   "closing.pending":
     "Cette revue n'a pas servi depuis un moment et va se fermer. Toute action ici la maintient ouverte.",

@@ -14,6 +14,7 @@ import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
+import { createUpdateWatch, updateCheckEnabled } from "./upstream.mjs";
 import {
   readInstance,
   instanceCookieName,
@@ -388,12 +389,18 @@ function stateFor(clientId, full = false, versionId) {
       annotationCount: state.draft.annotations.length,
     };
   const closing = idle?.notice() || null;
+  /* Reading it here is what schedules the next request, so an instance nobody
+     has open never makes one. The answer is whatever was last known; it is
+     absent until there is something to say, and stays absent when the check is
+     turned off or the upstream cannot be reached. */
+  const update = updates.report();
   return {
     ...state,
     // What is actually running, said on every poll. The page ships its own
     // version compiled in, but that is the build it was cut from; a reviewer
     // asking what they are looking at means the service answering them.
     version,
+    ...(update ? { update } : {}),
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
     // The countdown rides along on every poll, not only during the
@@ -568,6 +575,34 @@ const version = (() => {
     return "unknown";
   }
 })();
+/* Compared against what is installed, not against what is running. Those are
+   two different questions and the other one already has an answer: an instance
+   still serving an older build is what `serving` reports to the agent, and only
+   reopening it replaces the server. Telling a reviewer to update to a version
+   that is already sitting on the disk would be answering neither. */
+const installed = (() => {
+  if (!config.installRoot) return version;
+  try {
+    return JSON.parse(
+      fs.readFileSync(path.join(config.installRoot, "package.json"), "utf8"),
+    ).version;
+  } catch {
+    return version;
+  }
+})();
+const updates = createUpdateWatch({
+  installed,
+  enabled: updateCheckEnabled(process.env, config),
+  ...(process.env.REVIEW_UPDATE_URL
+    ? { url: process.env.REVIEW_UPDATE_URL }
+    : {}),
+  ...(process.env.REVIEW_UPDATE_TTL_MS
+    ? {
+        ttlMs: Number(process.env.REVIEW_UPDATE_TTL_MS),
+        retryMs: Number(process.env.REVIEW_UPDATE_TTL_MS),
+      }
+    : {}),
+});
 app.get("/api/health", (req, res) =>
   res.json({
     ok: true,

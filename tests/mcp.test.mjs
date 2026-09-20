@@ -11,6 +11,10 @@ import {
   PROTOCOL_VERSION,
 } from "../mcp/server.mjs";
 
+// The manager hands its own environment to the service it starts, so this
+// reaches every instance these cases open: no suite talks to the internet.
+process.env.REVIEW_UPDATE_CHECK = "off";
+
 const repo = process.cwd();
 const stl =
   "solid t\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid t\n";

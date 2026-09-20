@@ -3,6 +3,8 @@
 export default {
   "app.tagline": "3D モデルのレビューと注記",
   "app.version": "実行中のバージョン",
+  "app.updateHint":
+    "バージョン {version} が利用できます。エージェントに MeshCue の更新を依頼してください。",
 
   "closing.pending":
     "このレビューはしばらく使われていないため終了します。ここで何か操作すれば継続します。",

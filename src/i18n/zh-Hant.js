@@ -3,6 +3,7 @@
 export default {
   "app.tagline": "3D 模型審閱與標注",
   "app.version": "正在執行的版本",
+  "app.updateHint": "有新版本 {version}。讓你的 Agent 更新 MeshCue。",
 
   "closing.pending":
     "這一輪審閱已經有一段時間沒人使用，即將關閉。你在這裡做任何操作都會讓它繼續。",

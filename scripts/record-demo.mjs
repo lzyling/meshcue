@@ -65,6 +65,10 @@ const env = {
   REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
   REVIEW_SESSION_KEY: "demo-recording-session",
   REVIEW_ALLOWED_HOSTS: "review.test",
+  // Whether a newer release exists on the day of recording is not part of what
+  // the demo is showing, and a badge that appears in some takes and not others
+  // is the kind of difference a reader would try to interpret.
+  REVIEW_UPDATE_CHECK: "off",
   REVIEW_FAKE_GATEWAY_LOG: path.join(dir, "fake-gateway.json"),
   PATH: `${bin}${path.delimiter}${process.env.PATH}`,
 };

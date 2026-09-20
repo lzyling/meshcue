@@ -32,6 +32,7 @@ test.beforeEach(async () => {
     REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
+    REVIEW_UPDATE_CHECK: "off",
     REVIEW_FAKE_GATEWAY_LOG: path.join(dir, "fake-gateway.json"),
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
   };

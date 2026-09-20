@@ -3,6 +3,8 @@
 export default {
   "app.tagline": "3D-Modelle prüfen und markieren",
   "app.version": "Laufende Version",
+  "app.updateHint":
+    "Version {version} ist verfügbar. Bitten Sie Ihren Agenten, MeshCue zu aktualisieren.",
 
   "closing.pending":
     "Diese Prüfung wurde eine Weile nicht genutzt und wird geschlossen. Alles, was Sie hier tun, hält sie offen.",

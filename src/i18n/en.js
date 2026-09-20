@@ -3,6 +3,8 @@
 export default {
   "app.tagline": "3D model review and annotation",
   "app.version": "Running version",
+  "app.updateHint":
+    "Version {version} is available. Ask your agent to update MeshCue.",
 
   "closing.pending":
     "Nobody has used this review for a while, so it is closing. Anything you do here keeps it open.",

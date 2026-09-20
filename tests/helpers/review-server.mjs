@@ -57,6 +57,7 @@ export async function startReview(
         ...(stallAfter ? { REVIEW_STALL_AFTER: String(stallAfter) } : {}),
         REVIEW_ACCESS: protectedAccess ? "required" : "",
         REVIEW_ALLOWED_HOSTS: "review.test",
+        REVIEW_UPDATE_CHECK: "off",
         REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
         REVIEW_FAKE_GATEWAY_LOG: path.join(dir, "fake-gateway.json"),
         PATH: `${bin}${path.delimiter}${process.env.PATH}`,

@@ -244,6 +244,33 @@ a {
   letter-spacing: 0.05em;
   color: var(--ink-muted);
 }
+/* Beside the running version, reading as the next step from it. The arrow is
+   drawn rather than translated: it is the only part of this that means the same
+   in six languages, and the words it would need instead are in the tooltip. */
+.brand-title .app-update {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-soft, var(--line));
+  color: var(--accent, var(--ink));
+  background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  /* Same rule as everything else in this header: it has to be able to give
+     ground before it pushes a scrollbar onto a 460px panel. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brand-title .app-update::before {
+  content: "↑ ";
+}
+.brand-title a.app-update:hover {
+  text-decoration: underline;
+}
 .header-right {
   margin-left: auto;
   display: flex;

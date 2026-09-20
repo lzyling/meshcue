@@ -110,7 +110,7 @@ const serverMessage = (json) =>
   json?.error ||
   t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
-<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${T("app.version")}">${__MESHCUE_VERSION__}</span></div><span>${T("app.tagline")}</span></div><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><label class="setting">${icon("language")}<select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select></label><label class="setting">${icon("theme")}<select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select></label><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
+<header class="app-header"><div class="brand-mark">${icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${T("app.version")}">${__MESHCUE_VERSION__}</span><a class="app-update" id="app-update" target="_blank" rel="noreferrer noopener" hidden></a></div><span>${T("app.tagline")}</span></div><div class="header-right"><span class="connection-dot"></span><span id="connection-status">${T("conn.connecting")}</span><label class="setting">${icon("language")}<select class="quiet" id="locale-choice" aria-label="${T("settings.language")}"></select></label><label class="setting">${icon("theme")}<select class="quiet" id="theme-choice" aria-label="${T("settings.theme")}"><option value="system">${T("settings.themeSystem")}</option><option value="light">${T("settings.themeLight")}</option><option value="dark">${T("settings.themeDark")}</option></select></label><button class="quiet icon-only" id="help-button" aria-label="${T("help.open")}">${icon("help")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${T("a11y.reviewPanel")}">
   <!-- The name arrived with the link, the tab strip carries the version, and a
@@ -1412,6 +1412,7 @@ async function readState() {
     // only the running one until somebody upgrades the service under an open
     // tab. Once the service has said which it is, it is the one that counts.
     if (incoming.version) $("#app-version").textContent = incoming.version;
+    showUpdate(incoming.update);
     $("#connection-status").textContent = incoming.notifier?.send
       ? t("conn.origin")
       : incoming.owned || state?.submissions?.length
@@ -1531,6 +1532,27 @@ function updateEcho(incoming) {
   $("#echo-recall").hidden = !viewer.agentEcho;
   if (viewer.agentEcho) showEcho({ linger: true });
   else hideEcho();
+}
+/* A mark beside the version, and nothing else. The reviewer is usually not the
+   person who installs anything — they were handed a URL — so this says what is
+   true and who to tell, and does not pretend the page can act on it. The
+   service is silent unless there is genuinely something newer than what is
+   installed, so an absent badge is the normal state, not a failed check. */
+function showUpdate(update) {
+  const badge = $("#app-update");
+  if (!update?.version) {
+    badge.hidden = true;
+    return;
+  }
+  const hint = t("app.updateHint", { version: update.version });
+  badge.textContent = update.version;
+  badge.title = hint;
+  badge.setAttribute("aria-label", hint);
+  // Release notes if the upstream named them; otherwise it is only a label,
+  // and a link that goes nowhere is worse than a word that never claimed to.
+  if (update.url) badge.href = update.url;
+  else badge.removeAttribute("href");
+  badge.hidden = false;
 }
 function pollState() {
   if (pollFlight) return pollFlight;
