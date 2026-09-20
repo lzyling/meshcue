@@ -225,10 +225,6 @@ export default {
   "feedback.submitted":
     "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
 
-  "settings.device": "Dispositif de pointage",
-  "settings.deviceAuto": "Détecter automatiquement",
-  "settings.deviceMouse": "Souris",
-  "settings.deviceTrackpad": "Pavé tactile",
   "settings.language": "Langue de l'interface",
   "settings.theme": "Clair ou sombre",
   "settings.themeSystem": "Suivre le système",
@@ -239,7 +235,7 @@ export default {
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",
   "help.p1":
-    "Glisser avec le bouton droit pour pivoter, bouton du milieu ou deux doigts pour déplacer, molette ou pincement pour zoomer. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
+    "Glisser avec le bouton droit pour pivoter, molette ou pincement pour zoomer, bouton du milieu ou Maj+molette pour déplacer — identique à la souris et au pavé tactile. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
   "help.p2":
     "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":

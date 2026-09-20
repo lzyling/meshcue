@@ -214,10 +214,6 @@ export default {
   "feedback.submitted":
     "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
 
-  "settings.device": "Pointing device",
-  "settings.deviceAuto": "Detect automatically",
-  "settings.deviceMouse": "Mouse",
-  "settings.deviceTrackpad": "Trackpad",
   "settings.language": "Interface language",
   "settings.theme": "Light or dark",
   "settings.themeSystem": "Follow the system",
@@ -228,7 +224,7 @@ export default {
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
   "help.p1":
-    "Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to zoom. The left button is never the camera's, so you can mark without putting a tool down.",
+    "Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to pan — the same on a mouse as on a trackpad. The left button is never the camera's, so you can mark without putting a tool down.",
   "help.p2":
     "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":

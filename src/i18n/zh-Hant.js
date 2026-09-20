@@ -193,10 +193,6 @@ export default {
   "feedback.submitting": "提交中…",
   "feedback.submitted": "標記已保存；提交狀態以實際回執為準。模型維持鎖定。",
 
-  "settings.device": "指標裝置",
-  "settings.deviceAuto": "自動辨識",
-  "settings.deviceMouse": "滑鼠",
-  "settings.deviceTrackpad": "觸控板",
   "settings.language": "介面語言",
   "settings.theme": "明暗",
   "settings.themeSystem": "跟隨系統",
@@ -207,7 +203,7 @@ export default {
   "help.eyebrow": "快速上手",
   "help.title": "先看，再標，然後說要改什麼。",
   "help.p1":
-    "右鍵拖動旋轉，中鍵拖動或雙指拖動平移，滾輪或捏合縮放。左鍵永遠不歸相機，所以標記時不用先放下工具。",
+    "右鍵拖動旋轉，滾輪或捏合縮放，中鍵拖動或 Shift+滾輪平移——滑鼠和觸控板完全一樣。左鍵永遠不歸相機，所以標記時不用先放下工具。",
   "help.p2":
     "標籤：選「加入標籤」後單擊模型表面即可放下 A、B、C；「檢視」不會放任何東西，所以轉模型時不會誤落標籤。油漆桶：單擊一處表面即可標記整片相連區域 —— 右鍵始終可以旋轉，標記過程中不必停下來轉模型。",
   "help.p3":

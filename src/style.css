@@ -270,11 +270,10 @@ a {
   color: var(--ink-faint);
   flex: none;
 }
-/* All three are the same control and are sized by one rule. The pointing-device
-   chooser arrived later and only ever picked up `.quiet`, which left it 12px
-   and 27px tall beside two neighbours at 10px and 25px. */
+/* Both are the same control and are sized by one rule, which is how a third
+   one that only picked up `.quiet` was caught standing 12px and 27px tall
+   beside two neighbours at 10px and 25px. */
 #locale-choice,
-#device-choice,
 #theme-choice {
   min-width: 0;
   max-width: 116px;

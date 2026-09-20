@@ -2156,34 +2156,32 @@ test("a mark arrives at its point instead of flying in from the corner", async (
   expect(travel.ripple).toBeLessThan(6);
 });
 
-test("a trackpad pans with two fingers where a mouse zooms with its wheel", async ({
+test("the wheel zooms and Shift+wheel pans, whatever is turning it", async ({
   page,
 }) => {
   await ready(page);
   const p = await point(page);
-  const start = await page.evaluate(() => window.__reviewDiagnostics().camera);
-  // The chooser is no longer on screen — detection is trusted to get this
-  // right — but it is still the switch the detection sets, so it is still how
-  // a test says which kind of device is being held.
-  const choose = (kind) =>
-    page.locator("#device-choice").selectOption(kind, { force: true });
-  // A mouse has a wheel and a middle button, so the wheel is free to zoom.
-  await choose("mouse");
   await page.mouse.move(p.x, p.y);
+
+  /* Nothing is chosen or detected first, and that is the point. The page used
+     to guess mouse-or-trackpad from the size of the deltas, which macOS makes
+     unanswerable — it accelerates a mouse wheel into the same small fractional
+     stream a trackpad sends — so every Mac was read as a trackpad and had its
+     wheel turned into a pan. The gestures no longer depend on the answer. */
+  const start = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.mouse.wheel(0, 240);
   await page.waitForTimeout(200);
   const zoomed = await page.evaluate(() => window.__reviewDiagnostics().camera);
   expect(zoomed.target).toEqual(start.target);
   expect(zoomed.position).not.toEqual(start.position);
 
-  // A trackpad has no middle button at all, so panning has to live somewhere
-  // else — and it has something a mouse does not: a two-axis drag.
-  await choose("trackpad");
+  // Pan is Shift plus that same gesture — two fingers or a wheel, either way.
   const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
-  await page.mouse.move(p.x, p.y);
+  await page.keyboard.down("Shift");
   await page.mouse.wheel(40, 60);
   await page.waitForTimeout(200);
   const panned = await page.evaluate(() => window.__reviewDiagnostics().camera);
+  await page.keyboard.up("Shift");
   // Panning moves what the camera is looking at; zooming never does.
   expect(panned.target).not.toEqual(before.target);
   const travelled = Math.hypot(

@@ -228,10 +228,6 @@ export default {
   "feedback.submitted":
     "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
 
-  "settings.device": "Zeigegerät",
-  "settings.deviceAuto": "Automatisch erkennen",
-  "settings.deviceMouse": "Maus",
-  "settings.deviceTrackpad": "Trackpad",
   "settings.language": "Sprache der Oberfläche",
   "settings.theme": "Hell oder dunkel",
   "settings.themeSystem": "Dem System folgen",
@@ -242,7 +238,7 @@ export default {
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",
   "help.p1":
-    "Mit rechts ziehen dreht, mit der mittleren Taste oder zwei Fingern verschiebt, Rad oder Pinch zoomt. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
+    "Mit rechts ziehen dreht, Rad oder Pinch zoomt, mittlere Taste oder Umschalt+Rad verschiebt — auf Maus und Trackpad gleich. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
   "help.p2":
     "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":

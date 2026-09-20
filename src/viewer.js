@@ -12,7 +12,6 @@ import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
 import { t } from "./i18n/index.js";
-import { createDeviceSense, resolveDevice } from "./pointer-profile.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -145,8 +144,6 @@ export class ModelViewer {
       MIDDLE: THREE.MOUSE.PAN,
       RIGHT: THREE.MOUSE.ROTATE,
     };
-    this.deviceSense = createDeviceSense();
-    this.deviceChoice = "auto";
     /* Directions and colours unchanged. The two lamps overhead come down hard
        and the sky barely moves, because they are not doing the same job: the
        lamps are what drove the lit faces into the top of the range, while the
@@ -221,33 +218,32 @@ export class ModelViewer {
       passive: false,
       capture: true,
     });
-    canvas.addEventListener(
-      "pointerdown",
-      (e) => this.deviceSense.observeButton(e.button),
-      true,
-    );
     this.renderer.setAnimationLoop(() => this.render());
   }
-  get device() {
-    return resolveDevice(this.deviceChoice, this.deviceSense.detected);
-  }
-  setDevice(choice) {
-    this.deviceChoice = choice;
-  }
-  /* A trackpad has no middle button, so panning cannot live there. It does have
-     something a mouse does not: a two-finger drag, which arrives as a wheel
-     event carrying both axes. That becomes the pan, and pinch — a wheel with
-     ctrlKey, by browser convention — becomes the zoom. A mouse keeps the plain
-     wheel for zoom, which is what its one wheel is for.
+  /* Nothing here asks which device is turning the wheel, because that question
+     has no reliable answer and asking it was the bug. A mouse and a trackpad
+     are both `pointerType: "mouse"`, so the wheel was all there was to go on —
+     and on macOS both go through the same scroll acceleration, where a mouse
+     notch arrives small and fractional, indistinguishable from a trackpad
+     glide. Every Mac was therefore read as a trackpad and had its wheel turned
+     into a pan, on a laptop with a mouse plugged in no less.
+
+     So the wheel means one thing on every device: zoom, which is what a wheel
+     is for and what a two-finger glide does on every other page. Pan is Shift
+     plus the same gesture, and stays on the middle button for anyone holding a
+     mouse. Pinch keeps zooming for free — the browser reports it as a ctrl-held
+     wheel, which OrbitControls already dollies.
 
      Handled in the capture phase so OrbitControls, which would otherwise dolly
      on every wheel event, never sees the ones that mean something else here. */
   wheel(e) {
-    this.deviceSense.observeWheel(e);
-    if (!this.enabled || this.device !== "trackpad") return;
-    if (e.ctrlKey) return; // pinch: OrbitControls already reads this as zoom
+    if (!this.enabled || !e.shiftKey) return;
     e.preventDefault();
     e.stopPropagation();
+    /* Shift+wheel is the browser's horizontal-scroll convention, so a device
+       with one axis has it delivered in `deltaX` on some platforms and `deltaY`
+       on others. A pan is two-dimensional either way: move by whatever axes
+       arrive and it follows the gesture on both. */
     this.panBy(e.deltaX, e.deltaY);
     this.render();
   }

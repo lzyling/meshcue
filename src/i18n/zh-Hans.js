@@ -193,10 +193,6 @@ export default {
   "feedback.submitting": "提交中…",
   "feedback.submitted": "标记已保存；提交状态以实际回执为准。模型维持锁定。",
 
-  "settings.device": "指点设备",
-  "settings.deviceAuto": "自动识别",
-  "settings.deviceMouse": "鼠标",
-  "settings.deviceTrackpad": "触控板",
   "settings.language": "界面语言",
   "settings.theme": "明暗",
   "settings.themeSystem": "跟随系统",
@@ -207,7 +203,7 @@ export default {
   "help.eyebrow": "快速上手",
   "help.title": "先看，再标，然后说要改什么。",
   "help.p1":
-    "右键拖动旋转，中键拖动或双指拖动平移，滚轮或捏合缩放。左键永远不归相机，所以标记时不用先放下工具。",
+    "右键拖动旋转，滚轮或捏合缩放，中键拖动或 Shift+滚轮平移——鼠标和触控板完全一样。左键永远不归相机，所以标记时不用先放下工具。",
   "help.p2":
     "标签：选「添加标签」后单击模型表面即可放下 A、B、C；「查看」不会放任何东西，所以转模型时不会误落标签。油漆桶：单击一处表面即可标记整片相连区域 —— 右键始终可以旋转，标记过程中不必停下来转模型。",
   "help.p3":

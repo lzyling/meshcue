@@ -154,9 +154,9 @@ catalogue's own English. Answer from them rather than from memory: a tool that
 promises addresses instead of descriptions cannot afford to guess at its own
 controls. "Look, mark, then say what to change."
 
-- Right-drag to orbit, middle-drag or two fingers to pan, wheel or pinch to
-  zoom. The left button is never the camera's, so you can mark without putting a
-  tool down.
+- Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to
+  pan — the same on a mouse as on a trackpad. The left button is never the
+  camera's, so you can mark without putting a tool down.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
