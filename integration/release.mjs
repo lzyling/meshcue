@@ -28,6 +28,16 @@ export function cacheRelease(installRoot, runtime) {
   const skills = path.join(installRoot, "skills");
   const wanted = [
     "runtime/server.mjs",
+    // The server starts a thread per conversion and the tessellator lives
+    // beside it; both are resolved relative to the running copy, which is this
+    // one and not the install root. Left out, the instance starts, warns that
+    // STEP is unavailable, and then fails the first STEP publish with a module
+    // error from inside a worker -- so they are listed with the server rather
+    // than treated as optional extras.
+    "runtime/step-worker.mjs",
+    ...files(path.join(installRoot, "vendor")).map((p) =>
+      path.join("vendor", p),
+    ),
     "AGENT-INTERFACE.md",
     // The server derives its version from this rather than restating it, so a
     // release without it reports "unknown" from inside a numbered package.

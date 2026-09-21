@@ -25,6 +25,15 @@ function fixture(t, { id = "meshcue", extra = {} } = {}) {
     JSON.stringify({ name: "@meshcue/openclaw", version: "0.0.0-test" }),
   );
   write("runtime/server.mjs", "export const server = 1;\n");
+  // A real package ships these beside the server, and the server resolves both
+  // relative to the copy it is running from. A fixture without them is cleaner
+  // than anything that is ever installed, which is how a release that shipped
+  // neither passed every test here.
+  write("runtime/step-worker.mjs", "export const worker = 1;\n");
+  write("vendor/occt-import-js.js", "module.exports = () => ({});\n");
+  write("vendor/occt-import-js.wasm", "\0asm-not-really\n");
+  write("vendor/package.json", JSON.stringify({ type: "commonjs" }));
+  write("vendor/LICENSE.occt.txt", "LGPL-2.1\n");
   write("AGENT-INTERFACE.md", "# interface\n");
   write("web/index.html", "<!doctype html><title>MeshCue</title>");
   write("web/assets/app.js", "console.log(1);\n");
@@ -61,6 +70,57 @@ test("a cached release is content addressed, reusable and complete", (t) => {
   const other = fixture(t, {});
   other.write("web/assets/app.js", "console.log(2);\n");
   assert.notEqual(cacheRelease(other.install, other.runtime).id, first.id);
+});
+
+/* An instance does not run the installed package. It runs a content-addressed
+   copy of the files `cacheRelease` chose, from inside the project. So every
+   path the server resolves at runtime has to be one of them, and `vendored()`
+   in `server/step.mjs` looks for `vendor/` by walking up from wherever the
+   server file itself is -- which in a release is the copy, not the install.
+
+   1.3.0-dev left both the worker and the tessellator out of that list. The
+   instance still started: the failure to load OCCT is caught and logged as a
+   warning, so the only symptom until a STEP was published was one line in a
+   log nobody reads. Then the publish died with a module error from inside a
+   worker thread that was never copied either. */
+test("a release carries everything the server resolves beside itself", (t) => {
+  const f = fixture(t);
+  const release = cacheRelease(f.install, f.runtime);
+  const runtime = path.dirname(release.serverEntry);
+
+  assert.equal(
+    fs.existsSync(path.join(runtime, "step-worker.mjs")),
+    true,
+    "the server starts the worker by URL relative to itself",
+  );
+
+  // The same walk `vendored()` does, against the staged copy rather than the
+  // install root. Asserting the file exists somewhere is not the same claim.
+  const found = (() => {
+    let dir = runtime;
+    for (let up = 0; up < 3; up++) {
+      const candidate = path.join(dir, "vendor", "occt-import-js.js");
+      if (fs.existsSync(candidate)) return candidate;
+      dir = path.dirname(dir);
+    }
+    return null;
+  })();
+  assert.notEqual(found, null, "the tessellator is not reachable from the copy");
+  assert.equal(
+    fs.existsSync(path.join(path.dirname(found), "package.json")),
+    true,
+    "without this the CJS library is loaded as ESM and returns a namespace",
+  );
+  // LGPL travels with the copy or the copy is not redistributable.
+  assert.equal(
+    fs.existsSync(path.join(path.dirname(found), "LICENSE.occt.txt")),
+    true,
+  );
+
+  // And they are hashed like everything else, or they are the one part of a
+  // verified release that could be swapped after verification.
+  fs.writeFileSync(path.join(runtime, "step-worker.mjs"), "export const w=2;\n");
+  assert.throws(() => cachedRelease(f.runtime, release.id), /verification/);
 });
 
 test("an altered cache is refused rather than launched", (t) => {

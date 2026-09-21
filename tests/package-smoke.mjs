@@ -113,6 +113,51 @@ try {
     false,
     "precheck must not register a project or start an instance",
   );
+  /* STEP is the one format whose support lives outside the bundle: a WASM
+     kernel loaded from `vendor/`, and a worker thread started from a file
+     beside the server. Neither is reachable from a clone, so a suite that
+     drives source code cannot see them go missing -- and 1.3.0-dev shipped a
+     package where both were, while every test here passed.
+
+     Two separate failures, one per entry point, which is why both are checked:
+     the adapter measured a STEP without loading the kernel first, and the
+     release copy carried neither the kernel nor the worker. */
+  fs.copyFileSync(
+    path.join(repo, "tests/fixtures/plate.step"),
+    path.join(workspace, "plate.step"),
+  );
+  const step = await call({ action: "precheck", file: "plate.step" });
+  assert.equal(step.format, "step");
+  assert.equal(step.verdict, "ok");
+  assert.equal(step.triangles, 344, "the packaged kernel tessellates the same");
+  const stepProject = "projects/bracket-step";
+  const published = await call({
+    action: "open",
+    project: stepProject,
+    file: "plate.step",
+    name: "STEP fixture",
+    version: "v1",
+  });
+  assert.ok(published.url, "a STEP publish returns a reviewable URL");
+  /* What was published stays the STEP; what the page loads is derived from it.
+     Both halves on disk is the only proof from out here that the worker ran:
+     the publish that failed returned the same shape of error as any other. */
+  const runtimeDir = path.join(workspace, stepProject, ".meshcue");
+  const [projectId] = fs.readdirSync(runtimeDir);
+  const active = JSON.parse(
+    fs.readFileSync(path.join(runtimeDir, projectId, "state.json"), "utf8"),
+  ).active;
+  assert.equal(active.format, "step", "the source is kept as it was published");
+  assert.equal(
+    fs.readFileSync(path.join(workspace, active.stored)).equals(
+      fs.readFileSync(path.join(repo, "tests/fixtures/plate.step")),
+    ),
+    true,
+    "the stored source is not the STEP that was handed in",
+  );
+  assert.equal(active.mesh?.format, "glb", "the tessellating worker never ran");
+  assert.ok(active.mesh.brepFaces > 0, "the kernel lost its BREP face mapping");
+  assert.equal(fs.existsSync(path.join(workspace, active.mesh.stored)), true);
   const results = [];
   for (const project of projects)
     results.push(

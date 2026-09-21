@@ -9,6 +9,7 @@ import {
   inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel } from "../../integration/precheck.mjs";
+import { warmStepFor } from "../../server/step.mjs";
 
 const parameters = {
   type: "object",
@@ -126,7 +127,8 @@ const plugin = defineToolPlugin({
               // just to read a header, which is exactly what a caller wants to
               // avoid before it knows the model can be reviewed at all.
               else if (params.action === "precheck")
-                result = precheckModel(ctx, params.file);
+                result = (await warmStepFor(params.file),
+                precheckModel(ctx, params.file));
               else {
                 const manager = new InstanceManager(ctx, {
                   installRoot: api.rootDir,
