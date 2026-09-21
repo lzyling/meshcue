@@ -458,11 +458,17 @@ export class ModelViewer {
     const response = await fetch(url);
     if (!response.ok) throw new Error(t("model.readFailed"));
     const data = await response.arrayBuffer();
+    /* Checked against whichever file was actually fetched. For a STEP that is
+       the derived mesh, not the source: `sha256` names what the author
+       published and is what the round is discussed by, while `mesh.sha256`
+       names the bytes on screen. Comparing the drawn bytes to the source hash
+       would fail every time and tell the reviewer their version was stale. */
+    const shown = model.mesh ?? model;
     const hash = await modelDigest(data);
-    if (hash !== model.sha256) throw new Error(t("model.versionMismatch"));
+    if (hash !== shown.sha256) throw new Error(t("model.versionMismatch"));
     if (epoch !== this.loadingEpoch) return;
     let object;
-    if (model.format === "glb") {
+    if (shown.format === "glb") {
       const gltf = await new GLTFLoader().parseAsync(data, "");
       object = gltf.scene;
       if (declaresNoMaterials(data)) {

@@ -17,6 +17,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel } from "../integration/precheck.mjs";
+import { warmStepFor } from "../server/step.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -53,7 +54,7 @@ export function mcpOwner(workspace, environment = process.env) {
 export const TOOL = {
   name: "meshcue",
   description:
-    "Browser-based 3D model review. Publish a GLB or STL for a person to mark on, read the marks they submit, and publish the next version. precheck before every open. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.",
+    "Browser-based 3D model review. Publish a GLB, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. precheck before every open. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.",
   inputSchema: {
     type: "object",
     properties: {
@@ -144,7 +145,8 @@ export function createHandler({
           input.action === "inspect"
             ? inspectInstall(context, root)
             : input.action === "precheck"
-              ? precheckModel(context, input.file)
+              ? (await warmStepFor(input.file),
+                precheckModel(context, input.file))
               : await manager().execute(input);
         return reply({
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],

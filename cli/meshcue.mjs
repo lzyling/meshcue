@@ -17,6 +17,7 @@ import {
   docPaths,
 } from "../integration/manager.mjs";
 import { precheckModel } from "../integration/precheck.mjs";
+import { warmStepFor } from "../server/step.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 import { IntegrationError } from "../integration/context.mjs";
 
@@ -153,6 +154,7 @@ export async function run(
   if (action === "precheck") {
     if (!input.file)
       throw new IntegrationError("BAD_USAGE", "precheck needs --file.");
+    await warmStepFor(input.file);
     return precheckModel(
       { workspaceDir: workspace, agentId: "cli" },
       input.file,

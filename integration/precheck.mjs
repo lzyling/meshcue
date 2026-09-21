@@ -25,6 +25,11 @@ import { workspaceContext, scopedPath, fail } from "./context.mjs";
 const ratio = (target, actual) =>
   Math.max(0.01, Math.floor((target / actual) * 100) / 100);
 
+/* Stays synchronous, and every refusal in it stays a synchronous throw. Sizing
+   a STEP does need the tessellator loaded, but waiting for that here would turn
+   `PATH_SCOPE` and `MODEL_FORMAT` into rejected promises for every caller,
+   including the ones measuring an STL. The two entry points that can be handed
+   a file — the CLI and the MCP server — warm it first instead. */
 export function precheckModel(ctx, file) {
   const { workspace, allowed } = workspaceContext(ctx);
   const actual = scopedPath(allowed, file);

@@ -82,6 +82,11 @@ a small one — there is no band below these limits where something quietly gets
 worse. `precheck` measures a file before `open` and, when it is over, answers
 with the ratio to decimate by instead of a refusal after the fact.
 
+A STEP has no face count until it has been tessellated, so `precheck` tessellates
+it to measure it — the same tessellation `open` then publishes. Over the cap it
+says to simplify the model rather than giving a ratio, because there are no
+triangles in the file to decimate: the ones that were counted are ours.
+
 ## Running it
 
 Node.js 22 or newer, and a browser with WebGL.
@@ -91,7 +96,7 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 192 unit and integration tests
+npm test             # 200 unit and integration tests
 npm run test:browser # 74 real-Chromium tests, isolated port and data
 ```
 
@@ -158,3 +163,15 @@ how long that lasts.
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+STEP support is the one part that is not ours. Reading a STEP means evaluating
+its surfaces, which MeshCue does with
+[occt-import-js](https://github.com/kovacsv/occt-import-js) — a WebAssembly
+build of [Open CASCADE Technology](https://github.com/Open-Cascade-SAS/OCCT).
+Both are **LGPL-2.1**, and they stay that way: from a clone or an npm install
+the library resolves as an ordinary dependency, and the OpenClaw package carries
+it as two unmodified files in `vendor/` with both licence texts beside them,
+rather than folded into a bundle. That is deliberate. Replacing it — a different
+build, a newer OCCT — is a matter of swapping those two files, and a copy inside
+a bundle would be one nobody could swap. Everything MeshCue itself is remains
+Apache-2.0.

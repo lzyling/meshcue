@@ -74,6 +74,29 @@ execFileSync(
     env: { ...process.env, MESHCUE_VERSION: pluginManifest.version },
   },
 );
+/* The tessellator travels as two files rather than inside a bundle, and that is
+   the whole point of the arrangement. It is LGPL; this package is Apache-2.0.
+   Redistributing it is allowed, but what the licence asks us not to take away
+   is the reader's ability to replace it — and a copy inlined into an 800 KB
+   bundle is exactly the copy nobody can swap. Two files beside the server, with
+   both licence texts, stay replaceable: drop in a different build of the same
+   library and this package goes on working.
+
+   A clone or an npm install never reaches this copy; there it resolves out of
+   node_modules like any other dependency. Only the plugin needs it, because the
+   plugin has no node_modules at all. */
+const occtDist = path.join(repo, "node_modules/occt-import-js/dist");
+fs.mkdirSync(path.join(out, "vendor"), { recursive: true });
+for (const [name, as] of [
+  ["occt-import-js.js", "occt-import-js.js"],
+  ["occt-import-js.wasm", "occt-import-js.wasm"],
+  ["license.occt.txt", "LICENSE.occt.txt"],
+])
+  fs.copyFileSync(path.join(occtDist, name), path.join(out, "vendor", as));
+fs.copyFileSync(
+  path.join(repo, "node_modules/occt-import-js/LICENSE.md"),
+  path.join(out, "vendor", "LICENSE.occt-import-js.md"),
+);
 for (const name of ["package.json", "openclaw.plugin.json"]) {
   const source = path.join(repo, "adapters/openclaw", name);
   // Two declarations of the same version can drift, and the bundled server

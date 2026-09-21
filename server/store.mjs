@@ -165,7 +165,10 @@ export class ReviewStore {
   modelInBinding(filename) {
     return Object.values(this.state.models).some(
       (model) =>
-        model.filename === filename &&
+        // A source the viewer cannot draw reaches the page as the mesh derived
+        // from it, so a round grants access to both halves of the same version
+        // or the page would be refused the only file it can actually load.
+        (model.filename === filename || model.mesh?.filename === filename) &&
         this.state.modelBindings[model.id]?.includes(this.state.bindingId),
     );
   }

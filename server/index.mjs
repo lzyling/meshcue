@@ -9,6 +9,7 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
+import { warmStep } from "./step.mjs";
 import { MAX_ROUND_BYTES, MARK_WHOLE_FACE_BYTES } from "./budget.mjs";
 import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
@@ -931,14 +932,16 @@ app.get("/api/submissions/:id", (req, res) => {
 app.get("/api/download/:filename", (req, res) => {
   const filename = z
     .string()
-    .regex(/^[a-f0-9]{64}\.(glb|stl)$/)
+    .regex(/^[a-f0-9]{64}\.(glb|stl|step|stp)$/)
     .parse(req.params.filename);
   const model = Object.values(store.state.models).find(
     (m) => m?.filename === filename,
   );
   if (!model) throw new ReviewError("No such published version.", 404);
   rememberUse(req, res);
-  // Same immutable source bytes as the viewer, never a modified review mesh.
+  /* The published file, byte for byte -- never a modified review mesh, and for
+     a STEP never the tessellation either. What the page draws is derived; what
+     someone downloads is what the author actually published. */
   res.download(filename, `${model.name}-${model.version}.${model.format}`, {
     root: mediaDir,
   });
@@ -1084,7 +1087,11 @@ agentApp.post("/publish", (req, res) => {
     // hear about it rather than have the model published under a default.
     .strict()
     .parse(req.body);
-  const model = importModel(p, { workspace, mediaDir });
+  const model = importModel(p, {
+    workspace,
+    mediaDir,
+    generator: `MeshCue ${version}`,
+  });
   if (p.label) model.label = p.label;
   res.json(store.publish(model, p.origin, { activate: p.activate !== false }));
 });
@@ -1266,6 +1273,16 @@ app.get("/{*path}", (req, res) =>
   }),
 );
 app.use(errorHandler);
+/* Loading the tessellator costs about 14ms, so it happens once here rather than
+   inside the first publish that needs it. It is deliberately not fatal: a
+   review instance whose STEP support is missing or broken must still open, mark
+   and read back every GLB and STL it already holds. Only publishing a STEP
+   fails, and it fails saying so. */
+await warmStep().catch((error) =>
+  log.warn("service", "STEP support is unavailable in this instance", {
+    reason: error?.message,
+  }),
+);
 const port = Number(process.env.PORT || 43173);
 const server = app.listen(port, network.host, () =>
   log.info("service", "MeshCue listening", {

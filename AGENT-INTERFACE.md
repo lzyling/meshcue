@@ -190,9 +190,10 @@ controls. "Look, mark, then say what to change."
   you carry on marking that one. Nothing has to be closed off, and drafts save
   themselves.
 
-- First release: GLB/STL, up to 80 MB and 600,000 triangles. Animation,
-  skeletons and compressed GLB are not supported yet. This is a review tool; it
-  does not sculpt the model.
+- GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated
+  once when it arrives and your marks land on that mesh; downloading still gives
+  you the STEP itself. Animation, skeletons and compressed GLB are not supported
+  yet. This is a review tool; it does not sculpt the model.
 
 <!-- reviewer-help:end -->
 

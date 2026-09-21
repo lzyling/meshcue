@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError } from "./store.mjs";
+import { convertStep, STEP_FORMATS } from "./step.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -32,13 +33,40 @@ function limitError(message, code, measured) {
   return error;
 }
 
-export function inspectModel(buffer, format) {
+export function inspectModel(buffer, format, { generator } = {}) {
   if (!buffer.length || buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
       "MODEL_LIMIT",
       { bytes: buffer.length },
     );
+  /* STEP carries exact surfaces, so there is no face count to read -- it only
+     exists once the surfaces have been tessellated. Measuring it therefore
+     means doing the conversion, and the result is kept rather than thrown away:
+     the publish path writes this same mesh instead of converting a second time,
+     and `precheck` gets its count from the identical tessellation the reviewer
+     will be looking at. */
+  if (STEP_FORMATS.includes(format)) {
+    const derived = convertStep(buffer, { generator });
+    if (!derived.ok)
+      throw new ReviewError(
+        "The STEP could not be read; export it again from the modelling tool.",
+        400,
+        "MODEL_FORMAT",
+      );
+    if (derived.triangles > MAX_TRIANGLES)
+      throw limitError(
+        /* Deliberately not the "decimate by this ratio" advice the mesh formats
+           get. A STEP has no triangles to decimate -- the count came from our
+           tessellation of its surfaces, so the only thing the caller can act on
+           is the model itself. Telling them to scale a ratio they do not own
+           would send them somewhere with nothing to change. */
+        `Tessellating this STEP produces ${derived.triangles} triangles, over the ${MAX_TRIANGLES} limit. Simplify the model itself and export again; a STEP has no face count to reduce directly.`,
+        "MODEL_LIMIT",
+        { triangles: derived.triangles },
+      );
+    return { triangles: derived.triangles, format, derived };
+  }
   if (format === "glb") {
     if (
       buffer.length < 20 ||
@@ -198,12 +226,16 @@ export function inspectModel(buffer, format) {
       );
     return { triangles, format };
   }
-  throw new ReviewError("GLB and STL are supported.", 400, "MODEL_FORMAT");
+  throw new ReviewError(
+    "GLB, STL and STEP are supported.",
+    400,
+    "MODEL_FORMAT",
+  );
 }
 
 export function importModel(
   { file, name, version, source, units = "unspecified" },
-  { workspace, mediaDir },
+  { workspace, mediaDir, generator },
 ) {
   const actual = fs.realpathSync(path.resolve(workspace, file));
   if (!actual.startsWith(workspace + path.sep))
@@ -223,13 +255,44 @@ export function importModel(
     );
   const buffer = fs.readFileSync(actual),
     format = path.extname(actual).slice(1).toLowerCase();
-  const metadata = inspectModel(buffer, format);
+  const { derived, ...metadata } = inspectModel(buffer, format, { generator });
   const hash = crypto.createHash("sha256").update(buffer).digest("hex");
   const id = hash.slice(0, 24),
     filename = `${hash}.${format}`;
   fs.mkdirSync(mediaDir, { recursive: true });
   const target = path.join(mediaDir, filename);
   if (!fs.existsSync(target)) fs.writeFileSync(target, buffer);
+  /* A format the viewer cannot draw is stored as itself and travels with the
+     mesh that was made from it. `sha256` stays the source's, because that is
+     the file the author published, the one `download` returns and the one the
+     submission message names; `mesh.sha256` is what the page actually fetched
+     and checks itself against.
+
+     The derived file is content-addressed like every other stored model, which
+     is what freezes the face indices: the same STEP through the same
+     tessellation is byte-identical and resolves to the same file, so marks made
+     on it keep meaning the same faces. Should the parameters ever change, the
+     new tessellation lands under a new name instead of overwriting the mesh
+     some existing round was marked against. */
+  let mesh = null;
+  if (derived) {
+    const meshHash = crypto
+      .createHash("sha256")
+      .update(derived.glb)
+      .digest("hex");
+    const meshTarget = path.join(mediaDir, `${meshHash}.glb`);
+    if (!fs.existsSync(meshTarget)) fs.writeFileSync(meshTarget, derived.glb);
+    mesh = {
+      format: "glb",
+      sha256: meshHash,
+      filename: `${meshHash}.glb`,
+      stored: path.relative(workspace, meshTarget),
+      bytes: derived.glb.length,
+      meshes: derived.meshCount,
+      brepFaces: derived.brepFaces,
+      deflection: derived.deflection,
+    };
+  }
   return {
     id,
     sha256: hash,
@@ -244,6 +307,7 @@ export function importModel(
     stored: path.relative(workspace, target),
     bytes: buffer.length,
     ...metadata,
+    ...(mesh ? { mesh } : {}),
     publishedAt: Date.now(),
   };
 }

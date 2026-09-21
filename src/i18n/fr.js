@@ -253,5 +253,5 @@ export default {
   "help.p8":
     "« Envoyer à l'Agent » envoie ce lot ; l'Agent répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
   "help.p9":
-    "Première version : GLB/STL, jusqu'à 80 Mo et 600 000 triangles. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
+    "GLB, STL et STEP, jusqu'à 80 Mo et 600 000 triangles. Un STEP est triangulé une seule fois à son arrivée et vos annotations portent sur ce maillage ; le téléchargement renvoie toujours le STEP lui-même. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
 };

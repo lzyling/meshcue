@@ -1290,7 +1290,10 @@ async function loadVersion(fullState) {
   try {
     const stats = await viewer.load(
       model,
-      endpoint(`api/models/${model.filename}`),
+      // A source the viewer cannot draw travels with a mesh derived from it at
+      // import. The page loads that mesh; `download` still hands over the file
+      // the author published.
+      endpoint(`api/models/${(model.mesh ?? model).filename}`),
       (stage) => {
         $("#loading-text").textContent = stage;
       },
