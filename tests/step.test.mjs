@@ -204,6 +204,55 @@ test("a running instance serves the mesh to the page and the STEP to whoever dow
   assert.deepEqual(downloaded.raw, bytes());
 });
 
+/* The test above stops one call short of the page: it proves the mesh is served
+   and hashes correctly, but the viewer then has to report that hash back before
+   it is allowed to draw anything. Serving the right bytes and refusing them at
+   the handshake looks identical from here and entirely broken from a browser —
+   the page reports the model does not match what the Agent delivered, drops the
+   version it had, and the next poll starts the same load again, forever. */
+test("the page reports the hash of what it drew, which is the mesh and not the STEP", async (t) => {
+  const f = await startReview(t, { workspace: repo });
+  const model = (
+    await f.ipc("/publish", { file: FIXTURE, name: "Plate", version: "v1" })
+  ).body.model;
+  assert.notEqual(
+    model.mesh.sha256,
+    model.sha256,
+    "a STEP and its tessellation cannot be the same bytes; without that the rest of this test proves nothing",
+  );
+  const owner = { versionId: model.id, clientId: "step-viewer" };
+  const manifest = [
+    {
+      id: "mesh-0",
+      name: "plate",
+      triangles: model.triangles,
+      sourceTriangles: model.triangles,
+      surfaceAlgorithm: "midpoint-v3-edge0.07-rationed",
+      matrixWorld: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    },
+  ];
+
+  const drew = await f.api("ready", {
+    method: "POST",
+    body: { ...owner, sha256: model.mesh.sha256, meshes: manifest },
+  });
+  assert.equal(drew.status, 200, drew.body?.error ?? "");
+
+  // And the receipt says which bytes were verified, so "the viewer loaded this"
+  // stays checkable from outside.
+  const receipt = (await f.ipc("/status")).body.viewerReceipts[owner.clientId];
+  assert.equal(receipt.versionId, model.id);
+  assert.equal(receipt.sha256, model.mesh.sha256);
+
+  // The source hash is still the wrong answer here: it names the published file,
+  // never the bytes on screen, so a page claiming it did not draw this version.
+  const claimedSource = await f.api("ready", {
+    method: "POST",
+    body: { ...owner, sha256: model.sha256, meshes: manifest },
+  });
+  assert.equal(claimedSource.status, 409);
+});
+
 /* Measuring lag needs the loop to actually reach its timer phase. Awaiting a
    function that does its work synchronously only queues a microtask, so a loop
    written that way never yields at all and reports a serene zero while being

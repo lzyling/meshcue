@@ -200,6 +200,28 @@ try {
       200,
     );
   }
+  /* And the STEP round gets a real tab, because everything asserted about it
+     above was read off the disk -- and the one thing a browser does that no
+     file check can is report back which bytes it drew. 1.3.0-dev stored the
+     source, derived the mesh, served that mesh and hashed it correctly, then
+     refused the page's report of that same hash because it was measured
+     against the source. Every check out here passed; no reviewer could open
+     it, and the page reloaded itself forever saying the model was wrong. */
+  const stepPage = await context.newPage();
+  await stepPage.goto(published.url);
+  await stepPage.waitForSelector("canvas");
+  await stepPage.waitForFunction(
+    () => document.querySelector("#loading")?.hidden === true,
+  );
+  const stepStatus = await call({ action: "status", project: stepProject });
+  const drawn = Object.values(stepStatus.viewerReceipts)[0];
+  assert.ok(drawn, "a real browser must be able to draw a STEP round");
+  assert.equal(
+    drawn.sha256,
+    stepStatus.active.mesh.sha256,
+    "the page verifies the mesh it drew, never the source it cannot draw",
+  );
+  await stepPage.close();
   for (const project of projects) {
     const status = await call({ action: "status", project });
     assert.equal(status.codeRoot.startsWith(workspace), true);

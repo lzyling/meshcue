@@ -201,6 +201,14 @@ let pollFlight = null,
   labelCursor = 0,
   relocatingId = null,
   loadedPrecision = null,
+  // Which version's bytes were refused as not being the ones announced. A load
+  // that ends there drops the version it was holding, and the poll's job is to
+  // load whatever the page is not holding — so without remembering the refusal
+  // the two restart each other for as long as the tab is open, and the reason
+  // is overwritten by the next "verifying" before it can be read. Cleared by
+  // anything that changes the answer: a new round, a different version, or the
+  // reviewer asking again by hand.
+  refusedLoad = null,
   echoId = null;
 let recoveryBlocked = false,
   recoveryUrl = null,
@@ -1221,8 +1229,17 @@ function markVersionOverflow(bar) {
   bar.classList.toggle("overflow-start", bar.scrollLeft > 1);
   bar.classList.toggle("overflow-end", bar.scrollLeft < scrollable - 1);
 }
+function wasRefused(model, reviewId) {
+  return (
+    refusedLoad?.versionId === model.id &&
+    refusedLoad.sha256 === (model.mesh ?? model).sha256 &&
+    refusedLoad.reviewId === reviewId
+  );
+}
 async function selectVersion(id) {
   if (!id || id === viewingId || loadFlight || submitting) return;
+  // Clicking a tab is asking again on purpose, which is allowed to fail again.
+  refusedLoad = null;
   // Switching costs a full re-tessellation, and the guard above silently drops
   // anything clicked during one. Make the strip look as unavailable as it is,
   // so the clicks are not made in the first place.
@@ -1326,6 +1343,16 @@ async function loadVersion(fullState) {
       viewer.enabled = false;
       loadedId = null;
       loadedFilename = null;
+      // An identity failure is settled: these bytes will not start matching
+      // that hash on a second attempt, so stop asking and leave the reason on
+      // screen. Everything else — a dropped fetch, a service restarting — is
+      // worth another poll.
+      if (e.code === "HASH_MISMATCH")
+        refusedLoad = {
+          versionId: model.id,
+          sha256: (model.mesh ?? model).sha256,
+          reviewId: fullState.reviewId,
+        };
     }
     $("#loading-text").textContent = e.message;
     $("#loading .spinner").hidden = true;
@@ -1399,7 +1426,12 @@ async function readState() {
       );
       if (beginFlight || saveFlight || submitting || editSeq > savedSeq) return;
       state = full;
-      if (full.model || full.active) {
+      const candidate = full.model || full.active;
+      if (candidate && wasRefused(candidate, full.reviewId)) {
+        // Deliberately nothing: the reason this version is not on screen is
+        // already on screen, and loading it again would only replace it with a
+        // spinner and arrive at the same place.
+      } else if (candidate) {
         loadFlight = loadVersion(full);
         await loadFlight;
         loadFlight = null;

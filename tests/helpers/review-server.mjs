@@ -198,9 +198,12 @@ export async function startReview(
     version = "v1",
     name = "parametric-bracket.glb",
     originValue,
+    // A source the viewer cannot draw does not live with the drawable samples,
+    // so a test that needs one says where its file is instead.
+    file = `media/3d/3d-agent-review/samples/${name}`,
   ) {
     const r = await ipc("/publish", {
-      file: `media/3d/3d-agent-review/samples/${name}`,
+      file,
       name: "Isolated review",
       version,
       ...(originValue ? { origin: originValue } : {}),

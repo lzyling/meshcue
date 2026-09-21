@@ -762,6 +762,42 @@ test("a failed model download automatically retries and only enables editing aft
   ).toBe((await request("GET", "state")).data.active.id);
 });
 
+test("bytes that are not the announced version stop the page rather than looping it", async ({
+  page,
+}) => {
+  let served = 0;
+  await page.route("**/api/models/*", (route) => {
+    served++;
+    /* Delivered, readable and simply not this version — the one failure a
+       second attempt cannot change. The retry above is deliberate and stays;
+       telling the two apart is the whole point, because a load that ends here
+       drops the version the page was holding, and the poll exists to load
+       whatever the page is not holding. */
+    return route.fulfill({
+      status: 200,
+      contentType: "model/gltf-binary",
+      body: Buffer.from("these are not the bytes that were published"),
+    });
+  });
+  await page.goto(browserUrl);
+  await expect(page.locator("#loading-text")).toHaveText(
+    /does not match the version/,
+  );
+  await expect(page.locator("#loading .spinner")).toBeHidden();
+  expect(served).toBe(1);
+
+  // Three poll intervals: long enough that a page still trying would have tried
+  // again, and would also have replaced the reason above with its own spinner.
+  await page.waitForTimeout(2200 * 3);
+  expect(served).toBe(1);
+  await expect(page.locator("#loading-text")).toHaveText(
+    /does not match the version/,
+  );
+  await expect(
+    page.getByRole("button", { name: "Label tool", exact: true }),
+  ).toBeDisabled();
+});
+
 test("resuming a closed tab restores its unsynced local draft instead of replacing it with the older server draft", async ({
   page,
   context,

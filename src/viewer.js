@@ -465,7 +465,13 @@ export class ModelViewer {
        would fail every time and tell the reviewer their version was stale. */
     const shown = model.mesh ?? model;
     const hash = await modelDigest(data);
-    if (hash !== shown.sha256) throw new Error(t("model.versionMismatch"));
+    if (hash !== shown.sha256) {
+      // Coded like the service's own refusal, because they mean the same thing
+      // and the page has to stop retrying either of them.
+      const mismatch = new Error(t("model.versionMismatch"));
+      mismatch.code = "HASH_MISMATCH";
+      throw mismatch;
+    }
     if (epoch !== this.loadingEpoch) return;
     let object;
     if (shown.format === "glb") {

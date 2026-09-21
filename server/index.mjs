@@ -654,7 +654,15 @@ app.post("/api/ready", (req, res) => {
   store.assertVersion(p.versionId);
   // Verify against the version actually being looked at. Checking the active
   // one instead made every older tab fail its own integrity check.
-  if (p.sha256 !== store.state.models[p.versionId].sha256)
+  //
+  // And against the bytes that version puts on screen, which for a source the
+  // viewer cannot draw is its derived mesh rather than the file itself. The
+  // page can only ever report the hash of what it fetched; measuring that
+  // against the published source rejects every STEP round at the handshake and
+  // tells the reviewer their model does not match, which is both untrue and
+  // unfixable from their end. See server/models.mjs for which hash names what.
+  const version = store.state.models[p.versionId];
+  if (p.sha256 !== (version.mesh ?? version).sha256)
     throw new ReviewError(
       "The loaded file does not match what the Agent delivered.",
       409,
