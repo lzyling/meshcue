@@ -2015,6 +2015,25 @@ test("the Agent's understanding leaves on its own and comes back when asked", as
   const bubble = page.locator("#echo-panel");
   await expect(bubble).toBeVisible();
   await expect(page.locator("#echo-recall")).toBeVisible();
+  /* The bubble and the pill naming the file both want the bottom-right corner,
+     and the bubble is on top. While it only ever landed on the axis label that
+     was decoration covering decoration; the pill moved down here, so the one
+     round where the Agent says what it understood is the round that would hide
+     what the reviewer is looking at. */
+  expect(
+    await page.evaluate(() => {
+      const pill = document
+        .querySelector("#model-info")
+        .getBoundingClientRect();
+      const dock = document.querySelector("#echo-dock").getBoundingClientRect();
+      return (
+        pill.right <= dock.left ||
+        pill.left >= dock.right ||
+        pill.bottom <= dock.top ||
+        pill.top >= dock.bottom
+      );
+    }),
+  ).toBe(true);
   // Then it goes, instead of waiting to be dismissed by hand every round.
   await expect(bubble).toBeHidden({ timeout: 12000 });
   // What is left is a way to ask again — and asking is deliberate, so this time

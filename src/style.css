@@ -4,14 +4,20 @@
    review data and must read the same in both themes, so they are not themed. */
 :root {
   color-scheme: light dark;
-  /* The compass and the pill that names the file both live in the top-right
-     corner, and neither rule can see the other. They were written apart and
-     drifted into each other: the compass gave up its offset in 7fc0f79 on the
-     grounds that "this layout never shows" the pill, which was true only
-     because a stray rule was hiding it at every width. One number both sides
-     read is what stops that happening again; tests/package-smoke.mjs asserts
-     the two boxes do not meet. */
+  /* Four things float over the model from rules that cannot see each other,
+     and twice now one has quietly moved on top of another: the compass took
+     back its offset in 7fc0f79 because "this layout never shows" the pill it
+     was avoiding -- true only because a stray rule had been hiding that pill
+     at every width. Each corner therefore has one number that both sides read,
+     and package-smoke.mjs and the echo spec compare the actual boxes.
+
+     --orient-reach  how far in from the right edge the compass comes, so the
+                     top row can end before it.
+     --bottom-row-reach  how high the bottom row stands, so the echo bubble --
+                     the only other thing wanting that corner -- starts above
+                     it instead of over the file's name. */
   --orient-reach: 116px;
+  --bottom-row-reach: 40px;
   font-family:
     Inter,
     -apple-system,
@@ -494,10 +500,11 @@ a {
   display: flex;
   gap: 8px;
   pointer-events: none;
-  /* The right-hand pill is pushed to this edge, which is the compass's edge
-     too. Keeping the row out of its reach is what lets both sit on the same
-     line; the alternative, pushing the compass back down, would take the row
-     above the model away again. */
+  /* This row ends on the compass's edge, and the compass paints over it. The
+     status text is the only thing left up here and it is the one that grows --
+     a long line would run in under the cube exactly as the format pill did.
+     Reserving the compass's own width is cheaper than pushing it back down,
+     which would take the row above the model away again. */
   padding-right: calc(var(--orient-reach) + 8px);
 }
 .scene-pill {
@@ -761,6 +768,12 @@ a {
   bottom: 15px;
   display: flex;
   justify-content: space-between;
+  /* Three things now: the current tool's hint on the left, and on the right
+     the pill naming the file followed by the axis label. The pill's own
+     `margin-left: auto` is what groups the right-hand pair; these two keep
+     them on one line and apart. */
+  align-items: center;
+  gap: 8px;
   font-size: 9px;
   color: var(--ink-faint);
   pointer-events: none;
@@ -1403,11 +1416,14 @@ dialog .muted {
   padding: 5px 9px;
 }
 /* Bottom right, out of the way of the toolbar beneath the model and the cube
-   above it — and speaking like a remark rather than a banner across the view. */
+   above it — and speaking like a remark rather than a banner across the view.
+   It used to start 14px up, which put it over the bottom row; that only ever
+   covered the axis label, which is decoration, so nobody noticed. The row now
+   carries the pill naming the file, so the bubble starts above it. */
 #echo-dock {
   position: absolute;
   right: 14px;
-  bottom: 14px;
+  bottom: var(--bottom-row-reach);
   display: flex;
   flex-direction: column;
   align-items: flex-end;

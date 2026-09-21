@@ -231,7 +231,36 @@ try {
     if (!el) return null;
     const style = getComputedStyle(el);
     const box = el.getBoundingClientRect();
-    const compass = document.querySelector(".orient")?.getBoundingClientRect();
+    const shell = document
+      .querySelector(".viewer-shell")
+      .getBoundingClientRect();
+    /* Everything that floats over the model is placed by a rule that cannot
+       see the others, and the pill is the one that loses -- it is the only one
+       with nothing underneath it to claim room. Naming the neighbours one at a
+       time is how the compass got missed, so ask all of them. Visible is not
+       the same as legible. */
+    const overlaps = [
+      ".orient",
+      ".toolbar",
+      "#echo-dock",
+      "#tool-hint",
+      ".axis-label",
+      "#review-status",
+      "#tool-options",
+    ].filter((selector) => {
+      const other = document.querySelector(selector);
+      if (!other) return false;
+      const seen = getComputedStyle(other);
+      if (seen.display === "none" || seen.visibility === "hidden") return false;
+      const rect = other.getBoundingClientRect();
+      if (!rect.width || !rect.height) return false;
+      return !(
+        box.right <= rect.left ||
+        box.left >= rect.right ||
+        box.bottom <= rect.top ||
+        box.top >= rect.bottom
+      );
+    });
     return {
       text: el.textContent,
       shown:
@@ -240,22 +269,23 @@ try {
         Number(style.opacity) > 0 &&
         box.width > 0 &&
         box.height > 0,
-      /* Both of these are pinned to the same corner by rules that cannot see
-         each other, and the pill is the one that loses: the compass paints
-         over it. Un-hiding the pill without this check bought a pill whose
-         tail -- the format and the units, the whole reason it exists -- was
-         behind a cube. Visible is not the same as legible. */
-      clear: !compass
-        ? null
-        : box.right <= compass.left ||
-          box.left >= compass.right ||
-          box.bottom <= compass.top ||
-          box.top >= compass.bottom,
+      overlaps,
+      // Asked for in the bottom-right of the view, so state the corner rather
+      // than the offsets that happen to put it there.
+      corner: {
+        right: box.left > shell.left + shell.width / 2,
+        bottom: box.top > shell.top + shell.height / 2,
+      },
     };
   });
   assert.ok(named, "the format has to be written somewhere on the page");
   assert.equal(named.shown, true, "and it has to be visible at desktop width");
-  assert.equal(named.clear, true, "with nothing painted over it");
+  assert.deepEqual(named.overlaps, [], "with nothing painted over it");
+  assert.deepEqual(
+    named.corner,
+    { right: true, bottom: true },
+    "in the bottom-right of the view, where the reviewer asked for it",
+  );
   assert.match(named.text, /STEP/, "a STEP round says STEP");
   assert.match(named.text, /344/, "beside the count it was measured at");
   /* This round was published without units, so the pill renders the record's

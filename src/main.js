@@ -131,7 +131,7 @@ app.innerHTML = `${SPRITE}
   <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
-   <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span><span class="scene-pill subtle" id="model-info"></span></div>
+   <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span></div>
    <div class="orient">
     <div class="orient-stage"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div></div>
     <button class="orient-home quiet-dark" id="home-view" title="${T("cube.homeTitle")}" aria-label="${T("cube.homeLabel")}">${icon("home")}</button>
@@ -146,7 +146,7 @@ app.innerHTML = `${SPRITE}
    <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
-   <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="axis-label">3D SPACE</span></div>
+   <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
   </div>
   </div>
   <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-latest" class="quiet">${T("version.goLatest")}</button></div>
