@@ -19,7 +19,7 @@ import {
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
-import { summarizeSubmission } from "./summarize.mjs";
+import { summarizeSubmission, readReceipt } from "./summarize.mjs";
 import {
   workspaceContext,
   contextSummary,
@@ -801,7 +801,9 @@ export class InstanceManager {
         return {
           submission:
             input.geometry === true ? batch : summarizeSubmission(batch),
-          receipt,
+          // The acknowledgement only; the batch itself is above. See
+          // `readReceipt` for what the rest of it was duplicating.
+          receipt: readReceipt(receipt),
         };
       }
       if (input.action === "echo") {

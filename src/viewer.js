@@ -327,15 +327,24 @@ export class ModelViewer {
       0,
     );
   }
-  /* Where a mark is and how much of the model it covers, in world units, so
-     that the agent can be told without being handed the geometry.
+  /* Where a mark is and how much of the model it covers, in the model's own
+     units, so that the agent can be told without being handed the geometry.
 
      It has to be computed here because this is the only place that can. The
      service keeps counts and a transform per mesh, not triangles, and under
      `source-v2` a mark whose faces were all taken whole carries no coordinate
      at all — the extent is a list of face numbers, and only the loaded model
      knows where those are. So the browser works it out once per save and sends
-     it along, at about a hundred bytes for a mark of any size. */
+     it along, at about a hundred bytes for a mark of any size.
+
+     `root` carries the preview fit — every model is scaled into a 3-unit box
+     and centred — so scene coordinates are a rendering detail and mean nothing
+     to anyone reading the batch. Until 1.3.0-dev these numbers were taken
+     straight out of that space while a pin's `position` was already in the
+     model's, and the two sat side by side in one array: a 160 mm assembly
+     reported a stroke 2.85 across and 1.35 in area, which reads as millimetres
+     and is out by 53 and by 2,845. Undoing `root` puts both in the same frame,
+     and it is the only frame shared by marks that span several parts. */
   annotationBounds(a) {
     if (a.type !== "region") return null;
     const lo = [Infinity, Infinity, Infinity];
@@ -344,9 +353,28 @@ export class ModelViewer {
     let area = 0;
     let count = 0;
     const cross = [0, 0, 0];
+    /* Composed up the chain and stopped at `root`, rather than going out to
+       world and dividing the fit back out. The fit is 3/maxDim, which is not
+       exact in binary, so multiplying by it and undoing it leaves a residue --
+       a corner at the origin came back as -2.8e-14, which then survives
+       `toPrecision` and is read by whoever gets the batch. Stopping short of
+       `root` never multiplies by it at all, and costs one matrix per mesh
+       instead of two transforms per vertex. */
+    const frames = new Map();
+    const frameOf = (mesh) => {
+      let m = frames.get(mesh);
+      if (!m) {
+        m = new THREE.Matrix4();
+        for (let o = mesh; o && o !== this.root; o = o.parent)
+          m.premultiply(o.matrix);
+        frames.set(mesh, m);
+      }
+      return m;
+    };
     const take = (mesh, vertices) => {
+      const frame = frameOf(mesh);
       const world = vertices.map((p) =>
-        mesh.localToWorld(new V().fromArray(p)).toArray(),
+        new V().fromArray(p).applyMatrix4(frame).toArray(),
       );
       for (const p of world) {
         for (let i = 0; i < 3; i++) {
@@ -385,6 +413,9 @@ export class ModelViewer {
     if (!count) return null;
     const round = (v) => Number(v.toPrecision(6));
     return {
+      // Named, because a batch saved before 1.3.0-dev carries the preview's
+      // numbers under the same four keys and nothing else tells them apart.
+      space: "model",
       centroid: total.map((v) => round(v / count)),
       min: lo.map(round),
       max: hi.map(round),

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   summarizeAnnotation,
   summarizeSubmission,
+  readReceipt,
 } from "../integration/summarize.mjs";
 
 /* The property worth pinning is not the ratio but the flatness: a summary is
@@ -140,6 +141,82 @@ test("the batch keeps everything that says what it is", () => {
   assert.equal(out.annotations[0].id, "r1");
 });
 
+/* The flatness above is a property of the marks. The manifest is not a mark:
+   it grows with the model, and a CAD assembly arrives with its whole parts
+   list. A real four-mark batch against a 128-part assembly was 72,346 bytes,
+   65,500 of it manifest. */
+test("the manifest is cut to the meshes the marks are on", () => {
+  const meshes = Array.from({ length: 128 }, (_, i) => ({
+    id: `mesh-${i}`,
+    name: `PART_${i}`,
+    triangles: 900,
+    sourceTriangles: 300,
+    matrixWorld: [
+      0.01875, 0, 0, 0, 0, 0.01875, 0, 0, 0, 0, 0.01875, 0, 0, 0, 0, 1,
+    ],
+  }));
+  const batch = {
+    id: "sub-2",
+    versionId: "v9",
+    meshManifest: { versionId: "v9", meshes },
+    annotations: [
+      {
+        id: "r1",
+        type: "region",
+        color: "#e76d5c",
+        coverage: "source-v2",
+        faces: { "mesh-0": [1], "mesh-64": [2] },
+        surfacePatches: [
+          { meshId: "mesh-7", faceIndex: 2, sourceFaceIndex: 2 },
+        ],
+      },
+      {
+        id: "p1",
+        type: "pin",
+        label: "A",
+        color: "#e76d5c",
+        meshId: "mesh-109",
+      },
+    ],
+  };
+  const out = summarizeSubmission(batch);
+  assert.deepEqual(
+    out.meshManifest.meshes.map((m) => m.id).sort(),
+    ["mesh-0", "mesh-109", "mesh-64", "mesh-7"],
+    "a mesh is kept when a pin, a face list or a patch names it",
+  );
+  // Without this an agent reads four parts and believes the model has four.
+  assert.equal(out.meshManifest.omittedMeshes, 124);
+  assert.equal(out.meshManifest.versionId, "v9");
+  assert.ok(
+    JSON.stringify(out).length * 8 < JSON.stringify(batch).length,
+    "the cut has to be worth making",
+  );
+});
+
+/* Both numbers were called the same four things and sat in one array: a pin's
+   position in the model's millimetres, a region's extent in the preview's
+   3-unit box. */
+test("a region's extent says which space it was measured in", () => {
+  const marked = summarizeAnnotation({
+    ...region([1], []),
+    bounds: {
+      space: "model",
+      centroid: [0, 0, 0],
+      min: [-76, -18, -23.7],
+      max: [76, 30.6, 14.5],
+      area: 3845.8,
+    },
+  });
+  assert.equal(marked.space, "model");
+  assert.deepEqual(marked.max, [76, 30.6, 14.5]);
+  // An older batch is in the preview's coordinates and must not be relabelled
+  // as the model's; the absence is the only thing that says so.
+  const legacy = summarizeAnnotation(region([1], []));
+  assert.equal("space" in legacy, false);
+  assert.equal(legacy.area, 341.5);
+});
+
 test("a batch with no annotations passes through untouched", () => {
   const batch = { id: "sub-2", status: "stalled" };
   assert.equal(summarizeSubmission(batch), batch);
@@ -162,4 +239,59 @@ test("the measured shape of the change, on a real batch", () => {
     full.length / brief.length > 50,
     `expected the description to be far smaller (${full.length} vs ${brief.length})`,
   );
+});
+
+/* `read` answers with the batch and a receipt. The service builds that receipt
+   from the whole stored record, so everything the summary just described was
+   being sent a second time beside it — manifest included, which is the part
+   that grows with the model. */
+test("the read receipt acknowledges delivery without repeating the batch", () => {
+  const stored = {
+    id: "sub-3",
+    versionId: "v9",
+    revision: 5,
+    status: "accepted",
+    sealed: false,
+    attempts: 1,
+    deliveredAt: 1789981900008,
+    readAt: 1789981908394,
+    lastError: null,
+    stalledAt: null,
+    reviewId: "r",
+    bindingId: "b",
+    origin: { harness: "openclaw" },
+    model: { id: "v9", name: "Assembly", bytes: 21259257 },
+    meshManifest: {
+      versionId: "v9",
+      meshes: Array.from({ length: 128 }, (_, i) => ({ id: `mesh-${i}` })),
+    },
+    camera: { position: [1, 2, 3], target: [0, 0, 0] },
+  };
+  const out = readReceipt(stored);
+  assert.equal(out.readAt, 1789981908394);
+  assert.equal(out.deliveredAt, 1789981900008);
+  assert.equal(out.status, "accepted");
+  assert.equal(out.sealed, false);
+  for (const key of [
+    "meshManifest",
+    "model",
+    "camera",
+    "origin",
+    "annotations",
+  ])
+    assert.equal(key in out, false, `the receipt still carries ${key}`);
+  // Nulls are the absence of a fault, and the absence needs no field.
+  assert.equal("lastError" in out, false);
+  assert.equal("stalledAt" in out, false);
+});
+
+test("a receipt reporting a fault keeps the reason", () => {
+  const out = readReceipt({
+    id: "sub-4",
+    status: "stalled",
+    stalledAt: 7,
+    lastError: { code: "INVALID_REQUEST", message: "no route" },
+  });
+  assert.equal(out.stalledAt, 7);
+  assert.equal(out.lastError.message, "no route");
 });

@@ -212,10 +212,17 @@ A submission is a set of positions, not an instruction to change anything.
   belong to the subdivided review mesh.
 - **`read` describes a batch; it does not hand over its geometry.** Each mark
   arrives as its identity, its `faces` count per mesh, how many of those faces
-  were taken whole against how many hold polygons, and — in world units —
-  `centroid`, `min`, `max` and `area`. That is the same size for a mark of
-  twenty-five faces and one of twenty thousand, and it is what tells you where
-  the reviewer painted and how much. `geometry: "omitted"` says so on the batch.
+  were taken whole against how many hold polygons, and — carrying
+  `space: "model"` — `centroid`, `min`, `max` and `area`. That is the same size
+  for a mark of twenty-five faces and one of twenty thousand, and it is what
+  tells you where the reviewer painted and how much. `geometry: "omitted"` says
+  so on the batch.
+- **`space: "model"` means the model's own units** — the ones its file is
+  dimensioned in, the same ones a pin's `position` is in. A region saved before
+  1.3.0 carries the four numbers with no `space`, and those are the preview's:
+  every model is scaled into a 3-unit box, so on a 160 mm assembly they are out
+  by a factor of 53 and an area by 2,845. **Do not read an unmarked `bounds` as
+  millimetres.** To use one, divide by the scale in that mesh's `matrixWorld`.
 - **Read again with `geometry: true` only when the polygons themselves are
   needed** — to echo a region back, or to measure one exactly. It is never
   needed in order to work out what a mark means, and on a large batch it is
@@ -238,6 +245,11 @@ A submission is a set of positions, not an instruction to change anything.
   counts, and `matrixWorld`. Local coordinates are not rewritten by preview
   centring or scaling. The current review subdivision is
   `midpoint-v3-edge0.07-rationed`.
+- **The summary's manifest lists only the meshes these marks are on**, and
+  `omittedMeshes` counts the rest — five entries beside `omittedMeshes: 123` is
+  a 128-part model, not a five-part one. The manifest is the one part of a batch
+  that grows with the model rather than with the marking, and a CAD assembly
+  brings its whole parts list; `geometry: true` returns all of it.
 - `camera` is the reviewing viewpoint. **Every index is valid only against its
   SHA-256 and the current algorithm** — none of it transfers to a rebuilt model.
 

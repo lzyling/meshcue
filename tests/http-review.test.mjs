@@ -17,11 +17,15 @@ const nextOrigin = {
   sessionKey: "test-http-topic-42",
   threadId: "42",
 };
+/* Subdivided, and the pin below lands on a triangle whose two numbers differ.
+   Held at one face each, every index in this file was 0 and the review mesh
+   was indistinguishable from the source — so a line that printed the wrong one
+   of the two read exactly like a line that printed the right one. */
 const mesh = {
   id: "mesh-0",
   name: "isolated",
-  triangles: 1,
-  sourceTriangles: 1,
+  triangles: 4,
+  sourceTriangles: 2,
   surfaceAlgorithm: "midpoint-v3-edge0.07-rationed",
   matrixWorld: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
 };
@@ -32,8 +36,8 @@ const annotations = [
     label: "A",
     color: "#e76d5c",
     meshId: "mesh-0",
-    faceIndex: 0,
-    sourceFaceIndex: 0,
+    faceIndex: 3,
+    sourceFaceIndex: 1,
     position: [0, 0, 0],
     normal: [0, 1, 0],
     barycentric: [1, 0, 0],
@@ -447,6 +451,12 @@ test("real HTTP submission preserves explicit topic route and does not route old
     JSON.parse(fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"));
   const send = log().calls.find((c) => c.method === "chat.send").params;
   assert.equal(send.deliver, true);
+  /* The number in the message and the number `read` answers with have to be
+     the same one, and it has to say which mesh it counts in. They were the
+     review triangle and the source triangle respectively, both printed as
+     "face N": two integers for one pin, and nothing on either saying so. */
+  assert.match(send.message, /A: pin on mesh-0, source face 1\b/);
+  assert.equal(send.message.includes("face 3"), false);
   // The batch's own sessionKey is the whole route; naming the destination
   // explicitly is an admin-scoped override the real Gateway refuses.
   assert.equal(send.sessionKey, origin.sessionKey);

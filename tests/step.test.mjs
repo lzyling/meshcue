@@ -202,6 +202,19 @@ test("a running instance serves the mesh to the page and the STEP to whoever dow
     "download hands over the file the author published, not our tessellation",
   );
   assert.deepEqual(downloaded.raw, bytes());
+
+  /* Both files stay on disk for as long as the version does, so both have to
+     be in the number that exists to make disk use conspicuous. Counting the
+     source alone shaved every STEP round -- and the ones worth noticing are
+     exactly the assemblies whose derived mesh is largest. */
+  const storage = (await f.ipc("/status")).body.storage;
+  assert.equal(storage.models, 1);
+  assert.equal(
+    storage.bytes,
+    model.bytes + model.mesh.bytes,
+    "a STEP keeps a source and a mesh; storage that names one is not the disk",
+  );
+  assert.ok(model.mesh.bytes > 0);
 });
 
 /* The test above stops one call short of the page: it proves the mesh is served

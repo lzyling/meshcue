@@ -331,15 +331,25 @@ const annotation = z.discriminatedUnion("type", [
       coverage: z.enum(["brush-v1", "source-v1", "source-v2"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-      /* Where the mark is and how much surface it covers, in world units,
-         worked out by the browser because nothing else can: this service keeps
-         a triangle count and a transform per mesh, not triangles, and a
+      /* Where the mark is and how much surface it covers, in the model's own
+         units, worked out by the browser because nothing else can: this service
+         keeps a triangle count and a transform per mesh, not triangles, and a
          `source-v2` mark whose faces were all taken whole carries no
          coordinate of its own. It is descriptive — nothing is authorised by it
          and no geometry is derived from it — which is why a hundred bytes of
-         it is worth carrying for a mark of any size. */
+         it is worth carrying for a mark of any size.
+
+         `space` is optional because batches saved before 1.3.0-dev are in the
+         preview's scaled coordinates and have to stay readable as what they
+         are; it is never added to them after the fact. */
       bounds: z
-        .object({ centroid: vec3, min: vec3, max: vec3, area: z.number() })
+        .object({
+          space: z.literal("model").optional(),
+          centroid: vec3,
+          min: vec3,
+          max: vec3,
+          area: z.number(),
+        })
         .strict()
         .optional(),
       faces: z.record(id, z.array(z.number().int().min(0)).max(MAX_TRIANGLES)),
@@ -803,7 +813,14 @@ function deliverFeedback(item) {
         const summary = item.annotations
           .map((a) =>
             a.type === "pin"
-              ? `${a.label}: pin on ${a.meshId}, face ${a.faceIndex}`
+              ? /* The source face, and said so. A pin carries two numbers --
+                   the triangle of the review subdivision and the one it came
+                   from in the model -- and this line used to print the first
+                   while `read` returns the second, under the bare word "face"
+                   in both. Two different integers for one pin, neither saying
+                   which mesh it counts in, is a discrepancy an agent has to
+                   stop and resolve before it can trust either. */
+                `${a.label}: pin on ${a.meshId}, source face ${a.sourceFaceIndex ?? a.faceIndex}`
               : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1", "source-v2"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position`,
           )
           .join("\n");
@@ -1005,10 +1022,15 @@ agentApp.get("/status", (req, res) =>
     // — an older one stays markable. The cost is that a long project grows one
     // model file per revision with nothing watching. Report it from the sizes
     // already recorded rather than walking the directory on every poll.
+    /* A STEP keeps two files, not one: the source that was published and the
+       mesh derived from it at import, both on disk for as long as the version
+       lives. Counting only the source under-reported every STEP round — and
+       the derived mesh of a 21 MB assembly is 3 MB, so the number this exists
+       to make conspicuous was the one being shaved. */
     storage: {
       models: Object.keys(store.state.models).length,
       bytes: Object.values(store.state.models).reduce(
-        (sum, model) => sum + (model.bytes || 0),
+        (sum, model) => sum + (model.bytes || 0) + (model.mesh?.bytes || 0),
         0,
       ),
     },

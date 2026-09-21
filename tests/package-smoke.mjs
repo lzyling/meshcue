@@ -221,6 +221,30 @@ try {
     stepStatus.active.mesh.sha256,
     "the page verifies the mesh it drew, never the source it cannot draw",
   );
+  /* There is deliberately no header row naming the model -- see the note in
+     src/main.js -- so this one pill is the whole of what tells the reviewer
+     which kind of file they are looking at. A STEP round that does not say
+     STEP is indistinguishable on screen from a mesh one, and the reviewer has
+     no other way to tell that what they are marking was tessellated for them. */
+  const named = await stepPage.evaluate(() => {
+    const el = document.querySelector("#model-info");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    return {
+      text: el.textContent,
+      shown:
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity) > 0 &&
+        box.width > 0 &&
+        box.height > 0,
+    };
+  });
+  assert.ok(named, "the format has to be written somewhere on the page");
+  assert.equal(named.shown, true, "and it has to be visible at desktop width");
+  assert.match(named.text, /STEP/, "a STEP round says STEP");
+  assert.match(named.text, /344/, "beside the count it was measured at");
   await stepPage.close();
   for (const project of projects) {
     const status = await call({ action: "status", project });
