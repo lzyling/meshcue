@@ -16,8 +16,7 @@ import {
   inspectInstall,
   docPaths,
 } from "../integration/manager.mjs";
-import { precheckModel } from "../integration/precheck.mjs";
-import { warmStepFor } from "../server/step.mjs";
+import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 import { IntegrationError } from "../integration/context.mjs";
 
@@ -154,11 +153,10 @@ export async function run(
   if (action === "precheck") {
     if (!input.file)
       throw new IntegrationError("BAD_USAGE", "precheck needs --file.");
-    await warmStepFor(input.file);
-    return precheckModel(
-      { workspaceDir: workspace, agentId: "cli" },
-      input.file,
-    );
+    const context = { workspaceDir: workspace, agentId: "cli" };
+    return precheckModel(context, input.file, {
+      derived: await stepMeshFor(context, input.file),
+    });
   }
   const manager = new InstanceManager(
     { workspaceDir: workspace, agentId: "cli" },

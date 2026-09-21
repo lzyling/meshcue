@@ -29,7 +29,7 @@ function fixture(t, { id = "meshcue", extra = {} } = {}) {
   // relative to the copy it is running from. A fixture without them is cleaner
   // than anything that is ever installed, which is how a release that shipped
   // neither passed every test here.
-  write("runtime/step-worker.mjs", "export const worker = 1;\n");
+  write("runtime/step-child.mjs", "export const worker = 1;\n");
   write("vendor/occt-import-js.js", "module.exports = () => ({});\n");
   write("vendor/occt-import-js.wasm", "\0asm-not-really\n");
   write("vendor/package.json", JSON.stringify({ type: "commonjs" }));
@@ -89,7 +89,7 @@ test("a release carries everything the server resolves beside itself", (t) => {
   const runtime = path.dirname(release.serverEntry);
 
   assert.equal(
-    fs.existsSync(path.join(runtime, "step-worker.mjs")),
+    fs.existsSync(path.join(runtime, "step-child.mjs")),
     true,
     "the server starts the worker by URL relative to itself",
   );
@@ -123,10 +123,7 @@ test("a release carries everything the server resolves beside itself", (t) => {
 
   // And they are hashed like everything else, or they are the one part of a
   // verified release that could be swapped after verification.
-  fs.writeFileSync(
-    path.join(runtime, "step-worker.mjs"),
-    "export const w=2;\n",
-  );
+  fs.writeFileSync(path.join(runtime, "step-child.mjs"), "export const w=2;\n");
   assert.throws(() => cachedRelease(f.runtime, release.id), /verification/);
 });
 

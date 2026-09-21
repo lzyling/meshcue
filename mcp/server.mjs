@@ -16,8 +16,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
-import { precheckModel } from "../integration/precheck.mjs";
-import { warmStepFor } from "../server/step.mjs";
+import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -145,8 +144,9 @@ export function createHandler({
           input.action === "inspect"
             ? inspectInstall(context, root)
             : input.action === "precheck"
-              ? (await warmStepFor(input.file),
-                precheckModel(context, input.file))
+              ? precheckModel(context, input.file, {
+                  derived: await stepMeshFor(context, input.file),
+                })
               : await manager().execute(input);
         return reply({
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],

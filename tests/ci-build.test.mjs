@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -87,9 +87,9 @@ test("the workflow asks for the skip rather than relying on a bare runner", () =
    where a factory function was expected, and nothing said so until a STEP was
    published from an installed plugin.
 
-   So this runs the packaged worker, from the packaged layout, on a real file. */
+   So this runs the packaged converter, from the packaged layout, on a real
+   file. */
 test("the packaged converter runs from the package, not from node_modules", async (t) => {
-  const { Worker } = await import("node:worker_threads");
   const out = candidate(t, "ci-step");
   build(out, { MESHCUE_SKIP_HOST_BUILD: "1" });
   const pkg = path.join(repo, out);
@@ -104,20 +104,27 @@ test("the packaged converter runs from the package, not from node_modules", asyn
     "without this the plugin's own module type reaches the library and changes what it exports",
   );
   const source = fs.readFileSync(path.join(repo, "tests/fixtures/plate.step"));
+  /* Driven the way the server drives it -- its own process, the model on stdin,
+     the frame on descriptor 3 -- because the packaged copy is where the last two
+     STEP bugs lived and neither was reachable from the source tree. */
   const result = await new Promise((resolve, reject) => {
-    const worker = new Worker(path.join(pkg, "runtime/step-worker.mjs"), {
-      workerData: {
-        buffer: source.buffer.slice(
-          source.byteOffset,
-          source.byteOffset + source.byteLength,
-        ),
-        generator: "packaged",
-      },
+    const child = spawn(
+      process.execPath,
+      [path.join(pkg, "runtime/step-child.mjs"), "packaged"],
+      { stdio: ["pipe", "ignore", "ignore", "pipe"] },
+    );
+    const chunks = [];
+    child.stdio[3].on("data", (chunk) => chunks.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      const answer = Buffer.concat(chunks);
+      if (answer.length < 4)
+        return reject(new Error(`no frame from the packaged child (${code})`));
+      resolve(JSON.parse(answer.subarray(4, 4 + answer.readUInt32LE(0))));
     });
-    worker.once("message", resolve);
-    worker.once("error", reject);
+    child.stdin.end(source);
   });
-  assert.ok(result.ok, "the packaged worker converted nothing");
+  assert.ok(result.ok, "the packaged converter converted nothing");
   assert.ok(result.triangles > 100);
   assert.ok(result.brepFaces > 0);
 });

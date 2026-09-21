@@ -6,6 +6,7 @@ import {
   MAX_TRIANGLES,
   MAX_TEXTURE_PIXELS,
 } from "../server/models.mjs";
+import { convertStepDetached, STEP_FORMATS } from "../server/step.mjs";
 import { workspaceContext, scopedPath, fail } from "./context.mjs";
 
 // Publishing already rejects an oversized model, but only after the caller has
@@ -25,12 +26,15 @@ import { workspaceContext, scopedPath, fail } from "./context.mjs";
 const ratio = (target, actual) =>
   Math.max(0.01, Math.floor((target / actual) * 100) / 100);
 
-/* Stays synchronous, and every refusal in it stays a synchronous throw. Sizing
-   a STEP does need the tessellator loaded, but waiting for that here would turn
-   `PATH_SCOPE` and `MODEL_FORMAT` into rejected promises for every caller,
-   including the ones measuring an STL. The two entry points that can be handed
-   a file — the CLI and the MCP server — warm it first instead. */
-export function precheckModel(ctx, file) {
+/* Sizing a STEP means tessellating it, and that cannot happen in the process
+   that calls this one: the OpenClaw adapter calls it inside the Gateway, and
+   the MCP server lives as long as its client. So the conversion is handed in,
+   from `stepMeshFor` below.
+
+   This stays synchronous, and every refusal in it stays a synchronous throw.
+   Awaiting here instead would turn `PATH_SCOPE` and `MODEL_FORMAT` into
+   rejected promises for every caller, including the ones measuring an STL. */
+export function precheckModel(ctx, file, { derived } = {}) {
   const { workspace, allowed } = workspaceContext(ctx);
   const actual = scopedPath(allowed, file);
   const stat = fs.statSync(actual);
@@ -58,7 +62,7 @@ export function precheckModel(ctx, file) {
     };
   let metadata;
   try {
-    metadata = inspectModel(fs.readFileSync(actual), format);
+    metadata = inspectModel(fs.readFileSync(actual), format, { derived });
   } catch (error) {
     // A malformed or unsupported file is not a sizing answer; let it surface as
     // itself. Only the two size limits become a verdict.
@@ -90,4 +94,34 @@ export function precheckModel(ctx, file) {
     reason: `${triangles} triangles, ${(stat.size / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
     simplify: null,
   };
+}
+
+/* What every entry point awaits before measuring, and the reason none of them
+   loads a CAD kernel any more.
+
+   It decides nothing. A bad path, a directory, a file over the size limit, a
+   format this does not handle -- all of them resolve to `undefined` here and
+   are reported by `precheckModel`, synchronously, in the words it already uses.
+   Duplicating the resolution costs a `statSync`; duplicating the verdicts would
+   cost two places that can disagree about the same file. The one thing it must
+   not do is tessellate something the size check is about to reject anyway. */
+export async function stepMeshFor(ctx, file) {
+  let source;
+  try {
+    const { allowed } = workspaceContext(ctx);
+    const actual = scopedPath(allowed, file);
+    const format = path.extname(actual).slice(1).toLowerCase();
+    if (!STEP_FORMATS.includes(format)) return undefined;
+    const stat = fs.statSync(actual);
+    if (!stat.isFile() || stat.size > MAX_BYTES) return undefined;
+    source = fs.readFileSync(actual);
+  } catch {
+    return undefined;
+  }
+  /* Outside the catch, deliberately. Everything above is a question about the
+     file that `precheckModel` is about to answer better; a converter that
+     cannot run is not one of those, and swallowing it here would report a
+     broken installation as a puzzling refusal about the model. That is exactly
+     what a wider catch did to the first package built from this change. */
+  return convertStepDetached(source);
 }

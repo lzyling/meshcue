@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError } from "./store.mjs";
-import { convertStep, convertStepDetached, STEP_FORMATS } from "./step.mjs";
+import { convertStepDetached, STEP_FORMATS } from "./step.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -33,11 +33,7 @@ function limitError(message, code, measured) {
   return error;
 }
 
-export function inspectModel(
-  buffer,
-  format,
-  { generator, derived: precomputed } = {},
-) {
+export function inspectModel(buffer, format, { derived } = {}) {
   if (!buffer.length || buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
@@ -51,11 +47,16 @@ export function inspectModel(
      and `precheck` gets its count from the identical tessellation the reviewer
      will be looking at. */
   if (STEP_FORMATS.includes(format)) {
-    /* Already done, when the caller had somewhere better to do it. The review
-       server tessellates on a thread before it gets here, so this stays the one
-       synchronous description of what a model is and does not become the place
-       an 8-second conversion happens to a page that is waiting. */
-    const derived = precomputed ?? convertStep(buffer, { generator });
+    /* The tessellation is handed in, never done here. This function is the one
+       synchronous description of what a model is, and it is called from inside
+       a review server and from inside the Gateway; running a CAD kernel in
+       either of those is what `convertStepDetached` exists to prevent. A caller
+       that has not converted is a caller in the wrong process, so it is told
+       so rather than quietly served. */
+    if (!derived)
+      throw new Error(
+        "A STEP must be tessellated by convertStepDetached before inspectModel sees it.",
+      );
     if (!derived.ok)
       throw new ReviewError(
         "The STEP could not be read; export it again from the modelling tool.",
@@ -241,11 +242,11 @@ export function inspectModel(
   );
 }
 
-/* Asynchronous because for a STEP it now is: the tessellation happens on a
-   thread that exits afterwards, which is what keeps an 8-second assembly from
-   stopping the server and what stops the OCCT heap accumulating across a
-   session. Every check below still runs in order, and the path is still
-   validated before anything reads the file. */
+/* Asynchronous because for a STEP it now is: the tessellation happens in a
+   process that exits afterwards, which is what keeps an 8-second assembly from
+   stopping the server and what keeps the OCCT heap from becoming this one's.
+   Every check below still runs in order, and the path is still validated -- and
+   the size limit applied -- before anything reads the file or converts it. */
 export async function importModel(
   { file, name, version, source, units = "unspecified" },
   { workspace, mediaDir, generator },
@@ -269,7 +270,6 @@ export async function importModel(
   const buffer = fs.readFileSync(actual),
     format = path.extname(actual).slice(1).toLowerCase();
   const { derived, ...metadata } = inspectModel(buffer, format, {
-    generator,
     derived: STEP_FORMATS.includes(format)
       ? await convertStepDetached(buffer, { generator })
       : undefined,

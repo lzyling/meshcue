@@ -35,13 +35,13 @@ await build({
   target: "node22",
   banner,
 });
-/* Its own entry, and it has to land beside the bundled server: the thread is
-   started from `new URL("./step-worker.mjs", import.meta.url)`, and inside the
-   bundle that URL is `runtime/`. Bundled rather than copied because the worker
+/* Its own entry, and it has to land beside the bundled server: the process is
+   started from `new URL("./step-child.mjs", import.meta.url)`, and inside the
+   bundle that URL is `runtime/`. Bundled rather than copied because the child
    imports the converter, which in a package has no node_modules to find. */
 await build({
-  entryPoints: [path.join(repo, "server/step-worker.mjs")],
-  outfile: path.join(out, "runtime/step-worker.mjs"),
+  entryPoints: [path.join(repo, "server/step-child.mjs")],
+  outfile: path.join(out, "runtime/step-child.mjs"),
   bundle: true,
   platform: "node",
   format: "esm",

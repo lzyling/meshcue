@@ -4,22 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 
 /* `precheckModel` is synchronous on purpose: its PATH_SCOPE and MODEL_FORMAT
- * refusals are throws, and six tests plus every caller read them that way. The
- * one await STEP needs was pushed out to the entry points instead, each of which
- * calls `warmStepFor` before measuring.
+ * refusals are throws, and six tests plus every caller read them that way. So
+ * the one thing sizing a STEP needs that it cannot do -- tessellate -- is handed
+ * in, and each entry point gets it from `stepMeshFor` first.
  *
- * Which made forgetting one a silent bug rather than a broken build. 1.3.0-dev
- * shipped with two of the three entry points warmed; the third was the OpenClaw
- * adapter -- the only one a person actually reaches. Every STEP precheck through
- * the Gateway answered `STEP support was used before warmStep() resolved`, and
- * the suite stayed green, because the suite drove the CLI and the MCP server and
- * the adapter cannot be imported here at all: it imports openclaw/plugin-sdk,
- * which is external to this repo and resolved by the host.
+ * Which makes forgetting one a silent bug rather than a broken build, and the
+ * bug it hides is not a small one. 1.3.0-dev shipped with the conversion
+ * running in whatever process called it; for the OpenClaw adapter that process
+ * is the Gateway, which it stopped for 8.5 seconds and left ~240 MB heavier,
+ * permanently, for any STEP of any size. The suite stayed green because it
+ * drove the CLI and the MCP server, and the adapter cannot be imported here at
+ * all: it imports openclaw/plugin-sdk, which the host resolves.
  *
  * So the invariant is checked where it is visible without the host. This cannot
- * see a warm that happens too late at runtime; it does see an entry point that
- * measures a file the kernel was never loaded for, which is the mistake that
- * was actually made and the one a fourth entry point would repeat.
+ * see an await that happens too late at runtime; it does see an entry point
+ * measuring a file it never converted, which is the mistake that was actually
+ * made and the one a fourth entry point would repeat.
  */
 const repo = path.resolve(import.meta.dirname, "..");
 const DIRECTORIES = ["server", "integration", "cli", "mcp", "adapters"];
@@ -61,7 +61,7 @@ function argumentsOf(source, name) {
   return args.map((arg) => arg.replace(/^\(/, "").trim());
 }
 
-test("every precheck entry point warms the CAD kernel for the file it measures", () => {
+test("every precheck entry point converts off-process for the file it measures", () => {
   const callers = DIRECTORIES.flatMap((dir) => sources(dir)).filter((rel) =>
     fs.readFileSync(path.join(repo, rel), "utf8").includes("precheckModel("),
   );
@@ -77,15 +77,29 @@ test("every precheck entry point warms the CAD kernel for the file it measures",
     if (rel === path.join("integration", "precheck.mjs")) continue; // its definition
     assert.match(
       source,
-      /warmStepFor\s*\(/,
-      `${rel} measures a model without warming STEP support first`,
+      /await stepMeshFor\s*\(/,
+      `${rel} measures a model without converting it off-process first`,
     );
     const measured = argumentsOf(source, "precheckModel");
-    const warmed = argumentsOf(source, "warmStepFor");
+    const converted = argumentsOf(source, "stepMeshFor");
     assert.deepEqual(
-      warmed,
-      [measured.at(-1)],
-      `${rel} warms for a different file than it measures`,
+      converted.at(-1),
+      measured.at(1),
+      `${rel} converts a different file than it measures`,
     );
   }
+});
+
+test("no long-lived process can reach the CAD kernel in line", () => {
+  /* The kernel is loaded by `convertStep`, and the only file allowed to call it
+     is the child that exists to be thrown away. Everything else -- the review
+     server, the Gateway adapter, the MCP server, the sizing code they share --
+     goes through `convertStepDetached`. This is what makes "it never runs here"
+     a property of the code rather than of who remembered. */
+  const callers = DIRECTORIES.flatMap((dir) => sources(dir)).filter((rel) =>
+    /(?<!function )(?<![a-zA-Z])convertStep\s*\(/.test(
+      fs.readFileSync(path.join(repo, rel), "utf8"),
+    ),
+  );
+  assert.deepEqual(callers, [path.join("server", "step-child.mjs")]);
 });

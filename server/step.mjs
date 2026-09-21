@@ -11,7 +11,7 @@
    with it so a future reader can see what produced the indices rather than
    having to guess from the current defaults. */
 import { createRequire } from "node:module";
-import { Worker } from "node:worker_threads";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -31,10 +31,30 @@ const here = path.dirname(fileURLToPath(import.meta.url));
    than one depth under the package root, and one copy of a 7.6 MB binary they
    can all find is worth a loop. */
 function vendored() {
+  return search(["vendor/occt-import-js.js"]);
+}
+
+/* Same problem, same answer, and it is worth being explicit about why a plain
+   `new URL("./step-child.mjs", import.meta.url)` is not enough: this module is
+   bundled into four entry points at three different depths. From
+   `runtime/server.mjs` the child is a sibling; from the adapter at the package
+   root it is one directory down; from a clone it is neither. Hardcoding one of
+   those shipped a package whose Gateway entry point resolved the child to a
+   path that did not exist -- and because the caller treated that as "no mesh"
+   rather than as a failure, it surfaced as a confusing refusal instead. */
+function childScript() {
+  return search(["step-child.mjs", "runtime/step-child.mjs"]);
+}
+
+// Nearest wins: every candidate is tried at one level before going up, so a
+// sibling is never passed over in favour of something further away.
+function search(relative) {
   let dir = here;
   for (let up = 0; up < 3; up++) {
-    const candidate = path.join(dir, "vendor", "occt-import-js.js");
-    if (fs.existsSync(candidate)) return candidate;
+    for (const name of relative) {
+      const found = path.join(dir, ...name.split("/"));
+      if (fs.existsSync(found)) return found;
+    }
     dir = path.dirname(dir);
   }
   return null;
@@ -57,20 +77,6 @@ export const DEFLECTION = Object.freeze({
   linearDeflection: 0.001,
   angularDeflection: 0.5,
 });
-
-/* The parser writes its complaints straight to stderr ("**** ERR StepFile"),
-   which on a malformed upload is noise the reviewer must never be shown and the
-   host should not have to read either. The result object already says whether
-   it worked. */
-function quietly(fn) {
-  const write = process.stderr.write;
-  process.stderr.write = () => true;
-  try {
-    return fn();
-  } finally {
-    process.stderr.write = write;
-  }
-}
 
 const GL = { FLOAT: 5126, UNSIGNED_INT: 5125, ARRAY: 34962, ELEMENT: 34963 };
 const pad4 = (n) => (n + 3) & ~3;
@@ -197,13 +203,17 @@ function toGlb(meshes, generator) {
   return Buffer.concat([top, body]);
 }
 
-/* Returns the derived mesh and what it is made of, or throws with the same
-   shape of error the other formats use. `generator` is the caller's version
-   string, written into the file so a mesh on disk can say what produced it. */
-export function convertStep(buffer, { generator = "MeshCue" } = {}) {
-  const result = quietly(() =>
-    occtSync().ReadStepFile(new Uint8Array(buffer), { ...DEFLECTION }),
-  );
+/* Returns the derived mesh and what it is made of. Only ever called in the
+   child below -- see `convertStepDetached` for why there is nowhere else it is
+   allowed to run. `generator` is the caller's version string, written into the
+   file so a mesh on disk can say what produced it. */
+export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
+  const kernel = await occt();
+  /* On a malformed upload this prints its own complaint ("**** ERR StepFile:
+     Incorrect syntax") to stdout, despite reading like an error. Nothing is
+     done about it here: the child's stdout goes nowhere, which is the whole
+     reason the answer travels on a descriptor of its own. */
+  const result = kernel.ReadStepFile(new Uint8Array(buffer), { ...DEFLECTION });
   if (!result?.success || !result.meshes?.length) return { ok: false };
   const meshes = result.meshes.filter(
     (m) => m.attributes?.position?.array?.length && m.index?.array?.length,
@@ -225,67 +235,98 @@ export function convertStep(buffer, { generator = "MeshCue" } = {}) {
   };
 }
 
-/* The WASM module is loaded once and then reused, so everything after the first
-   call is synchronous. `warmStep` exists to get that one await out of the way
-   somewhere it does not matter, rather than have the first publish of a session
-   pay for it. */
-let ready = null;
-export async function warmStep() {
-  if (!ready) ready = await occt();
-  return true;
-}
+/* 73k faces tessellate in about 9 seconds, so the 600,000-face ceiling lands
+   near 70. This is the budget for a conversion that is not going to finish at
+   all: generous enough that no model which could have succeeded is cut off, and
+   inside the 180-second IPC budget in `integration/manager.mjs` so the agent is
+   told what actually happened instead of being told the instance is
+   unreachable. */
+const CONVERSION_TIMEOUT = 120000;
 
-/* The same conversion, on a thread that exits when it is done -- see
-   `step-worker.mjs` for the two measurements that put it there. This is for the
-   review server, which has a page to keep answering and a process that outlives
-   any one model.
+/* The conversion happens in a process of its own, and the reason is memory
+   rather than blocking.
 
-   `precheck` deliberately does not use it. That runs in the CLI or the MCP
-   server: a process with no reviewer waiting on it, which exits and takes the
-   heap with it. Spending a thread and its start-up to protect an event loop
-   that is about to stop would make measuring a file slower for nobody. */
-export function convertStepDetached(buffer, { generator = "MeshCue" } = {}) {
+   Both were measured on the heaviest real assembly here (73,132 faces, 8.9 s).
+   A thread solves the blocking -- 3 ms of event-loop lag either way -- but the
+   OCCT heap it leaves behind is not returned to the operating system when the
+   thread exits: five conversions took a host from 58 MB to 417 MB of RSS and it
+   stayed there. It is not proportional to the model. A 344-face plate costs the
+   same ~240 MB, because the cost is instantiating the kernel in that process at
+   all, once. A review server is long-lived and idles for 24 hours, so every
+   project that ever published a STEP would sit on a quarter-gigabyte until
+   someone restarted it.
+
+   The same five conversions through a child process: 58 MB to 71 MB. The whole
+   address space goes away with the process, which is the only thing that
+   reliably gives those pages back.
+
+   It is paid for in latency, and honestly: about 100 ms on the big assembly,
+   but 1.2 s against a thread's 0.1-0.8 s on a small part, because a process
+   reloads Node and recompiles the WASM every time. That cost lands on publish
+   and precheck -- once per version, with the agent already waiting -- and what
+   it buys is a review server that weighs the same after a STEP as before one.
+
+   The answer comes back on a pipe of its own rather than on stdout, framed as
+   a 4-byte length, that much JSON, then the mesh. stdout is where the parser
+   prints its complaints about a malformed upload, and a frame sharing a stream
+   with a library that can print is a frame that can be corrupted by one: the
+   first malformed STEP through this code arrived as a JSON parse error on the
+   word "ERR". Both of the child's own streams are discarded instead. */
+export function convertStepDetached(
+  buffer,
+  { generator = "MeshCue", timeoutMs = CONVERSION_TIMEOUT } = {},
+) {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./step-worker.mjs", import.meta.url), {
-      workerData: {
-        buffer: buffer.buffer.slice(
-          buffer.byteOffset,
-          buffer.byteOffset + buffer.byteLength,
-        ),
-        generator,
-      },
+    const script = childScript();
+    if (!script)
+      return reject(new Error("The STEP converter is missing from this copy."));
+    const child = spawn(process.execPath, [script, generator], {
+      stdio: ["pipe", "ignore", "ignore", "pipe"],
     });
-    let answered = false;
-    worker.once("message", (result) => {
-      answered = true;
-      resolve(
-        result.ok ? { ...result, glb: Buffer.from(result.glb) } : { ok: false },
+    const chunks = [];
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    /* A conversion that is never going to answer must not hold a publish open
+       until the IPC budget above it runs out, and a killed process is the one
+       way to be sure the work has actually stopped rather than merely stopped
+       being listened to. */
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(
+        reject,
+        new Error(
+          `The STEP was still being tessellated after ${timeoutMs >= 1000 ? `${Math.round(timeoutMs / 1000)}s` : `${timeoutMs}ms`} and was stopped. Simplify the model and export again.`,
+        ),
+      );
+    }, timeoutMs);
+    child.stdio[3].on("data", (chunk) => chunks.push(chunk));
+    child.on("error", (error) => finish(reject, error));
+    // The child can die before it has read the model; without this the failed
+    // write arrives as an unhandled error event rather than as the exit below.
+    child.stdin.on("error", () => {});
+    child.on("close", (code, signal) => {
+      const answer = Buffer.concat(chunks);
+      if (answer.length < 4)
+        return finish(
+          reject,
+          new Error(
+            `The STEP converter stopped without an answer (${signal || `exit ${code}`}).`,
+          ),
+        );
+      const length = answer.readUInt32LE(0);
+      const metadata = JSON.parse(answer.subarray(4, 4 + length).toString());
+      finish(
+        resolve,
+        metadata.ok
+          ? { ...metadata, glb: answer.subarray(4 + length) }
+          : { ok: false },
       );
     });
-    worker.once("error", reject);
-    /* A thread that dies without answering is not a model we can size. Saying
-       so beats resolving with nothing and having the caller report a STEP with
-       no triangles in it. */
-    worker.once("exit", (code) => {
-      if (!answered)
-        reject(new Error(`The STEP converter stopped (exit ${code}).`));
-    });
+    child.stdin.end(buffer);
   });
-}
-
-/* For the entry points that are handed a path rather than a format. They warm
-   before calling into the synchronous sizing code, and only when the file is
-   one this module is for -- measuring an STL should not pay to load a CAD
-   kernel it will never call. */
-export async function warmStepFor(file) {
-  const format = String(file || "")
-    .split(".")
-    .pop()
-    .toLowerCase();
-  if (STEP_FORMATS.includes(format)) await warmStep();
-}
-function occtSync() {
-  if (!ready)
-    throw new Error("STEP support was used before warmStep() resolved");
-  return ready;
 }

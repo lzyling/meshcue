@@ -28,13 +28,13 @@ export function cacheRelease(installRoot, runtime) {
   const skills = path.join(installRoot, "skills");
   const wanted = [
     "runtime/server.mjs",
-    // The server starts a thread per conversion and the tessellator lives
+    // The server starts a process per conversion and the tessellator lives
     // beside it; both are resolved relative to the running copy, which is this
-    // one and not the install root. Left out, the instance starts, warns that
-    // STEP is unavailable, and then fails the first STEP publish with a module
-    // error from inside a worker -- so they are listed with the server rather
-    // than treated as optional extras.
-    "runtime/step-worker.mjs",
+    // one and not the install root. Left out, the instance starts clean and
+    // then fails the first STEP publish with a module error from inside a
+    // child -- so they are listed with the server rather than treated as
+    // optional extras.
+    "runtime/step-child.mjs",
     ...files(path.join(installRoot, "vendor")).map((p) =>
       path.join("vendor", p),
     ),
