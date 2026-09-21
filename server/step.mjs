@@ -243,6 +243,43 @@ export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
    unreachable. */
 const CONVERSION_TIMEOUT = 120000;
 
+/* What a child left on the pipe, read as either an answer or a reason.
+
+   Separate from the spawning because the dangerous part is pure and the
+   dangerous input is ordinary: a length header, followed by bytes that may
+   never have arrived. A child killed on the budget above, or starved writing a
+   25 MB mesh, leaves a header promising more than it sent -- and parsing that
+   where it used to be parsed, inline in the `close` handler, threw past the
+   promise rather than into it. The promise then never settled and the
+   exception left the process: there is no `uncaughtException` handler anywhere
+   in this codebase, and `precheck` runs this inside the Gateway.
+
+   So every way the bytes can be wrong resolves to a sentence instead. Never
+   throws; the caller's only job is to pick `reject` or `resolve`. */
+export function readAnswer(answer, { code, signal } = {}) {
+  if (answer.length < 4)
+    return {
+      error: `The STEP converter stopped without an answer (${signal || `exit ${code}`}).`,
+    };
+  const length = answer.readUInt32LE(0);
+  const head = answer.subarray(4, 4 + length);
+  if (head.length < length)
+    return {
+      error: `The STEP converter stopped part-way through its answer (${signal || `exit ${code}`}).`,
+    };
+  let metadata;
+  try {
+    metadata = JSON.parse(head.toString());
+  } catch {
+    return { error: "The STEP converter's answer could not be read." };
+  }
+  return {
+    value: metadata.ok
+      ? { ...metadata, glb: answer.subarray(4 + length) }
+      : { ok: false },
+  };
+}
+
 /* The conversion happens in a process of its own, and the reason is memory
    rather than blocking.
 
@@ -310,22 +347,15 @@ export function convertStepDetached(
     // write arrives as an unhandled error event rather than as the exit below.
     child.stdin.on("error", () => {});
     child.on("close", (code, signal) => {
-      const answer = Buffer.concat(chunks);
-      if (answer.length < 4)
-        return finish(
-          reject,
-          new Error(
-            `The STEP converter stopped without an answer (${signal || `exit ${code}`}).`,
-          ),
-        );
-      const length = answer.readUInt32LE(0);
-      const metadata = JSON.parse(answer.subarray(4, 4 + length).toString());
-      finish(
-        resolve,
-        metadata.ok
-          ? { ...metadata, glb: answer.subarray(4 + length) }
-          : { ok: false },
-      );
+      // Already rejected on the budget above, and what a killed child leaves
+      // behind is exactly the half-written frame this must not try to read.
+      if (settled) return;
+      const { value, error } = readAnswer(Buffer.concat(chunks), {
+        code,
+        signal,
+      });
+      if (error) return finish(reject, new Error(error));
+      finish(resolve, value);
     });
     child.stdin.end(buffer);
   });

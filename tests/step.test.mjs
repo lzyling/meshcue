@@ -141,6 +141,56 @@ test("the parser's own complaints cannot be mistaken for an answer", async () =>
   assert.deepEqual(result, { ok: false });
 });
 
+/* A converter that dies with a frame half-written is the one input the answer
+   reader is there for, and it cannot be produced by feeding a bad model: the
+   child either answers or does not. So the child is replaced, and the module
+   under test is the repository's own file, copied at run time beside it --
+   `step.mjs` imports nothing but node built-ins and finds its child by looking
+   next to itself, which is what makes that possible without a seam in shipped
+   code. Copied rather than reimplemented, so it cannot drift from what ships.
+   With the guard removed, the parse throws inside the `close` handler: past
+   the promise, which never settles, and out of the process. */
+async function converterThatWrites(t, body) {
+  const dir = fs.mkdtempSync(path.join(repo, "tmp", "half-answer-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.copyFileSync(
+    path.join(repo, "server/step.mjs"),
+    path.join(dir, "step.mjs"),
+  );
+  fs.writeFileSync(
+    path.join(dir, "step-child.mjs"),
+    `import fs from "node:fs";\nfor await (const chunk of process.stdin);\n${body}\nprocess.exit(137);\n`,
+  );
+  return import(new URL(`file://${path.join(dir, "step.mjs")}`));
+}
+
+test("a converter that dies part-way through its answer is refused, not thrown past", async (t) => {
+  const answers = {
+    "a length header describing bytes that never arrived": `
+      const head = Buffer.from('{"ok":true,"triangles":12', "utf8");
+      const length = Buffer.alloc(4);
+      length.writeUInt32LE(head.length + 64, 0);
+      fs.writeSync(3, Buffer.concat([length, head]));`,
+    "a complete frame that is not JSON": `
+      const head = Buffer.from("**** ERR StepFile", "utf8");
+      const length = Buffer.alloc(4);
+      length.writeUInt32LE(head.length, 0);
+      fs.writeSync(3, Buffer.concat([length, head]));`,
+    "nothing at all": "",
+  };
+  for (const [what, body] of Object.entries(answers)) {
+    const { convertStepDetached: detached } = await converterThatWrites(
+      t,
+      body,
+    );
+    await assert.rejects(
+      () => detached(Buffer.alloc(8)),
+      /STEP converter/,
+      `${what} has to come back as a refusal`,
+    );
+  }
+});
+
 test("a tessellation that will not finish is killed rather than waited on", async () => {
   /* The budget exists for a model the kernel cannot chew, which is the one risk
      of this feature that cannot be disproved from the files on hand. What is
