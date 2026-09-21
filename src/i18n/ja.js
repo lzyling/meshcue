@@ -55,6 +55,7 @@ export default {
   "model.awaitingFirst": "エージェントの最初のモデル納品を待っています",
   "model.triangles": "{count} 面",
   "model.summary": "{count} 面 · {format} · {units}",
+  "units.unspecified": "単位なし",
   "model.readFailed": "モデルファイルを読み込めませんでした。",
   "model.versionMismatch":
     "モデルファイルがエージェントの指定したバージョンと一致しません。注記を停止しました。",

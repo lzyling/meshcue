@@ -48,6 +48,7 @@ export default {
   "model.awaitingFirst": "等候 Agent 交付第一個模型",
   "model.triangles": "{count} 面",
   "model.summary": "{count} 面 · {format} · {units}",
+  "units.unspecified": "單位未標",
   "model.readFailed": "模型檔案讀取失敗。",
   "model.versionMismatch": "模型檔案與 Agent 指定版本不符，已停止標注。",
   "model.noExtent": "模型沒有可顯示的有效範圍。",

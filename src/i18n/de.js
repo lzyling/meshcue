@@ -58,6 +58,7 @@ export default {
   "model.awaitingFirst": "Warten auf das erste Modell des Agenten",
   "model.triangles": "{count} Dreiecke",
   "model.summary": "{count} Dreiecke · {format} · {units}",
+  "units.unspecified": "ohne Einheit",
   "model.readFailed": "Die Modelldatei konnte nicht gelesen werden.",
   "model.versionMismatch":
     "Die Modelldatei entspricht nicht der vom Agenten angegebenen Version; Markieren gestoppt.",

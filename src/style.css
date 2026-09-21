@@ -4,6 +4,14 @@
    review data and must read the same in both themes, so they are not themed. */
 :root {
   color-scheme: light dark;
+  /* The compass and the pill that names the file both live in the top-right
+     corner, and neither rule can see the other. They were written apart and
+     drifted into each other: the compass gave up its offset in 7fc0f79 on the
+     grounds that "this layout never shows" the pill, which was true only
+     because a stray rule was hiding it at every width. One number both sides
+     read is what stops that happening again; tests/package-smoke.mjs asserts
+     the two boxes do not meet. */
+  --orient-reach: 116px;
   font-family:
     Inter,
     -apple-system,
@@ -486,6 +494,11 @@ a {
   display: flex;
   gap: 8px;
   pointer-events: none;
+  /* The right-hand pill is pushed to this edge, which is the compass's edge
+     too. Keeping the row out of its reach is what lets both sit on the same
+     line; the alternative, pushing the compass back down, would take the row
+     above the model away again. */
+  padding-right: calc(var(--orient-reach) + 8px);
 }
 .scene-pill {
   padding: 6px 10px;
@@ -1246,8 +1259,8 @@ dialog .muted {
    Without it the projection leans downwards over the reset button and takes
    its clicks. Its size comes from the geometry — see projectedReach(). */
 .orient-stage {
-  width: 116px;
-  height: 116px;
+  width: var(--orient-reach);
+  height: var(--orient-reach);
   display: grid;
   place-items: center;
   perspective: 400px;

@@ -54,6 +54,7 @@ export default {
   "model.awaitingFirst": "Waiting for the Agent to deliver the first model",
   "model.triangles": "{count} triangles",
   "model.summary": "{count} triangles · {format} · {units}",
+  "units.unspecified": "no units",
   "model.readFailed": "Could not read the model file.",
   "model.versionMismatch":
     "The model file does not match the version the Agent specified; marking stopped.",

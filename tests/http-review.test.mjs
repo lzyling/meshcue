@@ -133,6 +133,27 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
     await new Promise((r) => setTimeout(r, 200));
   }
   assert.equal(batch.status, "accepted");
+  /* Status is a poll; what it carries it carries on every call. The parts list
+     belongs to the batch that explains it -- one entry for this fixture, 128
+     and 32 kB for a STEP assembly, times the twenty submissions status keeps.
+     Asserted as presence rather than size so a one-mesh fixture cannot hide a
+     regression: the read route must still have it, status must not. */
+  assert.ok(
+    batch.meshManifest?.meshes?.length,
+    "reading one batch still describes the parts it was marked on",
+  );
+  const polled = (await f.ipc("/status")).body;
+  assert.ok(polled.submissions.length, "the accepted batch is listed");
+  for (const listed of polled.submissions)
+    assert.equal(
+      listed.meshManifest,
+      undefined,
+      "but listing submissions does not repeat the parts list",
+    );
+  // Unsent marks: that there are some is the Agent's business, what they are
+  // is not until the reviewer sends them.
+  assert.equal(polled.draft.annotations, undefined);
+  assert.equal(typeof polled.draft.annotationCount, "number");
   assert.deepEqual(
     payload(
       JSON.parse(

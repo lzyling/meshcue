@@ -231,6 +231,7 @@ try {
     if (!el) return null;
     const style = getComputedStyle(el);
     const box = el.getBoundingClientRect();
+    const compass = document.querySelector(".orient")?.getBoundingClientRect();
     return {
       text: el.textContent,
       shown:
@@ -239,12 +240,29 @@ try {
         Number(style.opacity) > 0 &&
         box.width > 0 &&
         box.height > 0,
+      /* Both of these are pinned to the same corner by rules that cannot see
+         each other, and the pill is the one that loses: the compass paints
+         over it. Un-hiding the pill without this check bought a pill whose
+         tail -- the format and the units, the whole reason it exists -- was
+         behind a cube. Visible is not the same as legible. */
+      clear: !compass
+        ? null
+        : box.right <= compass.left ||
+          box.left >= compass.right ||
+          box.bottom <= compass.top ||
+          box.top >= compass.bottom,
     };
   });
   assert.ok(named, "the format has to be written somewhere on the page");
   assert.equal(named.shown, true, "and it has to be visible at desktop width");
+  assert.equal(named.clear, true, "with nothing painted over it");
   assert.match(named.text, /STEP/, "a STEP round says STEP");
   assert.match(named.text, /344/, "beside the count it was measured at");
+  /* This round was published without units, so the pill renders the record's
+     sentinel -- and rendered it raw, one English word inside a line that is
+     otherwise translated. It is a placeholder, not a unit, and the reviewer
+     should never be shown the placeholder's internal spelling. */
+  assert.doesNotMatch(named.text, /unspecified/i, "in the reviewer's language");
   await stepPage.close();
   for (const project of projects) {
     const status = await call({ action: "status", project });

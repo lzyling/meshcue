@@ -223,6 +223,13 @@ A submission is a set of positions, not an instruction to change anything.
   every model is scaled into a 3-unit box, so on a 160 mm assembly they are out
   by a factor of 53 and an area by 2,845. **Do not read an unmarked `bounds` as
   millimetres.** To use one, divide by the scale in that mesh's `matrixWorld`.
+- **Which unit that is, is the model's to say, and a mesh often does not say.**
+  A STEP round reports `units: "mm"`, so its numbers are millimetres and square
+  millimetres. A mesh published without units reports `"unspecified"`: the
+  numbers are still in the file's own scale and still comparable with each
+  other, but nothing on the model says what that scale is, so an area from one
+  **is not square millimetres and must not be quoted as a measurement.** Say
+  the unit is unstated rather than assuming one.
 - **Read again with `geometry: true` only when the polygons themselves are
   needed** — to echo a region back, or to measure one exactly. It is never
   needed in order to work out what a mark means, and on a large batch it is

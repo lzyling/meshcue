@@ -1014,9 +1014,26 @@ function outboxSummary() {
     lastError: worst?.lastError || null,
   };
 }
-agentApp.get("/status", (req, res) =>
+/* The page and the Agent ask different apps for state, which is what lets this
+   one answer more briefly. Two things here grow without bound and neither is
+   ever acted on from a status call:
+
+   A submission carries the parts list of the version it was made against. For
+   a mesh round that is one entry; the first STEP assembly made it 128, at 32 kB
+   a copy, and status keeps the last twenty submissions -- 690 kB, about 172k
+   tokens, twenty identical copies of one table. The manifest belongs with the
+   marks it explains, and `read` already sends just the parts that were marked.
+
+   The draft is marks the reviewer has not sent. Whether there are any is worth
+   reporting; what they are is not the Agent's to read until "Send to Agent"
+   says so, and `stateFor` already has that shape. */
+agentApp.get("/status", (req, res) => {
+  const state = stateFor("", false);
   res.json({
-    ...stateFor("", true),
+    ...state,
+    submissions: state.submissions.map(
+      ({ meshManifest, camera, ...rest }) => rest,
+    ),
     outbox: outboxSummary(),
     // Version tabs mean no published model is ever deleted, which is the point
     // — an older one stays markable. The cost is that a long project grows one
@@ -1059,8 +1076,8 @@ agentApp.get("/status", (req, res) =>
       lan: network.lan,
     },
     access: { ...access.metadata(), required: accessRequired },
-  }),
-);
+  });
+});
 agentApp.post("/maintenance", (req, res) => {
   if (!config.managed || req.body.instanceId !== instance?.id)
     throw new ReviewError(

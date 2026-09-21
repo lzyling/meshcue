@@ -84,6 +84,13 @@ const T = (key, vars) => esc(t(key, vars));
    with no entry yet falls back to the service's own words: half-translated is
    poor, but silence in place of a reason is worse. This is the seam where the
    rest of the service's browser-facing text will join. */
+/* "unspecified" is the record's word for a file that declared no unit, and it
+   reached the pill verbatim -- one English word in the middle of a translated
+   line, next to a STEP round that says "mm". Only that sentinel is translated:
+   a unit the author did state is their word, and rewriting it would be this
+   page making a claim about the model. */
+const unitsLabel = (units) =>
+  units === "unspecified" ? t("units.unspecified") : units;
 // A server message is written for an agent and a log file. These are the
 // refusals a reviewer can actually cause from the page, so they are said in the
 // reviewer's own language; anything else falls through to the server's text,
@@ -1298,7 +1305,7 @@ async function loadVersion(fullState) {
   $("#model-name").textContent = model.name;
   $("#model-version").textContent = model.version;
   $("#model-info").textContent =
-    `${model.format.toUpperCase()} · ${model.units}`;
+    `${model.format.toUpperCase()} · ${unitsLabel(model.units)}`;
   $("#loading").hidden = false;
   $("#loading .spinner").hidden = false;
   $("#loading-text").textContent = t("loading.verifying");
@@ -1319,7 +1326,7 @@ async function loadVersion(fullState) {
     $("#model-info").textContent = t("model.summary", {
       count: model.triangles.toLocaleString(),
       format: model.format.toUpperCase(),
-      units: model.units,
+      units: unitsLabel(model.units),
     });
     // The mesh budget is still measured and still reported to acceptance
     // checks; it no longer warns anyone, because nothing about marking changes
