@@ -35,6 +35,19 @@ await build({
   target: "node22",
   banner,
 });
+/* Its own entry, and it has to land beside the bundled server: the thread is
+   started from `new URL("./step-worker.mjs", import.meta.url)`, and inside the
+   bundle that URL is `runtime/`. Bundled rather than copied because the worker
+   imports the converter, which in a package has no node_modules to find. */
+await build({
+  entryPoints: [path.join(repo, "server/step-worker.mjs")],
+  outfile: path.join(out, "runtime/step-worker.mjs"),
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+  banner,
+});
 await build({
   entryPoints: [path.join(repo, "scripts/reviewctl.mjs")],
   outfile: path.join(out, "scripts/reviewctl.mjs"),
@@ -96,6 +109,16 @@ for (const [name, as] of [
 fs.copyFileSync(
   path.join(repo, "node_modules/occt-import-js/LICENSE.md"),
   path.join(out, "vendor", "LICENSE.occt-import-js.md"),
+);
+/* The library is CommonJS, and nothing in the file says so — `.js` means
+   whatever the nearest package.json says it means. This package declares
+   "type": "module", so without this the identical bytes that export a factory
+   function out of node_modules get loaded as ESM here and hand back a namespace
+   object instead. Same file, same hash, different meaning, and the failure
+   lands at the first conversion rather than at the build. */
+fs.writeFileSync(
+  path.join(out, "vendor", "package.json"),
+  JSON.stringify({ type: "commonjs" }, null, 2) + "\n",
 );
 for (const name of ["package.json", "openclaw.plugin.json"]) {
   const source = path.join(repo, "adapters/openclaw", name);

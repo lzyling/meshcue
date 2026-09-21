@@ -11,6 +11,7 @@
    with it so a future reader can see what produced the indices rather than
    having to guess from the current defaults. */
 import { createRequire } from "node:module";
+import { Worker } from "node:worker_threads";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -24,11 +25,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
    bundled into one file -- so `build-integration.mjs` copies the two dist files
    beside the server instead. Bundling them would be the one arrangement that
    takes away the user's ability to swap the library, which is the thing LGPL
-   asks us to leave alone. */
-/* Searched rather than hardcoded because the bundler puts the three entry
-   points at three different depths under the plugin root, and a single copy of
-   a 7.6 MB binary beside them all is worth a loop. A clone finds nothing here
-   and falls through to node_modules. */
+   asks us to leave alone.
+
+   Searched rather than hardcoded: the bundler puts its entry points at more
+   than one depth under the package root, and one copy of a 7.6 MB binary they
+   can all find is worth a loop. */
 function vendored() {
   let dir = here;
   for (let up = 0; up < 3; up++) {
@@ -228,6 +229,42 @@ let ready = null;
 export async function warmStep() {
   if (!ready) ready = await occt();
   return true;
+}
+
+/* The same conversion, on a thread that exits when it is done -- see
+   `step-worker.mjs` for the two measurements that put it there. This is for the
+   review server, which has a page to keep answering and a process that outlives
+   any one model.
+
+   `precheck` deliberately does not use it. That runs in the CLI or the MCP
+   server: a process with no reviewer waiting on it, which exits and takes the
+   heap with it. Spending a thread and its start-up to protect an event loop
+   that is about to stop would make measuring a file slower for nobody. */
+export function convertStepDetached(buffer, { generator = "MeshCue" } = {}) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./step-worker.mjs", import.meta.url), {
+      workerData: {
+        buffer: buffer.buffer.slice(
+          buffer.byteOffset,
+          buffer.byteOffset + buffer.byteLength,
+        ),
+        generator,
+      },
+    });
+    let answered = false;
+    worker.once("message", (result) => {
+      answered = true;
+      resolve(result.ok ? { ...result, glb: Buffer.from(result.glb) } : { ok: false });
+    });
+    worker.once("error", reject);
+    /* A thread that dies without answering is not a model we can size. Saying
+       so beats resolving with nothing and having the caller report a STEP with
+       no triangles in it. */
+    worker.once("exit", (code) => {
+      if (!answered)
+        reject(new Error(`The STEP converter stopped (exit ${code}).`));
+    });
+  });
 }
 
 /* For the entry points that are handed a path rather than a format. They warm

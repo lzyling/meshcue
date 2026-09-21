@@ -77,3 +77,47 @@ test("the workflow asks for the skip rather than relying on a bare runner", () =
   );
   assert.match(workflow, /MESHCUE_SKIP_HOST_BUILD:\s*"1"/);
 });
+
+/* The one class of failure the rest of the suite cannot see. Everything else
+   runs from the source tree, where the tessellator resolves out of node_modules
+   and works; the package resolves it from `vendor/`, and the first build of it
+   loaded the identical bytes — same file, same hash — as ESM instead of
+   CommonJS, because the nearest package.json to `vendor/` is the plugin's and
+   it declares `"type": "module"`. Requiring it returned a namespace object
+   where a factory function was expected, and nothing said so until a STEP was
+   published from an installed plugin.
+
+   So this runs the packaged worker, from the packaged layout, on a real file. */
+test("the packaged converter runs from the package, not from node_modules", async (t) => {
+  const { Worker } = await import("node:worker_threads");
+  const out = candidate(t, "ci-step");
+  build(out, { MESHCUE_SKIP_HOST_BUILD: "1" });
+  const pkg = path.join(repo, out);
+  assert.ok(
+    fs.existsSync(path.join(pkg, "vendor/occt-import-js.wasm")),
+    "the library travels with the package as its own file",
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(pkg, "vendor/package.json"), "utf8"))
+      .type,
+    "commonjs",
+    "without this the plugin's own module type reaches the library and changes what it exports",
+  );
+  const source = fs.readFileSync(path.join(repo, "tests/fixtures/plate.step"));
+  const result = await new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(pkg, "runtime/step-worker.mjs"), {
+      workerData: {
+        buffer: source.buffer.slice(
+          source.byteOffset,
+          source.byteOffset + source.byteLength,
+        ),
+        generator: "packaged",
+      },
+    });
+    worker.once("message", resolve);
+    worker.once("error", reject);
+  });
+  assert.ok(result.ok, "the packaged worker converted nothing");
+  assert.ok(result.triangles > 100);
+  assert.ok(result.brepFaces > 0);
+});

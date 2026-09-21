@@ -4,7 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { inspectModel, importModel } from "../server/models.mjs";
-import { convertStep, warmStep, warmStepFor, DEFLECTION } from "../server/step.mjs";
+import {
+  convertStep,
+  convertStepDetached,
+  warmStep,
+  warmStepFor,
+  DEFLECTION,
+} from "../server/step.mjs";
 import { ReviewStore } from "../server/store.mjs";
 import { startReview } from "./helpers/review-server.mjs";
 
@@ -40,7 +46,7 @@ test("a STEP is measured by tessellating it, and the mesh survives our own reade
 test("the published identity stays the source; the drawn bytes are the mesh", async (t) => {
   await warmStep();
   const mediaDir = mediaFixture(t);
-  const model = importModel(
+  const model = await importModel(
     { file: FIXTURE, name: "plate", version: "v1" },
     { workspace: repo, mediaDir },
   );
@@ -73,8 +79,8 @@ test("re-importing the same STEP lands on the same mesh file, so marks keep mean
   await warmStep();
   const mediaDir = mediaFixture(t);
   const opts = { file: FIXTURE, name: "plate", version: "v1" };
-  const a = importModel(opts, { workspace: repo, mediaDir });
-  const b = importModel(opts, { workspace: repo, mediaDir });
+  const a = await importModel(opts, { workspace: repo, mediaDir });
+  const b = await importModel(opts, { workspace: repo, mediaDir });
   assert.equal(a.mesh.sha256, b.mesh.sha256);
   // Two imports, two files, not four: the derived mesh is content-addressed
   // like the source, which is what stops a second publish from silently
@@ -117,7 +123,7 @@ test("a round grants the page the mesh it can draw, not only the source it canno
   await warmStep();
   const mediaDir = mediaFixture(t);
   const store = new ReviewStore(mediaFixture(t));
-  const model = importModel(
+  const model = await importModel(
     { file: FIXTURE, name: "plate", version: "v1" },
     { workspace: repo, mediaDir },
   );
@@ -162,6 +168,69 @@ test("a running instance serves the mesh to the page and the STEP to whoever dow
     "download hands over the file the author published, not our tessellation",
   );
   assert.deepEqual(downloaded.raw, bytes());
+});
+
+/* Measuring lag needs the loop to actually reach its timer phase. Awaiting a
+   function that does its work synchronously only queues a microtask, so a loop
+   written that way never yields at all and reports a serene zero while being
+   blocked solid — which is what the first version of this measurement did. */
+const yieldToTimers = () => new Promise((r) => setTimeout(r, 0));
+async function whileConverting(run, times = 8) {
+  let worst = 0,
+    ticks = 0,
+    last = Date.now();
+  const tick = setInterval(() => {
+    const now = Date.now();
+    worst = Math.max(worst, now - last - 10);
+    last = now;
+    ticks++;
+  }, 10);
+  await yieldToTimers();
+  last = Date.now();
+  for (let i = 0; i < times; i++) {
+    await run();
+    await yieldToTimers();
+  }
+  clearInterval(tick);
+  return { worst, ticks };
+}
+
+test("converting on a thread leaves the server able to answer; converting in line does not", async () => {
+  await warmStep();
+  const buffer = bytes();
+  const inline = await whileConverting(async () => {
+    convertStep(buffer, { generator: "t" });
+  });
+  const threaded = await whileConverting(() =>
+    convertStepDetached(buffer, { generator: "t" }),
+  );
+  /* The tick count is the honest one: in line, a 10 ms timer gets to run about
+     once per conversion because the rest of the time there is no loop to run
+     on. This fixture takes ~68 ms; the heaviest real assembly in this workspace
+     takes 8.1 s, and that is 8.1 s of a reviewer's page not being served. */
+  assert.ok(
+    threaded.ticks > inline.ticks * 3,
+    `the loop should keep running: ${inline.ticks} ticks in line vs ${threaded.ticks} threaded`,
+  );
+  assert.ok(
+    threaded.worst < inline.worst,
+    `worst stall: ${inline.worst}ms in line vs ${threaded.worst}ms threaded`,
+  );
+});
+
+test("the tessellator's heap leaves with the thread it grew in", async () => {
+  await warmStep();
+  const buffer = bytes();
+  await convertStepDetached(buffer, { generator: "t" });
+  const before = process.memoryUsage().rss;
+  for (let i = 0; i < 12; i++)
+    await convertStepDetached(buffer, { generator: "t" });
+  const grew = (process.memoryUsage().rss - before) / 1048576;
+  /* An emscripten heap grows and never shrinks: 485 conversions in one process
+     took this one from 61 MB to 943 MB, and a forced GC gave back none of it.
+     Nothing here frees that memory — the thread holding it stops existing, which
+     is the only reason this number stays flat. */
+  assert.ok(grew < 100, `RSS grew ${grew.toFixed(0)} MB across 12 conversions`);
 });
 
 test("warming is skipped for the formats that never needed a CAD kernel", async () => {

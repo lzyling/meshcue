@@ -206,7 +206,7 @@ test("model import rejects corrupted GLB and invalid STL before publishing", () 
   assert.throws(() => inspectModel(Buffer.from("not a glb"), "glb"));
   assert.throws(() => inspectModel(Buffer.alloc(84), "stl"));
 });
-test("real generated samples validate and import uses a stable content hash", (t) => {
+test("real generated samples validate and import uses a stable content hash", async (t) => {
   const { dir } = fixture(t);
   const workspace = path.resolve("../..");
   const mediaDir = path.join(dir, "models");
@@ -215,12 +215,14 @@ test("real generated samples validate and import uses a stable content hash", (t
     name: "test",
     version: "v1",
   };
-  const a = importModel(opts, { workspace, mediaDir }),
-    b = importModel(opts, { workspace, mediaDir });
+  const a = await importModel(opts, { workspace, mediaDir }),
+    b = await importModel(opts, { workspace, mediaDir });
   assert.equal(a.id, b.id);
   assert.ok(a.triangles > 100);
   assert.equal(fs.readdirSync(mediaDir).length, 1);
-  assert.throws(() =>
+  // Importing became asynchronous when a STEP started being tessellated off the
+  // main thread; the refusals it already made travel as rejections now.
+  await assert.rejects(() =>
     importModel({ file: os.tmpdir() }, { workspace, mediaDir }),
   );
 });

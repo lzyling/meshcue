@@ -1071,7 +1071,7 @@ agentApp.post("/opened", (req, res) => {
   z.object({}).strict().parse(req.body);
   res.json({ opened: true, idle: idleReport() });
 });
-agentApp.post("/publish", (req, res) => {
+agentApp.post("/publish", async (req, res) => {
   const p = z
     .object({
       file: z.string().min(1),
@@ -1087,7 +1087,7 @@ agentApp.post("/publish", (req, res) => {
     // hear about it rather than have the model published under a default.
     .strict()
     .parse(req.body);
-  const model = importModel(p, {
+  const model = await importModel(p, {
     workspace,
     mediaDir,
     generator: `MeshCue ${version}`,

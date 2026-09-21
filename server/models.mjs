@@ -3,7 +3,11 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError } from "./store.mjs";
-import { convertStep, STEP_FORMATS } from "./step.mjs";
+import {
+  convertStep,
+  convertStepDetached,
+  STEP_FORMATS,
+} from "./step.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -33,7 +37,11 @@ function limitError(message, code, measured) {
   return error;
 }
 
-export function inspectModel(buffer, format, { generator } = {}) {
+export function inspectModel(
+  buffer,
+  format,
+  { generator, derived: precomputed } = {},
+) {
   if (!buffer.length || buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
@@ -47,7 +55,11 @@ export function inspectModel(buffer, format, { generator } = {}) {
      and `precheck` gets its count from the identical tessellation the reviewer
      will be looking at. */
   if (STEP_FORMATS.includes(format)) {
-    const derived = convertStep(buffer, { generator });
+    /* Already done, when the caller had somewhere better to do it. The review
+       server tessellates on a thread before it gets here, so this stays the one
+       synchronous description of what a model is and does not become the place
+       an 8-second conversion happens to a page that is waiting. */
+    const derived = precomputed ?? convertStep(buffer, { generator });
     if (!derived.ok)
       throw new ReviewError(
         "The STEP could not be read; export it again from the modelling tool.",
@@ -233,7 +245,12 @@ export function inspectModel(buffer, format, { generator } = {}) {
   );
 }
 
-export function importModel(
+/* Asynchronous because for a STEP it now is: the tessellation happens on a
+   thread that exits afterwards, which is what keeps an 8-second assembly from
+   stopping the server and what stops the OCCT heap accumulating across a
+   session. Every check below still runs in order, and the path is still
+   validated before anything reads the file. */
+export async function importModel(
   { file, name, version, source, units = "unspecified" },
   { workspace, mediaDir, generator },
 ) {
@@ -255,7 +272,12 @@ export function importModel(
     );
   const buffer = fs.readFileSync(actual),
     format = path.extname(actual).slice(1).toLowerCase();
-  const { derived, ...metadata } = inspectModel(buffer, format, { generator });
+  const { derived, ...metadata } = inspectModel(buffer, format, {
+    generator,
+    derived: STEP_FORMATS.includes(format)
+      ? await convertStepDetached(buffer, { generator })
+      : undefined,
+  });
   const hash = crypto.createHash("sha256").update(buffer).digest("hex");
   const id = hash.slice(0, 24),
     filename = `${hash}.${format}`;
