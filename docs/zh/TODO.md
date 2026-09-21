@@ -844,6 +844,67 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 
 ---
 
+## 1.3.0 之后 · STEP 直读留下的六条（发布评审时发现，2026-09-21 判定不进 1.3.0）
+
+> 六条全部是 1.3.0 那次 STEP 支持带出来的，在发版前的自审里逐条记下。当时的判断是
+> **不塞进 1.3.0**：红的那条（子进程写一半就死、`JSON.parse` 从 `close` 处理器里抛出去
+> 打崩进程）已经修掉并随 1.3.0 发了，这六条没有一条是发布阻塞项。
+>
+> 排序按「**现在动得了吗**」，不按严重性 —— 前三条能直接开工，后三条不能。
+
+### 能直接开工（缺陷）
+
+- 🟡 **重发同一个 STEP 会整个重新三角化。** `server/models.mjs` 的 `importModel` 是先
+  `await convertStepDetached`、再算源件哈希、最后才 `if (!fs.existsSync(meshTarget))` ——
+  **去重发生在转换之后**。所以同一个文件重发照样烧满一次转换，而产物是同一份字节
+  （73,132 面的三摄装配实测 8.6 秒；09-21 当天重开了四五次，每次都付）。再叠上
+  `skills/meshcue-review/SKILL.md` 要求的「每次 `open` 前先 `precheck`」，
+  **一个 STEP 轮次实际转两次，约 17 秒**。
+  → 要收就得建「源件哈希 → 派生网格哈希」的索引，**动的是 `importModel` 的形状，
+  不是顺手修**。注意派生网格的 `generator` 里嵌了版本号，所以这个索引必须带版本维度。
+- 🟡 **子进程的 stderr 被丢掉。** `server/step.mjs` 的 `convertStepDetached` 用
+  `stdio: ["pipe", "ignore", "ignore", "pipe"]`。那个库的噪声打在 **stdout**
+  （`**** ERR StepFile ...`，答案因此才走 fd 3），所以 stderr 其实是条**干净可用**的通道，
+  白白扔了。
+  → 后果：子进程侧任何真实错误，回到调用方只剩一句
+  `The STEP converter stopped without an answer (exit 1)`。09-21 那个
+  `require2(...) is not a function`（vendor 被当 ESM 加载）就是因此多花了一小时。
+  收一段 stderr 尾巴进错误消息即可，**十几分钟，纯收益**。
+- 🟡 **`cacheRelease` 缺 `vendor/` 时抛的是裸 ENOENT。** `integration/release.mjs` 里
+  `skills` 有 `existsSync` 兜底，1.3.0 新加的 `files(path.join(installRoot, "vendor"))` 没有。
+  → 包不完整时报的不是这个模块统一的那句 `PACKAGE_INVALID`「nothing was started」，
+  而是一条来自 `fs.readdirSync` 的 ENOENT。只在构建产物残缺时才碰得到 ——
+  **而那正是最需要好错误信息的时候**。
+
+### 不能直接开工
+
+- 🟡 **`brep_faces` 写进 GLB 的 `extras` 了，但没人读。** `server/step.mjs` 的 `toGlb`
+  把每个 mesh 的 BREP 面区间写进 `extras.brepFaces`（那个三摄装配有 5,584 个）。
+  → **这是功能，不是缺陷**：它是为「标这个圆角面，而不是三角形 #4213」留的口子，
+  而那种锚点**跨三角化精度稳定**，是 GLB／STL 路线根本拿不到的东西。
+  要不要做取决于想不想要那个能力，**不该因为「在清单上」就做**。要做是独立立项。
+- 🟡 **`units` 对 STEP 仍只取 agent 传的值。** 而 `convertStep` 写死
+  `linearUnit: "millimeter"`，派生网格**恒为 mm** —— 服务端明明知道，却不用。
+  → 改了等于让 agent 传的 `units` 在 STEP 上不再权威，**是接口语义变更，要先拍板**。
+  （09-21 页面上能显示 `mm`，是因为发布时手动传了。）
+- ⚪ **「面数爆掉」仍然证伪不了。** 485 个真实 STEP 里最大 73,132 面，离 60 万上限差一个
+  数量级；deflection 拧到 `0.0001` 也才 133,036 面。
+  → **这不是活，是等证据**：要一个接近上限的真实件才验得到，写代码解决不了。
+  现在有 120 秒转换预算 ＋ `readAnswer` 的帧守卫兜着，不是裸奔。
+
+### 版本形态的建议
+
+能直接开工那三条里的**后两条**（stderr、vendor 守卫），加上 §🔜 那条 EACCES，
+三条都是 bug fix，**合起来发 `1.3.1` 补丁版**就够。第一条（重复三角化）和 `units` 那条
+要先定设计／拍板，是 `1.4.0` 的料；`brep_faces` 是独立立项。
+
+> **不要为了清空这张清单而攒版本。** 09-21 那天 r1–r8 八轮证明：贵的不是发版
+> （两个 commit 加一次 push），贵的是每一轮的「装包 → 重启／`open` → 人肉踩一遍」。
+> 攒批省不掉任何一次验证，只会把「只在真包里现形」的意外堆到同一次，出事还难定位 ——
+> 那天 r5 的哈希缺陷之所以二十分钟就揪出来，正因为那一轮只改了一件事。
+
+---
+
 ## 搁置 · 未定
 
 - **回传的触发机制** —— MCP 没有任何让 server 唤醒一轮对话的原语（协议级，不是某个客户端的问题）。
