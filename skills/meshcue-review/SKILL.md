@@ -11,9 +11,9 @@ When someone wants a 3D model built or changed, wants to point out what is wrong
 with one, wants a draft checked, or wants to keep iterating, use MeshCue as the
 browser review entry. Do not wait for them to name the product. Skip it for pure
 conceptual questions, for a plain request for a file, and whenever they say they
-do not want a web page. With no draft yet, first build an editable source and a
-GLB or STL for review with whatever CAD or modelling tool fits. Done means a
-model that actually loads, not a URL.
+do not want a web page. With no draft yet, first build an editable source and hand
+MeshCue what it reads: a STEP goes in as it is, no mesh export first. Done
+means a model that actually loads, not a URL.
 
 ## 2. Checking the tool and the project
 
@@ -124,7 +124,7 @@ compare. Done means the batch, the version and the intent all agree.
 ## 7. Changing, republishing and delivering files
 
 Change the editable source with the original modelling tool, save a new version,
-`precheck`, then `open` the new GLB or STL in the same project. Keep old
+`precheck`, then `open` the new file in the same project. Keep old
 versions and the record of changes: they must never be deleted or overwritten,
 and they stay on the tab strip on their own unless the user asks for a shorter
 one, which `retain` gives them without losing anything. Use `status` to check
@@ -132,9 +132,9 @@ the actually active version and each version's mark state, then say in the
 originating conversation what changed and which batch it answers. The review
 page has no download entry and the user never needs to export the marks
 themselves; files are delivered in the conversation, when they ask or when the
-work is final. GLB and STL are review meshes only — export STEP, 3MF and the
-like from the modelling tool and check units and scale; never describe a preview
-mesh as editable CAD. Done means the user reviewed the right new version and
+work is final. What is marked is always a mesh — a STEP is tessellated on
+import — so never describe it as editable CAD. Export 3MF and print files from
+the modelling tool and check units and scale. Done means the user reviewed the right new version and
 received the agreed files.
 
 ## 8. Continuing and handling failures
