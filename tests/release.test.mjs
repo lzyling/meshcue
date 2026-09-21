@@ -105,7 +105,11 @@ test("a release carries everything the server resolves beside itself", (t) => {
     }
     return null;
   })();
-  assert.notEqual(found, null, "the tessellator is not reachable from the copy");
+  assert.notEqual(
+    found,
+    null,
+    "the tessellator is not reachable from the copy",
+  );
   assert.equal(
     fs.existsSync(path.join(path.dirname(found), "package.json")),
     true,
@@ -119,7 +123,10 @@ test("a release carries everything the server resolves beside itself", (t) => {
 
   // And they are hashed like everything else, or they are the one part of a
   // verified release that could be swapped after verification.
-  fs.writeFileSync(path.join(runtime, "step-worker.mjs"), "export const w=2;\n");
+  fs.writeFileSync(
+    path.join(runtime, "step-worker.mjs"),
+    "export const w=2;\n",
+  );
   assert.throws(() => cachedRelease(f.runtime, release.id), /verification/);
 });
 

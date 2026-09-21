@@ -127,8 +127,9 @@ const plugin = defineToolPlugin({
               // just to read a header, which is exactly what a caller wants to
               // avoid before it knows the model can be reviewed at all.
               else if (params.action === "precheck")
-                result = (await warmStepFor(params.file),
-                precheckModel(ctx, params.file));
+                result =
+                  (await warmStepFor(params.file),
+                  precheckModel(ctx, params.file));
               else {
                 const manager = new InstanceManager(ctx, {
                   installRoot: api.rootDir,

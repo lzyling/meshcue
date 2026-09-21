@@ -149,9 +149,9 @@ try {
   ).active;
   assert.equal(active.format, "step", "the source is kept as it was published");
   assert.equal(
-    fs.readFileSync(path.join(workspace, active.stored)).equals(
-      fs.readFileSync(path.join(repo, "tests/fixtures/plate.step")),
-    ),
+    fs
+      .readFileSync(path.join(workspace, active.stored))
+      .equals(fs.readFileSync(path.join(repo, "tests/fixtures/plate.step"))),
     true,
     "the stored source is not the STEP that was handed in",
   );

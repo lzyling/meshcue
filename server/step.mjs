@@ -84,15 +84,20 @@ function toGlb(meshes, generator) {
     chunks = [];
   let offset = 0;
   const put = (typed, target, extra = {}) => {
-    const bytes = Buffer.from(
-      typed.buffer,
-      typed.byteOffset,
-      typed.byteLength,
-    );
+    const bytes = Buffer.from(typed.buffer, typed.byteOffset, typed.byteLength);
     chunks.push(bytes, Buffer.alloc(pad4(bytes.length) - bytes.length));
-    views.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length, target });
+    views.push({
+      buffer: 0,
+      byteOffset: offset,
+      byteLength: bytes.length,
+      target,
+    });
     offset += pad4(bytes.length);
-    accessors.push({ bufferView: views.length - 1, count: extra.count, ...extra.rest });
+    accessors.push({
+      bufferView: views.length - 1,
+      count: extra.count,
+      ...extra.rest,
+    });
     return accessors.length - 1;
   };
 
@@ -199,8 +204,7 @@ export function convertStep(buffer, { generator = "MeshCue" } = {}) {
   const result = quietly(() =>
     occtSync().ReadStepFile(new Uint8Array(buffer), { ...DEFLECTION }),
   );
-  if (!result?.success || !result.meshes?.length)
-    return { ok: false };
+  if (!result?.success || !result.meshes?.length) return { ok: false };
   const meshes = result.meshes.filter(
     (m) => m.attributes?.position?.array?.length && m.index?.array?.length,
   );
@@ -254,7 +258,9 @@ export function convertStepDetached(buffer, { generator = "MeshCue" } = {}) {
     let answered = false;
     worker.once("message", (result) => {
       answered = true;
-      resolve(result.ok ? { ...result, glb: Buffer.from(result.glb) } : { ok: false });
+      resolve(
+        result.ok ? { ...result, glb: Buffer.from(result.glb) } : { ok: false },
+      );
     });
     worker.once("error", reject);
     /* A thread that dies without answering is not a model we can size. Saying

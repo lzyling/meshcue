@@ -79,7 +79,16 @@ function rotateLog(runtime) {
   }
   return file;
 }
-export async function ipc(runtime, instance, route, body) {
+// Every route answers from memory in under a millisecond, so silence for this
+// long means the instance is wedged rather than working. Publishing a STEP is
+// the one exception: it tessellates before it can answer.
+const IPC_IDLE = 3000;
+// Tessellation is the only IPC that does real work, and it scales with the
+// model: the largest assembly on hand (73k triangles) takes about 9 seconds, so
+// the 600k-triangle ceiling lands near 70. Doubling that leaves room for a
+// machine under load without waiting on a wedged instance forever.
+const IPC_PUBLISH = 180000;
+export async function ipc(runtime, instance, route, body, timeout = IPC_IDLE) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -123,7 +132,9 @@ export async function ipc(runtime, instance, route, body) {
         });
       },
     );
-    req.setTimeout(3000, () => req.destroy(new Error("MeshCue IPC timed out")));
+    req.setTimeout(timeout, () =>
+      req.destroy(new Error("MeshCue IPC timed out")),
+    );
     req.on("error", reject);
     req.end(body === undefined ? undefined : JSON.stringify(body));
   });
@@ -700,18 +711,24 @@ export class InstanceManager {
         await ipc(p.runtime, config.instance, "/opened", {}).catch(() => {});
         let published;
         if (input.file)
-          published = await ipc(p.runtime, config.instance, "/publish", {
-            file: input.file,
-            name: input.name,
-            version: input.version,
-            units: input.units,
-            origin,
-            // Publishing shows the new version by default, because showing it
-            // costs the reviewer nothing now. Saying otherwise adds a tab and
-            // leaves whatever they are looking at exactly where it is.
-            ...(input.label ? { label: input.label } : {}),
-            ...(input.activate === false ? { activate: false } : {}),
-          });
+          published = await ipc(
+            p.runtime,
+            config.instance,
+            "/publish",
+            {
+              file: input.file,
+              name: input.name,
+              version: input.version,
+              units: input.units,
+              origin,
+              // Publishing shows the new version by default, because showing it
+              // costs the reviewer nothing now. Saying otherwise adds a tab and
+              // leaves whatever they are looking at exactly where it is.
+              ...(input.label ? { label: input.label } : {}),
+              ...(input.activate === false ? { activate: false } : {}),
+            },
+            IPC_PUBLISH,
+          );
         state = await this.status(p, config);
         if (!state.active)
           fail(

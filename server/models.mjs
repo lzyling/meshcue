@@ -3,11 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError } from "./store.mjs";
-import {
-  convertStep,
-  convertStepDetached,
-  STEP_FORMATS,
-} from "./step.mjs";
+import { convertStep, convertStepDetached, STEP_FORMATS } from "./step.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.

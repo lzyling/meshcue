@@ -21,7 +21,10 @@ import { startReview } from "./helpers/review-server.mjs";
    from underneath" bug survived three releases of testing. Real parametric
    output usually declares nothing. */
 const FIXTURE = "tests/fixtures/plate.step";
-const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const repo = path.resolve(
+  path.dirname(new URL(import.meta.url).pathname),
+  "..",
+);
 const bytes = () => fs.readFileSync(path.join(repo, FIXTURE));
 
 function mediaFixture(t) {
@@ -67,10 +70,10 @@ test("the published identity stays the source; the drawn bytes are the mesh", as
     "mesh.sha256 must match the bytes the page will fetch and check",
   );
   // Both halves are kept: the source for download, the mesh for the viewer.
-  assert.deepEqual(fs.readdirSync(mediaDir).sort(), [
-    model.filename,
-    model.mesh.filename,
-  ].sort());
+  assert.deepEqual(
+    fs.readdirSync(mediaDir).sort(),
+    [model.filename, model.mesh.filename].sort(),
+  );
   assert.deepEqual(model.mesh.deflection, DEFLECTION);
   assert.ok(model.mesh.brepFaces > 0);
 });

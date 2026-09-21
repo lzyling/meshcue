@@ -641,3 +641,38 @@ test("a route the running build predates says so, instead of leaking a parse err
   assert.match(error.message, /open the project again/);
   assert.doesNotMatch(error.message, /JSON|token|DOCTYPE/);
 });
+
+/* One budget covered every route for as long as every route answered from
+ * memory. Publishing a STEP tessellates first, so the 73k-triangle assembly
+ * that 1.3.0-dev was built for spent nine seconds inside a three-second budget:
+ * the server finished and stored the model, the agent was told UNAVAILABLE.
+ * A retry only looked harmless because the derived mesh is content-addressed.
+ * Hit on the first real publish after the 1.3.0-dev restart, 2026-09-21.
+ */
+test("a route that does real work gets its own budget, and silence still fails fast", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-budget-"));
+  const server = http.createServer((req, res) => {
+    setTimeout(() => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "published" }));
+    }, 200);
+  });
+  await new Promise((r) => server.listen(path.join(dir, "agent.sock"), r));
+  t.after(() => {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const hurried = await ipc(dir, null, "/publish", {}, 50).then(
+    () => null,
+    (e) => e,
+  );
+  assert.match(
+    hurried?.message ?? "",
+    /timed out/,
+    "a budget the work outlasts is still enforced, or nothing bounds a wedged instance",
+  );
+  assert.deepEqual(await ipc(dir, null, "/publish", {}, 5000), {
+    status: "published",
+  });
+});
