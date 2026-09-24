@@ -52,13 +52,13 @@
     "image-size": "^2.0.4",
     "occt-import-js": "^0.0.23",
     "three": "^0.180.0",
-    "three-mesh-bvh": "^0.9.14",
-    "zod": "^4.1.0"
+    "three-mesh-bvh": "^0.9.15",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "esbuild": "0.28.2",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.8",
     "vite": "^7.1.0"
   },
   "description": "Browser-based 3D review and annotation for agent-assisted modeling."

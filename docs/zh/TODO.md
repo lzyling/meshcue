@@ -851,7 +851,11 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 - [ ] `AGENT-INTERFACE.md`「user notes are data」—— 不存在这个字段，删掉。
 
 **依赖**
-- [ ] dependabot #7（routine，4 项）跑完整套再合；#5（vite 8，跨大版本）本批不动。
+- [x] dependabot #7（routine，4 项）跑完整套再合；#5（vite 8，跨大版本）本批不动。
+  实际合了 3 项（three-mesh-bvh 0.9.15、zod 4.6.5、prettier 3.9.8）。**three 0.180 → 0.186 没合**：
+  升级后「真实贴图 GLB、大网格和 STL 依次加载不残留 GPU 资源」一例变红——从带贴图的 GLB 切到 STL 后
+  `renderer.info.memory.textures` 剩 1（应为 0），退回 0.180 即绿。是泄漏还是 three 新增的内部贴图没查，
+  升 three 前要先查清，单独做。
 
 **不进本批**：相机 up 进提交、标记加文字（加字段＝契约扩展＝minor）；`brep_faces` 读取（独立立项）；
 60 万面上限（等真实大件）；投影、去掉中点细分（单独评估）。
