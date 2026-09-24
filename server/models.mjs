@@ -366,7 +366,11 @@ export async function importModel(
     filename,
     name: String(name || path.basename(actual)).slice(0, 160),
     version: String(version || "initial").slice(0, 80),
-    units: String(units).slice(0, 30),
+    /* A STEP's mesh is millimetres whatever the caller says, because the
+       tessellator is asked for millimetres (`DEFLECTION.linearUnit`) and scales
+       whatever unit the file declares into them. Labelling it with the caller's
+       word instead put "in" beside millimetre coordinates. */
+    units: step ? "mm" : String(units).slice(0, 30),
     source: source
       ? path.relative(workspace, path.resolve(workspace, source))
       : null,

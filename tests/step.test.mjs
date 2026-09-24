@@ -135,6 +135,19 @@ test("a STEP this build already tessellated here is taken from disk, not the ker
   assert.notEqual(other.mesh.sha256, first.mesh.sha256);
 });
 
+/* The tessellator is asked for millimetres and scales the file's own unit into
+   them, so the mesh is millimetres whatever the caller calls it. */
+test("a STEP is labelled in millimetres whatever the caller said", async (t) => {
+  const mediaDir = mediaFixture(t);
+  const opts = { file: FIXTURE, name: "plate", version: "v1" };
+  for (const units of [undefined, "in", "unspecified"])
+    assert.equal(
+      (await importModel({ ...opts, units }, { workspace: repo, mediaDir }))
+        .units,
+      "mm",
+    );
+});
+
 test("a STEP with no colour reaches the viewer with no material, so it gets the review grey", async () => {
   const { glb } = (await measure(bytes())).derived;
   const json = JSON.parse(
