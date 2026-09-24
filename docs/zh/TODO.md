@@ -1029,6 +1029,11 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 
 ## 搁置 · 未定
 
+- **STL 的颜色**（Kelven 2026-09-25 问起）—— STL 标准里没有颜色。非标准的二进制扩展（每个三角形的 2 个
+  属性字节＋文件头 `COLOR=`，Magics 与 VisCAM 两种写法颜色位含义相反）three 的 `STLLoader` 读得出
+  （`geometry.hasColors`），但查看器对 STL 一律用审阅灰（`src/viewer.js` STL 分支）。
+  **要补的是文档**：AGENT-INTERFACE／SKILL 还没写「STL 一律灰，要颜色就发 STEP 或 GLB」，下次发版带上。
+  要不要支持那个扩展：我建议不做（不统一、少见、容易显示错色），Kelven 未表态。
 - **回传的触发机制** —— MCP 没有任何让 server 唤醒一轮对话的原语（协议级，不是某个客户端的问题）。
   阻塞等待 / 用户口述 / 系统通知三个方案都被否了，**等新思路**。
   在它定下来之前，Codex 侧只能做到「人说一句，Agent 才去读」。
