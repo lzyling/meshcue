@@ -53,6 +53,10 @@ already verified in the package rather than treating the first visitor or a
 User-Agent as confirmation. When device details are missing, ask only for the
 IPv4 — never for a token or a pairing code.
 
+MeshCue draws STEP and STL +Z up with −Y to the front, and GLB +Y up; rotate a
+model built otherwise before publishing, since nothing is guessed. Marks come
+back in the file's own coordinates and units.
+
 Publishing switches to the new version immediately; nothing queues, and the user
 does not have to end the previous round first. Deliver only the URL the tool
 actually returned, along with the model version really being displayed.
