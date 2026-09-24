@@ -21,14 +21,23 @@ const globalModules = execFileSync("npm", ["root", "-g"], {
 const hostRequire = createRequire(
   path.join(globalModules, "openclaw/package.json"),
 );
+// Node 24.18 runs require.resolve through these same hooks, so resolving the
+// SDK from inside one re-entered it without end; the flag lets that inner
+// lookup take the ordinary path.
+let resolvingSdk = false;
 registerHooks({
   resolve(specifier, ctx, next) {
-    return specifier.startsWith("openclaw/plugin-sdk/")
-      ? {
-          url: pathToFileURL(hostRequire.resolve(specifier)).href,
-          shortCircuit: true,
-        }
-      : next(specifier, ctx);
+    if (resolvingSdk || !specifier.startsWith("openclaw/plugin-sdk/"))
+      return next(specifier, ctx);
+    resolvingSdk = true;
+    try {
+      return {
+        url: pathToFileURL(hostRequire.resolve(specifier)).href,
+        shortCircuit: true,
+      };
+    } finally {
+      resolvingSdk = false;
+    }
   },
 });
 const repo = process.cwd();

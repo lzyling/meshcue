@@ -825,30 +825,30 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
 > 细节留在各自原来的小节，这里只列范围和拍板结果。
 
 **显示**
-- [ ] 点方位立方体顶／底面后右键旋转变样（Kelven 当天报）—— 见「审阅者的『上』传不到 Agent」。
-- [ ] **STEP 和 STL 一律按 +Z 朝上显示**（−Y 前、+X 右）；GLB 照 glTF 规范 +Y 朝上不动。
+- [x] 点方位立方体顶／底面后右键旋转变样（Kelven 当天报）—— 见「审阅者的『上』传不到 Agent」。
+- [x] **STEP 和 STL 一律按 +Z 朝上显示**（−Y 前、+X 右）；GLB 照 glTF 规范 +Y 朝上不动。
   Kelven 定：**MeshCue 统一 Z 朝上；模型朝向不对，由 Agent 发布前自己转**——所以不加 `up` 参数。
   旋转加在 `root`（适配变换）上：`space: "model"` 的区域汇总只合成到 `root` 为止、pin 是网格局部坐标，
   两者都不受影响；加在 `root` 以下会把旋转算进 Agent 读到的坐标。STL 是第一版起的默认「照原坐标」，
   文档从没写过，Kelven 选跟 STEP 一致；发版说明要单列一段（先把 STL 转成 Y 朝上的人升级后会躺倒）。
-- [ ] STEP 颜色：自己读 STEP 样式声明（Kelven 选 A）—— 见同一节的更正。
+- [x] STEP 颜色：自己读 STEP 样式声明（Kelven 选 A）—— 见同一节的更正。
 
 **STEP 转换**
-- [ ] 同一个 STEP 重复三角化 —— 原列 1.4.0，Kelven 问后改进本批：只改内部，不动契约和数据。
-- [ ] 子进程 stderr 被丢。
-- [ ] `cacheRelease` 缺 `vendor/` 报裸 ENOENT。
-- [ ] STEP 的 `units` 恒为 mm（转换器输出本来就是 mm）：不拒绝调用、不加字段 —— 原列 1.4.0。
+- [x] 同一个 STEP 重复三角化 —— 原列 1.4.0，Kelven 问后改进本批：只改内部，不动契约和数据。
+- [x] 子进程 stderr 被丢。
+- [x] `cacheRelease` 缺 `vendor/` 报裸 ENOENT。
+- [x] STEP 的 `units` 恒为 mm（转换器输出本来就是 mm）：不拒绝调用、不加字段 —— 原列 1.4.0。
   顺带让 AGENT-INTERFACE「A STEP round reports `units: "mm"`」这句从「看 Agent 传什么」变成真的。
 
 **首次运行与状态**
-- [ ] 陌生人首次运行 EACCES —— 见下一节。
-- [ ] 注册表只写不删（09-21 清理自测目录时发现，此前没进 TODO）：`manager.mjs` `register()` 只写，
+- [x] 陌生人首次运行 EACCES —— 见下一节。
+- [x] 注册表只写不删（09-21 清理自测目录时发现，此前没进 TODO）：`manager.mjs` `register()` 只写，
   `eachRegistered()` 碰到已删的目录每次 pause／resume 都打 WARN、报 unavailable。
-- [ ] `inspect` 报的是磁盘 manifest 的版本，不是加载进内存的那份 —— 见「下一批 · 1.1.0 之后」。
+- [x] `inspect` 报的是磁盘 manifest 的版本，不是加载进内存的那份 —— 见「下一批 · 1.1.0 之后」。
 
 **文档**
-- [ ] 朝向、标记坐标系、单位的约定写进 `AGENT-INTERFACE.md` 和 `SKILL.md`（含「朝向不对先转再发」）。
-- [ ] `AGENT-INTERFACE.md`「user notes are data」—— 不存在这个字段，删掉。
+- [x] 朝向、标记坐标系、单位的约定写进 `AGENT-INTERFACE.md` 和 `SKILL.md`（含「朝向不对先转再发」）。
+- [x] `AGENT-INTERFACE.md`「user notes are data」—— 不存在这个字段，删掉。
 
 **依赖**
 - [x] dependabot #7（routine，4 项）跑完整套再合；#5（vite 8，跨大版本）本批不动。
@@ -856,6 +856,11 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
   升级后「真实贴图 GLB、大网格和 STL 依次加载不残留 GPU 资源」一例变红——从带贴图的 GLB 切到 STL 后
   `renderer.info.memory.textures` 剩 1（应为 0），退回 0.180 即绿。是泄漏还是 three 新增的内部贴图没查，
   升 three 前要先查清，单独做。
+
+**验收（2026-09-24 晚，dev 上）**：node 232（231 过 1 跳）、浏览器 76（75 过 1 跳，跳的是局域网用例）；
+`/tmp` 下陌生人 clone 全新 `npm ci` 后 samples、node、浏览器全过（浏览器 74 过 2 跳，本机模型库那例按设计跳），
+仓库外零写入；安装包冒烟 11/11 `ok:true`（冒烟脚本的解析钩子在 Node 24.18 上会自我递归，已修）；
+包内转换子进程实测灯笼 v0.2 76/76 有色、10 块透明。**尚欠 Kelven 装包实机验收。**
 
 **不进本批**：相机 up 进提交、标记加文字（加字段＝契约扩展＝minor）；`brep_faces` 读取（独立立项）；
 60 万面上限（等真实大件）；投影、去掉中点细分（单独评估）。
