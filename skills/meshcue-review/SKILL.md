@@ -30,8 +30,8 @@ project and one originating session.
 
 ## 3. Measuring before publishing
 
-Run `precheck` on the same file before every `open`; it only reads and starts no
-instance. The limits are 600000 triangles and 80 MB, and they are the only ones
+Run `precheck` on a GLB or STL before every `open`; it only reads and starts no
+instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MB, and they are the only ones
 — a dense model marks exactly as precisely as a sparse one.
 
 `verdict: "ok"` publishes as is. On `reject`, simplify first and say in the
@@ -124,7 +124,7 @@ compare. Done means the batch, the version and the intent all agree.
 ## 7. Changing, republishing and delivering files
 
 Change the editable source with the original modelling tool, save a new version,
-`precheck`, then `open` the new file in the same project. Keep old
+`precheck` it unless it is a STEP, then `open` it in the same project. Keep old
 versions and the record of changes: they must never be deleted or overwritten,
 and they stay on the tab strip on their own unless the user asks for a shorter
 one, which `retain` gives them without losing anything. Use `status` to check

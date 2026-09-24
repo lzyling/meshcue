@@ -124,8 +124,10 @@ Mention a conspicuous number; never delete one yourself.
 These are the only limits. Nothing degrades quietly under them: a mark names a
 source face, and the review mesh's own tessellation never enters the answer.
 
-**Run `precheck` on every file before `open`.** It is read-only, starts no
-instance and writes nothing.
+**Run `precheck` on every GLB or STL before `open`.** It is read-only, starts
+no instance and writes nothing. A STEP needs none: `open` tessellates it once,
+measures it and refuses it with the same `MODEL_LIMIT`, and a precheck would
+only tessellate it a second time.
 
 - `ok` — publish.
 - `reject` — publishing will be refused. Decimate by

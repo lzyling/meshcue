@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
-import { ReviewError } from "./store.mjs";
+import { ReviewError, atomicJson } from "./store.mjs";
 import { convertStepDetached, STEP_FORMATS } from "./step.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
@@ -242,6 +242,46 @@ export function inspectModel(buffer, format, { derived } = {}) {
   );
 }
 
+/* Which mesh each STEP in a media directory became, per build that made it.
+
+   Tessellating is the one expensive step of a publish -- 8.6 s on the largest
+   real assembly here -- and its result was already kept, content-addressed,
+   for the round it was made for. What was missing was the way back from a
+   source to it: the conversion ran before the source was even hashed, so
+   publishing the same STEP again paid for the whole tessellation to arrive at
+   a file that was already on disk. Keyed by build as well as by source,
+   because the mesh records the build that made it and a later build may
+   tessellate differently. */
+const STEP_INDEX = "step-meshes.json";
+const sha256 = (data) => crypto.createHash("sha256").update(data).digest("hex");
+
+function knownStepMesh(mediaDir, sourceHash, generator) {
+  let entry, glb;
+  try {
+    entry = JSON.parse(
+      fs.readFileSync(path.join(mediaDir, STEP_INDEX), "utf8"),
+    )[sourceHash]?.[generator];
+    if (!/^[0-9a-f]{64}$/.test(entry?.sha256)) return null;
+    glb = fs.readFileSync(path.join(mediaDir, `${entry.sha256}.glb`));
+  } catch {
+    return null;
+  }
+  // Believed only as far as the bytes agree with it.
+  if (sha256(glb) !== entry.sha256) return null;
+  const { sha256: _, ...measured } = entry;
+  return { ok: true, ...measured, glb };
+}
+
+function rememberStepMesh(mediaDir, sourceHash, generator, entry) {
+  const file = path.join(mediaDir, STEP_INDEX);
+  let index = {};
+  try {
+    index = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {}
+  index[sourceHash] = { ...index[sourceHash], [generator]: entry };
+  atomicJson(file, index);
+}
+
 /* Asynchronous because for a STEP it now is: the tessellation happens in a
    process that exits afterwards, which is what keeps an 8-second assembly from
    stopping the server and what keeps the OCCT heap from becoming this one's.
@@ -249,7 +289,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
    the size limit applied -- before anything reads the file or converts it. */
 export async function importModel(
   { file, name, version, source, units = "unspecified" },
-  { workspace, mediaDir, generator },
+  { workspace, mediaDir, generator = "MeshCue" },
 ) {
   const actual = fs.realpathSync(path.resolve(workspace, file));
   if (!actual.startsWith(workspace + path.sep))
@@ -269,12 +309,14 @@ export async function importModel(
     );
   const buffer = fs.readFileSync(actual),
     format = path.extname(actual).slice(1).toLowerCase();
+  const hash = sha256(buffer);
+  const step = STEP_FORMATS.includes(format);
   const { derived, ...metadata } = inspectModel(buffer, format, {
-    derived: STEP_FORMATS.includes(format)
-      ? await convertStepDetached(buffer, { generator })
+    derived: step
+      ? (knownStepMesh(mediaDir, hash, generator) ??
+        (await convertStepDetached(buffer, { generator })))
       : undefined,
   });
-  const hash = crypto.createHash("sha256").update(buffer).digest("hex");
   const id = hash.slice(0, 24),
     filename = `${hash}.${format}`;
   fs.mkdirSync(mediaDir, { recursive: true });
@@ -300,6 +342,13 @@ export async function importModel(
       .digest("hex");
     const meshTarget = path.join(mediaDir, `${meshHash}.glb`);
     if (!fs.existsSync(meshTarget)) fs.writeFileSync(meshTarget, derived.glb);
+    rememberStepMesh(mediaDir, hash, generator, {
+      sha256: meshHash,
+      triangles: derived.triangles,
+      brepFaces: derived.brepFaces,
+      meshCount: derived.meshCount,
+      deflection: derived.deflection,
+    });
     mesh = {
       format: "glb",
       sha256: meshHash,

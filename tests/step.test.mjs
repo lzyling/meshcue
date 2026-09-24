@@ -80,10 +80,11 @@ test("the published identity stays the source; the drawn bytes are the mesh", as
       .digest("hex"),
     "mesh.sha256 must match the bytes the page will fetch and check",
   );
-  // Both halves are kept: the source for download, the mesh for the viewer.
+  // Both halves are kept: the source for download, the mesh for the viewer --
+  // and the note that leads from one to the other.
   assert.deepEqual(
     fs.readdirSync(mediaDir).sort(),
-    [model.filename, model.mesh.filename].sort(),
+    [model.filename, model.mesh.filename, "step-meshes.json"].sort(),
   );
   assert.deepEqual(model.mesh.deflection, DEFLECTION);
   assert.ok(model.mesh.brepFaces > 0);
@@ -95,10 +96,43 @@ test("re-importing the same STEP lands on the same mesh file, so marks keep mean
   const a = await importModel(opts, { workspace: repo, mediaDir });
   const b = await importModel(opts, { workspace: repo, mediaDir });
   assert.equal(a.mesh.sha256, b.mesh.sha256);
-  // Two imports, two files, not four: the derived mesh is content-addressed
-  // like the source, which is what stops a second publish from silently
-  // re-tessellating under an existing round's face indices.
-  assert.equal(fs.readdirSync(mediaDir).length, 2);
+  // Two imports, two model files, not four: the derived mesh is
+  // content-addressed like the source, which is what stops a second publish
+  // from silently re-tessellating under an existing round's face indices.
+  // Beside them, the note of which mesh the source became.
+  assert.deepEqual(
+    fs.readdirSync(mediaDir).filter((f) => f !== "step-meshes.json").length,
+    2,
+  );
+});
+
+/* The second import used to tessellate all over again -- 8.6 s on the largest
+   real assembly -- to arrive at a file already on disk. Proved without timing
+   anything: the remembered mesh is swapped for bytes the kernel would never
+   produce, and the import hands those back. */
+test("a STEP this build already tessellated here is taken from disk, not the kernel", async (t) => {
+  const mediaDir = mediaFixture(t);
+  const opts = { file: FIXTURE, name: "plate", version: "v1" };
+  const build = { workspace: repo, mediaDir, generator: "MeshCue test" };
+  const first = await importModel(opts, build);
+  const indexFile = path.join(mediaDir, "step-meshes.json");
+  const index = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+  const entry = index[first.sha256]["MeshCue test"];
+  assert.equal(entry.sha256, first.mesh.sha256);
+
+  const stand = Buffer.from("not a tessellation of anything");
+  const standHash = crypto.createHash("sha256").update(stand).digest("hex");
+  fs.writeFileSync(path.join(mediaDir, `${standHash}.glb`), stand);
+  entry.sha256 = standHash;
+  fs.writeFileSync(indexFile, JSON.stringify(index));
+  assert.equal((await importModel(opts, build)).mesh.sha256, standHash);
+
+  // Bytes that no longer match the note are not believed: converted afresh.
+  fs.writeFileSync(path.join(mediaDir, `${standHash}.glb`), "edited");
+  assert.equal((await importModel(opts, build)).mesh.sha256, first.mesh.sha256);
+  // And another build does not borrow this one's mesh.
+  const other = await importModel(opts, { ...build, generator: "MeshCue 9" });
+  assert.notEqual(other.mesh.sha256, first.mesh.sha256);
 });
 
 test("a STEP with no colour reaches the viewer with no material, so it gets the review grey", async () => {
