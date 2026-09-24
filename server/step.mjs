@@ -144,13 +144,17 @@ function toGlb(meshes, generator) {
        untinted STL already takes. Inventing a white material here would opt
        these models out of it and put them back in the dark. */
     if (m.color) {
+      const alpha = m.alpha ?? 1;
       materials.push({
         name: `${m.name || "part"} colour`,
         pbrMetallicRoughness: {
-          baseColorFactor: [...m.color.slice(0, 3), 1],
+          baseColorFactor: [...m.color.slice(0, 3), alpha],
           metallicFactor: 0,
           roughnessFactor: 0.85,
         },
+        // Only a transparency the file declared, read in step-styles.mjs; the
+        // library itself reports none.
+        ...(alpha < 1 ? { alphaMode: "BLEND" } : {}),
       });
       primitive.material = materials.length - 1;
     }
@@ -215,6 +219,15 @@ export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
      reason the answer travels on a descriptor of its own. */
   const result = kernel.ReadStepFile(new Uint8Array(buffer), { ...DEFLECTION });
   if (!result?.success || !result.meshes?.length) return { ok: false };
+  /* Imported here, in the child, rather than at the top: everything above the
+     child in this file stays on node built-ins, which is what lets the tests
+     stand a fake child beside a copy of it. A file whose styles cannot be
+     read is tessellated exactly as before -- the colours are a courtesy, the
+     mesh is the answer. */
+  try {
+    const { applyDeclaredStyles } = await import("./step-styles.mjs");
+    applyDeclaredStyles(result, buffer.toString("utf8"));
+  } catch {}
   const meshes = result.meshes.filter(
     (m) => m.attributes?.position?.array?.length && m.index?.array?.length,
   );
