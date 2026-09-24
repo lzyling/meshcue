@@ -243,6 +243,28 @@ export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
    unreachable. */
 const CONVERSION_TIMEOUT = 120000;
 
+// A crash is a message and a stack; this is room for both without letting a
+// child that writes endlessly grow the parent.
+const STDERR_KEPT = 16384;
+
+/* The line of a dead child's stderr that says what went wrong. Node ends an
+   uncaught error with the stack and then its own version, so the tail of the
+   stream is the least useful part: the line wanted is the last one that names
+   an error, and failing that the last one that is not a stack frame. */
+export function childComplaint(text) {
+  const lines = String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const named = lines.filter((line) =>
+    /^[\w.$]*(Error|Exception)\b/.test(line),
+  );
+  const said =
+    named.pop() ??
+    lines.filter((line) => !/^(at |Node\.js v)/.test(line)).pop();
+  return said ? said.slice(0, 300) : "";
+}
+
 /* What a child left on the pipe, read as either an answer or a reason.
 
    Separate from the spawning because the dangerous part is pure and the
@@ -308,7 +330,13 @@ export function readAnswer(answer, { code, signal } = {}) {
    prints its complaints about a malformed upload, and a frame sharing a stream
    with a library that can print is a frame that can be corrupted by one: the
    first malformed STEP through this code arrived as a JSON parse error on the
-   word "ERR". Both of the child's own streams are discarded instead. */
+   word "ERR". stdout is discarded for that reason.
+
+   stderr is not: the library prints its complaints to stdout, so what arrives
+   on stderr is the child's own failure, and it is kept to say why a conversion
+   died. It used
+   to be discarded with stdout, and a vendored module loaded as the wrong kind
+   came back as "stopped without an answer (exit 1)" and cost an hour. */
 export function convertStepDetached(
   buffer,
   { generator = "MeshCue", timeoutMs = CONVERSION_TIMEOUT } = {},
@@ -318,7 +346,12 @@ export function convertStepDetached(
     if (!script)
       return reject(new Error("The STEP converter is missing from this copy."));
     const child = spawn(process.execPath, [script, generator], {
-      stdio: ["pipe", "ignore", "ignore", "pipe"],
+      stdio: ["pipe", "ignore", "pipe", "pipe"],
+    });
+    let said = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (text) => {
+      said = (said + text).slice(-STDERR_KEPT);
     });
     const chunks = [];
     let settled = false;
@@ -354,7 +387,10 @@ export function convertStepDetached(
         code,
         signal,
       });
-      if (error) return finish(reject, new Error(error));
+      if (error) {
+        const why = childComplaint(said);
+        return finish(reject, new Error(why ? `${error} ${why}` : error));
+      }
       finish(resolve, value);
     });
     child.stdin.end(buffer);

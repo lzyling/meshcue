@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { inspectModel, importModel } from "../server/models.mjs";
 import {
+  childComplaint,
   convertStep,
   convertStepDetached,
   DEFLECTION,
@@ -189,6 +190,44 @@ test("a converter that dies part-way through its answer is refused, not thrown p
       `${what} has to come back as a refusal`,
     );
   }
+});
+
+/* The child's stderr used to be thrown away with the library's stdout noise, so
+   every crash read "stopped without an answer (exit 1)" whatever had happened.
+   The real one was a vendored module loaded as the wrong kind of module. */
+test("a converter that crashes says what it crashed on", async (t) => {
+  const { convertStepDetached: detached } = await converterThatWrites(
+    t,
+    `throw new TypeError("require2(...) is not a function");`,
+  );
+  await assert.rejects(
+    () => detached(Buffer.alloc(8)),
+    /stopped without an answer \(exit 1\)\. TypeError: require2\(\.\.\.\) is not a function$/,
+  );
+});
+
+test("the line kept from a crash is the one naming it, not the stack under it", () => {
+  const crash = [
+    "file:///x/runtime/step-child.mjs:12",
+    "const { glb } = await convertStep(buffer);",
+    "                ^",
+    "",
+    "TypeError: require2(...) is not a function",
+    "    at occt (file:///x/runtime/step.mjs:65:61)",
+    "    at convertStep (file:///x/runtime/step.mjs:211:24)",
+    "",
+    "Node.js v24.18.0",
+  ].join("\n");
+  assert.equal(
+    childComplaint(crash),
+    "TypeError: require2(...) is not a function",
+  );
+  // Nothing named as an error: the last line that is not a frame or a banner.
+  assert.equal(
+    childComplaint("warming up\nout of memory\n    at x\nNode.js v24.18.0\n"),
+    "out of memory",
+  );
+  assert.equal(childComplaint(""), "");
 });
 
 test("a tessellation that will not finish is killed rather than waited on", async () => {
