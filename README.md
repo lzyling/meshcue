@@ -159,7 +159,8 @@ Plans, not promises: the order can change as people use it. Ideas and requests
 are welcome in [Discussions](https://github.com/lzyling/meshcue/discussions).
 
 - **1.4** — what the reviewer means reaches the agent: a submission carries
-  which way was up on the reviewer's screen, and a mark can carry a short note.
+  which way was up on the reviewer's screen, a mark can carry a short note, and
+  the reviewer can measure the model and attach the dimension to a mark.
 - **1.5** — every valid GLB opens and looks as its author made it: Draco,
   Meshopt and KTX2 compression, rigged models in their bind pose, morph
   targets, GPU instancing, a texture budget that fits a 4K PBR set, and
