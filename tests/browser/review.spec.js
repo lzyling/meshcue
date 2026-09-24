@@ -1654,21 +1654,71 @@ test("a cube face reframes from a named side without changing the framing", asyn
     .not.toBe(spun);
 });
 
-test("the home view stands upright again after a look straight down", async ({
+/* A look straight down or straight up used to lay the up vector along the
+   floor, and OrbitControls reads that vector once, when it is built. The orbit
+   went on turning about +Y while every frame was aimed by ±Z, so the right
+   button turned the model some other way -- a sideways drag hardly turned it at
+   all -- until a side face or home put the vector back. */
+test("the right button turns the model the same way after a look straight down or up", async ({
   page,
 }) => {
   publish();
   await ready(page);
-  const up = () => page.evaluate(() => window.__reviewDiagnostics().cameraUp);
-  expect(await up()).toEqual([0, 1, 0]);
-  // Looking straight down leaves the usual up vector parallel to the view,
-  // where it no longer says which way is up, so it has to lie on the floor.
-  await page.locator('.orient-face[data-view="0,1,0"]').click();
-  await expect.poll(async () => Math.abs((await up())[1])).toBeLessThan(0.01);
+  const view = () =>
+    page.evaluate(() => {
+      const d = window.__reviewDiagnostics();
+      const [p, t] = [d.camera.position, d.camera.target];
+      const span = Math.hypot(...p.map((v, i) => v - t[i]));
+      return {
+        up: d.cameraUp,
+        screenUp: d.screenUp,
+        height: (p[1] - t[1]) / span,
+      };
+    });
+  const turnSideways = async () => {
+    const p = await point(page);
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(p.x + 150, p.y, { steps: 6 });
+    await page.mouse.up({ button: "right" });
+    await page.waitForTimeout(1200); // orbit damping settles
+  };
+  // The bottom face is on the far side of the cube from home: reach it by the
+  // front-bottom edge, as a reviewer does.
+  const sides = [
+    { path: ["0,1,0"], height: 1, screenZ: -1 },
+    { path: ["0,-1,1", "0,-1,0"], height: -1, screenZ: 1 },
+  ];
+  for (const side of sides) {
+    await page.locator("#home-view").click();
+    for (const face of side.path) {
+      await page.locator(`[data-view="${face}"]`).click();
+      await page.waitForTimeout(900);
+    }
+    await expect
+      .poll(async () => (await view()).height * side.height)
+      .toBeGreaterThan(0.9999);
+    const before = await view();
+    expect(before.up).toEqual([0, 1, 0]);
+    // The same picture the floor-bound up vector gave: -Z at the top of the
+    // screen from above, +Z from below.
+    expect(before.screenUp[2] * side.screenZ).toBeGreaterThan(0.99);
+    await turnSideways();
+    const after = await view();
+    expect(after.up).toEqual([0, 1, 0]);
+    // Still looking straight down or up, and the picture turned with the drag
+    // -- about the vertical, as it does from anywhere else.
+    expect(after.height * side.height).toBeGreaterThan(0.999);
+    const cos = before.screenUp.reduce(
+      (n, v, i) => n + v * after.screenUp[i],
+      0,
+    );
+    expect(Math.acos(Math.min(1, cos))).toBeGreaterThan(0.35);
+  }
   await page.locator("#home-view").click();
-  // Home is a whole view and not merely a place to stand: keeping the
-  // floor-bound up vector leaves the default view rolled onto its side.
-  await expect.poll(up).toEqual([0, 1, 0]);
+  await expect
+    .poll(async () => (await view()).screenUp[1])
+    .toBeGreaterThan(0.8);
 });
 
 /* Six named sides are the views you can describe; the three-quarter views are

@@ -37,6 +37,9 @@ const MAX_REVIEW_TRIANGLES = 600000;
    taller than it is wide. The floor gives way to the model, never the other
    way round. */
 const GRID_Y = -1.4;
+/* How far off the pole a top or bottom view stands, in radians. Far enough
+   from the 1e-6 OrbitControls clamps to, too little to see. */
+const POLE_OFFSET = 1e-4;
 // Let the browser actually paint before a long synchronous block starts. One
 // animation frame only schedules the work; the second is what proves it ran.
 // Off-screen callers — the geometry tests drive this same load path in Node —
@@ -319,6 +322,11 @@ export class ModelViewer {
       target: this.controls.target.toArray(),
     };
   }
+  // Which way the top of the screen points in the world. `camera.up` is only
+  // what lookAt was asked for; this is what the reviewer is actually shown.
+  screenUp() {
+    return new V(0, 1, 0).applyQuaternion(this.camera.quaternion).toArray();
+  }
   // Every source triangle in the loaded model: the most a round could possibly
   // claim, and since `source-v2` the only ceiling on claiming that is honest.
   sourceFaceCount() {
@@ -436,9 +444,8 @@ export class ModelViewer {
     this.controls.update();
     this.camera.position.set(4, 2.8, 5);
     this.controls.target.set(0, 0, 0);
-    // A straight-down look leaves the up vector lying on the floor, and coming
-    // home from one used to keep it: the camera stood in the right place with
-    // the whole model rolled onto its side.
+    // Nothing moves the up vector any more (see `viewFrom`); kept so that
+    // nothing that ever does can outlive a trip home.
     this.camera.up.set(0, 1, 0);
     this.controls.update();
     this.controls.enableDamping = damping;
@@ -897,15 +904,20 @@ export class ModelViewer {
     this.controls.update();
     const target = this.controls.target;
     const distance = Math.max(this.camera.position.distanceTo(target), 0.2);
+    /* Straight down or straight up leaves the up vector parallel to the view,
+       where it no longer says which way is up. This used to lay the up vector
+       along the floor instead, and OrbitControls reads it once, when it is
+       built: after a top or bottom view the orbit went on turning about +Y
+       while lookAt used ±Z, and the right button turned the model some other
+       way until a side face or home put it back. Standing a hair off the pole
+       on the +Z side draws the same picture -- -Z at the top of the screen
+       from above, +Z from below -- and the orbit never changes axis. */
+    const vertical = Math.abs(y) > 0.9 && !x && !z;
     this.camera.position
-      .set(x, y, z)
+      .set(x, y, vertical ? Math.abs(y) * Math.tan(POLE_OFFSET) : z)
       .normalize()
       .multiplyScalar(distance)
       .add(target);
-    // Straight down or straight up leaves the default up vector parallel to the
-    // view, where it no longer says which way is up; lay it along the floor.
-    const vertical = Math.abs(y) > 0.9 && !x && !z;
-    this.camera.up.set(0, vertical ? 0 : 1, vertical ? -Math.sign(y) : 0);
     this.camera.lookAt(target);
     this.controls.update();
     this.controls.enableDamping = damping;

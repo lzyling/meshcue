@@ -1736,6 +1736,7 @@ window.__reviewDiagnostics = () => ({
   // draft stores — that one is a place to stand, and this is how a view can be
   // upright from the right place and still be lying on its side.
   cameraUp: viewer.camera.up.toArray(),
+  screenUp: viewer.screenUp(),
   viewer: viewer.stats(),
   locked: state?.locked,
   owned: state?.owned,
