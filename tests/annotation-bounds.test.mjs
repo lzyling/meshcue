@@ -91,6 +91,31 @@ test("the preview's own placement does not move the extent", () => {
   );
 });
 
+/* STEP and STL are stood on +Z by turning `root`, beside the fit. The extent is
+   composed up to `root` and stops there, which is the only reason the turn can
+   go there without the agent's numbers turning with it. */
+test("standing a model up on +Z does not turn the numbers the agent reads", () => {
+  const region = {
+    type: "region",
+    faces: { "mesh-0": [0] },
+    surfacePatches: [],
+  };
+  const upright = part();
+  const root = fitted(upright);
+  root.rotation.x = -Math.PI / 2;
+  root.updateMatrixWorld(true);
+  const out = bounds(region, root, [["mesh-0", upright]]);
+  assert.deepEqual(out.min, [-80, 0, 0]);
+  assert.deepEqual(out.max, [80, 40, 0]);
+  // Turned one node further in, the same stroke comes back rotated.
+  const inner = part();
+  const turned = new THREE.Object3D();
+  turned.rotation.x = -Math.PI / 2;
+  turned.add(inner);
+  const wrong = bounds(region, fitted(turned), [["mesh-0", inner]]);
+  assert.notDeepEqual(wrong.max, [80, 40, 0]);
+});
+
 test("a pin is not given an extent", () => {
   const mesh = part();
   assert.equal(

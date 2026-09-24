@@ -37,6 +37,11 @@ const MAX_REVIEW_TRIANGLES = 600000;
    taller than it is wide. The floor gives way to the model, never the other
    way round. */
 const GRID_Y = -1.4;
+/* STEP and STL say nothing about which way is up, so MeshCue says it for them:
+   +Z, with -Y towards the reviewer -- how CAD and every slicer draw them. glTF
+   does say, +Y, and is left as it is. An agent whose model is built another way
+   turns it before publishing; nothing here guesses. */
+const Z_UP_FORMATS = new Set(["step", "stp", "stl"]);
 /* How far off the pole a top or bottom view stands, in radians. Far enough
    from the 1e-6 OrbitControls clamps to, too little to see. */
 const POLE_OFFSET = 1e-4;
@@ -481,6 +486,7 @@ export class ModelViewer {
     this.markMaterials.clear();
     this.root.clear();
     this.root.position.set(0, 0, 0);
+    this.root.rotation.set(0, 0, 0);
     this.root.scale.setScalar(1);
     this.setGridY(GRID_Y);
     this.meshes = [];
@@ -526,7 +532,6 @@ export class ModelViewer {
       geometry.computeVertexNormals();
       object = new THREE.Mesh(geometry, reviewGrey());
       object.name = model.name;
-      // STL has no standard up axis; preserve the original model coordinates.
     }
     if (epoch !== this.loadingEpoch) {
       object.traverse((o) => o.geometry?.dispose());
@@ -540,12 +545,22 @@ export class ModelViewer {
     if (!Number.isFinite(size.length()) || size.length() === 0)
       throw new Error(t("model.noExtent"));
     const scale = 3 / Math.max(size.x, size.y, size.z);
+    /* The turn goes on `root`, beside the fit, because every coordinate handed
+       to the agent stops short of `root`: a pin is in its own mesh's frame, and
+       a region's `space: "model"` numbers are composed up to `root` and no
+       further. Turned anywhere below it, the model would stand up and every
+       mark on it would come back rotated. */
+    if (Z_UP_FORMATS.has(model.format)) this.root.rotation.x = -Math.PI / 2;
     this.root.scale.setScalar(scale);
-    this.root.position.copy(center).multiplyScalar(-scale);
+    this.root.position
+      .copy(center)
+      .applyQuaternion(this.root.quaternion)
+      .multiplyScalar(-scale);
     this.root.updateMatrixWorld(true);
-    this.setGridY(
-      Math.min(GRID_Y, new THREE.Box3().setFromObject(this.root).min.y - 0.02),
-    );
+    const fitted = new THREE.Box3().setFromObject(this.root);
+    const floor = fitted.min.y;
+    this.extent = fitted.getSize(new V()).toArray();
+    this.setGridY(Math.min(GRID_Y, floor - 0.02));
     const source = [];
     this.root.traverse((o) => {
       if (o.isMesh) source.push(o);
@@ -619,7 +634,7 @@ export class ModelViewer {
     if (total > MAX_REVIEW_TRIANGLES)
       throw new Error(t("model.meshOverBudget"));
     this.model = model;
-    this.grid.position.y = (-size.y * scale) / 2 - 0.025;
+    this.grid.position.y = floor - 0.025;
     this.home();
     const manifest = this.meshes.map((o) => ({
       id: o.userData.reviewId,
@@ -1253,6 +1268,8 @@ export class ModelViewer {
       ground: this.grid
         ? { y: +this.gridY.toFixed(3), visible: this.grid.visible }
         : null,
+      // Which way the model stands, as the fitted size along x, y (up) and z.
+      extent: this.extent?.map((v) => +v.toFixed(3)) ?? null,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
     };

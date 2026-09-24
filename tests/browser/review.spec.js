@@ -1721,6 +1721,53 @@ test("the right button turns the model the same way after a look straight down o
     .toBeGreaterThan(0.8);
 });
 
+/* STEP and STL carry no up axis, and MeshCue gives them +Z. The same plate,
+   20 × 15 × 8 mm and modelled flat, used to stand on its long edge: the 15 mm
+   side went up the screen and the 8 mm one into it. */
+test("a STEP and an STL stand on +Z", async ({ page }) => {
+  const stl = path.join(dir, "plate.stl");
+  const [lo, hi] = [
+    [-10, -7.5, -4],
+    [10, 7.5, 4],
+  ];
+  const corner = (i) => [0, 1, 2].map((k) => ((i >> k) & 1 ? hi : lo)[k]);
+  const quads = [
+    [0, 2, 3, 1],
+    [4, 5, 7, 6],
+    [0, 1, 5, 4],
+    [2, 6, 7, 3],
+    [0, 4, 6, 2],
+    [1, 3, 7, 5],
+  ];
+  const facet = (a, b, c) =>
+    `facet normal 0 0 0\nouter loop\n${[a, b, c]
+      .map((i) => `vertex ${corner(i).join(" ")}`)
+      .join("\n")}\nendloop\nendfacet`;
+  fs.writeFileSync(
+    stl,
+    `solid plate\n${quads
+      .flatMap(([a, b, c, d]) => [facet(a, b, c), facet(a, c, d)])
+      .join("\n")}\nendsolid plate\n`,
+  );
+  // Fitted into three units by the long side: 20 → 3, so 8 → 1.2 and 15 → 2.25.
+  const standing = [3, 1.2, 2.25];
+  for (const [file, version] of [
+    ["tests/fixtures/plate.step", "step"],
+    [stl, "stl"],
+  ]) {
+    execFileSync(
+      process.execPath,
+      ["scripts/reviewctl.mjs", "publish", file, "--version", version],
+      { cwd: repo, env, encoding: "utf8" },
+    );
+    await ready(page);
+    const extent = await page.evaluate(
+      () => window.__reviewDiagnostics().viewer.extent,
+    );
+    extent.forEach((v, i) => expect(v).toBeCloseTo(standing[i], 2));
+  }
+});
+
 /* Six named sides are the views you can describe; the three-quarter views are
    the ones a modeller actually works from, and until the edges and corners were
    clickable there was no way to reach one except by dragging until it looked
