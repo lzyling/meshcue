@@ -142,6 +142,26 @@ test("an altered cache is refused rather than launched", (t) => {
   });
 });
 
+/* Each part the package cannot run without, taken away one at a time. Every one
+   of them used to reach the caller as a bare ENOENT from whichever filesystem
+   call happened to touch it first. */
+test("a package missing a part it needs says so rather than throwing ENOENT", (t) => {
+  for (const missing of [
+    "openclaw.plugin.json",
+    "vendor",
+    "web",
+    "runtime/step-child.mjs",
+    "AGENT-INTERFACE.md",
+  ]) {
+    const f = fixture(t);
+    fs.rmSync(path.join(f.install, missing), { recursive: true });
+    assert.throws(() => cacheRelease(f.install, f.runtime), {
+      code: "PACKAGE_INVALID",
+      message: `The package has no ${missing}; nothing was started.`,
+    });
+  }
+});
+
 test("a bundled skill is part of the package identity, not a loose file", (t) => {
   // The host loads a bundled skill from the install root, so swapping it there
   // changes what the Agent is told to do while every other check still passes.

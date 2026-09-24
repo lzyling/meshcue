@@ -19,9 +19,25 @@ function files(root, relative = "") {
   }
   return found.sort();
 }
+/* A package without a part it cannot run without is a broken package, and is
+   called one in the words the rest of this module uses. Unchecked, a build that
+   lost `vendor/` -- the directory 1.3.0 added -- surfaced as whatever ENOENT
+   `readdirSync` threw, naming a path the reader had no reason to recognise, at
+   exactly the moment a clear message matters most. */
+function present(installRoot, relative) {
+  if (!fs.existsSync(path.join(installRoot, relative)))
+    fail(
+      "PACKAGE_INVALID",
+      `The package has no ${relative}; nothing was started.`,
+    );
+  return relative;
+}
 export function cacheRelease(installRoot, runtime) {
   const manifest = JSON.parse(
-    fs.readFileSync(path.join(installRoot, "openclaw.plugin.json"), "utf8"),
+    fs.readFileSync(
+      path.join(installRoot, present(installRoot, "openclaw.plugin.json")),
+      "utf8",
+    ),
   );
   if (manifest.id !== "meshcue")
     fail("PACKAGE_INVALID", "This package is not MeshCue.");
@@ -35,14 +51,16 @@ export function cacheRelease(installRoot, runtime) {
     // child -- so they are listed with the server rather than treated as
     // optional extras.
     "runtime/step-child.mjs",
-    ...files(path.join(installRoot, "vendor")).map((p) =>
+    ...files(path.join(installRoot, present(installRoot, "vendor"))).map((p) =>
       path.join("vendor", p),
     ),
     "AGENT-INTERFACE.md",
     // The server derives its version from this rather than restating it, so a
     // release without it reports "unknown" from inside a numbered package.
     "package.json",
-    ...files(path.join(installRoot, "web")).map((p) => path.join("web", p)),
+    ...files(path.join(installRoot, present(installRoot, "web"))).map((p) =>
+      path.join("web", p),
+    ),
     // A bundled skill ships in the package but the host loads it from the
     // install root, so no other check would notice it being edited in place.
     // Hash it with the rest; a package built without one contributes nothing.
@@ -53,7 +71,7 @@ export function cacheRelease(installRoot, runtime) {
   const hash = crypto.createHash("sha256"),
     content = [];
   for (const relative of wanted.sort()) {
-    const target = scopedPath(installRoot, relative);
+    const target = scopedPath(installRoot, present(installRoot, relative));
     const data = fs.readFileSync(target);
     hash.update(relative).update("\0").update(data);
     content.push({ relative, data });
