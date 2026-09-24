@@ -153,6 +153,24 @@ verified private IPv4 and always requires authorization — see
 [SECURITY.md](SECURITY.md) for the trust model, how a browser is admitted, and
 how long that lasts.
 
+## Roadmap
+
+Plans, not promises: the order can change as people use it. Ideas and requests
+are welcome in [Discussions](https://github.com/lzyling/meshcue/discussions).
+
+- **1.4** — what the reviewer means reaches the agent: a submission carries
+  which way was up on the reviewer's screen, and a mark can carry a short note.
+- **1.5** — every valid GLB opens and looks as its author made it: Draco,
+  Meshopt and KTX2 compression, rigged models in their bind pose, morph
+  targets, GPU instancing, a texture budget that fits a 4K PBR set, and
+  `.gltf` with external files.
+- **1.6** — showing a GLB as intended: animation poses, LOD sets and material
+  variants.
+- **1.7** — review aids for game assets: UV and checker views, per-channel
+  texture views, per-mesh triangle counts and a node tree with visibility.
+- **2.0** — animation playback: rigged animation you can play and step through
+  frame by frame.
+
 ## Documentation
 
 - [AGENT-INTERFACE.md](AGENT-INTERFACE.md) — the contract an agent implements
