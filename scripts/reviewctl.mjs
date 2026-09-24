@@ -6,8 +6,9 @@ import { lanAddresses } from "../server/network.mjs";
 import { agentSocketPath, readInstance } from "../server/instance.mjs";
 import { within } from "../server/paths.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// The same default as the server's: the clone itself, unless told otherwise.
 const workspace = fs.realpathSync(
-  path.resolve(process.env.REVIEW_WORKSPACE || path.resolve(repo, "../..")),
+  path.resolve(process.env.REVIEW_WORKSPACE || repo),
 );
 const [command, ...args] = process.argv.slice(2);
 if (command === "network") {

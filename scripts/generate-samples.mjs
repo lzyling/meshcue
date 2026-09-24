@@ -24,10 +24,8 @@ const args = Object.fromEntries(
     return all;
   }, []),
 );
-const output = path.resolve(
-  repo,
-  args.output || "../../media/3d/3d-agent-review/samples",
-);
+// Inside the clone, where a server started from it will publish them from.
+const output = path.resolve(repo, args.output || "tmp/samples");
 fs.mkdirSync(output, { recursive: true });
 const holeRadius = Number(args["hole-radius"] || 0.19);
 if (!Number.isFinite(holeRadius) || holeRadius < 0.05 || holeRadius > 0.4)

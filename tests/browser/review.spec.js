@@ -36,7 +36,7 @@ function publish(file = "parametric-bracket.glb", version = "v1") {
       [
         "scripts/reviewctl.mjs",
         "publish",
-        `../../media/3d/3d-agent-review/samples/${file}`,
+        `tmp/samples/${file}`,
         "--name",
         file === "bunny-figurine.glb" ? "人偶樣例" : "參數支架",
         "--version",
@@ -133,7 +133,7 @@ test("actual double click creates a surface pin; refresh restores it and geometr
   expect(after.owned).toBe(true);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-v02-pin-tested.png",
+      "tmp/screenshots/2026-09-09-3d-review-v02-pin-tested.png",
     ),
     fullPage: true,
   });
@@ -179,7 +179,7 @@ test("a fill produces real face sets; undo, redo, delete and refresh retain the 
   ).toEqual(painted);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-v02-brush-tested.png",
+      "tmp/screenshots/2026-09-09-3d-review-v02-brush-tested.png",
     ),
     fullPage: true,
   });
@@ -250,7 +250,7 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   expect(state.data.submissions[0].versionId).toBe(original);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-v02-figurine-tested.png",
+      "tmp/screenshots/2026-09-09-3d-review-v02-figurine-tested.png",
     ),
     fullPage: true,
   });
@@ -478,7 +478,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
   await expect(page.locator("#fill-range")).toBeVisible();
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-v02-compact-tested.png",
+      "tmp/screenshots/2026-09-09-3d-review-v02-compact-tested.png",
     ),
     fullPage: true,
   });
@@ -514,7 +514,13 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
         [
           "scripts/reviewctl.mjs",
           "publish",
-          `../../media/3d/${file}`,
+          // A copy inside the clone: the library is outside what the server
+          // will publish from, and is only read here to decide to run at all.
+          (fs.copyFileSync(
+            path.join(repo, "../../media/3d", file),
+            path.join(dir, file),
+          ),
+          path.join(dir, file)),
           "--name",
           name,
           "--version",
@@ -543,7 +549,7 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     });
     await page.screenshot({
       path: path.resolve(
-        `../../media/images/2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
+        `tmp/screenshots/2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
       ),
       fullPage: true,
     });
@@ -1425,9 +1431,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
     return canvas.toDataURL("image/png");
   });
   const original = fs.readFileSync(
-    path.resolve(
-      "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
-    ),
+    path.resolve("tmp/samples/parametric-bracket.glb"),
   );
   const jsonSize = original.readUInt32LE(12);
   const doc = JSON.parse(original.toString("utf8", 20, 20 + jsonSize));
@@ -1534,7 +1538,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   expect((await capture()).equals(clean)).toBe(false);
   await page.screenshot({
     path: path.resolve(
-      "../../media/images/2026-09-09-3d-review-v03-colored-annotations.png",
+      "tmp/screenshots/2026-09-09-3d-review-v03-colored-annotations.png",
     ),
   });
   await page.locator("#toggle-marks").click();
@@ -1901,9 +1905,7 @@ test("many versions stay on one row, and the one being marked stays reachable", 
   // Versions are identified by the hash of their bytes, so republishing one
   // sample seventeen times is one version. Each variant rewrites the generator
   // string in the GLB header — same length, same geometry, different file.
-  const sample = fs.readFileSync(
-    "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
-  );
+  const sample = fs.readFileSync("tmp/samples/parametric-bracket.glb");
   const generator = Buffer.from("THREE.GLTFExporter");
   const at = sample.indexOf(generator);
   expect(at).toBeGreaterThan(0);
@@ -2001,9 +2003,7 @@ test("the Agent can shorten the version strip while the page stays open", async 
   page,
 }) => {
   await ready(page);
-  const sample = fs.readFileSync(
-    "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
-  );
+  const sample = fs.readFileSync("tmp/samples/parametric-bracket.glb");
   const generator = Buffer.from("THREE.GLTFExporter");
   const at = sample.indexOf(generator);
   for (let i = 2; i <= 6; i++) {

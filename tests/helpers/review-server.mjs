@@ -200,7 +200,7 @@ export async function startReview(
     originValue,
     // A source the viewer cannot draw does not live with the drawable samples,
     // so a test that needs one says where its file is instead.
-    file = `media/3d/3d-agent-review/samples/${name}`,
+    file = `tmp/samples/${name}`,
   ) {
     const r = await ipc("/publish", {
       file,

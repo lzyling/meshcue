@@ -104,12 +104,12 @@ Work happens on `dev`; `main` is what has been released, and is only ever
 fast-forwarded from `dev` with the tag going on straight afterwards.
 [CONTRIBUTING.md](CONTRIBUTING.md) has the whole of it, which is short.
 
-`npm run samples` writes to `../../media/3d/3d-agent-review/samples`, two levels
-above the clone: the suites publish through the server, which serves models from
-a workspace rather than from the repository. Clone somewhere that grandparent
-directory can be created in, or pass `--output`. Cases that need models this
-repository does not ship — the LAN case and one heavy-texture case — skip
-themselves and say why.
+`npm run samples` writes to `tmp/samples` inside the clone, which is where the
+suites publish from. A server started from a clone publishes models from the
+clone itself and keeps its copies under `runtime/models`; to review files that
+live elsewhere, point `REVIEW_WORKSPACE` at the folder that holds them. Cases
+that need models this repository does not ship — the LAN case and one
+heavy-texture case — skip themselves and say why.
 
 For an OpenClaw install, build and install the extension from that clone:
 

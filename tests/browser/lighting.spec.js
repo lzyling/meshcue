@@ -15,7 +15,7 @@ function publish(file, version) {
       [
         "scripts/reviewctl.mjs",
         "publish",
-        `../../media/3d/3d-agent-review/samples/${file}`,
+        `tmp/samples/${file}`,
         "--name",
         "lighting",
         "--version",

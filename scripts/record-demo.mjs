@@ -96,7 +96,7 @@ const publish = (version) =>
     [
       "scripts/reviewctl.mjs",
       "publish",
-      "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
+      "tmp/samples/parametric-bracket.glb",
       "--name",
       "Parametric bracket",
       "--version",

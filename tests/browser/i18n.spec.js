@@ -54,7 +54,7 @@ test.beforeEach(async () => {
     [
       "scripts/reviewctl.mjs",
       "publish",
-      "../../media/3d/3d-agent-review/samples/parametric-bracket.glb",
+      "tmp/samples/parametric-bracket.glb",
       "--name",
       "Bracket",
       "--version",

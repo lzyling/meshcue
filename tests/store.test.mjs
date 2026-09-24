@@ -208,10 +208,10 @@ test("model import rejects corrupted GLB and invalid STL before publishing", () 
 });
 test("real generated samples validate and import uses a stable content hash", async (t) => {
   const { dir } = fixture(t);
-  const workspace = path.resolve("../..");
+  const workspace = process.cwd();
   const mediaDir = path.join(dir, "models");
   const opts = {
-    file: "media/3d/3d-agent-review/samples/parametric-bracket.glb",
+    file: "tmp/samples/parametric-bracket.glb",
     name: "test",
     version: "v1",
   };

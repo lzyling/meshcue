@@ -34,15 +34,21 @@ export const repo = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+/* Where models may be published from, where state lives, and where published
+   models are kept. The first and last used to default to two directories above
+   the clone -- which is where this repository happens to sit inside an
+   OpenClaw workspace -- so a clone anywhere else died on EACCES at `/media` on
+   its first `npm run samples`, or grew a `media/` folder in its owner's home.
+   A managed instance is always handed all three (integration/manager.mjs), so
+   these defaults serve a clone run by hand, and keep it inside itself. */
 export const workspace = fs.realpathSync(
-  path.resolve(process.env.REVIEW_WORKSPACE || path.resolve(repo, "../..")),
+  path.resolve(process.env.REVIEW_WORKSPACE || repo),
 );
 const runtime = path.resolve(
   process.env.REVIEW_DATA_DIR || path.join(repo, "runtime"),
 );
 const mediaDir = path.resolve(
-  process.env.REVIEW_MEDIA_DIR ||
-    path.join(workspace, "media/3d/3d-agent-review"),
+  process.env.REVIEW_MEDIA_DIR || path.join(runtime, "models"),
 );
 // The agent socket lives in here and carries no credential of its own: opening
 // the file is the whole of the authorization, so the directory's mode is what
