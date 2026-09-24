@@ -366,6 +366,16 @@ export class InstanceManager {
           "REGISTRY_VERSION",
           "Unsupported project registry format; nothing was overwritten.",
         );
+      /* Nothing else ever removed an entry, so a project whose folder was
+         deleted stayed registered for good, and every Gateway start and stop
+         warned about it by name. Only this install's entries, as with pausing:
+         what another install registered is not this one's to tidy. */
+      for (const [id, item] of Object.entries(registry.projects))
+        if (
+          item.installRoot === this.installRoot &&
+          !fs.existsSync(path.resolve(this.workspace, item.runtime))
+        )
+          delete registry.projects[id];
       registry.projects[p.id] = {
         project: p.project,
         runtime: path.relative(this.workspace, p.runtime),
@@ -906,6 +916,9 @@ function eachRegistered(workspace, installRoot, verb, act) {
         throw new Error("Instance changed");
       act(runtime, item);
     } catch (error) {
+      // A project whose folder is gone has nothing left to pause or resume, and
+      // is not unavailable either; the next open drops it from the registry.
+      if (error.code === "NOT_FOUND") continue;
       log.warn("integration", `could not ${verb} a registered project`, {
         project: item.project,
         ...errorDetail(error),

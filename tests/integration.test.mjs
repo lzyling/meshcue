@@ -373,10 +373,13 @@ test("fresh-process disable skips a stale registration and still pauses other pr
   const b = await f.open("projects/b");
   const file = path.join(f.workspace, "projects/meshcue-state/registry.json");
   const registry = JSON.parse(fs.readFileSync(file, "utf8"));
-  Object.values(registry.projects).find(
+  const a = Object.values(registry.projects).find(
     (p) => p.project === "projects/a",
-  ).runtime = "projects/removed/.meshcue";
-  fs.writeFileSync(file, JSON.stringify(registry));
+  );
+  fs.writeFileSync(
+    path.join(f.workspace, a.runtime, "config.json"),
+    JSON.stringify({ instance: { id: "someone-else" } }),
+  );
   assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), [
     "projects/a",
   ]);
@@ -384,6 +387,47 @@ test("fresh-process disable skips a stale registration and still pauses other pr
     (await fetch(`${b.url}api/draft`, { method: "PUT" })).status,
     503,
   );
+});
+
+/* Nothing ever removed an entry, so a project folder deleted by hand stayed
+   registered for good: every Gateway start and stop warned about it by name and
+   counted it as unavailable. Gone is not unavailable -- there is nothing left
+   to pause -- and the next open drops it. */
+test("a registered project whose folder is gone is passed over, then dropped", async (t) => {
+  const f = setup(t);
+  await f.open("projects/a");
+  const b = await f.open("projects/b");
+  const file = path.join(f.workspace, "projects/meshcue-state/registry.json");
+  const registry = JSON.parse(fs.readFileSync(file, "utf8"));
+  Object.values(registry.projects).find(
+    (p) => p.project === "projects/a",
+  ).runtime = "projects/removed/.meshcue";
+  const foreign = {
+    project: "projects/elsewhere",
+    runtime: "projects/also-removed/.meshcue",
+    instanceId: "x",
+    agentId: "main",
+    installRoot: "/somewhere/else/meshcue",
+  };
+  registry.projects.foreign = foreign;
+  fs.writeFileSync(file, JSON.stringify(registry));
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(
+    (await fetch(`${b.url}api/draft`, { method: "PUT" })).status,
+    503,
+  );
+  assert.deepEqual(resumeRegistered(f.workspace, f.options.installRoot), []);
+
+  await f.open("projects/c");
+  const after = JSON.parse(fs.readFileSync(file, "utf8")).projects;
+  assert.deepEqual(
+    Object.values(after)
+      .map((p) => p.project)
+      .sort(),
+    ["projects/b", "projects/c", "projects/elsewhere"],
+  );
+  // Another install's entry is left for that install, gone or not.
+  assert.deepEqual(after.foreign, foreign);
 });
 
 // The host reports a Gateway shutdown as a disable, so every restart paused the
