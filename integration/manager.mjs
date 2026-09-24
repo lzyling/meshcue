@@ -179,6 +179,21 @@ export function installedVersion(root) {
   }
 }
 
+/* The build this process is running, which after an install is not the one on
+   disk: a host goes on running the code it loaded until it restarts, while
+   `installedVersion` reads package.json at call time. On 2026-09-18 `inspect`
+   answered 1.0.1 while the Gateway was still running 0.16.2, so an agent asking
+   which version it was talking to could be told one it was not about to get.
+   A built package has its version written into the bundle; run from source,
+   the code and its package.json are the same files. */
+const BUILT_VERSION =
+  typeof __MESHCUE_BUILD_VERSION__ === "string"
+    ? __MESHCUE_BUILD_VERSION__
+    : null;
+export function runningVersion(root) {
+  return BUILT_VERSION ?? installedVersion(root);
+}
+
 // Every packaging route has to carry all of these for `inspect` to report them.
 export const DOC_FILES = {
   agentInterface: "AGENT-INTERFACE.md",
@@ -213,7 +228,7 @@ export function docPaths(root) {
 export function inspectInstall(context, root) {
   return {
     product: "MeshCue",
-    integrationVersion: installedVersion(root),
+    integrationVersion: runningVersion(root),
     // Derived from the same table the guards read, so the probe cannot report a
     // field the guards no longer look at, or stay silent about one they added.
     context: contextSummary(context),
@@ -584,7 +599,7 @@ export class InstanceManager {
   withServingVersion(result) {
     if (!result || typeof result !== "object" || !result.version) return result;
     const installed = installedVersion(this.installRoot);
-    result.integrationVersion = installed;
+    result.integrationVersion = runningVersion(this.installRoot);
     if (installed !== result.version)
       result.serving = {
         running: result.version,

@@ -94,6 +94,26 @@ try {
   );
   for (const [key, file] of Object.entries(info.docs))
     assert.equal(fs.existsSync(file), true, `inspect names a missing ${key}`);
+  // The build that is running, not the file on disk: installing over a host
+  // that has already loaded this one changes the second and not the first.
+  const manifestFile = path.join(root, "package.json");
+  const shipped = fs.readFileSync(manifestFile);
+  assert.equal(info.integrationVersion, JSON.parse(shipped).version);
+  fs.writeFileSync(
+    manifestFile,
+    JSON.stringify({
+      ...JSON.parse(shipped),
+      version: "99.0.0-installed-later",
+    }),
+  );
+  try {
+    assert.equal(
+      (await call({ action: "inspect" })).integrationVersion,
+      info.integrationVersion,
+    );
+  } finally {
+    fs.writeFileSync(manifestFile, shipped);
+  }
   // Sizing has to work from the installed bundle before any project exists,
   // because its whole purpose is to run before a caller commits to a review.
   const sized = await call({ action: "precheck", file: "part.stl" });

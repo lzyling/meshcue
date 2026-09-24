@@ -26,6 +26,12 @@ fs.mkdirSync(out, { recursive: true });
 const banner = {
   js: 'import { createRequire as __meshcueRequire } from "node:module"; const require = __meshcueRequire(import.meta.url);',
 };
+// The shipped web bundle must advertise the plugin version it travels with,
+// not the project's, which is what the bundled server reads from the copied
+// manifest below.
+const pluginManifest = JSON.parse(
+  fs.readFileSync(path.join(repo, "adapters/openclaw/package.json"), "utf8"),
+);
 await build({
   entryPoints: [path.join(repo, "server/index.mjs")],
   outfile: path.join(out, "runtime/server.mjs"),
@@ -66,13 +72,12 @@ await build({
   target: "node22",
   external: ["openclaw/*"],
   banner,
+  // What `inspect` reports: the build in memory, not whatever was installed
+  // over it since the host loaded this one.
+  define: {
+    __MESHCUE_BUILD_VERSION__: JSON.stringify(pluginManifest.version),
+  },
 });
-// The shipped web bundle must advertise the plugin version it travels with,
-// not the project's, which is what the bundled server reads from the copied
-// manifest below.
-const pluginManifest = JSON.parse(
-  fs.readFileSync(path.join(repo, "adapters/openclaw/package.json"), "utf8"),
-);
 execFileSync(
   process.execPath,
   [
