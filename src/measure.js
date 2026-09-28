@@ -11,7 +11,13 @@ import { planarFaces } from "./planar-fill.js";
    A mesh has no edges or faces in the sense a drawing has, only triangles. An
    edge is a line where the triangles either side turn sharply enough to be
    seen as one; a face is the triangles that lie in one plane with it. Both are
-   inferred, which is why the thresholds below are named and explained. */
+   inferred, which is why the thresholds below are named and explained.
+
+   A STEP says more, and where it does nothing is inferred: its tessellation
+   records which of the file's own faces every triangle came from
+   (`brepFaces`), so a face is that face, whole, and an edge is where two of
+   them meet, however gently they turn there. That is only for measuring; a
+   mark on a STEP still lands on triangles. */
 
 /* An edge is one a reviewer can see and point at when the faces either side of
    it turn by more than this. A STEP is tessellated at an angular deflection of
@@ -27,6 +33,18 @@ export const COLLINEAR_DEG = 0.5;
 export const CURVE_TURN_DEG = 40;
 // Two faces this close to parallel are measured apart; further, at an angle.
 export const PARALLEL_DEG = 0.5;
+/* How far a STEP face's corners, or a STEP edge's points, may stray from the
+   plane or line through them and still be flat or straight, as a share of the
+   face's size or the edge's length. A true plane or line is off only by the
+   rounding of float32 coordinates, about a ten-millionth; the flats of a
+   tessellated curve are off by the curve's bow, which even a gentle one puts
+   well past this. */
+export const STRAIGHT_SHARE = 1e-4;
+/* Three points pin down a circle only when they are spread around it. Past
+   this many times the distance between them, the circle through three clicks
+   is one they happened to fall on in a line -- along an edge, not around a
+   rim -- and its diameter is noise. */
+export const FLAT_ARC = 50;
 /* How far a face's triangles may lean from the one clicked and still be the
    same flat face. Tight, because a curved surface must not pass for a plane,
    and not tighter, because the thin slivers a CAD tessellation leaves on a big
@@ -42,6 +60,33 @@ function keysOf(topology, face) {
   topology.keys ||= [];
   return (topology.keys[face] ||= topology.vertices[face].map(key));
 }
+/* Which of a STEP's faces each triangle came from, from the ranges its
+   tessellation wrote: one [first, last] run of triangle numbers per face, in
+   order and covering every triangle. Anything else was not written by that
+   tessellation, and the mesh is measured as a mesh. */
+export function brepTopology(ranges, count) {
+  if (!Array.isArray(ranges) || !ranges.length) return null;
+  const of = new Int32Array(count);
+  let next = 0;
+  for (const [id, range] of ranges.entries()) {
+    const [first, last] = Array.isArray(range) ? range : [];
+    // A face the tessellator could not mesh is a run of none.
+    if (
+      !Number.isInteger(first) ||
+      !Number.isInteger(last) ||
+      first !== next ||
+      last < first - 1 ||
+      last >= count
+    )
+      return null;
+    of.fill(id, first, last + 1);
+    next = last + 1;
+  }
+  return next === count ? { of, ranges } : null;
+}
+// A little more than float32 rounding, at the size the points are at.
+const rounding = (points) =>
+  1e-6 * Math.max(...points.flatMap((p) => p.toArray().map(Math.abs)));
 // A triangle with no area has no direction, so it can neither make an edge nor
 // hide one.
 const flat = (topology, face) => topology.normals[face].lengthSq() < 0.5;
@@ -62,6 +107,8 @@ export function isFeatureEdge(topology, face, ka, kb) {
   const others = across(topology, face, ka, kb);
   // An open rim is as much an edge as a fold is.
   if (!others.length) return true;
+  const brep = topology.brep?.of;
+  if (brep) return others.some((o) => brep[o] !== brep[face]);
   const cos = Math.cos(FEATURE_DEG * RAD);
   return others.some(
     (o) => topology.normals[o].dot(topology.normals[face]) < cos,
@@ -120,6 +167,7 @@ function featureEdgesAt(topology, face, vk) {
    of a hole's rim, which is a number nobody asked for and nothing on the model
    is that long. */
 export function straightEdge(topology, face, ka, kb, frame) {
+  if (topology.brep) return brepEdge(topology, face, ka, kb, frame);
   const at = (v) => new Vector3().fromArray(v.point).applyMatrix4(frame);
   const k = keysOf(topology, face);
   const vertex = (key) => ({
@@ -162,13 +210,138 @@ export function straightEdge(topology, face, ka, kb, frame) {
   return { ends, length, curved, points: chain.map(at) };
 }
 
+/* The two STEP faces a side of a triangle lies between, as one key: the
+   triangle's own and the one across, or nothing (-1) on the rim of an open
+   face. None when both sides are the same face. */
+function brepPair(topology, face, ka, kb) {
+  const of = topology.brep.of;
+  const others = across(topology, face, ka, kb);
+  const there = others.length
+    ? Math.min(...others.map((o) => of[o]).filter((id) => id !== of[face]))
+    : -1;
+  return there === Infinity ? null : [of[face], there].sort().join("|");
+}
+/* A STEP edge, end to end: the line between the two faces a side lies
+   between, followed through every vertex where the same two faces carry on,
+   to where a third face meets them, or all the way round when they meet in a
+   loop. A turn sharper than a curve's own pieces ever make is a corner too,
+   for the rare pair of faces that meet along two lines. Straight when every
+   point it passes through is on the line between its ends; nothing about it
+   depends on how sharply the faces turn, so a shallow chamfer or the line
+   where a round runs into a flat is as measurable as a square edge. */
+function brepEdge(topology, face, ka, kb, frame) {
+  const at = (v) => new Vector3().fromArray(v.point).applyMatrix4(frame);
+  const pair = brepPair(topology, face, ka, kb);
+  const k = keysOf(topology, face);
+  const vertex = (key) => ({
+    key,
+    point: topology.vertices[face][k.indexOf(key)],
+    face,
+  });
+  const chain = [vertex(ka), vertex(kb)];
+  let closed = false;
+  const onwards = (from, vk, back) => {
+    const found = new Map();
+    for (const f of fanAround(topology, from, vk)) {
+      const keys = keysOf(topology, f);
+      const i = keys.indexOf(vk);
+      for (const j of [(i + 1) % 3, (i + 2) % 3])
+        if (
+          keys[j] !== back &&
+          !found.has(keys[j]) &&
+          !flat(topology, f) &&
+          brepPair(topology, f, vk, keys[j]) === pair
+        )
+          found.set(keys[j], {
+            key: keys[j],
+            point: topology.vertices[f][j],
+            face: f,
+          });
+    }
+    return [...found.values()];
+  };
+  const extend = () => {
+    for (let guard = 0; guard < 100000; guard++) {
+      const last = chain[chain.length - 1],
+        prev = chain[chain.length - 2];
+      const next = onwards(last.face, last.key, prev.key);
+      if (next.length !== 1) return;
+      if (next[0].key === chain[0].key) {
+        closed = true;
+        return;
+      }
+      const here = at(last);
+      const along = here.clone().sub(at(prev)).normalize();
+      const step = at(next[0]).sub(here).normalize();
+      if (Math.acos(clampUnit(along.dot(step))) / RAD > CURVE_TURN_DEG) return;
+      chain.push(next[0]);
+    }
+  };
+  extend();
+  if (!closed) {
+    chain.reverse();
+    extend();
+  }
+  const points = chain.map(at);
+  const ends = [points[0], points[points.length - 1]];
+  const length = ends[0].distanceTo(ends[1]);
+  const direction = ends[1].clone().sub(ends[0]).normalize();
+  let off = 0;
+  for (const p of points) {
+    const d = p.clone().sub(ends[0]);
+    off = Math.max(
+      off,
+      d.addScaledVector(direction, -d.dot(direction)).length(),
+    );
+  }
+  const curved =
+    closed || !(length > 0) || off > STRAIGHT_SHARE * length + rounding(points);
+  return {
+    ends,
+    length,
+    curved,
+    points: closed ? [...points, points[0]] : points,
+  };
+}
+
 /* The flat face a triangle lies in, and the plane through it: the triangles
    grown from it within `PLANE_DEG`, their normals summed by area -- the plane
    that fits them best when they are flat and a fair average when they are
-   nearly -- through their area-weighted centre. In the model's frame. */
+   nearly -- through their area-weighted centre. In the model's frame.
+
+   On a STEP the face is the file's own, whole, and it is only a plane if it
+   is flat: every corner on the plane fitted through them. A curved one comes
+   back marked `curved`, for the page to refuse rather than measure. */
 export function planeAt(topology, seed, frame) {
+  if (topology.brep) return brepPlane(topology, seed, frame);
   if (flat(topology, seed)) return null;
-  const faces = planarFaces(topology, seed, PLANE_DEG);
+  return fitPlane(topology, planarFaces(topology, seed, PLANE_DEG), frame);
+}
+function brepPlane(topology, seed, frame) {
+  const [first, last] = topology.brep.ranges[topology.brep.of[seed]];
+  const faces = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  const plane = fitPlane(topology, faces, frame);
+  // A face closed on itself, the side of a whole cylinder, sums to no
+  // direction at all.
+  if (!plane) return { faces, curved: true };
+  const corners = faces.flatMap((f) =>
+    topology.vertices[f].map((p) =>
+      new Vector3().fromArray(p).applyMatrix4(frame),
+    ),
+  );
+  const low = corners[0].clone(),
+    high = corners[0].clone();
+  let off = 0;
+  for (const p of corners) {
+    low.min(p);
+    high.max(p);
+    off = Math.max(off, Math.abs(p.clone().sub(plane.point).dot(plane.normal)));
+  }
+  plane.curved =
+    off > STRAIGHT_SHARE * low.distanceTo(high) + rounding([low, high]);
+  return plane;
+}
+function fitPlane(topology, faces, frame) {
   const normal = new Vector3(),
     centre = new Vector3(),
     ab = new Vector3(),
@@ -228,4 +401,43 @@ export function planesMeasure(first, second) {
     };
   }
   return { quantity: "angle", value: angle, points: [a, b] };
+}
+
+/* The circle through three points on the rim of a hole or a shaft: its centre,
+   the normal of the plane it lies in, and its diameter. Nothing when the
+   points are in a line, or so nearly that the circle is far bigger than they
+   are apart (`FLAT_ARC`). On a tessellated rim every vertex lies on the true
+   circle, which is why the page snaps each click to one. */
+export function circleThrough([a, b, c]) {
+  const ab = b.clone().sub(a),
+    ac = c.clone().sub(a);
+  const normal = ab.clone().cross(ac);
+  const twice = 2 * normal.lengthSq();
+  if (!(twice > 0)) return null;
+  const centre = a
+    .clone()
+    .add(
+      normal
+        .clone()
+        .cross(ab)
+        .multiplyScalar(ac.lengthSq())
+        .add(ac.clone().cross(normal).multiplyScalar(ab.lengthSq()))
+        .divideScalar(twice),
+    );
+  const radius = centre.distanceTo(a);
+  const spread = Math.max(ab.length(), ac.length(), b.distanceTo(c));
+  if (!(radius <= FLAT_ARC * spread)) return null;
+  return { centre, normal: normal.normalize(), diameter: 2 * radius };
+}
+// The circle itself, as a closed line from `start` round, to draw it by.
+export function circleLine({ centre, normal }, start, pieces = 96) {
+  const u = start.clone().sub(centre);
+  const v = normal.clone().cross(u);
+  return Array.from({ length: pieces + 1 }, (_, i) => {
+    const turn = (2 * Math.PI * i) / pieces;
+    return centre
+      .clone()
+      .addScaledVector(u, Math.cos(turn))
+      .addScaledVector(v, Math.sin(turn));
+  });
 }

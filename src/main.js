@@ -160,7 +160,7 @@ app.innerHTML = `${SPRITE}
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
     <div class="tool-divider"></div><button class="tool" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}<span>${T("tool.marks")}</span></button><button class="tool" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}<span>${T("tool.plain")}</span></button>
    </div>
-   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><div class="measure-kinds" role="group" aria-label="${T("measure.kinds")}"><button class="measure-kind active" data-measure="points" aria-pressed="true">${T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${T("measure.planes")}</button></div><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${T("measure.keepTitle")}" disabled>${icon("check")}${T("measure.keep")}</button></div></div>
+   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><div class="measure-kinds" role="group" aria-label="${T("measure.kinds")}"><button class="measure-kind active" data-measure="points" aria-pressed="true">${T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${T("measure.planes")}</button><button class="measure-kind" data-measure="circle" aria-pressed="false">${T("measure.circle")}</button></div><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${T("measure.keepTitle")}" disabled>${icon("check")}${T("measure.keep")}</button></div></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${TA("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
@@ -441,16 +441,26 @@ const MEASURE_KINDS = {
   points: "measure.points",
   edge: "measure.edge",
   planes: "measure.planes",
+  circle: "measure.circle",
 };
 const MEASURE_HINTS = {
   points: "hint.measurePoints",
   edge: "hint.measureEdge",
   planes: "hint.measurePlanes",
+  circle: "hint.measureCircle",
 };
 const MEASURE_REFUSALS = {
   noEdge: "measure.noEdge",
   curved: "measure.curved",
   sameFace: "measure.sameFace",
+  curvedFace: "measure.curvedFace",
+  noCircle: "measure.noCircle",
+};
+// What to click next, by what is being measured and how many are in.
+const MEASURE_NEXT = {
+  points: ["measure.nextPoint"],
+  planes: ["measure.nextFace"],
+  circle: ["measure.circleSecond", "measure.circleThird"],
 };
 function formatMeasure(m) {
   const two = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
@@ -462,9 +472,13 @@ function formatMeasure(m) {
       ? two
       : { minimumSignificantDigits: 3, maximumSignificantDigits: 3 },
   ).format(m.value);
-  return loadedUnits === "unspecified"
-    ? t("measure.unitless", { value: number })
-    : `${number} ${loadedUnits}`;
+  const length =
+    loadedUnits === "unspecified"
+      ? t("measure.unitless", { value: number })
+      : `${number} ${loadedUnits}`;
+  return m.quantity === "diameter"
+    ? t("measure.diameter", { value: length })
+    : length;
 }
 // Measurements are numbered on their own, M1, M2, after the highest kept.
 const measureNumber = (label) => Number(/^M(\d+)$/.exec(label)?.[1] || 0);
@@ -496,9 +510,10 @@ const faceCountOf = (a) =>
 // in UTF-8, which is at least what the browser stores.
 const VIEW_BYTES = 240;
 // What a kept measurement adds to a mark: two points, what they were taken
-// on, the number, and for two faces their normals. Held to the service's
-// `MARK_MEASURE_BYTES` by the same test.
-const MEASURE_BYTES = 480;
+// on, the number, and for two faces their normals -- or for a circle three
+// points, a centre and a normal. Held to the service's `MARK_MEASURE_BYTES` by
+// the same test.
+const MEASURE_BYTES = 640;
 const encoder = new TextEncoder();
 const markBytes = (a) =>
   120 +
@@ -610,7 +625,7 @@ function showMeasure() {
   $("#measure-reading").textContent = r?.result
     ? formatMeasure(r.result)
     : r?.picks
-      ? t(r.kind === "planes" ? "measure.nextFace" : "measure.nextPoint")
+      ? t(MEASURE_NEXT[r.kind][r.picks - 1])
       : "";
   const can = state?.capabilities || {};
   $("#keep-measure").disabled =

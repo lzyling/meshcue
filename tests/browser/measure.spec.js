@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 import * as THREE from "three";
+import { convertStepDetached } from "../../server/step.mjs";
 
 /* Measuring, on a model whose every dimension is known: a plate 20 × 15 × 8,
    modelled flat on +Z and centred on the origin. The page stands an STL up and
@@ -90,10 +91,10 @@ test.afterEach(async () => {
   }
 });
 
-async function open(page, units) {
+async function open(page, units, file = writePlate()) {
   ctl(
     "publish",
-    writePlate(),
+    file,
     "--version",
     "plate",
     ...(units ? ["--units", units] : []),
@@ -104,7 +105,8 @@ async function open(page, units) {
   await expect(page.locator("#measure-options")).toBeVisible();
 }
 // Where a point of the plate is on the screen, from the camera the page holds.
-async function screenOf(page, [x, y, z]) {
+// A GLB is not stood up: its (x, y, z) is the preview's 0.15 × (x, y, z).
+async function screenOf(page, [x, y, z], format) {
   const d = await page.evaluate(() => window.__reviewDiagnostics());
   const box = await page.locator("#viewer").boundingBox();
   const camera = new THREE.PerspectiveCamera(
@@ -116,7 +118,11 @@ async function screenOf(page, [x, y, z]) {
   camera.position.fromArray(d.camera.position);
   camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
   camera.updateMatrixWorld();
-  const p = new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y).project(camera);
+  const p = (
+    format === "glb"
+      ? new THREE.Vector3(0.15 * x, 0.15 * y, 0.15 * z)
+      : new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y)
+  ).project(camera);
   return {
     x: box.x + ((p.x + 1) / 2) * box.width,
     y: box.y + ((1 - p.y) / 2) * box.height,
@@ -271,4 +277,151 @@ test("with no declared unit a measurement is a bare number that says so", async 
   await click(page, await nearCorner(page, [-10, -7.5, 4], top));
   await click(page, await nearCorner(page, [10, -7.5, 4], top));
   await expect(reading(page)).toHaveText("20.00 (no units)");
+});
+
+/* The same plate as a STEP, with its four upright corners rounded at radius 2
+   and a hole of diameter 5 through its middle (`tests/fixtures/plate.step`).
+   The service tessellates it and records which of the file's faces each
+   triangle came from; measuring on it reads that, which is the only way the
+   line where the front runs into a round is an edge at all. */
+test("on a STEP a face and an edge are the file's own, and three points on a rim give its diameter", async ({
+  page,
+}) => {
+  await open(page, "mm", "tests/fixtures/plate.step");
+  const before = await diagnostics(page);
+
+  // The top meets the front between the two rounds: 20 less two radii.
+  await page.getByRole("button", { name: "Edge length", exact: true }).click();
+  const front = await screenOf(page, [0, -7.5, 4]);
+  await click(page, { x: front.x, y: front.y + 3 });
+  await expect(reading(page)).toHaveText("16.00 mm");
+  // The front and the round beside it do not turn where they meet; the file
+  // still has an edge there, the height of the plate.
+  const tangent = await screenOf(page, [8, -7.5, 0]);
+  await click(page, { x: tangent.x - 3, y: tangent.y });
+  await expect(reading(page)).toHaveText("8.00 mm");
+
+  // A round is a face of the file, and not a flat one.
+  await page.getByRole("button", { name: "Two faces", exact: true }).click();
+  await click(
+    page,
+    await screenOf(page, [8 + Math.SQRT2, -5.5 - Math.SQRT2, 0]),
+  );
+  await expect(page.locator("#toast")).toHaveText(
+    "That face is curved; only flat faces can be measured.",
+  );
+  await expect(reading(page)).toHaveText("");
+
+  /* Three clicks just outside the rim of the hole, each beside one of the
+     vertices the tessellation put on it, a sixth of the way round from each
+     other; each is taken at its vertex, which is on the circle itself. */
+  await page
+    .getByRole("button", { name: "3-point circle", exact: true })
+    .click();
+  const rim = (deg) => {
+    const a = (deg * Math.PI) / 180;
+    return [2.6 * Math.cos(a), 2.6 * Math.sin(a), 4];
+  };
+  await click(page, await screenOf(page, rim(60)));
+  await expect(reading(page)).toHaveText("Click the second point");
+  // The same point again is not a second one.
+  await click(page, await screenOf(page, rim(60)));
+  await expect(page.locator("#toast")).toHaveText(
+    "No circle runs through those points — click three separate points spread around the rim.",
+  );
+  await click(page, await screenOf(page, rim(180)));
+  await expect(reading(page)).toHaveText("Click the third point");
+  await click(page, await screenOf(page, rim(300)));
+  await expect(reading(page)).toHaveText("⌀5.00 mm");
+  expect((await diagnostics(page)).annotationCount).toBe(
+    before.annotationCount,
+  );
+
+  await page.getByRole("button", { name: "Keep", exact: true }).click();
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  const [mark] = (await diagnostics(page)).annotations;
+  expect(mark).toMatchObject({
+    type: "measure",
+    label: "M1",
+    kind: "circle",
+    quantity: "diameter",
+    space: "model",
+  });
+  expect(mark.value).toBeCloseTo(5, 4);
+  expect(mark.points).toHaveLength(3);
+  expect(mark.picks).toHaveLength(3);
+  mark.center.forEach((v, i) => expect(v).toBeCloseTo([0, 0, 4][i], 4));
+  // Out of the face the hole is drilled into, towards where it was seen from.
+  mark.normal.forEach((v, i) => expect(v).toBeCloseTo([0, 0, 1][i], 6));
+  const row = page.locator(".annotation-row");
+  await expect(row.locator("strong")).toHaveText("⌀5.00 mm");
+  await expect(row).toContainText("3-point circle");
+  await expect(page.locator(".measure-label")).toContainText("⌀5.00 mm");
+
+  // Measured again, the same hole's two readings are not printed one over the
+  // other, and neither sits on the hole.
+  for (const deg of [60, 180, 300])
+    await click(page, await screenOf(page, rim(deg)));
+  await expect(reading(page)).toHaveText("⌀5.00 mm");
+  const boxes = await page
+    .locator(".measure-label")
+    .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()));
+  expect(boxes).toHaveLength(2);
+  const [a, b] = boxes;
+  expect(
+    a.bottom <= b.top ||
+      b.bottom <= a.top ||
+      a.right <= b.left ||
+      b.right <= a.left,
+  ).toBe(true);
+  const near = await screenOf(page, rim(270));
+  for (const box of boxes) expect(box.top).toBeGreaterThan(near.y);
+
+  // Three points in a line fit no circle; the third is asked for again.
+  await click(page, await screenOf(page, [-7, 4, 4]));
+  await click(page, await screenOf(page, [-5, 4, 4]));
+  await click(page, await screenOf(page, [-3, 4, 4]));
+  await expect(page.locator("#toast")).toHaveText(
+    "No circle runs through those points — click three separate points spread around the rim.",
+  );
+  await expect(reading(page)).toHaveText("Click the third point");
+
+  await page.locator("#submit-feedback").click();
+  await expect
+    .poll(() => {
+      try {
+        return JSON.parse(
+          fs.readFileSync(path.join(dir, "fake-gateway.json"), "utf8"),
+        ).calls.find((c) => c.method === "chat.send")?.params.message;
+      } catch {
+        return null;
+      }
+    })
+    .toMatch(
+      /M1: measurement, 5 mm diameter, the circle through three points on mesh-0 source face \d+, mesh-0 source face \d+ and mesh-0 source face \d+\n/,
+    );
+});
+
+test("a GLB is measured as triangles, even carrying a STEP's face ranges", async ({
+  page,
+}) => {
+  /* The plate's own tessellation published as a GLB: the same triangles, and
+     in its extras the same face ranges, which are trusted only from a STEP the
+     service converted. As triangles, where the front runs into a round there
+     is nothing to take. glTF is drawn as it stands, so the front of the plate
+     faces down and is seen from below. */
+  const { glb } = await convertStepDetached(
+    fs.readFileSync(path.join(repo, "tests/fixtures/plate.step")),
+  );
+  const file = path.join(dir, "plate-mesh.glb");
+  fs.writeFileSync(file, glb);
+  await open(page, "mm", file);
+  await page.locator('.orient-face[data-view="0,-1,0"]').dispatchEvent("click");
+  await page.getByRole("button", { name: "Edge length", exact: true }).click();
+  const tangent = await screenOf(page, [8, -7.5, 0], "glb");
+  await click(page, { x: tangent.x - 3, y: tangent.y });
+  await expect(page.locator("#toast")).toHaveText(
+    "No straight edge there — point closer to a sharp edge.",
+  );
+  await expect(reading(page)).toHaveText("");
 });

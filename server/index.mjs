@@ -347,10 +347,11 @@ const markView = z
    points, a straight edge, or two faces -- the two ends of the line it was
    read along, the triangle each end was taken on, and the number: a length in
    the model's own units, or for two faces that are not parallel the angle
-   between them in degrees. Worked out by the page, the one place with the
-   geometry, in the model's frame, as `bounds` and `view` are; the checks in
-   `validateAnnotations` hold it to itself, so the number is the one its
-   points and normals say. */
+   between them in degrees. A circle is three points on a rim, with the centre
+   and the normal of the circle through them, and its diameter. Worked out by
+   the page, the one place with the geometry, in the model's frame, as
+   `bounds` and `view` are; the checks in `validateAnnotations` hold it to
+   itself, so the number is the one its points and normals say. */
 const measurePick = z
   .object({ meshId: id, sourceFaceIndex: z.number().int().min(0) })
   .strict();
@@ -361,13 +362,15 @@ const annotation = z.discriminatedUnion("type", [
       type: z.literal("measure"),
       // Numbered on its own, M1, M2, beside the pins' letters.
       label: z.string().regex(/^M[1-9][0-9]{0,3}$/),
-      kind: z.enum(["points", "edge", "planes"]),
-      quantity: z.enum(["length", "angle"]),
+      kind: z.enum(["points", "edge", "planes", "circle"]),
+      quantity: z.enum(["length", "angle", "diameter"]),
       value: z.number().finite().min(0),
       space: z.literal("model"),
-      points: z.tuple([vec3, vec3]),
-      picks: z.array(measurePick).min(1).max(2),
+      points: z.array(vec3).min(2).max(3),
+      picks: z.array(measurePick).min(1).max(3),
       normals: z.tuple([vec3, vec3]).optional(),
+      center: vec3.optional(),
+      normal: vec3.optional(),
       note,
       view: markView,
     })
@@ -518,13 +521,15 @@ function saveManifest(versionId, meshes) {
   });
 }
 /* A kept measurement has to say one thing. What each kind is made of is fixed
-   -- two points, one edge, two faces with their normals -- and the number is
-   the one its own geometry gives: a length is the distance between its two
-   points, and two faces are a length only when they are parallel and an
-   angle, the one their normals make, when they are not. Each triangle it was
-   taken on has to be one this model has. Rounding to six figures is allowed
-   for, and nothing more: a batch that contradicts itself is not handed to an
-   agent to puzzle over. */
+   -- two points, one edge, two faces with their normals, three points with
+   the circle through them -- and the number is the one its own geometry
+   gives: a length is the distance between its two points, two faces are a
+   length only when they are parallel and an angle, the one their normals
+   make, when they are not, and a diameter is twice the distance from the
+   centre to each of its three points, which lie in the plane of its normal.
+   Each triangle it was taken on has to be one this model has. Rounding to six
+   figures is allowed for, and nothing more: a batch that contradicts itself
+   is not handed to an agent to puzzle over. */
 function checkMeasure(a, meshes) {
   const bad = (reason) =>
     new ReviewError(
@@ -532,10 +537,21 @@ function checkMeasure(a, meshes) {
       400,
       "BAD_GEOMETRY",
     );
-  const shape = { points: [2, false], edge: [1, false], planes: [2, true] }[
-    a.kind
-  ];
-  if (a.picks.length !== shape[0] || !!a.normals !== shape[1])
+  const circle = a.kind === "circle";
+  // Picks, points, whether it has normals, whether it has a centre.
+  const shape = {
+    points: [2, 2, false, false],
+    edge: [1, 2, false, false],
+    planes: [2, 2, true, false],
+    circle: [3, 3, false, true],
+  }[a.kind];
+  if (
+    a.picks.length !== shape[0] ||
+    a.points.length !== shape[1] ||
+    !!a.normals !== shape[2] ||
+    !!a.center !== shape[3] ||
+    !!a.normal !== shape[3]
+  )
     throw bad(`${a.kind} is not what it was taken on`);
   for (const pick of a.picks)
     if (
@@ -548,16 +564,42 @@ function checkMeasure(a, meshes) {
         "BAD_GEOMETRY",
       );
   const [p, q] = a.points;
-  const scale = Math.max(a.value, ...p.map(Math.abs), ...q.map(Math.abs));
+  const scale = Math.max(
+    a.value,
+    ...[...a.points, ...(circle ? [a.center] : [])].flat().map(Math.abs),
+  );
+  const slack = 2e-5 * scale + 1e-12;
+  const length = (v) => Math.hypot(...v);
+  const minus = (u, v) => u.map((x, i) => x - v[i]);
+  const dot = (u, v) => u.reduce((n, x, i) => n + x * v[i], 0);
+  if (circle) {
+    if (a.quantity !== "diameter") throw bad("a circle measures a diameter");
+    if (Math.abs(length(a.normal) - 1) > 1e-4)
+      throw bad("its normal is not a direction");
+    if (!(a.value > 2 * slack)) throw bad("a circle has a size");
+    for (const [i, point] of a.points.entries()) {
+      const out = minus(point, a.center);
+      if (Math.abs(length(out) - a.value / 2) > slack)
+        throw bad("the diameter is not the circle's through its points");
+      if (Math.abs(dot(out, a.normal)) > slack)
+        throw bad("its points are not in the plane of its normal");
+      if (
+        a.points.some(
+          (other, j) => j > i && length(minus(point, other)) <= slack,
+        )
+      )
+        throw bad("a circle is three different points");
+    }
+    return;
+  }
   if (a.kind === "planes") {
     const [m, n] = a.normals;
-    const length = (v) => Math.hypot(...v);
     if ([m, n].some((v) => Math.abs(length(v) - 1) > 1e-4))
       throw bad("a normal is not a direction");
-    const dot = Math.abs(m[0] * n[0] + m[1] * n[1] + m[2] * n[2]);
-    const angle = (Math.acos(Math.min(1, dot)) * 180) / Math.PI;
+    const cos = Math.abs(dot(m, n));
+    const angle = (Math.acos(Math.min(1, cos)) * 180) / Math.PI;
     const parallel = angle <= MEASURE_PARALLEL_DEG + 0.01;
-    if (a.quantity === "angle" ? parallel : !parallel)
+    if (a.quantity === "diameter" || (a.quantity === "angle") === parallel)
       throw bad("parallel faces are a length and others an angle");
     if (a.quantity === "angle") {
       if (Math.abs(angle - a.value) > 0.01)
@@ -565,8 +607,7 @@ function checkMeasure(a, meshes) {
       return;
     }
   } else if (a.quantity !== "length") throw bad(`${a.kind} measures a length`);
-  const between = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
-  if (Math.abs(between - a.value) > 2e-5 * scale + 1e-12)
+  if (Math.abs(length(minus(p, q)) - a.value) > slack)
     throw bad("the length is not the distance between its points");
 }
 function validateAnnotations(versionId, annotations) {
@@ -933,6 +974,8 @@ function describeMeasure(a, units) {
         ? `${a.value} (the model declares no unit)`
         : `${a.value} ${units}`;
   const on = (pick) => `${pick.meshId} source face ${pick.sourceFaceIndex}`;
+  if (a.kind === "circle")
+    return `${value} diameter, the circle through three points on ${on(a.picks[0])}, ${on(a.picks[1])} and ${on(a.picks[2])}`;
   if (a.kind === "edge")
     return `${value} along a straight edge at ${on(a.picks[0])}`;
   if (a.kind === "points")

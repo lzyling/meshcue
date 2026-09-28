@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import * as THREE from "three";
 import { buildFillTopology } from "../src/planar-fill.js";
 import {
+  brepTopology,
+  circleThrough,
   faceEdges,
   isFeatureEdge,
   straightEdge,
@@ -10,6 +13,7 @@ import {
   planesMeasure,
   FEATURE_DEG,
 } from "../src/measure.js";
+import { convertStepDetached } from "../server/step.mjs";
 
 const identity = new THREE.Matrix4();
 const topologyOf = (geometry) => buildFillTopology(geometry, identity);
@@ -200,4 +204,251 @@ test("a straight side between two rounds is still straight; a hexagon's sides ar
   const edge = straightEdge(hexagon, rim.face, rim.ka, rim.kb, identity);
   assert.equal(edge.curved, false);
   assert.ok(near(edge.length, 5, 1e-5), `length ${edge.length}`);
+});
+
+/* The STEP fixture as the page gets it: the plate 20 × 15 × 8 with its four
+   upright corners rounded at radius 2 and a hole of diameter 5 through its
+   middle, tessellated by the service, with the ranges of triangles each of
+   the file's faces became. Read here straight out of the GLB. */
+let plate;
+async function plateTopology() {
+  if (plate) return plate;
+  const { glb } = await convertStepDetached(
+    fs.readFileSync("tests/fixtures/plate.step"),
+  );
+  const length = glb.readUInt32LE(12);
+  const json = JSON.parse(glb.toString("utf8", 20, 20 + length));
+  const bin = glb.subarray(20 + length + 8);
+  const read = (i, Type) => {
+    const a = json.accessors[i],
+      view = json.bufferViews[a.bufferView];
+    const start = bin.byteOffset + (view.byteOffset || 0) + (a.byteOffset || 0);
+    const count = a.count * (a.type === "VEC3" ? 3 : 1);
+    return new Type(
+      bin.buffer.slice(start, start + count * Type.BYTES_PER_ELEMENT),
+    );
+  };
+  const [mesh] = json.meshes;
+  const primitive = mesh.primitives[0];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      read(primitive.attributes.POSITION, Float32Array),
+      3,
+    ),
+  );
+  geometry.setIndex(
+    new THREE.BufferAttribute(read(primitive.indices, Uint32Array), 1),
+  );
+  plate = topologyOf(geometry);
+  plate.brep = brepTopology(mesh.extras.brepFaces, plate.vertices.length);
+  assert.ok(plate.brep, "the tessellation's face ranges were not read");
+  return plate;
+}
+// A side between a triangle of one STEP face and a triangle of another.
+function sideBetween(topology, one, other) {
+  const of = topology.brep.of;
+  for (let face = 0; face < topology.vertices.length; face++) {
+    if (!one(topology.vertices[face])) continue;
+    for (const side of faceEdges(topology, face))
+      for (const next of topology.adjacency[face])
+        if (
+          of[next] !== of[face] &&
+          other(topology.vertices[next]) &&
+          [side.a, side.b].every((end) =>
+            topology.vertices[next].some(
+              (v) =>
+                near(v[0], end[0]) && near(v[1], end[1]) && near(v[2], end[2]),
+            ),
+          )
+        )
+          return { face, ...side };
+  }
+  assert.fail("no such side in the fixture");
+}
+const onTop = (v) => v.every(([, , z]) => near(z, 4, 1e-4));
+const onFront = (v) => v.every(([, y]) => near(y, -7.5, 1e-4));
+// Upright: a triangle of the top or bottom can have all three corners on a
+// rim too.
+const upright = (v) => Math.max(...v.map((p) => Math.abs(p[2] - v[0][2]))) > 1;
+const onHoleWall = (v) =>
+  upright(v) && v.every(([x, y]) => near(Math.hypot(x, y), 2.5, 1e-3));
+const onRightFrontRound = (v) =>
+  upright(v) && v.every(([x, y]) => near(Math.hypot(x - 8, y + 5.5), 2, 1e-3));
+
+test("a STEP's face ranges say which face each triangle is; anything else is not read", () => {
+  const brep = brepTopology(
+    [
+      [0, 1],
+      [2, 1],
+      [2, 4],
+    ],
+    5,
+  );
+  // The middle face is a run of none, which a face the tessellator could not
+  // mesh is.
+  assert.deepEqual([...brep.of], [0, 0, 2, 2, 2]);
+  for (const ranges of [
+    [[0, 3]],
+    [
+      [0, 1],
+      [3, 4],
+    ],
+    [
+      [0, 2],
+      [2, 4],
+    ],
+    [[0, 5]],
+    [],
+    "0-4",
+    [["0", 4]],
+  ])
+    assert.equal(brepTopology(ranges, 5), null, JSON.stringify(ranges));
+});
+
+test("on a STEP a face is the file's own, whole, and a curved one says so", async () => {
+  const topology = await plateTopology();
+  const identity = new THREE.Matrix4();
+  const topFace = topology.vertices.findIndex(onTop);
+  const top = planeAt(topology, topFace, identity);
+  assert.equal(top.curved, false);
+  assert.ok(top.normal.z > 0.999999, `normal ${top.normal.toArray()}`);
+  assert.ok(near(top.point.z, 4, 1e-5));
+  // Every triangle of the top, not the ones within a few degrees of the one
+  // clicked: the face runs round the hole and into the corners as one.
+  const [first, last] = topology.brep.ranges[topology.brep.of[topFace]];
+  assert.equal(top.faces.length, last - first + 1);
+  assert.ok(top.faces.every((f) => onTop(topology.vertices[f])));
+  const wall = planeAt(
+    topology,
+    topology.vertices.findIndex(onHoleWall),
+    identity,
+  );
+  assert.equal(wall.curved, true);
+  const round = planeAt(
+    topology,
+    topology.vertices.findIndex(onRightFrontRound),
+    identity,
+  );
+  assert.equal(round.curved, true);
+  const bottom = planeAt(
+    topology,
+    topology.vertices.findIndex((v) => v.every(([, , z]) => near(z, -4, 1e-4))),
+    identity,
+  );
+  const apart = planesMeasure(
+    { plane: top, pick: new THREE.Vector3(5, 5, 4) },
+    { plane: bottom, pick: new THREE.Vector3(-5, 3, -4) },
+  );
+  assert.equal(apart.quantity, "length");
+  assert.ok(near(apart.value, 8, 1e-5), `gap ${apart.value}`);
+});
+
+test("on a STEP an edge runs between two faces, however gently they meet", async () => {
+  const topology = await plateTopology();
+  const identity = new THREE.Matrix4();
+  // The top meets the front square, from one round to the other: 20 less the
+  // two radii.
+  const square = sideBetween(topology, onTop, onFront);
+  assert.equal(
+    isFeatureEdge(topology, square.face, square.ka, square.kb),
+    true,
+  );
+  const front = straightEdge(
+    topology,
+    square.face,
+    square.ka,
+    square.kb,
+    identity,
+  );
+  assert.equal(front.curved, false);
+  assert.ok(near(front.length, 16, 1e-5), `length ${front.length}`);
+  /* Where the front runs into a round the faces do not turn at all: no mesh
+     edge is there, and the file still has one, the height of the plate. */
+  const tangent = sideBetween(topology, onFront, onRightFrontRound);
+  const normals = topology.normals;
+  const across = [...topology.adjacency[tangent.face]].find((o) =>
+    onRightFrontRound(topology.vertices[o]),
+  );
+  assert.ok(
+    normals[tangent.face].dot(normals[across]) >
+      Math.cos(FEATURE_DEG * (Math.PI / 180)),
+  );
+  assert.equal(
+    isFeatureEdge(topology, tangent.face, tangent.ka, tangent.kb),
+    true,
+  );
+  const upright = straightEdge(
+    topology,
+    tangent.face,
+    tangent.ka,
+    tangent.kb,
+    identity,
+  );
+  assert.equal(upright.curved, false);
+  assert.ok(near(upright.length, 8, 1e-5), `length ${upright.length}`);
+  // The rim of the hole goes all the way round and is no straight edge; nor
+  // is the arc where the top meets a round.
+  const rim = sideBetween(topology, onTop, onHoleWall);
+  const loop = straightEdge(topology, rim.face, rim.ka, rim.kb, identity);
+  assert.equal(loop.curved, true);
+  assert.ok(loop.points[0].equals(loop.points[loop.points.length - 1]));
+  const arc = sideBetween(topology, onTop, onRightFrontRound);
+  assert.equal(
+    straightEdge(topology, arc.face, arc.ka, arc.kb, identity).curved,
+    true,
+  );
+});
+
+test("three points on a rim give its diameter and centre; three in a line give none", async () => {
+  const at = (deg, r = 4, lift = 0) => {
+    const a = (deg * Math.PI) / 180;
+    // A circle of radius 4 about (1, 2, 3), in a tilted plane.
+    const u = new THREE.Vector3(1, 1, 0).normalize(),
+      v = new THREE.Vector3(0, 0, 1);
+    return new THREE.Vector3(1, 2, 3)
+      .addScaledVector(u, r * Math.cos(a))
+      .addScaledVector(v, r * Math.sin(a))
+      .addScaledVector(u.clone().cross(v), lift);
+  };
+  const circle = circleThrough([at(10), at(100), at(250)]);
+  assert.ok(near(circle.diameter, 8, 1e-9), `diameter ${circle.diameter}`);
+  assert.ok(circle.centre.distanceTo(new THREE.Vector3(1, 2, 3)) < 1e-9);
+  const axis = new THREE.Vector3(1, 1, 0)
+    .normalize()
+    .cross(new THREE.Vector3(0, 0, 1));
+  assert.ok(near(Math.abs(circle.normal.dot(axis)), 1, 1e-12));
+  // Close together is still a circle, if a less certain one.
+  assert.ok(near(circleThrough([at(0), at(20), at(40)]).diameter, 8, 1e-9));
+  // In a line, or so nearly that the circle is far bigger than they are apart.
+  const line = [0, 1, 2].map((i) => new THREE.Vector3(i, 2 * i, 3 * i));
+  assert.equal(circleThrough(line), null);
+  assert.equal(
+    circleThrough([at(0, 1000), at(0.2, 1000), at(0.4, 1000)]),
+    null,
+  );
+  assert.equal(circleThrough([at(0), at(0), at(90)]), null);
+
+  // The hole through the plate, from three of the vertices on its rim.
+  const topology = await plateTopology();
+  const rim = [
+    ...new Map(
+      topology.vertices
+        .flat()
+        .filter(
+          ([x, y, z]) => near(z, 4, 1e-4) && near(Math.hypot(x, y), 2.5, 1e-4),
+        )
+        .map((p) => [p.join(","), p]),
+    ).values(),
+  ].sort((p, q) => Math.atan2(p[1], p[0]) - Math.atan2(q[1], q[0]));
+  assert.ok(rim.length >= 12, `${rim.length} rim vertices`);
+  const hole = circleThrough(
+    [0, Math.floor(rim.length / 3), Math.floor((2 * rim.length) / 3)].map((i) =>
+      new THREE.Vector3().fromArray(rim[i]),
+    ),
+  );
+  assert.ok(near(hole.diameter, 5, 1e-5), `diameter ${hole.diameter}`);
+  assert.ok(hole.centre.distanceTo(new THREE.Vector3(0, 0, 4)) < 1e-5);
+  assert.ok(near(Math.abs(hole.normal.z), 1, 1e-9));
 });

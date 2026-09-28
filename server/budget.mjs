@@ -36,10 +36,12 @@ export const MARK_VIEW_BYTES = 240;
 
 /* What a kept measurement adds to a mark: its kind and number, the two ends of
    the line it was read along, the triangle each end was taken on, and for two
-   faces their normals. Measured at about 300 bytes as JSON with short mesh ids;
-   a mesh id may run to a hundred characters, and there are two. The page
-   charges the same (`MEASURE_BYTES` in `src/main.js`). */
-export const MARK_MEASURE_BYTES = 480;
+   faces their normals; a circle has three points and three triangles, and its
+   centre and normal besides. Measured at about 320 bytes as JSON for two faces
+   and 400 for a circle, with the page's own mesh ids; a mesh id may run to a
+   hundred characters, and a circle has three. The page charges the same
+   (`MEASURE_BYTES` in `src/main.js`). */
+export const MARK_MEASURE_BYTES = 640;
 
 /* Parallel is within half a degree (`PARALLEL_DEG` in `src/measure.js`), which
    is when two faces are read as a gap rather than an angle. The service holds

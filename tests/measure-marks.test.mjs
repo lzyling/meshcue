@@ -58,6 +58,25 @@ const faces = (extra = {}) =>
     ],
     ...extra,
   });
+// A rim of diameter 5 about (1, 2, 3), level: three points a quarter and a
+// half of the way round from each other.
+const circle = (extra = {}) =>
+  measure({
+    id: "measure-3",
+    label: "M3",
+    kind: "circle",
+    quantity: "diameter",
+    value: 5,
+    points: [
+      [3.5, 2, 3],
+      [1, 4.5, 3],
+      [-1.5, 2, 3],
+    ],
+    picks: [pick(0), pick(1), pick(1)],
+    center: [1, 2, 3],
+    normal: [0, 0, 1],
+    ...extra,
+  });
 async function ready(t, clientId, units) {
   const f = await startReview(t, { origin });
   const published = await f.ipc("/publish", {
@@ -101,6 +120,7 @@ test("a kept measurement is stored as it was taken", async (t) => {
       picks: [pick(1)],
     }),
     faces(),
+    circle({ id: "measure-circle", label: "M5" }),
     faces({
       id: "measure-angle",
       label: "M4",
@@ -146,6 +166,32 @@ test("a measurement that contradicts itself is refused, and nothing is stored", 
         [0, 1, 0],
       ],
     }),
+    "a circle whose diameter is not its points'": circle({ value: 5.2 }),
+    "a circle whose point is off its plane": circle({
+      points: [
+        [3.5, 2, 3],
+        [1, 2, 5.5],
+        [-1.5, 2, 3],
+      ],
+    }),
+    "a circle with no centre": circle({ center: undefined }),
+    "a circle with no normal": circle({ normal: undefined }),
+    "a circle read as a length": circle({ quantity: "length" }),
+    "a circle on two points": circle({
+      points: circle().points.slice(0, 2),
+      picks: [pick(0), pick(1)],
+    }),
+    "a circle through one point three times": circle({
+      points: [
+        [3.5, 2, 3],
+        [3.5, 2, 3],
+        [3.5, 2, 3],
+      ],
+    }),
+    "a circle's normal that is not a direction": circle({ normal: [0, 0, 2] }),
+    "a length read as a diameter": measure({ quantity: "diameter" }),
+    "faces read as a diameter": faces({ quantity: "diameter" }),
+    "points with a centre": measure({ center: [0, 0, 0], normal: [0, 0, 1] }),
     "a triangle the model does not have": measure({
       picks: [pick(0), pick(2)],
     }),
@@ -176,6 +222,7 @@ test("a batch with a measurement says what was read, in the model's unit", async
         [1, 0, 0],
       ],
     }),
+    circle(),
   ]);
   assert.equal(saved.status, 200, JSON.stringify(saved.body).slice(0, 300));
   const result = await f.api("feedback", {
@@ -195,6 +242,10 @@ test("a batch with a measurement says what was read, in the model's unit", async
     /M1: measurement, 5 mm point to point, from mesh-0 source face 0 to mesh-0 source face 1 — has a note/,
   );
   assert.match(send.message, /M2: measurement, 90 degrees between two faces/);
+  assert.match(
+    send.message,
+    /M3: measurement, 5 mm diameter, the circle through three points on mesh-0 source face 0, mesh-0 source face 1 and mesh-0 source face 1\n/,
+  );
   // A measurement is a reading, not a request; the note says what it becomes.
   assert.match(send.message, /by itself it asks for no change/);
   assert.equal(send.message.includes("Make this 8 mm."), false);
@@ -202,7 +253,7 @@ test("a batch with a measurement says what was read, in the model's unit", async
   // What `read` hands over: the whole record, with its unit beside it.
   const stored = await f.ipc("/submissions/measure-submission");
   const summary = summarizeSubmission(stored.body);
-  const [length, angle] = summary.annotations;
+  const [length, angle, round] = summary.annotations;
   assert.deepEqual(length, {
     id: "measure-1",
     type: "measure",
@@ -224,7 +275,17 @@ test("a batch with a measurement says what was read, in the model's unit", async
     [0, 1, 0],
     [1, 0, 0],
   ]);
+  assert.equal(round.unit, "mm");
+  assert.deepEqual(
+    { center: round.center, normal: round.normal, points: round.points },
+    {
+      center: circle().center,
+      normal: circle().normal,
+      points: circle().points,
+    },
+  );
   assert.match(summary.measureHint, /asks for no change/);
+  assert.match(summary.measureHint, /"circle" is three points/);
   assert.deepEqual(
     summary.meshManifest.meshes.map((m) => m.id),
     ["mesh-0"],

@@ -251,9 +251,11 @@ mark, then say what to change."
   not supported yet. This is a review tool; it does not sculpt the model.
 
 - Measure: pick the Measure tool, then Point to point (corners snap), Edge
-  length or Two faces — parallel faces give the distance between them, any
-  others the angle. Millimetres show two decimals; a model with no unit shows
-  the bare number. A measurement is gone at the next one unless you press
+  length, Two faces — parallel faces give the distance between them, any others
+  the angle — or 3-point circle, three clicks on the rim of a hole or shaft for
+  its diameter. On a STEP a face is the file's own face, whole, and an edge is
+  where two of them meet. Millimetres show two decimals; a model with no unit
+  shows the bare number. A measurement is gone at the next one unless you press
   “Keep”, which makes it a mark you can write a note on, undo, delete and send.
 
 <!-- reviewer-help:end -->
@@ -340,19 +342,30 @@ from any `note` they wrote on a mark.
 - **A mark of `type: "measure"` is a dimension the reviewer read off this
   version and kept.** `kind: "points"` is the distance between two points; a
   click within a few pixels of a triangle corner is taken at the corner.
-  `"edge"` is the length of a straight sharp edge, end to end — sharp meaning
-  the faces either side turn by more than 30°; a curved edge is refused on the
-  page, not measured. `"planes"` is two flat faces: `quantity: "length"` when
-  they are parallel within 0.5°, the gap between them, otherwise
-  `quantity: "angle"`, the angle between the two planes from 0 to 90 degrees,
-  with each face's outward direction in `normals` so that a 45° chamfer and a
-  45° groove can be told apart. `points` are the two ends of the line it was
-  read along and `picks` the source triangles each end was taken on, with
+  `"edge"` is the length of a straight edge, end to end; a curved edge is
+  refused on the page, not measured. `"planes"` is two flat faces:
+  `quantity: "length"` when they are parallel within 0.5°, the gap between
+  them, otherwise `quantity: "angle"`, the angle between the two planes from 0
+  to 90 degrees, with each face's outward direction in `normals` so that a 45°
+  chamfer and a 45° groove can be told apart. `"circle"` is three points the
+  reviewer clicked on the rim of a hole or shaft, each taken at a corner as
+  for `"points"`, and the circle through them: `quantity: "diameter"`, its
+  `center`, and `normal`, the normal of the circle's plane — the direction of
+  the hole's or shaft's axis — pointing to the side it was measured from.
+  `points` are the two ends of the line it was read along, or a circle's three
+  points, and `picks` the source triangles each point was taken on, with
   `space: "model"`. `read` puts the `unit` beside the `value`: the model's
   declared unit, `"unspecified"` when there is none, or `"degree"`. The service
   refuses a measurement whose number is not the one its own points or normals
-  give. Faces and edges are found on the mesh; a STEP's own faces are not used
-  for this yet.
+  give.
+- **On a STEP, faces and edges are the file's own.** Its tessellation records
+  which of the STEP's faces each triangle came from, and measuring reads that:
+  `"planes"` takes a face whole and refuses one that is curved, and an edge is
+  where two of the file's faces meet, however gently — a shallow chamfer, or
+  the line where a round runs into a flat. On a GLB or STL both are found on
+  the mesh: an edge where the faces either side turn by more than 30°, a face
+  grown from the triangle clicked within 2°. Marks on a STEP still land on its
+  triangles either way.
 
 Acknowledge receipt first. If neither the conversation nor a mark's `note` says
 what to change, ask what the mark means. **Do not infer a change from a colour,

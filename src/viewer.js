@@ -15,6 +15,9 @@ import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
 import {
+  brepTopology,
+  circleLine,
+  circleThrough,
   faceEdges,
   isFeatureEdge,
   straightEdge,
@@ -52,6 +55,9 @@ const GRID_Y = -1.4;
    does say, +Y, and is left as it is. An agent whose model is built another way
    turns it before publishing; nothing here guesses. */
 const Z_UP_FORMATS = new Set(["step", "stp", "stl"]);
+// The formats whose mesh the service tessellated, and so says which of the
+// file's faces each triangle came from.
+const STEP_FORMATS = new Set(["step", "stp"]);
 /* How far off the pole a top or bottom view stands, in radians. Far enough
    from the 1e-6 OrbitControls clamps to, too little to see. */
 const POLE_OFFSET = 1e-4;
@@ -72,6 +78,21 @@ const segmentDistance = ([px, py], [ax, ay], [bx, by]) => {
   return Math.hypot(px - ax - t * dx, py - ay - t * dy);
 };
 const midpoint = ([a, b]) => a.clone().add(b).multiplyScalar(0.5);
+/* Where a measurement's reading hangs: at the middle of the line it was read
+   along, or for a circle at its centre, in the model's frame. */
+const measureAnchor = (m) =>
+  m.center
+    ? new V().fromArray(m.center)
+    : midpoint(m.points.map((p) => new V().fromArray(p)));
+// A kept circle, drawn round from its first point.
+const keptCircle = (a) =>
+  circleLine(
+    {
+      centre: new V().fromArray(a.center),
+      normal: new V().fromArray(a.normal),
+    },
+    new V().fromArray(a.points[0]),
+  );
 /* A refusal these bytes will earn on every attempt. `settled` tells the page to
    stop asking for them, as it always has for a hash mismatch: a model it cannot
    show was otherwise fetched and refused again on every 2.2-second poll, for as
@@ -243,6 +264,9 @@ export class ModelViewer {
     this.measureLayer.className = "pin-layer";
     container.append(this.measureLayer);
     this.measureAnchors = [];
+    // Each reading's size on the screen, measured the first time it is laid
+    // out (`placeReadings`).
+    this.readingSizes = new WeakMap();
     this.hoverAnchor = null;
     this.ray = new THREE.Raycaster();
     this.ray.firstHitOnly = true;
@@ -255,6 +279,7 @@ export class ModelViewer {
       projected: new V(),
       direction: new V(),
       orient: new V(),
+      ring: new V(),
     };
     this.occlusionAt = { position: new V(), target: new V() };
     this.occlusionValid = false;
@@ -705,6 +730,15 @@ export class ModelViewer {
             ? extra[i]
             : Math.floor((spare * extra[i]) / demand));
         o.userData.fillTopology = buildFillTopology(o.geometry, o.matrixWorld);
+        /* The faces of the file itself, as its tessellation wrote them into
+           the mesh's `extras` (`server/step.mjs`), which the loader hands on
+           as `userData`. Read only from a STEP the service converted: in any
+           other GLB the same name could mean anything. */
+        if (STEP_FORMATS.has(model.format) && model.mesh)
+          o.userData.fillTopology.brep = brepTopology(
+            o.userData.brepFaces,
+            faces[i],
+          );
         originals.add(o.geometry);
         o.geometry = reviewSurface(o.geometry, o.matrixWorld, budget, costs[i]);
         const meshId = `mesh-${this.meshes.length}`;
@@ -994,6 +1028,7 @@ export class ModelViewer {
     // the loop, every rebuilt label was painted once at the layer's origin —
     // the corner of the view — before the next frame put it on its point.
     this.placePins();
+    this.placeReadings();
   }
   /* Where the camera sits relative to what it is looking at, as the two angles
      a compass needs. Reported from the render loop but only when it actually
@@ -1053,6 +1088,7 @@ export class ModelViewer {
     this.reportOrientation();
     this.placePins();
     this.placeMeasure();
+    this.placeReadings();
   }
   placePins() {
     if (!this.pins.length) return;
@@ -1111,9 +1147,78 @@ export class ModelViewer {
       // as well, about the layer's own origin. The landing animation scales, so
       // putting the position after it is what keeps a mark on its point instead
       // of flying it in from the corner of the screen.
-      pin.el.style.translate = pin.model
-        ? `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 50%)`
-        : `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
+      // A measurement's reading is set down with the others, in
+      // `placeReadings`.
+      if (!pin.model)
+        pin.el.style.translate = `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
+    }
+  }
+  /* Every measurement's reading, kept or being taken, set down together:
+     readings are words on the model, and two taken close together -- the same
+     hole twice, an edge and a face beside it -- would print one over the
+     other. Each goes where it belongs, and when that is taken, just below
+     whatever took it. A reading sits on the middle of its line, except a
+     circle's, which hangs under the circle as it is seen: on a hole the
+     centre is the hole, and a reading there hides the rim, and takes the
+     clicks meant for it, as soon as the hole is smaller on the screen than
+     the words. */
+  placeReadings() {
+    const readings = [
+      ...this.pins.filter((p) => p.model),
+      ...this.measureAnchors.filter((a) =>
+        a.el.classList.contains("measure-label"),
+      ),
+    ].filter((r) => !r.el.hidden);
+    if (!readings.length) return;
+    const rect = this.container.getBoundingClientRect();
+    const screen = (p) => {
+      const q = this.scratch.ring
+        .copy(p)
+        .applyMatrix4(this.root.matrixWorld)
+        .project(this.camera);
+      return [((q.x + 1) * rect.width) / 2, ((1 - q.y) * rect.height) / 2];
+    };
+    const boxes = readings.map(({ el, model, ring }) => {
+      // Measured once it has been laid out; its words never change after.
+      let size = this.readingSizes.get(el);
+      if (!size && el.offsetWidth) {
+        size = [el.offsetWidth, el.offsetHeight];
+        this.readingSizes.set(el, size);
+      }
+      const [w, h] = size || [0, 0];
+      let x, top;
+      if (ring) {
+        const low = ring.map(screen).reduce((a, b) => (b[1] > a[1] ? b : a));
+        [x, top] = [low[0], low[1] + 5];
+      } else {
+        const [cx, cy] = screen(model);
+        [x, top] = [cx, cy - h / 2];
+      }
+      return { el, left: x - w / 2, top, w, h };
+    });
+    boxes.sort((a, b) => a.top - b.top);
+    const GAP = 4;
+    const placed = [];
+    for (const box of boxes) {
+      for (
+        let moved = true, guard = 0;
+        moved && guard <= placed.length;
+        guard++
+      ) {
+        moved = false;
+        for (const other of placed)
+          if (
+            box.left < other.left + other.w &&
+            other.left < box.left + box.w &&
+            box.top < other.top + other.h + GAP &&
+            other.top < box.top + box.h + GAP
+          ) {
+            box.top = other.top + other.h + GAP;
+            moved = true;
+          }
+      }
+      placed.push(box);
+      box.el.style.translate = `${box.left}px ${box.top}px`;
     }
   }
   /* Placing a mark is the one moment a reviewer makes something, and it used to
@@ -1133,9 +1238,7 @@ export class ModelViewer {
   }
   focusAnnotation(a) {
     if (a.type === "measure") {
-      const p = midpoint(
-        a.points.map((v) => new V().fromArray(v)),
-      ).applyMatrix4(this.root.matrixWorld);
+      const p = measureAnchor(a).applyMatrix4(this.root.matrixWorld);
       const offset = this.camera.position.clone().sub(this.controls.target);
       this.camera.position.copy(p).add(offset);
       this.controls.target.copy(p);
@@ -1567,6 +1670,7 @@ export class ModelViewer {
     if (!this.enabled) return;
     const hit = this.rayAt(x, y);
     const kind = this.measureKind;
+    const onPoints = kind === "points" || kind === "circle";
     const candidate = !hit
       ? null
       : kind === "edge"
@@ -1580,7 +1684,7 @@ export class ModelViewer {
         : kind === "edge" && candidate === this.measureCandidate;
     this.measureCandidate = candidate;
     // Where a click would land, and whether it would take a corner.
-    if (kind === "points") {
+    if (onPoints) {
       if (!candidate) {
         this.hoverAnchor?.el.remove();
         this.hoverAnchor = null;
@@ -1595,12 +1699,12 @@ export class ModelViewer {
     }
     if (same) return;
     this.clearOverlay(this.measureCandidateGroup);
-    // A curved edge is not offered: it is not one this tool measures.
+    // A curved edge or face is not offered: it is not one this tool measures.
     if (candidate && kind === "edge" && !candidate.curved)
       this.measureCandidateGroup.add(
         this.modelLine(candidate.points, this.lineMaterial("hover"), 8),
       );
-    if (candidate && kind === "planes")
+    if (candidate && kind === "planes" && !candidate.plane.curved)
       this.addFaces(
         this.measureCandidateGroup,
         candidate.mesh,
@@ -1616,7 +1720,39 @@ export class ModelViewer {
     if (!this.measuring || this.measuring.result)
       this.measuring = { kind, picks: [], result: null };
     const m = this.measuring;
-    if (kind === "points") {
+    if (kind === "circle") {
+      const pick = this.snapPoint(hit, x, y);
+      /* A point already taken adds nothing to a circle, and nor does a third
+         in line with the first two: either is taken back and asked for again.
+         "Already taken" is to a ten-thousandth of the model, which the same
+         corner twice always is and two clicks meant apart never are. */
+      const span = 3 / (this.root.scale.x || 1);
+      if (m.picks.some((p) => p.point.distanceTo(pick.point) < span * 1e-4))
+        return this.onMeasureRefused?.("noCircle");
+      m.picks.push(pick);
+      if (m.picks.length === 3) {
+        const points = m.picks.map((p) => p.point);
+        const circle = circleThrough(points);
+        if (!circle) {
+          m.picks.pop();
+          return this.onMeasureRefused?.("noCircle");
+        }
+        /* Which way the normal points is the reviewer's side of the circle:
+           the one they were looking from, which on a hole is out of the face
+           it is drilled into. */
+        const eye = this.root.worldToLocal(this.camera.position.clone());
+        if (circle.normal.dot(eye.sub(circle.centre)) < 0)
+          circle.normal.negate();
+        m.result = {
+          quantity: "diameter",
+          value: circle.diameter,
+          points,
+          center: circle.centre,
+          normal: circle.normal,
+          line: circleLine(circle, points[0]),
+        };
+      }
+    } else if (kind === "points") {
       m.picks.push(this.snapPoint(hit, x, y));
       if (m.picks.length === 2) {
         const points = m.picks.map((p) => p.point);
@@ -1644,6 +1780,7 @@ export class ModelViewer {
     } else {
       const face = this.planeUnder(hit);
       if (!face) return;
+      if (face.plane.curved) return this.onMeasureRefused?.("curvedFace");
       const first = m.picks[0];
       if (
         first?.mesh === face.mesh &&
@@ -1665,23 +1802,29 @@ export class ModelViewer {
     if (this.hoverAnchor) this.measureLayer.append(this.hoverAnchor.el);
     this.measureAnchors = [];
     const m = this.measuring;
-    const anchor = (className, model) => {
+    const anchor = (className, model, ring) => {
       const el = document.createElement("div");
       el.className = className;
       this.measureLayer.append(el);
-      this.measureAnchors.push({ el, model: model.clone() });
+      this.measureAnchors.push({ el, model: model.clone(), ring });
       return el;
     };
     if (m?.kind === "planes")
       for (const p of m.picks)
         this.addFaces(this.measureFaces, p.mesh, p.plane.faces);
-    if (m?.kind === "points")
+    if (m?.kind === "points" || m?.kind === "circle")
       for (const p of m.picks) anchor("measure-dot", p.point);
     if (m?.result) {
       this.addDimension(this.measureLines, m.result.line || m.result.points);
-      anchor("measure-label", midpoint(m.result.points)).textContent =
-        this.formatMeasure?.(m.result) ?? String(m.result.value);
+      anchor(
+        "measure-label",
+        m.result.center || midpoint(m.result.points),
+        m.result.center && m.result.line,
+      ).textContent = this.formatMeasure?.(m.result) ?? String(m.result.value);
     }
+    // On its point from the first frame, not the corner of the view.
+    this.placeMeasure();
+    this.placeReadings();
     this.onMeasure?.(
       m
         ? {
@@ -1707,7 +1850,8 @@ export class ModelViewer {
         .project(this.camera);
       a.el.hidden =
         p.z < -1 || p.z > 1 || Math.abs(p.x) >= 1 || Math.abs(p.y) >= 1;
-      a.el.style.translate = `calc(${((p.x + 1) * rect.width) / 2}px - 50%) calc(${((1 - p.y) * rect.height) / 2}px - 50%)`;
+      if (!a.el.classList.contains("measure-label"))
+        a.el.style.translate = `calc(${((p.x + 1) * rect.width) / 2}px - 50%) calc(${((1 - p.y) * rect.height) / 2}px - 50%)`;
     }
   }
   clearMeasure() {
@@ -1744,13 +1888,20 @@ export class ModelViewer {
             normals: m.picks.map((p) => p.plane.normal.toArray().map(unit)),
           }
         : {}),
+      ...(m.kind === "circle"
+        ? {
+            center: m.result.center.toArray().map(round),
+            normal: m.result.normal.toArray().map(unit),
+          }
+        : {}),
     };
   }
   // A kept measurement: its line, its reading at the middle of it, and when it
   // is the one selected, the faces it was taken between.
   drawKeptMeasure(a, selected) {
-    const points = a.points.map((p) => new V().fromArray(p));
-    this.addDimension(this.overlay, points, selected ? "selected" : "line");
+    const ring = a.kind === "circle" ? keptCircle(a) : null;
+    const line = ring || a.points.map((p) => new V().fromArray(p));
+    this.addDimension(this.overlay, line, selected ? "selected" : "line");
     if (selected && a.kind === "planes")
       for (const pick of a.picks) {
         const mesh = this.meshMap.get(pick.meshId);
@@ -1775,7 +1926,7 @@ export class ModelViewer {
       this.onSelect?.(a.id);
     });
     this.labels.append(el);
-    this.pins.push({ el, a, model: midpoint(points) });
+    this.pins.push({ el, a, model: measureAnchor(a), ring });
   }
   stats() {
     return {

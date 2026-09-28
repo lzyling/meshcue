@@ -298,29 +298,39 @@ export default {
   "tool.measure": "Messen",
   "tool.measureLabel": "Messwerkzeug",
   "tool.measureTitle":
-    "Misst zwischen zwei Punkten, entlang einer Kante oder zwischen zwei Flächen; nichts bleibt, wenn Sie es nicht behalten",
+    "Misst zwischen zwei Punkten, entlang einer Kante, zwischen zwei Flächen oder den Durchmesser eines Kreises; nichts bleibt, wenn Sie es nicht behalten",
   "hint.measurePoints":
     "Zwei Punkte anklicken · Ecken rasten ein · die rechte Taste dreht weiterhin",
   "hint.measureEdge":
     "Auf eine gerade Kante zeigen und klicken, um ihre Länge zu lesen · die rechte Taste dreht weiterhin",
   "hint.measurePlanes":
     "Eine ebene Fläche anklicken, dann eine zweite · die rechte Taste dreht weiterhin",
+  "hint.measureCircle":
+    "Drei Punkte auf dem Rand einer Bohrung oder Welle anklicken · Ecken rasten ein · die rechte Taste dreht weiterhin",
   "measure.kinds": "Was gemessen wird",
   "measure.points": "Punkt zu Punkt",
   "measure.edge": "Kantenlänge",
   "measure.planes": "Zwei Flächen",
+  "measure.circle": "3-Punkt-Kreis",
   "measure.nextPoint": "Zweiten Punkt anklicken",
   "measure.nextFace": "Zweite Fläche anklicken",
+  "measure.circleSecond": "Zweiten Punkt anklicken",
+  "measure.circleThird": "Dritten Punkt anklicken",
   "measure.keep": "Behalten",
   "measure.keepTitle":
     "Diese Messung als Markierung behalten; sie wird mit den anderen gesendet",
   "measure.name": "Messung {label}",
   "measure.unitless": "{value} (ohne Einheit)",
+  "measure.diameter": "⌀{value}",
   "measure.noEdge":
     "Hier ist keine gerade Kante – zeigen Sie näher an eine scharfe Kante.",
   "measure.curved":
     "Diese Kante ist gekrümmt; gemessen werden nur gerade Kanten.",
   "measure.sameFace": "Das ist dieselbe Fläche – klicken Sie eine andere an.",
+  "measure.curvedFace":
+    "Diese Fläche ist gekrümmt; gemessen werden nur ebene Flächen.",
+  "measure.noCircle":
+    "Durch diese Punkte geht kein Kreis – klicken Sie drei getrennte Punkte rund um den Rand an.",
   "help.p10":
-    "Messen: Wählen Sie das Messwerkzeug, dann „Punkt zu Punkt“ (Ecken rasten ein), „Kantenlänge“ oder „Zwei Flächen“ – parallele Flächen ergeben ihren Abstand, alle anderen den Winkel. Millimeter erscheinen mit zwei Nachkommastellen; ein Modell ohne Einheit zeigt nur die Zahl. Eine Messung verschwindet bei der nächsten, außer Sie drücken „Behalten“: Dann wird sie eine Markierung, die Sie beschriften, rückgängig machen, löschen und senden können.",
+    "Messen: Wählen Sie das Messwerkzeug, dann „Punkt zu Punkt“ (Ecken rasten ein), „Kantenlänge“, „Zwei Flächen“ – parallele Flächen ergeben ihren Abstand, alle anderen den Winkel – oder „3-Punkt-Kreis“: Drei Klicks auf den Rand einer Bohrung oder Welle ergeben ihren Durchmesser. Bei einem STEP ist eine Fläche die der Datei selbst, als Ganzes, und eine Kante die Stelle, an der zwei davon zusammentreffen. Millimeter erscheinen mit zwei Nachkommastellen; ein Modell ohne Einheit zeigt nur die Zahl. Eine Messung verschwindet bei der nächsten, außer Sie drücken „Behalten“: Dann wird sie eine Markierung, die Sie beschriften, rückgängig machen, löschen und senden können.",
 };

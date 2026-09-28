@@ -295,29 +295,39 @@ export default {
   "tool.measure": "Mesurer",
   "tool.measureLabel": "Outil de mesure",
   "tool.measureTitle":
-    "Mesure entre deux points, le long d'une arête ou entre deux faces ; rien n'est gardé sans « Garder »",
+    "Mesure entre deux points, le long d'une arête, entre deux faces ou le diamètre d'un cercle ; rien n'est gardé sans « Garder »",
   "hint.measurePoints":
     "Cliquez deux points · les coins s'aimantent · le bouton droit pivote toujours",
   "hint.measureEdge":
     "Pointez une arête droite et cliquez pour lire sa longueur · le bouton droit pivote toujours",
   "hint.measurePlanes":
     "Cliquez une face plane, puis une autre · le bouton droit pivote toujours",
+  "hint.measureCircle":
+    "Cliquez trois points sur le bord d'un trou ou d'un arbre · les coins s'aimantent · le bouton droit pivote toujours",
   "measure.kinds": "Quoi mesurer",
   "measure.points": "Point à point",
   "measure.edge": "Longueur d'arête",
   "measure.planes": "Deux faces",
+  "measure.circle": "Cercle par 3 points",
   "measure.nextPoint": "Cliquez le second point",
   "measure.nextFace": "Cliquez la seconde face",
+  "measure.circleSecond": "Cliquez le deuxième point",
+  "measure.circleThird": "Cliquez le troisième point",
   "measure.keep": "Garder",
   "measure.keepTitle":
     "Garder cette mesure comme marque ; elle part avec les autres",
   "measure.name": "Mesure {label}",
   "measure.unitless": "{value} (sans unité)",
+  "measure.diameter": "⌀{value}",
   "measure.noEdge":
     "Pas d'arête droite ici — pointez plus près d'une arête vive.",
   "measure.curved":
     "Cette arête est courbe ; seules les arêtes droites se mesurent.",
   "measure.sameFace": "C'est la même face — cliquez-en une autre.",
+  "measure.curvedFace":
+    "Cette face est courbe ; seules les faces planes se mesurent.",
+  "measure.noCircle":
+    "Aucun cercle ne passe par ces points — cliquez trois points distincts, répartis sur le bord.",
   "help.p10":
-    "Mesurer : choisissez l'outil de mesure, puis « Point à point » (les coins s'aimantent), « Longueur d'arête » ou « Deux faces » — deux faces parallèles donnent leur écart, toutes les autres l'angle entre elles. Les millimètres s'affichent avec deux décimales ; un modèle sans unité n'affiche que le nombre. Une mesure disparaît à la suivante, sauf si vous appuyez sur « Garder » : elle devient alors une marque que vous pouvez annoter, annuler, supprimer et envoyer.",
+    "Mesurer : choisissez l'outil de mesure, puis « Point à point » (les coins s'aimantent), « Longueur d'arête », « Deux faces » — deux faces parallèles donnent leur écart, toutes les autres l'angle entre elles — ou « Cercle par 3 points » : trois clics sur le bord d'un trou ou d'un arbre donnent son diamètre. Sur un STEP, une face est celle du fichier, entière, et une arête l'endroit où deux d'entre elles se rencontrent. Les millimètres s'affichent avec deux décimales ; un modèle sans unité n'affiche que le nombre. Une mesure disparaît à la suivante, sauf si vous appuyez sur « Garder » : elle devient alors une marque que vous pouvez annoter, annuler, supprimer et envoyer.",
 };

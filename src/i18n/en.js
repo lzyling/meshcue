@@ -284,27 +284,36 @@ export default {
   "tool.measure": "Measure",
   "tool.measureLabel": "Measure tool",
   "tool.measureTitle":
-    "Measure between two points, along an edge, or between two faces; nothing is kept unless you keep it",
+    "Measure between two points, along an edge, between two faces or across a circle; nothing is kept unless you keep it",
   "hint.measurePoints":
     "Click two points · corners snap · the right button still orbits",
   "hint.measureEdge":
     "Point at a straight edge and click to read its length · the right button still orbits",
   "hint.measurePlanes":
     "Click one flat face, then another · the right button still orbits",
+  "hint.measureCircle":
+    "Click three points on the rim of a hole or shaft · corners snap · the right button still orbits",
   "measure.kinds": "What to measure",
   "measure.points": "Point to point",
   "measure.edge": "Edge length",
   "measure.planes": "Two faces",
+  "measure.circle": "3-point circle",
   "measure.nextPoint": "Click the second point",
   "measure.nextFace": "Click the second face",
+  "measure.circleSecond": "Click the second point",
+  "measure.circleThird": "Click the third point",
   "measure.keep": "Keep",
   "measure.keepTitle":
     "Keep this measurement as a mark; it is sent with the others",
   "measure.name": "measurement {label}",
   "measure.unitless": "{value} (no units)",
+  "measure.diameter": "⌀{value}",
   "measure.noEdge": "No straight edge there — point closer to a sharp edge.",
   "measure.curved": "That edge is curved; only straight edges can be measured.",
   "measure.sameFace": "That is the same face — click a different one.",
+  "measure.curvedFace": "That face is curved; only flat faces can be measured.",
+  "measure.noCircle":
+    "No circle runs through those points — click three separate points spread around the rim.",
   "help.p10":
-    "Measure: pick the Measure tool, then Point to point (corners snap), Edge length or Two faces — parallel faces give the distance between them, any others the angle. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
+    "Measure: pick the Measure tool, then Point to point (corners snap), Edge length, Two faces — parallel faces give the distance between them, any others the angle — or 3-point circle, three clicks on the rim of a hole or shaft for its diameter. On a STEP a face is the file's own face, whole, and an edge is where two of them meet. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
 };
