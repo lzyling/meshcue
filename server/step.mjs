@@ -211,6 +211,27 @@ function toGlb(meshes, generator) {
    child below -- see `convertStepDetached` for why there is nowhere else it is
    allowed to run. `generator` is the caller's version string, written into the
    file so a mesh on disk can say what produced it. */
+/* OCCT, and so build123d, can write a UTF-8 name a second time as though each
+   byte were a Latin-1 character, and the library hands that back as it stands:
+   透明件 arrives as é\u0080\u008fæ… A name made only of Latin-1 characters whose
+   bytes are nonetheless valid UTF-8 is that, and is decoded until it is not;
+   a real Latin-1 name such as café is not valid UTF-8 and is left alone. */
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
+function readable(name) {
+  let s = name;
+  for (
+    let i = 0;
+    i < 3 && /[\x80-\xff]/.test(s) && !/[^\x00-\xff]/.test(s);
+    i++
+  )
+    try {
+      s = strictUtf8.decode(Buffer.from(s, "latin1"));
+    } catch {
+      break;
+    }
+  return s;
+}
+
 export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
   const kernel = await occt();
   /* On a malformed upload this prints its own complaint ("**** ERR StepFile:
@@ -228,6 +249,8 @@ export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
     const { applyDeclaredStyles } = await import("./step-styles.mjs");
     applyDeclaredStyles(result, buffer.toString("utf8"));
   } catch {}
+  // After the styles, which are matched on the name as the library read it.
+  for (const m of result.meshes) if (m.name) m.name = readable(m.name);
   const meshes = result.meshes.filter(
     (m) => m.attributes?.position?.array?.length && m.index?.array?.length,
   );

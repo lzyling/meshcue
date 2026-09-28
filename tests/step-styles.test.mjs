@@ -182,6 +182,47 @@ test("a name escaped in the file matches the name the library decoded", () => {
   assert.equal(applyDeclaredStyles(result, text), 1);
 });
 
+/* The library decodes every form Part 21 allows, and hex in either case --
+   SolidWorks writes it lower. A form read here differently is a part whose
+   colours never arrive, and nothing says so. */
+test("a name escaped any way the library reads matches it", () => {
+  for (const [written, decoded] of [
+    ["\\X2\\96f64ef6\\X0\\", "零件"],
+    ["\\X4\\000096F600004EF6\\X0\\", "零件"],
+    ["caf\\X\\e9", "café"],
+    ["a\\S\\ib", "aéb"],
+  ]) {
+    const text = step([
+      ...part(1, written, [{ id: 100, faces: 6 }]),
+      ...styled(300, 100, { colour: [1, 0, 0] }),
+    ]);
+    const result = answer([node(decoded, [0])], [6]);
+    assert.equal(applyDeclaredStyles(result, text), 1, written);
+  }
+});
+
+/* OCCT, and so build123d, can write a UTF-8 name a second time as though each
+   byte were a Latin-1 character; the library hands that back as it stands, so
+   透明件 reached the agent as å\u0080\u008f…. The colours are matched on the
+   name as read, and only then is the name put right. */
+test("a name the writer encoded twice reaches the mesh readable, colours intact", async () => {
+  const twice = Buffer.from("透明件", "utf8").toString("latin1");
+  const text = fs
+    .readFileSync(GROUPED, "latin1")
+    .replaceAll("'part_clear'", `'${twice}'`);
+  const { glb } = await convertStep(Buffer.from(text, "utf8"));
+  const length = glb.readUInt32LE(12);
+  const json = JSON.parse(glb.subarray(20, 20 + length).toString("utf8"));
+  assert.ok(
+    json.meshes.some((m) => m.name === "透明件"),
+    json.meshes.map((m) => m.name).join(", "),
+  );
+  assert.equal(
+    materialsOf(glb).filter((m) => m?.alphaMode === "BLEND").length,
+    1,
+  );
+});
+
 /* A colour on the wrong part is worse than none, so every way the file and the
    library can disagree about which mesh is which leaves the node alone. */
 test("a node whose meshes cannot be checked against the file is left as it was", () => {

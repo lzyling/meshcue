@@ -54,19 +54,25 @@ const NAMED = {
   white: [1, 1, 1],
 };
 
-// Part 21 strings escape everything outside printable ASCII. Names are the one
-// thing compared across the two readers, and the library hands them back
-// decoded, so they are decoded here the same way.
+// Part 21 strings escape everything outside printable ASCII, four ways, with
+// hex in either case -- SolidWorks writes it lower. Names are the one thing
+// compared across the two readers, and the library hands them back decoded
+// every one of those ways, so they are decoded here the same way: a name read
+// differently is a part whose colours never arrive.
+const hexUnits = (hex, width) =>
+  hex.match(new RegExp(`.{${width}}`, "g")).map((h) => Number.parseInt(h, 16));
 function decode(s) {
   return s
-    .replace(/\\X2\\((?:[0-9A-F]{4})+)\\X0\\/g, (_, hex) =>
-      String.fromCharCode(
-        ...hex.match(/.{4}/g).map((h) => Number.parseInt(h, 16)),
-      ),
+    .replace(/\\X2\\((?:[0-9A-Fa-f]{4})+)\\X0\\/g, (_, hex) =>
+      String.fromCharCode(...hexUnits(hex, 4)),
     )
-    .replace(/\\X\\([0-9A-F]{2})/g, (_, h) =>
+    .replace(/\\X4\\((?:[0-9A-Fa-f]{8})+)\\X0\\/g, (_, hex) =>
+      String.fromCodePoint(...hexUnits(hex, 8)),
+    )
+    .replace(/\\X\\([0-9A-Fa-f]{2})/g, (_, h) =>
       String.fromCharCode(Number.parseInt(h, 16)),
     )
+    .replace(/\\S\\(.)/g, (_, c) => String.fromCharCode(c.charCodeAt(0) + 128))
     .replace(/\\\\/g, "\\");
 }
 
