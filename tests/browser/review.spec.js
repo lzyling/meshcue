@@ -60,6 +60,36 @@ async function point(page, dx = 0, dy = 0) {
     y: box.y + box.height * 0.45 + dy,
   };
 }
+/* A plate 20 × 15 × 8 mm, modelled flat on +Z and centred on the origin, as an
+   ASCII STL. STL carries no up axis, which is what makes it the model to ask
+   about orientation with. */
+function writePlate() {
+  const stl = path.join(dir, "plate.stl");
+  const [lo, hi] = [
+    [-10, -7.5, -4],
+    [10, 7.5, 4],
+  ];
+  const corner = (i) => [0, 1, 2].map((k) => ((i >> k) & 1 ? hi : lo)[k]);
+  const quads = [
+    [0, 2, 3, 1],
+    [4, 5, 7, 6],
+    [0, 1, 5, 4],
+    [2, 6, 7, 3],
+    [0, 4, 6, 2],
+    [1, 3, 7, 5],
+  ];
+  const facet = (a, b, c) =>
+    `facet normal 0 0 0\nouter loop\n${[a, b, c]
+      .map((i) => `vertex ${corner(i).join(" ")}`)
+      .join("\n")}\nendloop\nendfacet`;
+  fs.writeFileSync(
+    stl,
+    `solid plate\n${quads
+      .flatMap(([a, b, c, d]) => [facet(a, b, c), facet(a, c, d)])
+      .join("\n")}\nendsolid plate\n`,
+  );
+  return stl;
+}
 async function pin(page) {
   await page.getByRole("button", { name: "Label tool", exact: true }).click();
   const p = await point(page);
@@ -1729,30 +1759,7 @@ test("the right button turns the model the same way after a look straight down o
    20 × 15 × 8 mm and modelled flat, used to stand on its long edge: the 15 mm
    side went up the screen and the 8 mm one into it. */
 test("a STEP and an STL stand on +Z", async ({ page }) => {
-  const stl = path.join(dir, "plate.stl");
-  const [lo, hi] = [
-    [-10, -7.5, -4],
-    [10, 7.5, 4],
-  ];
-  const corner = (i) => [0, 1, 2].map((k) => ((i >> k) & 1 ? hi : lo)[k]);
-  const quads = [
-    [0, 2, 3, 1],
-    [4, 5, 7, 6],
-    [0, 1, 5, 4],
-    [2, 6, 7, 3],
-    [0, 4, 6, 2],
-    [1, 3, 7, 5],
-  ];
-  const facet = (a, b, c) =>
-    `facet normal 0 0 0\nouter loop\n${[a, b, c]
-      .map((i) => `vertex ${corner(i).join(" ")}`)
-      .join("\n")}\nendloop\nendfacet`;
-  fs.writeFileSync(
-    stl,
-    `solid plate\n${quads
-      .flatMap(([a, b, c, d]) => [facet(a, b, c), facet(a, c, d)])
-      .join("\n")}\nendsolid plate\n`,
-  );
+  const stl = writePlate();
   // Fitted into three units by the long side: 20 → 3, so 8 → 1.2 and 15 → 2.25.
   const standing = [3, 1.2, 2.25];
   for (const [file, version] of [
@@ -2348,6 +2355,125 @@ test("a mark is on its point the first time it is drawn", async ({ page }) => {
   await expect(page.locator(".model-pin.selected")).toHaveCount(1);
   expect(await page.locator(".model-pin").count()).toBe(2);
   expect(await page.evaluate(() => window.__unplacedPins)).toBe(0);
+});
+
+/* A note is the reviewer saying what should change at a mark, in the words
+   they would have typed into the conversation. It belongs to the chosen mark
+   and sits under the list, because the list is rebuilt on every change and a
+   text box rebuilt under someone typing loses what they were typing. */
+test("a note is written on the chosen mark and keeps its words", async ({
+  page,
+}) => {
+  await ready(page);
+  const marks = () => page.evaluate(() => window.__reviewDiagnostics());
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  const spot = await point(page);
+  await page.mouse.click(spot.x, spot.y);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  const placed = (await marks()).annotations[0].view;
+  expect(placed.space).toBe("model");
+  expect(placed.fov).toBe(38);
+  // The mark just placed is the chosen one, so its note is right there.
+  const box = page.getByRole("textbox", { name: "Note on A" });
+  await expect(box).toBeVisible();
+  // Turned before writing: the view that travels is the one the words were
+  // written from, not the one the mark was placed from.
+  await page.locator('.orient-region[data-view="1,1,1"]').click();
+  await box.click();
+  await page.keyboard.type("Make this hole 6 mm", { delay: 10 });
+  await expect
+    .poll(async () => (await marks()).annotations[0].note)
+    .toBe("Make this hole 6 mm");
+  await expect.poll(async () => (await marks()).dirty).toBe(false);
+  // Saved while typing, and the list rebuilt with it; the box was not.
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe(
+    "mark-note-text",
+  );
+  // Mid-composition an input method holds a guess, not a word; only the word
+  // it settles on is kept.
+  await page.evaluate(() => {
+    const text = document.querySelector("#mark-note-text");
+    text.value += ", not 5";
+    text.dispatchEvent(new InputEvent("input", { isComposing: true }));
+  });
+  expect((await marks()).annotations[0].note).toBe("Make this hole 6 mm");
+  await page.evaluate(() =>
+    document
+      .querySelector("#mark-note-text")
+      .dispatchEvent(new CompositionEvent("compositionend")),
+  );
+  await expect
+    .poll(async () => (await marks()).annotations[0].note)
+    .toBe("Make this hole 6 mm, not 5");
+  await expect.poll(async () => (await marks()).dirty).toBe(false);
+  const written = (await marks()).annotations[0].view;
+  expect(written.position).not.toEqual(placed.position);
+  // In the list, the note stands in for the line saying how the mark was made.
+  await expect(page.locator("#annotations-list .annotation-note")).toHaveText(
+    "Make this hole 6 mm, not 5",
+  );
+  // One visit to the box is one step back, not one step per keystroke.
+  await page.locator("#home-view").click();
+  await page.locator("#undo").click();
+  await expect
+    .poll(async () => (await marks()).annotations[0]?.note ?? null)
+    .toBe(null);
+  expect((await marks()).annotationCount).toBe(1);
+  await page.locator("#redo").click();
+  await expect
+    .poll(async () => (await marks()).annotations[0]?.note ?? null)
+    .toBe("Make this hole 6 mm, not 5");
+  await expect.poll(async () => (await marks()).dirty).toBe(false);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await page.locator("#annotations-list .annotation-select").click();
+  await expect(page.getByRole("textbox", { name: "Note on A" })).toHaveValue(
+    "Make this hole 6 mm, not 5",
+  );
+  expect((await marks()).annotations[0].view).toEqual(written);
+});
+
+/* The camera the page stores for a batch is the preview's: the model scaled
+   into three units and, for an STL, stood up. A mark's view is the same
+   camera in the file's own frame and units, with the top of the screen — so
+   rebuilt from nothing but the view and the file, it puts the mark back where
+   the reviewer clicked. The plate is modelled flat on +Z, which the preview
+   draws as +Y; an answer in the preview's frame would say so. */
+test("a mark's view puts the reviewer's screen back together in the model's own frame", async ({
+  page,
+}) => {
+  execFileSync(
+    process.execPath,
+    ["scripts/reviewctl.mjs", "publish", writePlate(), "--version", "stl"],
+    { cwd: repo, env, encoding: "utf8" },
+  );
+  await ready(page);
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  const spot = await point(page);
+  await page.mouse.click(spot.x, spot.y);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
+  const d = await page.evaluate(() => window.__reviewDiagnostics());
+  const { position, view } = d.annotations[0];
+  expect(view.space).toBe("model");
+  // From the home view the top of the screen is mostly the file's +Z.
+  expect(view.up[2]).toBeGreaterThan(0.8);
+  expect(Math.hypot(...view.up)).toBeCloseTo(1, 4);
+  const camera = new THREE.PerspectiveCamera(view.fov, view.aspect, 0.01, 1e5);
+  camera.position.fromArray(view.position);
+  camera.up.fromArray(view.up);
+  camera.lookAt(new THREE.Vector3().fromArray(view.target));
+  camera.updateMatrixWorld();
+  const seen = new THREE.Vector3().fromArray(position).project(camera);
+  const box = await page.locator("#viewer").boundingBox();
+  expect(seen.x).toBeCloseTo(((spot.x - box.x) / box.width) * 2 - 1, 2);
+  expect(seen.y).toBeCloseTo(1 - ((spot.y - box.y) / box.height) * 2, 2);
+  // Millimetres, not the preview's units: 20 mm was fitted into 3.
+  const far = (c) => Math.hypot(...c.position.map((v, i) => v - c.target[i]));
+  expect(far(view) / far(d.camera)).toBeCloseTo(20 / 3, 3);
 });
 
 test("the wheel zooms and Shift+wheel pans, whatever is turning it", async ({

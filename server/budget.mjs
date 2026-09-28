@@ -19,3 +19,17 @@ export const MARK_WHOLE_FACE_BYTES = 8;
    and a German or French reviewer painting purple got a failed save.
    `scripts/check-i18n.mjs` puts every catalogue's region names against it. */
 export const MAX_REGION_LABEL = 32;
+
+/* A mark's note is the reviewer saying, in their own words, what should change
+   where the mark is. Two hundred is room for a sentence or three in any of the
+   six languages without becoming a second conversation; the page holds the
+   text box to the same number (`MAX_NOTE` in `src/main.js`). Counted the way a
+   browser counts `maxlength`, in UTF-16 code units, so the two cannot disagree
+   about an emoji. */
+export const MAX_NOTE = 200;
+
+/* Where the reviewer was looking from when they last placed, painted, moved or
+   wrote on a mark: two points, a direction and two numbers, rounded to six
+   significant figures. Measured at about 190 bytes as JSON; the page charges
+   this much for every mark that carries one (`VIEW_BYTES` in `src/main.js`). */
+export const MARK_VIEW_BYTES = 240;

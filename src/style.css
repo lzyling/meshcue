@@ -799,6 +799,57 @@ a {
   justify-content: center;
   padding: 11px 12px;
 }
+/* A mark's note sits between the marks and the button that hands them over,
+   because it is part of what is handed over. It follows the selected mark
+   instead of living in its row: the rows are rebuilt on every change, and a
+   text box rebuilt under someone typing loses what they were typing. */
+.mark-note {
+  border-top: 1px solid var(--line);
+  padding: 8px 9px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: none;
+}
+.mark-note label {
+  font-size: 10px;
+  font-weight: 550;
+}
+.mark-note textarea {
+  width: 100%;
+  min-height: 58px;
+  max-height: 160px;
+  resize: vertical;
+  padding: 6px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.mark-note textarea:read-only {
+  color: var(--ink-muted);
+}
+.mark-note small {
+  align-self: flex-end;
+  font-size: 9px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* In the list a note stands in for the line saying how the mark was made, cut
+   to two lines; the whole of it is in the box below when the mark is chosen. */
+.annotation-select > span {
+  min-width: 0;
+}
+.annotation-select small.annotation-note {
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 #feedback-status {
   font-size: 10px;
   color: var(--ink-faint);
@@ -1169,6 +1220,24 @@ dialog .muted {
   .annotations-panel {
     width: auto;
     max-height: 148px;
+  }
+  /* A chosen mark's note needs room of its own, and at 148px it took the send
+     button's: the button was pushed out of the panel and under the model. The
+     model gives up that room while a mark is chosen and has it back when none
+     is; the box itself is kept to two lines, and `maxlength` still counts. */
+  .annotations-panel:has(#mark-note:not([hidden])) {
+    max-height: 220px;
+  }
+  .mark-note {
+    padding: 6px 8px 5px;
+    gap: 3px;
+  }
+  .mark-note textarea {
+    height: 40px;
+    min-height: 40px;
+  }
+  .mark-note small {
+    display: none;
   }
   .annotation-row {
     padding: 7px;

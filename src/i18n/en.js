@@ -117,6 +117,9 @@ export default {
   "marks.moveHint": "Click the surface to move {label}; Esc cancels.",
   "marks.hide": "Hide marks",
   "marks.show": "Show marks",
+  "note.title": "Note on {name}",
+  "note.placeholder":
+    "What should change here? Optional; it goes to the Agent with the mark.",
 
   "color.red": "red",
   "color.yellow": "yellow",
@@ -231,13 +234,13 @@ export default {
   "help.p2":
     "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":
-    "Point labels are identified by their letter, marked areas by their colour. To separate another request, press “New area”. You can undo, redo, and delete individual marks.",
+    "Point labels are identified by their letter, marked areas by their colour. To separate another request, press “New area”. Select a mark in the list to write a note on it: what should change there. You can undo, redo, and delete individual marks.",
   "help.p4":
     "The paint bucket previews the connected near-flat area and fills it on a click; the spread slider sets how far that area may run. It works on a whole connected surface, which can include parts hidden behind other objects. To take a fill back, undo it or delete the mark from the list.",
   "help.p5":
     "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
   "help.p6":
-    "“Send to Agent” saves and submits the marks. Return to the original conversation to say what you want changed; the Agent will ask if anything is unclear. Submitting does not change the model by itself.",
+    "“Send to Agent” saves and submits the marks with their notes. Say what you want changed in a note or back in the original conversation — both count; the Agent will ask if anything is unclear. Submitting does not change the model by itself.",
   "help.p7":
     "The tabs along the top list every version the Agent has delivered. Press any of them to look back, and you can mark and submit on an older version directly — each version keeps its own draft, and switching does not affect the others. The marks the Agent receives state which version they target.",
   "help.p8":

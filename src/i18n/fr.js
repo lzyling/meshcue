@@ -124,6 +124,9 @@ export default {
     "Cliquez sur la surface pour déplacer {label} ; Échap annule.",
   "marks.hide": "Masquer les marques",
   "marks.show": "Afficher les marques",
+  "note.title": "Note : {name}",
+  "note.placeholder":
+    "Que faut-il changer ici ? Facultatif – part avec la marque vers l'Agent.",
 
   "color.red": "rouge",
   "color.yellow": "jaune",
@@ -242,13 +245,13 @@ export default {
   "help.p2":
     "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
-    "Les repères se reconnaissent à leur lettre, les zones marquées à leur couleur. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Les marques peuvent être annulées, rétablies et supprimées une à une.",
+    "Les repères se reconnaissent à leur lettre, les zones marquées à leur couleur. Pour séparer une autre demande, appuyez sur « Nouvelle zone ». Sélectionnez une marque dans la liste pour y écrire une note : ce qu'il faut changer à cet endroit. Les marques peuvent être annulées, rétablies et supprimées une à une.",
   "help.p4":
     "Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue fixe jusqu'où cette zone peut s'étendre. Il agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets. Pour revenir sur un remplissage, annulez-le ou supprimez la marque dans la liste.",
   "help.p5":
     "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
   "help.p6":
-    "« Envoyer à l'Agent » enregistre et transmet les marques. Revenez à la conversation d'origine pour dire ce que vous voulez changer ; l'Agent posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
+    "« Envoyer à l'Agent » enregistre et transmet les marques avec leurs notes. Dites ce que vous voulez changer dans une note ou dans la conversation d'origine – les deux comptent ; l'Agent posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
   "help.p7":
     "Les onglets en haut listent chaque version livrée par l'Agent. Appuyez sur l'un d'eux pour la revoir, et vous pouvez marquer et envoyer directement sur une version ancienne — chaque version garde son propre brouillon, et changer d'onglet n'affecte pas les autres. Les marques reçues par l'Agent indiquent la version visée.",
   "help.p8":

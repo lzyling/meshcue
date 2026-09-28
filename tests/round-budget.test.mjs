@@ -4,7 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startReview } from "./helpers/review-server.mjs";
-import { MAX_ROUND_BYTES, MARK_WHOLE_FACE_BYTES } from "../server/budget.mjs";
+import {
+  MAX_ROUND_BYTES,
+  MARK_WHOLE_FACE_BYTES,
+  MAX_NOTE,
+  MARK_VIEW_BYTES,
+} from "../server/budget.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const main = fs.readFileSync(path.join(repo, "src/main.js"), "utf8");
@@ -28,6 +33,10 @@ test("the page's budget sits below the service's, and they count alike", () => {
     `the page must warn before the service refuses (${page} vs ${MAX_ROUND_BYTES})`,
   );
   assert.equal(constant("WHOLE_FACE_BYTES"), MARK_WHOLE_FACE_BYTES);
+  // The text box and the service have to agree on how long a note may be, or a
+  // reviewer types something the page accepts and the save fails.
+  assert.equal(constant("MAX_NOTE"), MAX_NOTE);
+  assert.equal(constant("VIEW_BYTES"), MARK_VIEW_BYTES);
 });
 
 test("the face limit is gone from both sides, not merely raised", () => {
@@ -88,6 +97,30 @@ test("a round far past the old face limit is now accepted", async (t) => {
   // a hundred thousand whole faces is about 680 kB.
   const saved = await save(region([...Array(100000).keys()]));
   assert.equal(saved.status, 200, JSON.stringify(saved.body).slice(0, 200));
+});
+
+test("a note and a view are charged to the round like the rest of the mark", async (t) => {
+  const save = await ready(t);
+  /* 120 + 449,960 × 8 = 3,599,800 bytes: two hundred short of the ceiling.
+     Every refusal leaves the draft at revision 0, so the one that fits can
+     still be written last. */
+  const [mark] = region([...Array(449960).keys()]);
+  const view = {
+    space: "model",
+    position: [1, 2, 3],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    fov: 38,
+    aspect: 1.5,
+  };
+  // A hundred CJK characters are three hundred bytes, not a hundred.
+  const noted = await save([{ ...mark, note: "改".repeat(100) }]);
+  assert.equal(noted.status, 400, JSON.stringify(noted.body).slice(0, 200));
+  assert.match(noted.body.error, /submit in batches/);
+  const viewed = await save([{ ...mark, view }]);
+  assert.equal(viewed.status, 400, JSON.stringify(viewed.body).slice(0, 200));
+  const fits = await save([{ ...mark, note: "ok" }]);
+  assert.equal(fits.status, 200, JSON.stringify(fits.body).slice(0, 200));
 });
 
 test("a round past what a browser will keep is still refused", async (t) => {

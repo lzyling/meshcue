@@ -338,6 +338,40 @@ export class ModelViewer {
   screenUp() {
     return new V(0, 1, 0).applyQuaternion(this.camera.quaternion).toArray();
   }
+  /* Where the reviewer is looking from, in the model's own frame and units —
+     the frame a region's `bounds` are in — so that it can travel with a mark.
+     `cameraState` is the preview's: every model is scaled into a 3-unit box and
+     centred there, and a STEP or STL stood upright, so those numbers mean
+     nothing to anyone holding the file. The top of the screen goes with it
+     because the camera's own up is always +Y in the preview, and so says
+     nothing about which way the reviewer was holding the model when they
+     called something "the top".
+
+     Undoing `root` means inverting a matrix whose scale is 3/maxDim, which is
+     not exact in binary; a coordinate that should be zero comes back as a
+     residue that survives rounding (see `annotationBounds`). Anything smaller
+     than a billionth of the model is that residue, and is written as zero. */
+  markView() {
+    this.root.updateMatrixWorld();
+    const toModel = new THREE.Matrix4().copy(this.root.matrixWorld).invert();
+    const span = 3 / (this.root.scale.x || 1);
+    const round = (v) =>
+      Math.abs(v) < span * 1e-9 ? 0 : Number(v.toPrecision(6));
+    const at = (v) => v.clone().applyMatrix4(toModel).toArray().map(round);
+    const up = new V()
+      .fromArray(this.screenUp())
+      .transformDirection(toModel)
+      .toArray()
+      .map((v) => (Math.abs(v) < 1e-9 ? 0 : Number(v.toPrecision(6))));
+    return {
+      space: "model",
+      position: at(this.camera.position),
+      target: at(this.controls.target),
+      up,
+      fov: Number(this.camera.fov.toPrecision(6)),
+      aspect: Number(this.camera.aspect.toPrecision(6)),
+    };
+  }
   // Every source triangle in the loaded model: the most a round could possibly
   // claim, and since `source-v2` the only ceiling on claiming that is honest.
   sourceFaceCount() {

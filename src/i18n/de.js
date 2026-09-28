@@ -124,6 +124,9 @@ export default {
     "Auf die Oberfläche klicken, um {label} zu verschieben; Esc bricht ab.",
   "marks.hide": "Markierungen aus",
   "marks.show": "Markierungen an",
+  "note.title": "Notiz: {name}",
+  "note.placeholder":
+    "Was soll sich hier ändern? Optional – geht mit der Markierung an den Agenten.",
 
   "color.red": "rote",
   "color.yellow": "gelbe",
@@ -245,13 +248,13 @@ export default {
   "help.p2":
     "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":
-    "Punktmarken erkennt man am Buchstaben, markierte Flächen an der Farbe. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
+    "Punktmarken erkennt man am Buchstaben, markierte Flächen an der Farbe. Für eine getrennte Anmerkung „Neue Fläche“ drücken. Wählen Sie eine Markierung in der Liste, um eine Notiz dazu zu schreiben: was sich dort ändern soll. Markierungen lassen sich rückgängig machen, wiederholen und einzeln löschen.",
   "help.p4":
     "Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler bestimmt, wie weit diese Fläche reichen darf. Es wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile. Um eine Füllung zurückzunehmen, machen Sie sie rückgängig oder löschen Sie die Markierung aus der Liste.",
   "help.p5":
     "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
   "help.p6":
-    "„An den Agenten“ speichert und sendet die Markierungen. Kehren Sie ins ursprüngliche Gespräch zurück, um zu sagen, was geändert werden soll; bei Unklarheiten fragt der Agent nach. Das Senden allein ändert das Modell nicht.",
+    "„An den Agenten“ speichert und sendet die Markierungen samt Notizen. Was geändert werden soll, können Sie in eine Notiz schreiben oder im ursprünglichen Gespräch sagen – beides zählt; bei Unklarheiten fragt der Agent nach. Das Senden allein ändert das Modell nicht.",
   "help.p7":
     "Die Reiter oben listen jede vom Agenten gelieferte Version. Ein Druck darauf zeigt sie erneut, und Sie können auch auf einer älteren Version direkt markieren und senden — jede Version hat ihren eigenen Entwurf, das Wechseln berührt die anderen nicht. Die Markierungen, die der Agent erhält, nennen die Version, für die sie gelten.",
   "help.p8":

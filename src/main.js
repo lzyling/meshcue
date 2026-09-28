@@ -91,6 +91,9 @@ const T = (key, vars) => esc(t(key, vars));
    page making a claim about the model. */
 const unitsLabel = (units) =>
   units === "unspecified" ? t("units.unspecified") : units;
+// The longest note a mark may carry; the service holds the same line
+// (`MAX_NOTE` in `server/budget.mjs`) and a test holds the two together.
+const MAX_NOTE = 200;
 // A server message is written for an agent and a log file. These are the
 // refusals a reviewer can actually cause from the page, so they are said in the
 // reviewer's own language; anything else falls through to the server's text,
@@ -128,7 +131,7 @@ app.innerHTML = `${SPRITE}
   <div class="sr-only"><h2 id="model-name">${T("model.awaiting")}</h2><span id="model-version">—</span><span id="save-status" aria-live="polite">${T("save.preparing")}</span></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div id="mark-note" class="mark-note" hidden><label id="mark-note-title" for="mark-note-text"></label><textarea id="mark-note-text" rows="3" maxlength="${MAX_NOTE}" placeholder="${T("note.placeholder")}"></textarea><small id="mark-note-count" aria-hidden="true"></small></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span></div>
@@ -382,6 +385,7 @@ function onPin(pin) {
     label: nextLabel(),
     color,
     ...pin,
+    view: viewer.markView(),
   };
   annotations.push(item);
   selectedId = item.id;
@@ -415,8 +419,15 @@ const faceCountOf = (a) =>
   a.type === "pin"
     ? 1
     : Object.values(a.faces || {}).reduce((m, f) => m + f.length, 0);
+// Held to the service's number by `tests/round-budget.test.mjs`
+// (`MARK_VIEW_BYTES`), like `MAX_NOTE` above. A note is charged what it weighs
+// in UTF-8, which is at least what the browser stores.
+const VIEW_BYTES = 240;
+const encoder = new TextEncoder();
 const markBytes = (a) =>
   120 +
+  encoder.encode(a.note || "").length +
+  (a.view ? VIEW_BYTES : 0) +
   (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0) +
   (faceCountOf(a) - new Set((a.surfacePatches || []).map(faceOf)).size) *
     WHOLE_FACE_BYTES;
@@ -490,6 +501,9 @@ function onPaint(patches) {
     selectedId = region.id;
   }
   paint = addPatches(region, patches, paintIndex(region, paint));
+  // The latest stroke is the view that counts: a region painted from two sides
+  // is described from the side it was finished on.
+  region.view = viewer.markView();
   changed();
 }
 const viewer = new ModelViewer($("#viewer"), {
@@ -596,7 +610,7 @@ viewer.onSelect = (id) => {
 viewer.onRelocate = (pin) => {
   const a = annotations.find((a) => a.id === relocatingId && a.type === "pin");
   if (!a) return;
-  Object.assign(a, pin);
+  Object.assign(a, pin, { view: viewer.markView() });
   selectedId = a.id;
   relocatingId = null;
   setMode("orbit");
@@ -688,6 +702,9 @@ function updateButtons() {
     busy || !can.canEdit || (!can.canSubmit && !annotations.length);
   $("#undo").disabled = busy || !undoStack.length;
   $("#redo").disabled = busy || !redoStack.length;
+  // Read-only rather than disabled: a note that cannot be changed right now
+  // can still be read, scrolled and copied.
+  noteBox().readOnly = busy || !can.canEdit;
   $("#review-status").textContent = accessBlocked
     ? loadedId && initialDraftRestored
       ? t("conn.accessExpired")
@@ -767,12 +784,15 @@ function renderAnnotations() {
       const title = document.createElement("strong");
       title.textContent = a.type === "pin" ? t("marks.pin") : regionName(a);
       const detail = document.createElement("small");
+      // What the reviewer wrote says more about a mark than how it was made.
+      if (a.note) detail.className = "annotation-note";
       detail.textContent =
-        a.type === "pin"
+        a.note ||
+        (a.type === "pin"
           ? t("marks.pinned")
           : ["source-v1", "source-v2"].includes(a.coverage)
             ? t("marks.alongSurface")
-            : t("marks.legacyFace");
+            : t("marks.legacyFace"));
       text.append(title, detail);
       select.append(badge, text);
       select.addEventListener("click", () => {
@@ -833,8 +853,75 @@ function renderAnnotations() {
       row.append(remove);
       list.append(row);
     }
+    renderNote();
   });
 }
+/* The note belongs to the selected mark and sits under the list rather than in
+   it. The list is rebuilt on every change, and a text box rebuilt under the
+   reviewer's cursor loses its focus, its caret and — halfway through a word in
+   an input method — the word. */
+const noteBox = () => $("#mark-note-text");
+let noteEdit = null,
+  noteCommit = null;
+function renderNote() {
+  const a = annotations.find((x) => x.id === selectedId);
+  const box = noteBox();
+  $("#mark-note").hidden = !a || $("#annotations-list").hidden;
+  if (!a) return;
+  $("#mark-note-title").textContent = t("note.title", {
+    name: a.type === "pin" ? a.label : regionName(a),
+  });
+  // Never rewritten under someone typing into it; it is refreshed from the
+  // mark as soon as they leave it.
+  if (document.activeElement !== box || box.dataset.markId !== a.id) {
+    box.dataset.markId = a.id;
+    box.value = a.note || "";
+  }
+  $("#mark-note-count").textContent = `${box.value.length}/${MAX_NOTE}`;
+}
+function commitNote() {
+  noteCommit = (async () => {
+    const box = noteBox();
+    const id = box.dataset.markId;
+    if (!annotations.some((a) => a.id === id)) return;
+    $("#mark-note-count").textContent = `${box.value.length}/${MAX_NOTE}`;
+    // One undo step per visit to the box, not one per keystroke: `beginEdit`
+    // is what takes the snapshot, so it is asked once and its answer kept.
+    if (noteEdit?.id !== id) noteEdit = { id, ready: beginEdit() };
+    let allowed = false;
+    try {
+      allowed = await noteEdit.ready;
+    } catch (e) {
+      toast(e.message);
+    }
+    const a = annotations.find((x) => x.id === id);
+    if (!a) return;
+    if (!allowed) {
+      noteEdit = null;
+      box.value = a.note || "";
+      return renderNote();
+    }
+    const text = box.value.trim();
+    if (text === (a.note || "")) return;
+    if (text) a.note = text;
+    else delete a.note;
+    // Writing about a mark is looking at it: the view it carries is the one
+    // the words were written from.
+    a.view = viewer.markView();
+    changed();
+  })();
+  return noteCommit;
+}
+noteBox().addEventListener("input", (e) => {
+  // Mid-composition the box holds a guess the input method has not settled;
+  // the word arrives with `compositionend`.
+  if (!e.isComposing) commitNote();
+});
+noteBox().addEventListener("compositionend", () => commitNote());
+noteBox().addEventListener("blur", () => {
+  noteEdit = null;
+  renderAnnotations();
+});
 function setMode(next) {
   mode = next;
   if (next !== "relocate") relocatingId = null;
@@ -1001,6 +1088,7 @@ $("#toggle-annotations").addEventListener("click", () => {
     "collapsed",
     $("#annotations-list").hidden,
   );
+  renderNote();
   // Handing the marks over is done while looking at them, so it folds with
   // them; a send button left standing in the gap gives most of the width back.
   $(".panel-actions").hidden = collapsed;
@@ -1609,6 +1697,9 @@ $("#submit-feedback").addEventListener("click", async () => {
   updateButtons();
   $("#submit-feedback").textContent = t("feedback.submitting");
   try {
+    // The last words typed into a note may still be waiting on the edit lock;
+    // pressing this button is what took the focus away from them.
+    await noteCommit?.catch(() => {});
     await flushDraft();
     submissionKey ||=
       state?.submissions?.findLast(
