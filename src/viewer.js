@@ -893,6 +893,11 @@ export class ModelViewer {
     this.knownPins = new Set(
       annotations.filter((a) => a.type === "pin").map((a) => a.id),
     );
+    // Labels are rebuilt in an animation frame of their own, which runs after
+    // the render loop's in the same frame because the loop asked first. Left to
+    // the loop, every rebuilt label was painted once at the layer's origin —
+    // the corner of the view — before the next frame put it on its point.
+    this.placePins();
   }
   /* Where the camera sits relative to what it is looking at, as the two angles
      a compass needs. Reported from the render loop but only when it actually
@@ -950,6 +955,9 @@ export class ModelViewer {
     if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
     this.renderer.render(this.scene, this.camera);
     this.reportOrientation();
+    this.placePins();
+  }
+  placePins() {
     if (!this.pins.length) return;
     const rect = this.container.getBoundingClientRect();
     // Occlusion costs one ray per pin and only changes when the view does. At

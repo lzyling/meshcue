@@ -936,9 +936,17 @@ glTF 规定「没有材质的 primitive 用默认材质」，而那个默认材�
   → Agent 问「你是哪个版本」，答案可以和它即将执行的行为对不上。**属于「报出来的 ≠ 真实的」那一类。**
 - **dependabot #4（routine group）与 #5（vite 7.3.6 → 8.3.0，跨大版本）** —— 动的是真依赖。
   09-18 只合了三个 `github_actions` 标签的 action 升级 PR；这两个要本地拉下来跑完整套件、确认绿了再给 Kelven。
-- **已知具名 flaky**：`tests/browser/review.spec.js:2112`「a mark arrives at its point instead of
-  flying in from the corner」—— 量标记落点动效，慢机器上抖。CI 上 `retries: 2` + GitHub reporter
-  会把它单独报成 flaky（数字仍可见，不是遮丑）。**不阻塞，但别当它不存在。**
+- ✅ ~~**已知具名 flaky**：`tests/browser/review.spec.js`「a mark arrives at its point instead of
+  flying in from the corner」~~ —— **2026-09-29 查清：是真缺陷，已修。**
+  `836f7d4`（只改 TODO）的 CI 三次重试都是 634.9 px —— 正好是标签还在图层原点（视图左上角）、
+  没被摆到位时的距离。根源：标签每次标记变化都整层重建，重建跑在自己的 rAF 里；three 的渲染循环在上一帧末尾
+  就登记了下一帧，排在前面，所以新标签在同一帧里「渲染之后才出生」，先以未定位的样子被画一帧，
+  下一帧才摆到点上。本机 16 ms 看不出；CI 的 SwiftShader 一帧超过 120 ms 就被测到。
+  本机加观察器实测：放两个标记再选中一个，5 次插入里 3 次是未定位的。
+  修法：`setAnnotations` 建完标签当场调 `placePins()`（从 `render()` 拆出来的那段）；
+  新测试「a mark is on its point the first time it is drawn」用 MutationObserver 数未定位的插入，
+  不依赖帧速，修前稳定红、修后绿。`62374c4` 的 CI 恰好是绿的（74 过），偶发与否只看运行器快慢。
+  教训：「本机过、CI 抖」的动效测试，先问它量到的是不是一帧真实的画面，再下「flaky」的结论。
 - ~~**`release.yml` 那两条修复尚未被证实**~~ —— **✅ 1.0.2 发版时已读回实证，本条结案。**
   Release 正文与 tag 注解逐字一致（提交信息是完全不同的一句，静默回落会立刻露馅），
   结尾带着自动追加的 `This release is commit 616359a8…`。装机端到端也复验过：

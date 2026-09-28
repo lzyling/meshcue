@@ -2229,8 +2229,8 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   // anchored by its bottom edge instead, so the point it referred to could not
   // be read off the screen. The tip is the anchor now — assert it against the
   // pixel that was actually struck, not against the label's own box.
-  // The label is positioned by the render loop, not by the element existing, so
-  // its first frame sits at the layer's origin.
+  // Poll anyway: the label follows the camera, and the view may still be
+  // settling from the click.
   const measure = () =>
     page.evaluate(
       ([x, y]) => {
@@ -2280,8 +2280,10 @@ test("a mark arrives at its point instead of flying in from the corner", async (
   const spot = await point(page);
   await page.mouse.click(spot.x, spot.y);
   await expect(page.locator(".model-pin.landing")).toHaveCount(1);
-  // Long enough for the render loop to place the label, and 0.6% into an
-  // arrival that now lasts twenty seconds.
+  // 0.6% into an arrival that now lasts twenty seconds. This used to be the
+  // time allowed for the render loop to place the label, and a slow runner
+  // sometimes needed more; a label is placed as it is made now (see the next
+  // test), so the wait is only how far into the arrival this looks.
   await page.waitForTimeout(120);
   const travel = await page.evaluate(
     ([x, y]) => {
@@ -2307,6 +2309,45 @@ test("a mark arrives at its point instead of flying in from the corner", async (
   // ripple acknowledging it in the same synchronous block — it had never been
   // on screen for a single frame.
   expect(travel.ripple).toBeLessThan(6);
+});
+
+test("a mark is on its point the first time it is drawn", async ({ page }) => {
+  await ready(page);
+  // Every label is rebuilt whenever the marks change, and the rebuild runs in
+  // an animation frame of its own — usually after the render loop's in the same
+  // frame, because the loop asked for its frame first. So a rebuilt label was
+  // painted once where nothing had placed it yet, the corner of the view, and
+  // moved onto its point a frame later. A fast machine hides that in sixteen
+  // milliseconds; a slow runner held it long enough for the arrival test above
+  // to measure a label 635 px from where it was put, on every retry. What keeps
+  // it from being painted there is that a label is placed as it is made, and
+  // that does not depend on how fast frames are: the observer runs before the
+  // browser can paint what was added.
+  await page.evaluate(() => {
+    window.__unplacedPins = 0;
+    new MutationObserver((records) => {
+      for (const record of records)
+        for (const node of record.addedNodes)
+          if (node.classList?.contains("model-pin") && !node.style.translate)
+            window.__unplacedPins++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  const spot = await point(page);
+  await page.mouse.click(spot.x, spot.y);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  await page.mouse.click(spot.x + 8, spot.y + 8);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(2);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  // Choosing a mark redraws every label as well, not only placing one.
+  await page.locator("#annotations-list [data-annotation-id]").first().click();
+  await expect(page.locator(".model-pin.selected")).toHaveCount(1);
+  expect(await page.locator(".model-pin").count()).toBe(2);
+  expect(await page.evaluate(() => window.__unplacedPins)).toBe(0);
 });
 
 test("the wheel zooms and Shift+wheel pans, whatever is turning it", async ({
