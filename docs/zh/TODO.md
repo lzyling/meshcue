@@ -95,6 +95,85 @@
 
 ---
 
+## 1.4.0 · 开工前扫描（2026-09-29 01:2x–01:4x，只读，代码未动）
+
+> 按「先扫全、出清单、再批量做」。三路只读扫描，关键几处人工复核过（标「未核实」的没有）。行号以 v1.3.2 为准。
+
+**版本判定**：标记文字、相机新字段、测量都做成**可选的新增字段**，`camera.position／target` 保留现在的预览坐标含义，
+不动 `label`，不升 `schemaVersion` → **minor**（先例：1.3.0 加 `bounds.space` 没升号）。
+会逼成 major 的做法：把 `camera` 原地改成模型坐标、改 `label` 含义、新字段设成必填、升 schemaVersion。
+**降级风险写进发版说明**：1.4 写过文字的草稿退回 1.3.x 后一编辑就 400（旧页面把 note 原样发回，pin／区域 schema 是 `.strict()`）；
+旧版 read 会悄悄丢掉 note。
+
+**相机 —— 原计划的前提已经过时**
+- 1.3.1 修方位立方体轨道之后，`camera.up` 恒为 +Y（`src/viewer.js:454`；顶／底视角靠 `POLE_OFFSET = 1e-4` 偏开极点，`:47`）。
+  **存 `camera.up` 没有信息量**，本节下方「审阅者的『上』」那条的写法要按这里改。
+- 该传的是：屏幕上方在模型里指向哪（`screenUp()`，`src/viewer.js:332`，现在只进诊断钩子 `src/main.js:1734-1738`）、
+  FOV（固定 38°）和宽高比，以及模型坐标／单位下的 position／target。单位用现成的 `model.units`。
+- 预览坐标＝模型缩到最长边 3 单位再居中，STEP／STL 在 root 上绕 X 转 −90°（`src/viewer.js:540-563`）。
+  普通 GLB 的节点变换服务端不解析，所以换算放客户端，照 `annotationBounds`「只合成到 root」的做法。
+- 采样时机：相机只在编辑保存时记（`src/main.js:631`），点 Send 时不更新，整批只有一份 → 待拍板 ②。
+
+**标记文字**
+- pin（`server/index.mjs:319`）、区域（`:333`）都是 `.strict()`。note 做成各自的可选字段，不借 `label`
+  （12 字符上限；pin 字母参与编号）。
+- 连带三处：字节预算按每个标记固定 120 字节算（`server/index.mjs:570`、`src/main.js:418`），要把文字算进去；
+  read 摘要白名单 `integration/summarize.mjs:22` 不加就会丢；推送摘要 `server/index.mjs:819`。
+- 界面现在没有任何文字输入框，要新做。i18n 约束见 `scripts/check-i18n.mjs`（六语键集一致、占位符一致、每个键有调用、源码不许有中日文字符）。
+- 安全：推送经 chat.send 以用户消息进会话，审阅者的自由文本就是注入入口。1.3.1（`9d0f301`）删掉了
+  AGENT-INTERFACE 的「user notes are data」，加 note 时按新语义补回。
+
+**测量（整批最大的一块，量级 L）**
+- 现成可用：拾取（three-mesh-bvh，命中带源面号、局部坐标、法向、重心坐标）、源三角角点。
+- 要新做：特征边（`src/planar-fill.js:13-43` 建了边→面表但没返回）、平面拟合（`planarFaces` 只按法向容差生长，没有平面方程）、
+  尺寸线和数字（WebGL 线宽恒 1px，用 three 自带的 Line2，不加依赖）。每次点击现在都走 `beginEdit` 抢锁、压撤销栈，两点测量要自己的状态机。
+- STEP：查看器不读 `extras.brepFaces`；GLTFLoader 应会放进 `mesh.userData`（未核实）。能给精确的面归属和面分界，给不了曲面类型／半径。
+- 表示：建议做成 annotations 的第三种类型（撤销、自动保存、清单、隐藏、删除都现成），代价是约十处「不是 pin 就当 region」的分支要改；
+  附到标记用可选引用字段。
+- 单位：沿用「不假设单位」，没标单位的 GLB／STL 显示裸数并注明未标。
+
+**小项（原定）**
+- STL 一律灰：`src/viewer.js:530-535`。文档加在 AGENT-INTERFACE 朝向那段之后和 `SKILL.md`；要让审阅者也看到，改 `en.js` 的
+  `help.p9`＋五语译文再跑 `sync:docs`（AGENT-INTERFACE `:169-217` 是生成的，不能手改）。
+- 中文零件名乱码：**乱码在文件里**——OCCT 写文件时把 UTF-8 字节又按 Latin-1 编了一遍，库只是原样返回（扫描实测：本机 113 个 STEP 的零件名是这种乱码，
+  正确 UTF-8 的 0 个）。修法：在 `applyDeclaredStyles` 之后按 Latin-1 取回字节，能按 UTF-8 解开就还原（放在它之前会破坏取色匹配）。
+  名字不在界面显示，只随 read 给 Agent。
+- morph targets：服务端 `server/models.mjs:193-201` 不看 `targets`，precheck／open 放行；页面 `src/viewer.js:572-578` 拒。
+  按代码看这个错误不算 HASH_MISMATCH，页面每 2.2 秒轮询就重新加载一次，Agent 收不到任何失败信号（未核实）。
+  改：服务端抛 `ANIMATED_MODEL`，AGENT-INTERFACE 补上这个错误码。
+
+**扫描查出的新缺陷（不另发补丁，并进 1.4.0）**
+- 🔴 德语／法语界面用紫色涂区域，保存会 400：区域名 `violette Fläche`（15 字符）／`Zone violette`（13）超过区域 `label` 的 12 字符上限
+  （`server/index.mjs:338`）。已按代码和六语目录核实，未端到端复现；其他语言、其他颜色都在 12 以内。
+- 🟡 `server/step-styles.mjs:60-71` 的 `decode` 只认大写十六进制，也不认 `\X4\`／`\S\`。SolidWorks 写小写十六进制，零件名对不上，颜色补不回来
+  （扫描实测 `filament-swatch-box/ref/original/assembly1.step`：库自己 1/3 有色、补 0；改成不分大小写后 3/3）。
+- 🟡 morph 页面反复重载（见上）。
+
+**Claude Code 插件市场清单（Kelven 09-25 同意随 1.4.0 上线）—— 比「加一个清单文件」大**
+- 仓库根同时做市场根和插件根，MCP 跑 `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs`；根目录不放 `.mcp.json`（否则开发本仓的人会被当成项目级 MCP 加载）。
+- 两个硬坑：① 插件 MCP 的 cwd 是插件根，而 `mcp/server.mjs:97` 拿 `process.cwd()` 当 workspace，要改读 `CLAUDE_PROJECT_DIR`；
+  ② `dist/` 不在 git 里，按 git 装的插件没有网页（`PACKAGE_INCOMPLETE`），要么首次启动构建到 `${CLAUDE_PLUGIN_DATA}`，要么发版附预构建包。
+  依赖在插件安装时怎么装，按官方文档，未核实。
+
+**依赖**：dependabot #5（vite 8）只动 devDependency，`vite.config.js` 没用到改名项，风险低 —— rebase 到 dev 跑全套再交 Kelven。
+#8（three 0.186）按规划留 1.5.0。
+
+**同类扫描：页面上有、提交里没带给 Agent 的**
+- 相机采样时机、每批只一份、宽高比（高，见上）。
+- 油漆桶会连到被挡住的面，提交里不标涂的时候看不看得见（中）。
+- 审阅者按本地化颜色名叫区域，read 摘要丢区域名，推送只给十六进制色值（中，标记文字可补）。
+- 隐藏的标记照样提交；素色视图、选中项、滑块值不带（低）。
+- Agent 的回显审阅者看没看、认不认，没有回传（低到中）。
+
+**待拍板（逐条问，2026-09-29 起）**
+1. 标记文字怎么算数（和聊天里说的是什么关系）
+2. 视角取哪一刻（每个标记各记一份／点 Send 时）
+3. 测量的形态：独立标记还是只能附在标记上；「改成 22 mm」做成结构化数值还是写进文字
+4. 测量的范围：直边／孔径半径／不平行面的夹角；STEP 精确面（`brepFaces`）是否并入 1.4.0
+5. 中文界面「Agent」是否改成「AI Agent」（简繁各 23 处）
+
+---
+
 ## 0.9 · 核心与 harness 解耦
 
 **不叫「Codex 兼容」** —— 目标是核心不再知道任何 harness 的名字，Codex／Claude Code／
