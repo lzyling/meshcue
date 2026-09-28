@@ -3,7 +3,7 @@
  * later, that it goes in as words and never as markup, and that a long one
  * shortens inside its button instead of pushing the button out of the panel.
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -49,6 +49,8 @@ test.beforeEach(async () => {
   );
 });
 test.afterEach(async () => {
+  // Opened on the worker's browser, so nothing closes them unless this does.
+  for (const ctx of readers.splice(0)) await ctx.close();
   if (child && child.exitCode === null) {
     child.kill("SIGTERM");
     await Promise.race([
@@ -66,11 +68,13 @@ const ctl = (...args) =>
     encoding: "utf8",
   });
 
+const readers = [];
 async function reader(browser, locale, languages, viewport) {
   const ctx = await browser.newContext({
     locale,
     ...(viewport ? { viewport } : {}),
   });
+  readers.push(ctx);
   const page = await ctx.newPage();
   await page.addInitScript((langs) => {
     Object.defineProperty(navigator, "languages", { get: () => langs });

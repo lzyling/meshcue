@@ -7,7 +7,7 @@
  * Traditional Chinese sentence in the middle of it — which is exactly what the
  * first pass shipped, and exactly what nobody notices while reading English.
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
