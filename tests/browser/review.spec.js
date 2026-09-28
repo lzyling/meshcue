@@ -1302,9 +1302,14 @@ test("iteration: current-version download is original bytes, including after neu
   expect(await loadedModelDisposition(page)).toContain(
     stateBefore.active.version,
   );
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
-  ).toBe(1);
+  // `versionId` turns over when the load begins; the version's draft comes
+  // back once its model has loaded. Counted at once, a busy run caught the gap
+  // between the two and read 0 (09-29, full suite; alone it passed 3 of 3).
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
 });
 
 test("iteration: superseded unsubmitted model is still served to the current view", async ({
