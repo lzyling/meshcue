@@ -19,6 +19,7 @@ import {
 import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
+import { agentNameSchema } from "./agent-name.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import { createUpdateWatch, updateCheckEnabled } from "./upstream.mjs";
 import {
@@ -1162,6 +1163,21 @@ agentApp.post("/maintenance", (req, res) => {
 agentApp.post("/opened", (req, res) => {
   z.object({}).strict().parse(req.body);
   res.json({ opened: true, idle: idleReport() });
+});
+// Its own route rather than a field of `/opened`: a manager that meets a
+// runtime older than names gets a 404 here and nothing else changes, where one
+// more field on `/opened` would be refused and take the reclaim guard with it.
+agentApp.post("/agent", (req, res) => {
+  const p = z
+    .object({
+      // What the Agent says it is called; absent keeps what it said before.
+      name: agentNameSchema.optional(),
+      // The host's own name, for when the Agent gives none.
+      tool: agentNameSchema.optional(),
+    })
+    .strict()
+    .parse(req.body);
+  res.json({ agentName: store.nameAgent(p) });
 });
 agentApp.post("/publish", async (req, res) => {
   const p = z

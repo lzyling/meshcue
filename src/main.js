@@ -5,6 +5,8 @@ import { buildOrientCube, compassTransform } from "./orient-cube.js";
 import { latestVersion, viewingBehindLatest } from "./versions.js";
 import {
   t,
+  ta,
+  setAgentName,
   currentLocale,
   setLocale,
   LOCALES,
@@ -78,6 +80,13 @@ const esc = (s) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
   );
 const T = (key, vars) => esc(t(key, vars));
+// The same for a sentence about the Agent, which carries its name when known.
+const TA = (key, vars) => esc(ta(key, vars));
+/* The button that hands the marks over says who to: a name the Agent chose, in
+   any script and up to twenty-four characters. The words give way before the
+   button does, and the whole of them stays in the tooltip. */
+const submitLabel = () =>
+  `<span class="submit-label" title="${TA("feedback.submit")}">${TA("feedback.submit")}</span> ${icon("send")}`;
 /* The service names its refusals and the browser is what has to say them out
    loud, so a refusal the reader will see is looked up by code rather than
    printed in whatever language the service happens to be written in. A code
@@ -108,6 +117,9 @@ const ERROR_KEYS = {
   ACCESS_LIMIT: "error.accessLimit",
   INTEGRATION_DISABLED: "error.integrationDisabled",
   DELIVERY_UNCONFIRMED: "error.deliveryUnconfirmed",
+  // The service's own check of what the page drew; the page makes the same one
+  // first and says it in the same words.
+  HASH_MISMATCH: "model.versionMismatch",
 };
 const BLOCKED_KEYS = {
   NOT_IN_REVIEW: "review.notInReview",
@@ -116,7 +128,7 @@ const BLOCKED_KEYS = {
 };
 const blockedText = (code) => (BLOCKED_KEYS[code] ? t(BLOCKED_KEYS[code]) : "");
 const serverMessage = (json) =>
-  (json?.code && ERROR_KEYS[json.code] && t(ERROR_KEYS[json.code])) ||
+  (json?.code && ERROR_KEYS[json.code] && ta(ERROR_KEYS[json.code])) ||
   json?.error ||
   t("conn.actionFailed");
 app.innerHTML = `${SPRITE}
@@ -128,10 +140,10 @@ app.innerHTML = `${SPRITE}
        page across the top of the model — but a reviewer who cannot see the
        screen has no toast and no tab strip, so the three of them stay here,
        out of the layout and still in the accessibility tree. -->
-  <div class="sr-only"><h2 id="model-name">${T("model.awaiting")}</h2><span id="model-version">—</span><span id="save-status" aria-live="polite">${T("save.preparing")}</span></div>
+  <div class="sr-only"><h2 id="model-name">${TA("model.awaiting")}</h2><span id="model-version">—</span><span id="save-status" aria-live="polite">${T("save.preparing")}</span></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div id="mark-note" class="mark-note" hidden><label id="mark-note-title" for="mark-note-text"></label><textarea id="mark-note-text" rows="3" maxlength="${MAX_NOTE}" placeholder="${T("note.placeholder")}"></textarea><small id="mark-note-count" aria-hidden="true"></small></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${T("feedback.submit")} ${icon("send")}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div id="mark-note" class="mark-note" hidden><label id="mark-note-title" for="mark-note-text"></label><textarea id="mark-note-text" rows="3" maxlength="${MAX_NOTE}" placeholder="${TA("note.placeholder")}"></textarea><small id="mark-note-count" aria-hidden="true"></small></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${submitLabel()}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span></div>
@@ -147,7 +159,7 @@ app.innerHTML = `${SPRITE}
     <div class="tool-divider"></div><button class="tool" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}<span>${T("tool.marks")}</span></button><button class="tool" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}<span>${T("tool.plain")}</span></button>
    </div>
    <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
-   <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${T("echo.recall")}">${icon("echo")}</button></div>
+   <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${TA("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
   </div>
@@ -159,7 +171,7 @@ app.innerHTML = `${SPRITE}
   <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p5")}</p><p>${T("help.p6")}</p><p>${T("help.p7")}</p><p>${T("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -1034,7 +1046,7 @@ function hideEcho() {
   echoTimer = null;
   $("#echo-panel").hidden = true;
   $("#echo-recall").setAttribute("aria-expanded", "false");
-  $("#echo-recall").setAttribute("aria-label", t("echo.recall"));
+  $("#echo-recall").setAttribute("aria-label", ta("echo.recall"));
 }
 $("#echo-recall").addEventListener("click", () => {
   if ($("#echo-panel").hidden) showEcho({ linger: false });
@@ -1236,10 +1248,10 @@ async function restoreDraft(draft) {
     // quota that has to protect the next unsynced draft.
     if (superseded && superseded !== key) localStorage.removeItem(superseded);
     cacheDraft();
-    toast(t("recovery.backedUp"));
+    toast(ta("recovery.backedUp"));
   } catch {
     recoveryBlocked = true;
-    toast(t("recovery.paused"));
+    toast(ta("recovery.paused"));
   }
 }
 
@@ -1467,6 +1479,20 @@ function sameValue(left, right) {
     )
   );
 }
+/* The Agent's name arrives with the service's first answer, after the page was
+   drawn in its own words, and changes when another conversation takes the
+   review over. What was drawn once at start-up is drawn again here; every
+   other sentence about the Agent looks the name up each time it is written. */
+function nameAgent(name) {
+  if (!setAgentName(name)) return;
+  for (const el of document.querySelectorAll("[data-agent-text]"))
+    el.textContent = ta(el.dataset.agentText);
+  if (!loadedId) $("#model-name").textContent = ta("model.awaiting");
+  $("#mark-note-text").placeholder = ta("note.placeholder");
+  if ($("#echo-recall").getAttribute("aria-expanded") !== "true")
+    $("#echo-recall").setAttribute("aria-label", ta("echo.recall"));
+  if (!submitting) $("#submit-feedback").innerHTML = submitLabel();
+}
 async function readState() {
   try {
     if (loadFlight || beginFlight || saveFlight || submitting) return;
@@ -1485,6 +1511,7 @@ async function readState() {
       accessRecoveryNeeded = true;
       incoming = await api(statePath);
     }
+    nameAgent(incoming.agentName);
     // A sibling tab may have collected the shared HttpOnly cookie. This tab
     // still needs its own association even if it did not win /claim.
     if (wasBlocked) accessRecoveryNeeded = true;
@@ -1531,7 +1558,7 @@ async function readState() {
         await loadFlight;
         loadFlight = null;
       } else {
-        $("#loading-text").textContent = t("model.awaitingFirst");
+        $("#loading-text").textContent = ta("model.awaitingFirst");
         $("#loading .spinner").hidden = true;
       }
     } else state = incoming;
@@ -1546,7 +1573,7 @@ async function readState() {
     $("#connection-status").textContent = incoming.notifier?.send
       ? t("conn.origin")
       : incoming.owned || state?.submissions?.length
-        ? t("conn.collect")
+        ? ta("conn.collect")
         : t("conn.local");
     updateEcho(incoming);
     updateOutbox(incoming);
@@ -1559,8 +1586,8 @@ async function readState() {
     // the reviewer with no reason to believe their marks are still there.
     if (wasReclaimed()) {
       $("#connection-status").textContent = t("conn.reclaimed");
-      $("#save-status").textContent = t("closing.done");
-      $("#closing-text").textContent = t("closing.done");
+      $("#save-status").textContent = ta("closing.done");
+      $("#closing-text").textContent = ta("closing.done");
       $("#closing-banner").hidden = false;
       updateButtons();
       return;
@@ -1609,12 +1636,12 @@ function updateReceipt() {
   const delivery = last.deliveredAt
     ? t("feedback.delivered")
     : last.status === "waiting"
-      ? t("feedback.waiting")
+      ? ta("feedback.waiting")
       : last.status === "accepted"
         ? t("feedback.acceptedPending")
         : t("feedback.deliveryUnconfirmed");
   const status = `${t("feedback.saved")} · ${delivery} · ${
-    last.readAt ? t("feedback.read") : t("feedback.unread")
+    last.readAt ? ta("feedback.read") : ta("feedback.unread")
   }`;
   $("#feedback-status").textContent =
     status +
@@ -1638,12 +1665,12 @@ function updateOutbox(incoming) {
     ? t("outbox.reason", { message: worst.lastError.message })
     : t("outbox.reasonUnknown");
   $("#outbox-text").textContent = stalled.length
-    ? t("outbox.stuck", {
+    ? ta("outbox.stuck", {
         count: stuck.length,
         attempts: worst.attempts,
         reason,
       })
-    : t("outbox.retrying", {
+    : ta("outbox.retrying", {
         count: stuck.length,
         attempts: worst.attempts,
         reason,
@@ -1657,7 +1684,7 @@ function updateEcho(incoming) {
   echoId = echo?.id || null;
   viewer.setAgentEcho(echo?.versionId === loadedId ? echo : null);
   $("#echo-summary").textContent = viewer.agentEcho
-    ? t("echo.summary", { summary: echo.summary })
+    ? ta("echo.summary", { summary: echo.summary })
     : "";
   $("#echo-recall").hidden = !viewer.agentEcho;
   if (viewer.agentEcho) showEcho({ linger: true });
@@ -1674,7 +1701,7 @@ function showUpdate(update) {
     badge.hidden = true;
     return;
   }
-  const hint = t("app.updateHint", { version: update.version });
+  const hint = ta("app.updateHint", { version: update.version });
   badge.textContent = update.version;
   badge.title = hint;
   badge.setAttribute("aria-label", hint);
@@ -1722,7 +1749,7 @@ $("#submit-feedback").addEventListener("click", async () => {
     toast(e.message);
   } finally {
     submitting = false;
-    $("#submit-feedback").innerHTML = `${T("feedback.submit")} ${icon("send")}`;
+    $("#submit-feedback").innerHTML = submitLabel();
     updateButtons();
   }
 });

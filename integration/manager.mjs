@@ -18,6 +18,7 @@ import {
   INTEGRATION_API,
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
+import { agentNameSchema, AGENT_NAME_RULE } from "../server/agent-name.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import { summarizeSubmission, readReceipt } from "./summarize.mjs";
 import {
@@ -259,6 +260,7 @@ export class InstanceManager {
       distRoot,
       environment = {},
       resolveOrigin,
+      toolName,
     } = {},
   ) {
     Object.assign(this, workspaceContext(ctx));
@@ -275,6 +277,10 @@ export class InstanceManager {
     this.environment = environment; // Constructor dependency for isolated tests; never a tool parameter.
     this.clientAddress = clientAddress;
     this.listenHost = listenHost;
+    // The host's own name ("OpenClaw", "Claude Code"), which the review page
+    // uses when the Agent does not say what it is called. Absent when the host
+    // cannot tell, and then the page uses its own word for an agent.
+    this.toolName = toolName ? agentNameSchema.parse(toolName) : undefined;
     this.usedProjects = new Map();
   }
   project(project, create = false) {
@@ -625,6 +631,18 @@ export class InstanceManager {
         "The integration needs permission for this workspace's project registry; the current file policy was not overstepped.",
       );
     const opens = input.action === "open";
+    // Checked before anything is touched: a name the page will not show must
+    // not leave a project half-opened behind the refusal.
+    let agentName;
+    if (opens && input.agentName !== undefined) {
+      const named = agentNameSchema.safeParse(input.agentName);
+      if (!named.success)
+        fail(
+          "BAD_AGENT_NAME",
+          `${AGENT_NAME_RULE} Nothing was opened or changed.`,
+        );
+      agentName = named.data;
+    }
     // No empty viewer on first use: a source model must exist before a new instance.
     if (opens && input.file) {
       const source = scopedPath(this.workspace, input.file);
@@ -734,6 +752,12 @@ export class InstanceManager {
         // instance has to know it was just handed to somebody. A runtime older
         // than reclaiming has no such route and needs no such telling.
         await ipc(p.runtime, config.instance, "/opened", {}).catch(() => {});
+        // What the page calls the Agent. A runtime older than names answers
+        // 404 and the page keeps its own word, which is what it said before.
+        await ipc(p.runtime, config.instance, "/agent", {
+          ...(agentName ? { name: agentName } : {}),
+          ...(this.toolName ? { tool: this.toolName } : {}),
+        }).catch(() => {});
         let published;
         if (input.file)
           published = await ipc(
@@ -790,6 +814,8 @@ export class InstanceManager {
           active: state.active,
           versions: state.versions,
           publication: published?.status || "unchanged",
+          // What the page calls you; null means its own word for an agent.
+          agentName: state.agentName ?? null,
           admission,
           accessPolicy: "30 days inactive; renew on use",
           reviewLifetime: "reclaimed after a day with no use; reopen to resume",

@@ -62,6 +62,28 @@ the reviewer can return to any of them and keep marking. Publishing therefore
 never needs anyone to step aside: there is no queue, and no "end the round"
 gate.
 
+## What the page calls you — `agentName`
+
+The reviewer's page speaks of you by name: “Send to Ada”, “Waiting for Ada to
+deliver a model”. Give `agentName` with every `open`:
+
+- the name your user gave you — if they call you Ada, send `Ada`;
+- if they gave you none, the name of the tool you run in: `OpenClaw`,
+  `Claude Code`, `Codex`.
+
+It is plain text on one line, at most 24 characters, and is only ever shown as
+text. A control or text-direction character is refused with `BAD_AGENT_NAME`,
+and then nothing was opened or changed. The CLI takes it as `--agent-name`.
+
+Left out, the page keeps the name this conversation gave before. A different
+conversation that takes the project over starts without it, and so does another
+MCP client on the same workspace, since MCP clients there share one owner. With
+no name at all the page uses the tool's: the OpenClaw extension says OpenClaw,
+and over MCP a client recognised from its handshake (`claude-code` is Claude
+Code, `codex-mcp-client` is Codex) is called by that. Otherwise the page uses
+its own word, “the Agent” (“AI Agent” in Chinese). `open` answers with the
+`agentName` the page shows; `null` means that word.
+
 ## `status.notifier` — whether anyone will tell you
 
 ```json
@@ -180,7 +202,9 @@ review, publish STEP, whose declared colours and transparency are read, or GLB.
 These are the words the reviewer is reading in the help panel, in the
 catalogue's own English. Answer from them rather than from memory: a tool that
 promises addresses instead of descriptions cannot afford to guess at its own
-controls. "Look, mark, then say what to change."
+controls. Where they say "the Agent", the reviewer reads the name you gave
+with agentName ("Send to Ada"), or your tool's name when you gave none. "Look,
+mark, then say what to change."
 
 - Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to
   pan — the same on a mouse as on a trackpad. The left button is never the

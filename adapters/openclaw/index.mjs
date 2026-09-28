@@ -9,6 +9,7 @@ import {
   inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../../integration/precheck.mjs";
+import { MAX_AGENT_NAME } from "../../server/agent-name.mjs";
 
 const parameters = {
   type: "object",
@@ -66,6 +67,12 @@ const parameters = {
       type: "string",
       description:
         "Client LAN IPv4 already confirmed by the user, never inferred from the first visitor.",
+    },
+    agentName: {
+      type: "string",
+      maxLength: MAX_AGENT_NAME,
+      description:
+        "open: what the review page calls you, e.g. “Send to Ada”. The name your user gave you; if they gave none, leave it out and the page says OpenClaw. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
     },
     submissionId: { type: "string" },
     geometry: { type: "boolean" },
@@ -134,6 +141,8 @@ const plugin = defineToolPlugin({
                   installRoot: api.rootDir,
                   clientAddress: config.clientAddress,
                   listenHost: config.listenHost,
+                  // What the page calls an agent here that gave no name.
+                  toolName: "OpenClaw",
                 });
                 try {
                   // The installed-versus-running comparison now travels with

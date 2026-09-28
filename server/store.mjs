@@ -12,6 +12,10 @@ export class ReviewError extends Error {
     this.code = code;
   }
 }
+/* Who a name was given by. The generation (`sessionId`) is left out: a
+   conversation that is continued is still the one that gave it. */
+const ownerKey = (origin) =>
+  origin ? JSON.stringify([origin.harness, origin.sessionKey]) : null;
 export function atomicJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${crypto.randomUUID()}.tmp`;
@@ -410,7 +414,35 @@ export class ReviewStore {
         .map(({ annotations, origin, ...x }) => x),
       messages: s.messages.slice(-60),
       startedAt: s.startedAt,
+      // What the page calls the Agent; null leaves it to the page's own word.
+      agentName: this.agentName(),
     };
+  }
+  /* The Agent names itself when it opens a review: the name its user gave it,
+     else the tool it runs in. A name belongs to the conversation that gave it
+     and to the tool it came through. The same conversation opening again
+     without one keeps the name it gave before — leaving it out is not asking
+     to be called something else. A different conversation taking the project
+     over, or the same owner arriving through another tool (every MCP client
+     on a workspace shares one owner), starts without it rather than wearing a
+     name that was never its own. */
+  nameAgent({ name = null, tool = null } = {}) {
+    const s = this.state;
+    const owner = ownerKey(s.reviewOrigin);
+    const kept =
+      s.agent?.owner === owner && s.agent.tool === tool ? s.agent : null;
+    const next = { owner, name: name ?? kept?.name ?? null, tool };
+    if (!isDeepStrictEqual(next, s.agent)) {
+      s.agent = next;
+      this.save();
+    }
+    return this.agentName();
+  }
+  agentName() {
+    const agent = this.state.agent;
+    if (!agent || agent.owner !== ownerKey(this.state.reviewOrigin))
+      return null;
+    return agent.name || agent.tool || null;
   }
   assertVersion(versionId) {
     if (!this.versionInBinding(versionId))

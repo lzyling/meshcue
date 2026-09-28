@@ -124,6 +124,58 @@ export function t(key, vars) {
   );
 }
 
+/* What the Agent is called on this page. A sentence about the Agent has two
+   entries: `key`, in the page's own words for an agent, and `key.named`, which
+   puts the name in with {agent}. Two sentences rather than one with a slot,
+   because German and French cannot drop a name into the place of "den
+   Agenten" or "l'Agent": a name takes no article and no case ending, so the
+   sentence around it is written again. `scripts/check-i18n.mjs` holds every
+   sentence that mentions an agent to having both. */
+let agentName = null;
+
+export function setAgentName(name) {
+  const next = typeof name === "string" && name.trim() ? name.trim() : null;
+  if (next === agentName) return false;
+  agentName = next;
+  return true;
+}
+
+/* Chinese and Japanese set a space between their own letters and a Latin word
+   ("交给 OpenClaw") and none between two of their own ("交给爆爆"). A name can
+   be either, so the catalogues write {agent} flush against the words around it
+   and the space is decided here, from the letters that end up side by side.
+   Punctuation is left alone: nothing goes between a bracket and a name. */
+const HAN_OR_KANA = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+const LATIN_OR_DIGIT = /[A-Za-z0-9\u00c0-\u024f]/;
+const needsSpace = (a, b) =>
+  (HAN_OR_KANA.test(a) && LATIN_OR_DIGIT.test(b)) ||
+  (LATIN_OR_DIGIT.test(a) && HAN_OR_KANA.test(b));
+
+/* `t` for a sentence about the Agent: its name when the page has one, the
+   catalogue's own words when it does not. The name and the other values go in
+   in one pass over the catalogue's text, so nothing that was put in is read
+   again: a name spelt "{count}" stays those letters, and a summary that
+   happens to contain "{agent}" is not given the name. */
+export function ta(key, vars) {
+  const table = CATALOGUES[locale] || en;
+  const text = agentName && (table[`${key}.named`] ?? en[`${key}.named`]);
+  if (!text) return t(key, vars);
+  const name = agentName;
+  return text.replace(PLACEHOLDER, (whole, slot, at) => {
+    if (slot !== "agent")
+      return vars && Object.prototype.hasOwnProperty.call(vars, slot)
+        ? String(vars[slot])
+        : whole;
+    const before = text[at - 1] || "",
+      after = text[at + whole.length] || "";
+    return (
+      (needsSpace(before, name[0]) ? " " : "") +
+      name +
+      (needsSpace(name[name.length - 1], after) ? " " : "")
+    );
+  });
+}
+
 export function setLocale(next) {
   const hit = matchLocale(next);
   if (!hit || hit === locale) return locale;

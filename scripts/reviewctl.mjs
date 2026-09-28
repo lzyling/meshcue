@@ -89,6 +89,10 @@ try {
       throw new Error("Usage: retain <how-many-recent-versions|0>");
     endpoint = "/retain";
     body = { keep: Number(args[0]) };
+  } else if (command === "agent") {
+    // What the page calls the Agent, as `open` would set it.
+    endpoint = "/agent";
+    body = parseOptions(args, ["name", "tool"]);
   } else if (command === "echo") {
     const file = fs.realpathSync(path.resolve(args[0] || ""));
     if (!within(workspace, file))
@@ -97,7 +101,7 @@ try {
     endpoint = "/echo";
   } else
     throw new Error(
-      "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo, retain",
+      "Commands: publish, bind, status, network, admit, browsers, revoke, submissions, read, echo, retain, agent",
     );
 } catch (error) {
   // Usage problems are the operator's, not a crash: print the reason alone.

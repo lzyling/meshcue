@@ -80,21 +80,83 @@ walk(srcDir);
 // `t` reads a string; `T` is the same lookup escaped for markup. A key given
 // straight to either has to exist.
 const CALL = /\b[tT]\(\s*"([^"]+)"/g;
+// `ta`/`TA` read a sentence about the Agent: `key`, or `key.named` once the
+// page knows the Agent's name. Asking for one is asking for both.
+const AGENT_CALL = /\b(?:ta|TA)\(\s*"([^"]+)"/g;
 // Being asked for is looser than being called directly: keys also arrive
 // through a ternary or a lookup table (`colorKeys`, `CUBE_KEYS`), and a
 // catalogue entry reachable that way is not dead.
 const LITERAL = /"([\w.]+)"/g;
 const called = new Set(),
+  agentCalled = new Set(),
   mentioned = new Set();
 for (const file of sources) {
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(CALL)) called.add(m[1]);
+  for (const m of text.matchAll(AGENT_CALL)) agentCalled.add(m[1]);
   for (const m of text.matchAll(LITERAL)) mentioned.add(m[1]);
 }
-const unknown = [...called].filter((k) => !(k in en));
+const NAMED = ".named";
+const unknown = [...called, ...agentCalled].filter((k) => !(k in en));
 if (unknown.length) fail("call sites using unknown keys", unknown.join(", "));
-const unused = Object.keys(en).filter((k) => !mentioned.has(k));
+const unused = Object.keys(en).filter((k) =>
+  k.endsWith(NAMED)
+    ? !mentioned.has(k.slice(0, -NAMED.length))
+    : !mentioned.has(k),
+);
 if (unused.length) fail("catalogue keys nothing calls", unused.join(", "));
+
+/* 6 · The page calls the Agent by the name it gave, and says "the Agent" in
+   its own words only when it has none. So every sentence that speaks of an
+   agent has a twin, `key.named`, with the name in it as {agent}; the plain
+   `key` never has the slot, because it is what is shown when there is no name
+   to put there. A sentence about the Agent read with `t` would keep saying
+   "the Agent" to a reviewer who knows it as 爆爆, so those go through `ta`.
+   (Written here in the English source: a twin is how every language gets one,
+   and the key check above holds the others to the same set.) */
+for (const key of Object.keys(en)) {
+  if (key.endsWith(NAMED)) {
+    const base = key.slice(0, -NAMED.length);
+    if (!(base in en)) fail(`${key} has no sentence to stand in for`, "");
+    if (!slots(en[key]).includes("agent"))
+      fail(`${key} does not put the name in`, "it needs {agent}");
+    if ([...called].includes(base))
+      fail(
+        `${base} is read without the Agent's name`,
+        "read it with ta() or TA(), which choose the named sentence",
+      );
+    continue;
+  }
+  if (slots(en[key]).includes("agent"))
+    fail(`${key} has {agent} but is shown when there is no name`, "");
+  if (/\bagents?\b/i.test(en[key]) && !(`${key}${NAMED}` in en))
+    fail(
+      `${key} speaks of the Agent without a named twin`,
+      `add "${key}${NAMED}" with {agent} where the name goes`,
+    );
+}
+/* A name takes no article and no case ending, which is the reason the named
+   sentences were written afresh instead of filled in. Two ways a translator
+   could slip back: an article left in front of the name ("den {agent}"), and in
+   French "de"/"que" before it, which a name beginning with a vowel turns into
+   d'/qu' — "ce que OpenClaw a compris" is wrong where "ce qu'a compris
+   OpenClaw" is not. German spells its relative pronouns like its articles,
+   and a relative clause always follows a comma ("Die Markierungen, die
+   {agent} erhält"), so a word straight after one is not taken for an article. */
+const BEFORE_A_NAME = {
+  en: /\b(the|a|an|your) \{agent\}/i,
+  de: /(?<!, )\b(der|den|dem|des|die|das|ein|einen|einem|eines|ihr|ihren|ihrem|ihres) \{agent\}/i,
+  fr: /\b(le|la|les|l'|du|de|des|que|votre) ?\{agent\}/i,
+};
+for (const [locale, pattern] of Object.entries(BEFORE_A_NAME)) {
+  const table = locale === SOURCE_LOCALE ? en : await load(`${locale}.js`);
+  for (const key of Object.keys(table))
+    if (key.endsWith(NAMED) && pattern.test(table[key]))
+      fail(
+        `${locale}: ${key} treats the name as a noun`,
+        String(table[key]).match(pattern)[0],
+      );
+}
 
 /* 4 · The regression this file was written for: interface text typed straight
    into the source. Any letter outside ASCII in a source file is either text

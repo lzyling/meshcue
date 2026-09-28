@@ -52,6 +52,9 @@ const FLAGS = {
   keep: "keep",
   host: "host",
   "client-address": "confirmedClientAddress",
+  // A CLI cannot tell which tool is calling it, so the name is the caller's
+  // to give; without one the page uses its own word for an agent.
+  "agent-name": "agentName",
 };
 const BOOLEANS = { resume: "resume", "no-activate": "activate" };
 const NUMBERS = new Set(["keep"]);

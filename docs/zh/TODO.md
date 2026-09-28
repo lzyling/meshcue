@@ -139,7 +139,7 @@
   页面：输入框在列表下方、跟着选中的标记（列表每次变动整层重建，输入框放在行里会在打字时被重建、
   输入法组字被打断）；组字中不提交、`compositionend` 才提交；一次进框算一步撤销；不能编辑时只读不禁用；
   列表里有文字的标记把原来「已钉在表面」那行换成文字（两行截断）。六语加 `note.title`／`note.placeholder`，
-  帮助第 3、6 段加了写文字的说法（已 sync 进 AGENT-INTERFACE）。⑤下一轮改名字时这几句里的「Agent」还要再动。
+  帮助第 3、6 段加了写文字的说法（已 sync 进 AGENT-INTERFACE）。⑤下一轮改名字时这几句里的「Agent」还要再动（✅ 第三轮已改，见待拍板⑤）。
   窄屏（≤760px，宿主侧栏）面板上限 148px 放不下输入框，发送按钮被挤出面板、压到画布下（整套浏览器测试「narrow embedded」抓到）；
   改成选中标记时上限放宽到 220px、输入框两行高、隐藏计数，没选中时照旧 148px。截图核过宽屏、窄屏排版。
 
@@ -219,6 +219,29 @@
      MCP 从握手的 `clientInfo.name` 认已知客户端（映射表待实测，未核实）；都认不出时中文写「AI Agent」、其他语言写 agent。
      六种语言都改成带名字的写法（i18n 加占位符，check-i18n 要求六语一致）。名字限长约 24 字符、只当纯文字显示。
    - 同步进 AGENT-INTERFACE 的帮助段不能出现占位符，要保持通用说法；SKILL.md 教 Agent 怎么报名字。
+   - ✅ **09-29 第三轮做完**：
+     - 参数：`open`（OpenClaw 工具、MCP、CLI `--agent-name` 三个入口）加可选 `agentName`，1–24 个 UTF-16 码元、单行纯文字；
+       控制符、文字方向控制符（U+202A–202E、U+2066–2069 等）、行分隔符一律拒，报 `BAD_AGENT_NAME`，在动任何东西之前拒。
+       页面只当文字显示（名字写 `<b>Bo</b>` 就原样显示，测试钉住）。
+     - 存法（「以最近一次为准」的落地）：服务端按项目存 `{owner, name, tool}`，owner＝harness＋sessionKey（续接会话换 generation 不算换人）。
+       同一会话、同一工具再开时不报名字就沿用上次报的；换会话接手、或同一个 MCP owner 换了客户端（同一工作区的 MCP 客户端共用一个 owner），名字作废。
+       名字经独立 IPC `/agent` 送，不塞进 `/opened`：旧运行时对 `/agent` 回 404、不影响 `/opened` 的回收保护。
+     - 兜底工具名：OpenClaw 插件自带「OpenClaw」；MCP 按握手 `clientInfo.name` 认两个——
+       `claude-code`→Claude Code（**本机 claude 2.1.284 实测握手**：`{"name":"claude-code","title":"Claude Code","version":"2.1.284",…}`）、
+       `codex-mcp-client`→Codex（openai/codex 主干 fe50d01 `codex-rs/codex-mcp/src/rmcp_client.rs` 读到，带 title「Codex」；**本机没装 Codex，未实跑**）。
+       别的客户端不猜（握手里的 title 也不拿来用）；CLI 认不出。都没有时页面用自己的词：中文「AI Agent」，英 the Agent，德 den Agenten，法 l'Agent，日 エージェント。
+     - `open` 返回 `agentName`（页面显示的名字；null＝页面自己的词），`status` 也带。
+     - 界面：21 句提到 Agent 的话各加一条 `key.named`（六语，共 126 条），`ta()`／`TA()` 取词，有名字取 named、没名字取原句。
+       德法按语法重写：名字不带冠词、不变格（「An {agent}」对「An den Agenten」、「Warten, bis {agent} ein Modell liefert」）；
+       法语避开 de／que＋名字（元音开头要省音），如「Revoir ce qu'a compris {agent}」。中日由代码按字母定空格：「交给爆爆」「交给 OpenClaw」「Claude Code へ送る」。
+       名字和其他占位符一次替换：名字写「{count}」不会再被替换，回显摘要里的「{agent}」也不会被换成名字。
+     - 启动时画好的文字（发送按钮、说明框占位、帮助第 5–8 段、等候模型标题、回显按钮标签）在名字到达时重画，不用重载。
+       发送按钮文字包进可省略的 span（悬停看全名）；24 个 W 的名字宽窄屏都不出按钮（先在没这条样式的代码上测红：文字 265px 溢出 218px 按钮）。
+     - check-i18n 新规则：英文提到 agent 的句子必须有 `.named`；`.named` 必须含 `{agent}`、原句不能含；有 named 的键不许用 `t()` 取；
+       英德法名字前不许有冠词（德语逗号后的关系代词不算）、法语不许 de／que＋名字。临时副本故意写错四处，全部拦住。
+     - 文档：AGENT-INTERFACE 新增「What the page calls you — agentName」一节；帮助段前言加一句「这些 the Agent 在页面上是你报的名字」，
+       同步脚本遇到占位符直接报错；SKILL.md 第 4 节教报名字；reviewctl 加 `agent` 命令（测试和手动排查用）。
+     - 截图核过：英文宽屏「Send to Ada」、中文帮助「交给爆爆」、德语 23 字名字窄屏、法语「Envoyer à Claude Code」。
 
 ---
 

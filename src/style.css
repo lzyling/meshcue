@@ -799,6 +799,13 @@ a {
   justify-content: center;
   padding: 11px 12px;
 }
+/* "Send to" is followed by whatever the Agent is called, which can be long in
+   any language; the words shorten before the button leaves its panel. */
+.submit-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* A mark's note sits between the marks and the button that hands them over,
    because it is part of what is handed over. It follows the selected mark
    instead of living in its row: the rows are rebuilt on every change, and a

@@ -5,17 +5,22 @@ export default {
   "app.version": "Version en cours",
   "app.updateHint":
     "La version {version} est disponible. Demandez à votre agent de mettre à jour MeshCue.",
+  "app.updateHint.named":
+    "La version {version} est disponible. Demandez à {agent} de mettre à jour MeshCue.",
 
   "closing.pending":
     "Cette revue n'a pas servi depuis un moment et va se fermer. Toute action ici la maintient ouverte.",
   "closing.done":
     "Fermée après une longue inactivité. Toutes les versions et les annotations enregistrées sont conservées : demandez à l'agent de rouvrir cette revue pour continuer.",
+  "closing.done.named":
+    "Fermée après une longue inactivité. Toutes les versions et les annotations enregistrées sont conservées : demandez à {agent} de rouvrir cette revue pour continuer.",
   "common.close": "Fermer",
   "common.version": "Version",
 
   "conn.connecting": "Connexion",
   "conn.origin": "Répond dans la conversation d'origine",
   "conn.collect": "L'agent vient les chercher ici",
+  "conn.collect.named": "{agent} vient les chercher ici",
   "conn.local": "Revue locale",
   "conn.returnToChat": "Revenir à la conversation d'origine",
   "conn.paused": "Connexion en pause",
@@ -54,13 +59,17 @@ export default {
   "a11y.viewer": "Aperçu du modèle 3D — pivoter, zoomer et annoter",
 
   "model.awaiting": "En attente du modèle livré par l'Agent",
+  "model.awaiting.named": "En attente du modèle livré par {agent}",
   "model.awaitingFirst": "En attente du premier modèle livré par l'Agent",
+  "model.awaitingFirst.named": "En attente du premier modèle livré par {agent}",
   "model.triangles": "{count} triangles",
   "model.summary": "{count} triangles · {format} · {units}",
   "units.unspecified": "sans unité",
   "model.readFailed": "Impossible de lire le fichier du modèle.",
   "model.versionMismatch":
     "Le fichier ne correspond pas à la version indiquée par l'Agent ; marquage interrompu.",
+  "model.versionMismatch.named":
+    "Le fichier ne correspond pas à la version indiquée par {agent} ; marquage interrompu.",
   "model.noExtent": "Le modèle n'a aucune étendue affichable.",
   "model.animated":
     "Exportez d'abord un maillage statique ; cette version n'annote pas les animations déformantes.",
@@ -127,6 +136,8 @@ export default {
   "note.title": "Note : {name}",
   "note.placeholder":
     "Que faut-il changer ici ? Facultatif – part avec la marque vers l'Agent.",
+  "note.placeholder.named":
+    "Que faut-il changer ici ? Facultatif – part avec la marque vers {agent}.",
 
   "color.red": "rouge",
   "color.yellow": "jaune",
@@ -198,11 +209,17 @@ export default {
   "recovery.restored": "Le brouillon non synchronisé a été restauré.",
   "recovery.backedUp":
     "Le brouillon non synchronisé a été sauvegardé à part et peut être téléchargé pour l'Agent ; vous voyez maintenant la version enregistrée par le serveur.",
+  "recovery.backedUp.named":
+    "Le brouillon non synchronisé a été sauvegardé à part et peut être téléchargé pour {agent} ; vous voyez maintenant la version enregistrée par le serveur.",
   "recovery.paused":
     "Le stockage local est plein. Le brouillon non synchronisé est protégé et l'édition est en pause ; téléchargez la sauvegarde pour l'Agent.",
+  "recovery.paused.named":
+    "Le stockage local est plein. Le brouillon non synchronisé est protégé et l'édition est en pause ; téléchargez la sauvegarde pour {agent}.",
 
   "echo.summary": "L'Agent comprend : {summary}",
+  "echo.summary.named": "{agent} comprend : {summary}",
   "echo.recall": "Revoir ce que l'Agent a compris",
+  "echo.recall.named": "Revoir ce qu'a compris {agent}",
   "echo.dismiss": "Replier",
   "echo.stale":
     "Les marques ont changé — corrigez la compréhension dans la conversation d'origine",
@@ -211,8 +228,12 @@ export default {
   "outbox.reasonUnknown": "Raison inconnue",
   "outbox.stuck":
     "{count} lots ne sont toujours pas parvenus à l'Agent ({attempts} tentatives, toujours en cours). {reason}. Les marques sont enregistrées sur cette machine — signalez-le dans la conversation d'origine.",
+  "outbox.stuck.named":
+    "{count} lots ne sont toujours pas parvenus à {agent} ({attempts} tentatives, toujours en cours). {reason}. Les marques sont enregistrées sur cette machine — signalez-le dans la conversation d'origine.",
   "outbox.retrying":
     "{count} lots ne sont pas encore parvenus à l'Agent ; nouvelle tentative (tentative {attempts}). {reason}. Les marques sont enregistrées — inutile de recommencer.",
+  "outbox.retrying.named":
+    "{count} lots ne sont pas encore parvenus à {agent} ; nouvelle tentative (tentative {attempts}). {reason}. Les marques sont enregistrées — inutile de recommencer.",
 
   "feedback.default":
     "Les marques emportent leur position 3D et la version actuelle",
@@ -221,12 +242,16 @@ export default {
   "feedback.delivered": "remis à la conversation d'origine",
   "feedback.acceptedPending": "accepté, remise pas encore confirmée",
   "feedback.waiting": "en attente de récupération par l'agent",
+  "feedback.waiting.named": "en attente de récupération par {agent}",
   "feedback.deliveryUnconfirmed": "remise non confirmée, nouvel essai prévu",
   "feedback.read": "l'Agent l'a lu",
+  "feedback.read.named": "{agent} l'a lu",
   "feedback.unread": "en attente de lecture par l'Agent",
+  "feedback.unread.named": "en attente de lecture par {agent}",
   "feedback.alsoUnsubmitted":
     "; d'autres changements ne sont pas encore envoyés",
   "feedback.submit": "Envoyer à l'Agent",
+  "feedback.submit.named": "Envoyer à {agent}",
   "feedback.submitting": "Envoi…",
   "feedback.submitted":
     "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
@@ -250,12 +275,20 @@ export default {
     "Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue fixe jusqu'où cette zone peut s'étendre. Il agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets. Pour revenir sur un remplissage, annulez-le ou supprimez la marque dans la liste.",
   "help.p5":
     "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
+  "help.p5.named":
+    "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient {agent} ne les porte jamais.",
   "help.p6":
     "« Envoyer à l'Agent » enregistre et transmet les marques avec leurs notes. Dites ce que vous voulez changer dans une note ou dans la conversation d'origine – les deux comptent ; l'Agent posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
+  "help.p6.named":
+    "« Envoyer à {agent} » enregistre et transmet les marques avec leurs notes. Dites ce que vous voulez changer dans une note ou dans la conversation d'origine – les deux comptent ; {agent} posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
   "help.p7":
     "Les onglets en haut listent chaque version livrée par l'Agent. Appuyez sur l'un d'eux pour la revoir, et vous pouvez marquer et envoyer directement sur une version ancienne — chaque version garde son propre brouillon, et changer d'onglet n'affecte pas les autres. Les marques reçues par l'Agent indiquent la version visée.",
+  "help.p7.named":
+    "Les onglets en haut listent chaque version livrée par {agent}. Appuyez sur l'un d'eux pour la revoir, et vous pouvez marquer et envoyer directement sur une version ancienne — chaque version garde son propre brouillon, et changer d'onglet n'affecte pas les autres. Les marques reçues par {agent} indiquent la version visée.",
   "help.p8":
     "« Envoyer à l'Agent » envoie ce lot ; l'Agent répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
+  "help.p8.named":
+    "« Envoyer à {agent} » envoie ce lot ; {agent} répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
   "help.p9":
     "GLB, STL et STEP, jusqu'à 80 Mo et 600 000 triangles. Un STEP est triangulé une seule fois à son arrivée et vos annotations portent sur ce maillage ; le téléchargement renvoie toujours le STEP lui-même. Un STL ne porte aucune couleur et s'affiche donc toujours en gris ; les couleurs viennent avec STEP et GLB. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
 };

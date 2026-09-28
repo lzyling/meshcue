@@ -53,6 +53,13 @@ already verified in the package rather than treating the first visitor or a
 User-Agent as confirmation. When device details are missing, ask only for the
 IPv4 — never for a token or a pairing code.
 
+Pass `agentName` on every `open`: the page calls you by it (“Send to Ada”).
+Use the name your user gave you; if they gave none, your tool's name —
+`OpenClaw`, `Claude Code`, `Codex`. Plain text, at most 24 characters. Left
+out, the page keeps the name you gave before; with none at all it names the
+tool it recognises, or says “the Agent”. `open` answers with the `agentName`
+the page shows.
+
 MeshCue draws STEP and STL +Z up with −Y to the front, and GLB +Y up; rotate a
 model built otherwise before publishing, since nothing is guessed. Marks come
 back in the file's own coordinates and units. STL carries no colour and is

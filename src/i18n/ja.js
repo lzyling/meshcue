@@ -5,17 +5,22 @@ export default {
   "app.version": "実行中のバージョン",
   "app.updateHint":
     "バージョン {version} が利用できます。エージェントに MeshCue の更新を依頼してください。",
+  "app.updateHint.named":
+    "バージョン {version} が利用できます。{agent}に MeshCue の更新を依頼してください。",
 
   "closing.pending":
     "このレビューはしばらく使われていないため終了します。ここで何か操作すれば継続します。",
   "closing.done":
     "長時間操作がなかったため終了しました。すべてのバージョンと保存済みのマークは残っています。エージェントにこのレビューを開き直すよう伝えれば続けられます。",
+  "closing.done.named":
+    "長時間操作がなかったため終了しました。すべてのバージョンと保存済みのマークは残っています。{agent}にこのレビューを開き直すよう伝えれば続けられます。",
   "common.close": "閉じる",
   "common.version": "バージョン",
 
   "conn.connecting": "接続中",
   "conn.origin": "元の会話に返信します",
   "conn.collect": "エージェントが取りに来ます",
+  "conn.collect.named": "{agent}が取りに来ます",
   "conn.local": "ローカルレビュー",
   "conn.returnToChat": "元の会話に戻る",
   "conn.paused": "接続を一時停止しました",
@@ -52,13 +57,17 @@ export default {
   "a11y.viewer": "3D モデルプレビュー — 回転・ズーム・注記",
 
   "model.awaiting": "エージェントのモデル納品を待っています",
+  "model.awaiting.named": "{agent}のモデル納品を待っています",
   "model.awaitingFirst": "エージェントの最初のモデル納品を待っています",
+  "model.awaitingFirst.named": "{agent}の最初のモデル納品を待っています",
   "model.triangles": "{count} 面",
   "model.summary": "{count} 面 · {format} · {units}",
   "units.unspecified": "単位なし",
   "model.readFailed": "モデルファイルを読み込めませんでした。",
   "model.versionMismatch":
     "モデルファイルがエージェントの指定したバージョンと一致しません。注記を停止しました。",
+  "model.versionMismatch.named":
+    "モデルファイルが{agent}の指定したバージョンと一致しません。注記を停止しました。",
   "model.noExtent": "モデルに表示可能な範囲がありません。",
   "model.animated":
     "先に静的メッシュを書き出してください。この版では変形アニメーションに注記できません。",
@@ -123,6 +132,8 @@ export default {
   "note.title": "{name}のメモ",
   "note.placeholder":
     "ここをどう変えたいか（任意）。印と一緒にエージェントへ送られます。",
+  "note.placeholder.named":
+    "ここをどう変えたいか（任意）。印と一緒に{agent}へ送られます。",
 
   "color.red": "赤",
   "color.yellow": "黄",
@@ -190,11 +201,17 @@ export default {
   "recovery.restored": "未同期の下書きを復元しました。",
   "recovery.backedUp":
     "未同期の下書きは別途バックアップしました。エージェント向けにダウンロードできます。現在はサーバーが保存した版を表示しています。",
+  "recovery.backedUp.named":
+    "未同期の下書きは別途バックアップしました。{agent}向けにダウンロードできます。現在はサーバーが保存した版を表示しています。",
   "recovery.paused":
     "ローカル保存領域が一杯です。未同期の下書きは保護し、編集を一時停止しました。バックアップをダウンロードしてエージェントにお渡しください。",
+  "recovery.paused.named":
+    "ローカル保存領域が一杯です。未同期の下書きは保護し、編集を一時停止しました。バックアップをダウンロードして{agent}にお渡しください。",
 
   "echo.summary": "エージェントの理解：{summary}",
+  "echo.summary.named": "{agent}の理解：{summary}",
   "echo.recall": "エージェントの理解をもう一度見る",
+  "echo.recall.named": "{agent}の理解をもう一度見る",
   "echo.dismiss": "しまう",
   "echo.stale": "印が変わりました。元の会話で理解を訂正してください",
 
@@ -202,8 +219,12 @@ export default {
   "outbox.reasonUnknown": "理由不明",
   "outbox.stuck":
     "{count} 件がまだエージェントに届いていません（{attempts} 回再試行、継続中）。{reason}。印はこの端末に保存済みです。元の会話で一言お伝えください。",
+  "outbox.stuck.named":
+    "{count} 件がまだ{agent}に届いていません（{attempts} 回再試行、継続中）。{reason}。印はこの端末に保存済みです。元の会話で一言お伝えください。",
   "outbox.retrying":
     "{count} 件がまだエージェントに届いていません。再試行中（{attempts} 回目）。{reason}。印は保存済みで、付け直す必要はありません。",
+  "outbox.retrying.named":
+    "{count} 件がまだ{agent}に届いていません。再試行中（{attempts} 回目）。{reason}。印は保存済みで、付け直す必要はありません。",
 
   "feedback.default": "印には 3D の位置と現在のバージョンが付きます",
   "feedback.notSubmitted": "未送信 · 下書きは自動で保存されます",
@@ -211,11 +232,15 @@ export default {
   "feedback.delivered": "元の会話に届きました",
   "feedback.acceptedPending": "受理済み、配信は未確認",
   "feedback.waiting": "エージェントの取得待ち",
+  "feedback.waiting.named": "{agent}の取得待ち",
   "feedback.deliveryUnconfirmed": "配信未確認、再試行します",
   "feedback.read": "エージェントが読みました",
+  "feedback.read.named": "{agent}が読みました",
   "feedback.unread": "エージェントの読み取り待ち",
+  "feedback.unread.named": "{agent}の読み取り待ち",
   "feedback.alsoUnsubmitted": "。未送信の変更がほかにもあります",
   "feedback.submit": "エージェントへ送る",
+  "feedback.submit.named": "{agent}へ送る",
   "feedback.submitting": "送信中…",
   "feedback.submitted":
     "印を保存しました。送信状況は実際の受領確認に従います。モデルはロックしたままです。",
@@ -239,12 +264,20 @@ export default {
     "塗りつぶしはつながったほぼ平らな面をプレビューし、クリックで塗ります。範囲スライダーはその領域がどこまで広がるかを決めます。つながった面全体に働き、他の物体の陰になった部分を含むことがあります。塗りを取り消すには、元に戻すか、一覧からその印を削除してください。",
   "help.p5":
     "印は模様で区別でき、ひと押しで隠せます。単色表示は見るための補助です。印はレビューの中だけに存在し、エージェントが持つモデルファイルには決して入りません。",
+  "help.p5.named":
+    "印は模様で区別でき、ひと押しで隠せます。単色表示は見るための補助です。印はレビューの中だけに存在し、{agent}が持つモデルファイルには決して入りません。",
   "help.p6":
     "「エージェントへ送る」で印とメモを保存して送信します。何を変えたいかは、印のメモに書いても、元の会話で伝えても構いません。わからないところはエージェントが尋ねます。送信しただけではモデルは変わりません。",
+  "help.p6.named":
+    "「{agent}へ送る」で印とメモを保存して送信します。何を変えたいかは、印のメモに書いても、元の会話で伝えても構いません。わからないところは{agent}が尋ねます。送信しただけではモデルは変わりません。",
   "help.p7":
     "上部のタブにはエージェントが納品したすべてのバージョンが並びます。どれを押しても見返せますし、古い版の上で直接印を付けて送ることもできます。各バージョンは自分の下書きを持ち、切り替えても他には影響しません。エージェントが受け取る印には、どの版に対するものかが記されます。",
+  "help.p7.named":
+    "上部のタブには{agent}が納品したすべてのバージョンが並びます。どれを押しても見返せますし、古い版の上で直接印を付けて送ることもできます。各バージョンは自分の下書きを持ち、切り替えても他には影響しません。{agent}が受け取る印には、どの版に対するものかが記されます。",
   "help.p8":
     "「エージェントへ送る」でこの分を送ります。エージェントが新しいバージョンを返すので、そのまま次の版に印を付けてください。何かを終わらせる必要はなく、下書きは自動で保存されます。",
+  "help.p8.named":
+    "「{agent}へ送る」でこの分を送ります。{agent}が新しいバージョンを返すので、そのまま次の版に印を付けてください。何かを終わらせる必要はなく、下書きは自動で保存されます。",
   "help.p9":
     "対応形式は GLB／STL／STEP、80 MB・60 万面まで。STEP は読み込み時に一度だけ三角形分割され、印はそのメッシュに付きます。ダウンロードで渡されるのは STEP そのものです。STL は色を持たないため常に灰色で表示されます。色が必要なら STEP か GLB を使ってください。アニメーション、ボーン、圧縮 GLB にはまだ対応していません。これはレビュー用の道具で、モデルを造形するものではありません。",
 };

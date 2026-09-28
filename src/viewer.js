@@ -11,7 +11,7 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
-import { t } from "./i18n/index.js";
+import { t, ta } from "./i18n/index.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -552,7 +552,7 @@ export class ModelViewer {
     if (hash !== shown.sha256) {
       // Coded like the service's own refusal, because they mean the same thing
       // and the page has to stop retrying either of them.
-      throw refusal(t("model.versionMismatch"), "HASH_MISMATCH");
+      throw refusal(ta("model.versionMismatch"), "HASH_MISMATCH");
     }
     if (epoch !== this.loadingEpoch) return;
     let object;

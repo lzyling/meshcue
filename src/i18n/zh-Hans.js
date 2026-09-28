@@ -3,18 +3,22 @@
 export default {
   "app.tagline": "3D 模型审阅与标注",
   "app.version": "正在运行的版本",
-  "app.updateHint": "有新版本 {version}。让你的 Agent 更新 MeshCue。",
+  "app.updateHint": "有新版本 {version}。让你的 AI Agent 更新 MeshCue。",
+  "app.updateHint.named": "有新版本 {version}。让{agent}更新 MeshCue。",
 
   "closing.pending":
     "这一轮审阅已经有一段时间没人使用，即将关闭。你在这里做任何操作都会让它继续。",
   "closing.done":
-    "闲置过久已关闭。所有版本和你保存过的标记都还在 —— 让 Agent 重新打开这一轮审阅就能接着做。",
+    "闲置过久已关闭。所有版本和你保存过的标记都还在 —— 让 AI Agent 重新打开这一轮审阅就能接着做。",
+  "closing.done.named":
+    "闲置过久已关闭。所有版本和你保存过的标记都还在 —— 让{agent}重新打开这一轮审阅就能接着做。",
   "common.close": "关闭",
   "common.version": "版本",
 
   "conn.connecting": "连接中",
   "conn.origin": "回复原对话",
-  "conn.collect": "由 Agent 来取",
+  "conn.collect": "由 AI Agent 来取",
+  "conn.collect.named": "由{agent}来取",
   "conn.local": "本机审阅",
   "conn.returnToChat": "返回原对话",
   "conn.paused": "连接已暂停",
@@ -44,13 +48,16 @@ export default {
   "a11y.palette": "标注颜色",
   "a11y.viewer": "三维模型预览，可旋转、缩放及标注",
 
-  "model.awaiting": "等候 Agent 交付模型",
-  "model.awaitingFirst": "等候 Agent 交付第一个模型",
+  "model.awaiting": "等候 AI Agent 交付模型",
+  "model.awaiting.named": "等候{agent}交付模型",
+  "model.awaitingFirst": "等候 AI Agent 交付第一个模型",
+  "model.awaitingFirst.named": "等候{agent}交付第一个模型",
   "model.triangles": "{count} 面",
   "model.summary": "{count} 面 · {format} · {units}",
   "units.unspecified": "单位未标",
   "model.readFailed": "模型文件读取失败。",
-  "model.versionMismatch": "模型文件与 Agent 指定版本不符，已停止标注。",
+  "model.versionMismatch": "模型文件与 AI Agent 指定版本不符，已停止标注。",
+  "model.versionMismatch.named": "模型文件与{agent}指定版本不符，已停止标注。",
   "model.noExtent": "模型没有可显示的有效范围。",
   "model.animated": "请先导出静态网格；本版不标注变形动画。",
   "model.tooManyTriangles": "模型超过 60 万面，请先简化。",
@@ -105,7 +112,8 @@ export default {
   "marks.hide": "隐藏标注",
   "marks.show": "显示标注",
   "note.title": "{name}的说明",
-  "note.placeholder": "这里要怎么改？选填，会随标记交给 Agent。",
+  "note.placeholder": "这里要怎么改？选填，会随标记交给 AI Agent。",
+  "note.placeholder.named": "这里要怎么改？选填，会随标记交给{agent}。",
 
   "color.red": "红色",
   "color.yellow": "黄色",
@@ -167,33 +175,47 @@ export default {
   "recovery.download": "下载草稿备份",
   "recovery.restored": "已恢复未同步的草稿。",
   "recovery.backedUp":
-    "未同步的草稿已另行备份，可下载交给 Agent；当前看到的是服务器保存的版本。",
+    "未同步的草稿已另行备份，可下载交给 AI Agent；当前看到的是服务器保存的版本。",
+  "recovery.backedUp.named":
+    "未同步的草稿已另行备份，可下载交给{agent}；当前看到的是服务器保存的版本。",
   "recovery.paused":
-    "本机存储空间已满。未同步的草稿已保护，编辑暂停；请下载备份交给 Agent。",
+    "本机存储空间已满。未同步的草稿已保护，编辑暂停；请下载备份交给 AI Agent。",
+  "recovery.paused.named":
+    "本机存储空间已满。未同步的草稿已保护，编辑暂停；请下载备份交给{agent}。",
 
-  "echo.summary": "Agent 理解：{summary}",
-  "echo.recall": "再看一次 Agent 的理解",
+  "echo.summary": "AI Agent 理解：{summary}",
+  "echo.summary.named": "{agent}理解：{summary}",
+  "echo.recall": "再看一次 AI Agent 的理解",
+  "echo.recall.named": "再看一次{agent}的理解",
   "echo.dismiss": "收起",
   "echo.stale": "标注已更新，请在原对话更正理解",
 
   "outbox.reason": "原因：{message}",
   "outbox.reasonUnknown": "原因不明",
   "outbox.stuck":
-    "有 {count} 批标记仍未送达 Agent（已重试 {attempts} 次，仍在尝试）。{reason}。标记已保存在本机，请在原对话提一声。",
+    "有 {count} 批标记仍未送达 AI Agent（已重试 {attempts} 次，仍在尝试）。{reason}。标记已保存在本机，请在原对话提一声。",
+  "outbox.stuck.named":
+    "有 {count} 批标记仍未送达{agent}（已重试 {attempts} 次，仍在尝试）。{reason}。标记已保存在本机，请在原对话提一声。",
   "outbox.retrying":
-    "有 {count} 批标记尚未送达 Agent，重试中（第 {attempts} 次）。{reason}。标记已保存，不需要重新标记。",
+    "有 {count} 批标记尚未送达 AI Agent，重试中（第 {attempts} 次）。{reason}。标记已保存，不需要重新标记。",
+  "outbox.retrying.named":
+    "有 {count} 批标记尚未送达{agent}，重试中（第 {attempts} 次）。{reason}。标记已保存，不需要重新标记。",
 
   "feedback.default": "标记会带上三维位置与当前版本",
   "feedback.notSubmitted": "未提交 · 草稿会自动保存",
   "feedback.saved": "已保存",
   "feedback.delivered": "已送达原对话",
   "feedback.acceptedPending": "已接纳，投递待确认",
-  "feedback.waiting": "等待 Agent 来取",
+  "feedback.waiting": "等待 AI Agent 来取",
+  "feedback.waiting.named": "等待{agent}来取",
   "feedback.deliveryUnconfirmed": "投递未确认，会重试",
-  "feedback.read": "Agent 已读取",
-  "feedback.unread": "等待 Agent 读取",
+  "feedback.read": "AI Agent 已读取",
+  "feedback.read.named": "{agent}已读取",
+  "feedback.unread": "等待 AI Agent 读取",
+  "feedback.unread.named": "等待{agent}读取",
   "feedback.alsoUnsubmitted": "；另有改动尚未提交",
-  "feedback.submit": "交给 Agent",
+  "feedback.submit": "交给 AI Agent",
+  "feedback.submit.named": "交给{agent}",
   "feedback.submitting": "提交中…",
   "feedback.submitted": "标记已保存；提交状态以实际回执为准。模型维持锁定。",
 
@@ -215,13 +237,21 @@ export default {
   "help.p4":
     "油漆桶会预览相连的近平面，单击即填色；范围滑块决定这片区域能延伸多远。它作用于整个相连表面，可能包含被其他物体挡住的部分。想撤回一次填色，可以撤销，或在标记列表里删掉那个标记。",
   "help.p5":
-    "标记靠花纹分辨，一键即可隐藏；素色查看只是辅助观看。标记只存在于审阅里 —— Agent 手上的模型文件从不带上它们。",
+    "标记靠花纹分辨，一键即可隐藏；素色查看只是辅助观看。标记只存在于审阅里 —— AI Agent 手上的模型文件从不带上它们。",
+  "help.p5.named":
+    "标记靠花纹分辨，一键即可隐藏；素色查看只是辅助观看。标记只存在于审阅里 —— {agent}手上的模型文件从不带上它们。",
   "help.p6":
-    "「交给 Agent」会保存并提交标记和说明。想改什么，写在标记的说明里或回到原对话说都算数；有不清楚的地方 Agent 会问。提交本身不会改动模型。",
+    "「交给 AI Agent」会保存并提交标记和说明。想改什么，写在标记的说明里或回到原对话说都算数；有不清楚的地方 AI Agent 会问。提交本身不会改动模型。",
+  "help.p6.named":
+    "「交给{agent}」会保存并提交标记和说明。想改什么，写在标记的说明里或回到原对话说都算数；有不清楚的地方{agent}会问。提交本身不会改动模型。",
   "help.p7":
-    "顶部的标签页列出 Agent 交付过的每一个版本。点任何一个都可以回看，也可以直接在旧版上标记并提交——每一版各有自己的草稿，切换不影响其他版本。Agent 收到的标记会注明针对哪一版。",
+    "顶部的标签页列出 AI Agent 交付过的每一个版本。点任何一个都可以回看，也可以直接在旧版上标记并提交——每一版各有自己的草稿，切换不影响其他版本。AI Agent 收到的标记会注明针对哪一版。",
+  "help.p7.named":
+    "顶部的标签页列出{agent}交付过的每一个版本。点任何一个都可以回看，也可以直接在旧版上标记并提交——每一版各有自己的草稿，切换不影响其他版本。{agent}收到的标记会注明针对哪一版。",
   "help.p8":
-    "按「交给 Agent」把这一批送出；Agent 会给出新版本，你接着在新版本上标记就行。不需要结束什么，草稿会自动保存。",
+    "按「交给 AI Agent」把这一批送出；AI Agent 会给出新版本，你接着在新版本上标记就行。不需要结束什么，草稿会自动保存。",
+  "help.p8.named":
+    "按「交给{agent}」把这一批送出；{agent}会给出新版本，你接着在新版本上标记就行。不需要结束什么，草稿会自动保存。",
   "help.p9":
     "支持 GLB／STL／STEP，上限 80 MB 与 60 万面。STEP 在导入时三角化一次，你的标注落在那个网格上；下载拿到的仍是 STEP 本身。STL 不带颜色，一律显示为灰色；要颜色请用 STEP 或 GLB。动画、骨架与压缩 GLB 尚未支持。这是审阅工具，不会替你改模型。",
 };

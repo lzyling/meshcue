@@ -5,17 +5,22 @@ export default {
   "app.version": "Laufende Version",
   "app.updateHint":
     "Version {version} ist verfügbar. Bitten Sie Ihren Agenten, MeshCue zu aktualisieren.",
+  "app.updateHint.named":
+    "Version {version} ist verfügbar. Bitten Sie {agent}, MeshCue zu aktualisieren.",
 
   "closing.pending":
     "Diese Prüfung wurde eine Weile nicht genutzt und wird geschlossen. Alles, was Sie hier tun, hält sie offen.",
   "closing.done":
     "Nach längerem Leerlauf geschlossen. Alle Versionen und Ihre gespeicherten Markierungen bleiben erhalten – bitten Sie den Agenten, diese Prüfung erneut zu öffnen.",
+  "closing.done.named":
+    "Nach längerem Leerlauf geschlossen. Alle Versionen und Ihre gespeicherten Markierungen bleiben erhalten – bitten Sie {agent}, diese Prüfung erneut zu öffnen.",
   "common.close": "Schließen",
   "common.version": "Version",
 
   "conn.connecting": "Verbinden",
   "conn.origin": "Antwortet im ursprünglichen Gespräch",
   "conn.collect": "Der Agent holt sie hier ab",
+  "conn.collect.named": "{agent} holt sie hier ab",
   "conn.local": "Lokale Prüfung",
   "conn.returnToChat": "Zurück zum ursprünglichen Gespräch",
   "conn.paused": "Verbindung pausiert",
@@ -55,13 +60,17 @@ export default {
   "a11y.viewer": "3D-Modellvorschau — drehen, zoomen und markieren",
 
   "model.awaiting": "Warten auf das Modell des Agenten",
+  "model.awaiting.named": "Warten, bis {agent} ein Modell liefert",
   "model.awaitingFirst": "Warten auf das erste Modell des Agenten",
+  "model.awaitingFirst.named": "Warten, bis {agent} das erste Modell liefert",
   "model.triangles": "{count} Dreiecke",
   "model.summary": "{count} Dreiecke · {format} · {units}",
   "units.unspecified": "ohne Einheit",
   "model.readFailed": "Die Modelldatei konnte nicht gelesen werden.",
   "model.versionMismatch":
     "Die Modelldatei entspricht nicht der vom Agenten angegebenen Version; Markieren gestoppt.",
+  "model.versionMismatch.named":
+    "Die Modelldatei entspricht nicht der von {agent} angegebenen Version; Markieren gestoppt.",
   "model.noExtent": "Das Modell hat keine darstellbare Ausdehnung.",
   "model.animated":
     "Bitte zuerst ein statisches Netz exportieren; diese Version markiert keine verformende Animation.",
@@ -127,6 +136,8 @@ export default {
   "note.title": "Notiz: {name}",
   "note.placeholder":
     "Was soll sich hier ändern? Optional – geht mit der Markierung an den Agenten.",
+  "note.placeholder.named":
+    "Was soll sich hier ändern? Optional – geht mit der Markierung an {agent}.",
 
   "color.red": "rote",
   "color.yellow": "gelbe",
@@ -200,11 +211,17 @@ export default {
     "Der nicht synchronisierte Entwurf wurde wiederhergestellt.",
   "recovery.backedUp":
     "Der nicht synchronisierte Entwurf wurde separat gesichert und kann für den Agenten heruntergeladen werden; Sie sehen jetzt die vom Server gespeicherte Version.",
+  "recovery.backedUp.named":
+    "Der nicht synchronisierte Entwurf wurde separat gesichert und kann für {agent} heruntergeladen werden; Sie sehen jetzt die vom Server gespeicherte Version.",
   "recovery.paused":
     "Der lokale Speicher ist voll. Der nicht synchronisierte Entwurf ist geschützt und die Bearbeitung pausiert; laden Sie die Sicherung für den Agenten herunter.",
+  "recovery.paused.named":
+    "Der lokale Speicher ist voll. Der nicht synchronisierte Entwurf ist geschützt und die Bearbeitung pausiert; laden Sie die Sicherung für {agent} herunter.",
 
   "echo.summary": "Der Agent versteht: {summary}",
+  "echo.summary.named": "{agent} versteht: {summary}",
   "echo.recall": "Das Verständnis des Agenten erneut lesen",
+  "echo.recall.named": "Erneut lesen, was {agent} verstanden hat",
   "echo.dismiss": "Wegklappen",
   "echo.stale":
     "Die Markierungen haben sich geändert — korrigieren Sie das Verständnis im ursprünglichen Gespräch",
@@ -213,8 +230,12 @@ export default {
   "outbox.reasonUnknown": "Grund unbekannt",
   "outbox.stuck":
     "{count} Stapel haben den Agenten noch nicht erreicht ({attempts} Versuche, wird weiter versucht). {reason}. Die Markierungen sind auf diesem Rechner gespeichert — erwähnen Sie es im ursprünglichen Gespräch.",
+  "outbox.stuck.named":
+    "{count} Stapel haben {agent} noch nicht erreicht ({attempts} Versuche, wird weiter versucht). {reason}. Die Markierungen sind auf diesem Rechner gespeichert — erwähnen Sie es im ursprünglichen Gespräch.",
   "outbox.retrying":
     "{count} Stapel haben den Agenten noch nicht erreicht; erneuter Versuch (Versuch {attempts}). {reason}. Die Markierungen sind gespeichert — ein erneutes Markieren ist nicht nötig.",
+  "outbox.retrying.named":
+    "{count} Stapel haben {agent} noch nicht erreicht; erneuter Versuch (Versuch {attempts}). {reason}. Die Markierungen sind gespeichert — ein erneutes Markieren ist nicht nötig.",
 
   "feedback.default":
     "Markierungen tragen ihre 3D-Position und die aktuelle Version",
@@ -224,12 +245,16 @@ export default {
   "feedback.delivered": "im ursprünglichen Gespräch zugestellt",
   "feedback.acceptedPending": "angenommen, Zustellung noch nicht bestätigt",
   "feedback.waiting": "wartet darauf, vom Agenten abgeholt zu werden",
+  "feedback.waiting.named": "wartet darauf, von {agent} abgeholt zu werden",
   "feedback.deliveryUnconfirmed":
     "Zustellung unbestätigt, wird erneut versucht",
   "feedback.read": "der Agent hat sie gelesen",
+  "feedback.read.named": "{agent} hat sie gelesen",
   "feedback.unread": "wartet darauf, dass der Agent sie liest",
+  "feedback.unread.named": "wartet darauf, dass {agent} sie liest",
   "feedback.alsoUnsubmitted": "; weitere Änderungen sind noch nicht gesendet",
   "feedback.submit": "An den Agenten",
+  "feedback.submit.named": "An {agent}",
   "feedback.submitting": "Wird gesendet …",
   "feedback.submitted":
     "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
@@ -253,12 +278,20 @@ export default {
     "Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler bestimmt, wie weit diese Fläche reichen darf. Es wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile. Um eine Füllung zurückzunehmen, machen Sie sie rückgängig oder löschen Sie die Markierung aus der Liste.",
   "help.p5":
     "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
+  "help.p5.named":
+    "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei bei {agent} trägt sie nie.",
   "help.p6":
     "„An den Agenten“ speichert und sendet die Markierungen samt Notizen. Was geändert werden soll, können Sie in eine Notiz schreiben oder im ursprünglichen Gespräch sagen – beides zählt; bei Unklarheiten fragt der Agent nach. Das Senden allein ändert das Modell nicht.",
+  "help.p6.named":
+    "„An {agent}“ speichert und sendet die Markierungen samt Notizen. Was geändert werden soll, können Sie in eine Notiz schreiben oder im ursprünglichen Gespräch sagen – beides zählt; bei Unklarheiten fragt {agent} nach. Das Senden allein ändert das Modell nicht.",
   "help.p7":
     "Die Reiter oben listen jede vom Agenten gelieferte Version. Ein Druck darauf zeigt sie erneut, und Sie können auch auf einer älteren Version direkt markieren und senden — jede Version hat ihren eigenen Entwurf, das Wechseln berührt die anderen nicht. Die Markierungen, die der Agent erhält, nennen die Version, für die sie gelten.",
+  "help.p7.named":
+    "Die Reiter oben listen jede von {agent} gelieferte Version. Ein Druck darauf zeigt sie erneut, und Sie können auch auf einer älteren Version direkt markieren und senden — jede Version hat ihren eigenen Entwurf, das Wechseln berührt die anderen nicht. Die Markierungen, die {agent} erhält, nennen die Version, für die sie gelten.",
   "help.p8":
     "„An den Agenten“ sendet diesen Stapel; der Agent antwortet mit einer neuen Version, auf der Sie weiter markieren. Es muss nichts abgeschlossen werden, und Entwürfe speichern sich selbst.",
+  "help.p8.named":
+    "„An {agent}“ sendet diesen Stapel; {agent} antwortet mit einer neuen Version, auf der Sie weiter markieren. Es muss nichts abgeschlossen werden, und Entwürfe speichern sich selbst.",
   "help.p9":
     "GLB, STL und STEP, bis 80 MB und 600.000 Dreiecke. Ein STEP wird beim Eintreffen einmal trianguliert, und Ihre Markierungen liegen auf diesem Netz; heruntergeladen wird weiterhin das STEP selbst. Ein STL trägt keine Farbe und wird daher immer grau gezeigt; Farben kommen mit STEP und GLB. Animation, Skelette und komprimiertes GLB werden noch nicht unterstützt. Dies ist ein Prüfwerkzeug; es modelliert nicht.",
 };

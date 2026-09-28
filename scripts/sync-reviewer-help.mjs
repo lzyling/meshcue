@@ -47,6 +47,12 @@ export async function render() {
     .sort((a, b) => Number(a.slice(6)) - Number(b.slice(6)))
     .map((key) => en[key]);
   if (!paragraphs.length) throw new Error("no help.p* keys in src/i18n/en.js");
+  // The panel fills its slots in; this document has nobody to fill them, and
+  // a brace printed to an agent is a word it will try to act on. The Agent's
+  // name lives in `help.pN.named`, which is not read here.
+  for (const text of paragraphs)
+    if (/\{\w+\}/.test(text))
+      throw new Error(`a help paragraph has a slot to fill: ${text}`);
   return [
     BEGIN,
     "",
@@ -54,7 +60,9 @@ export async function render() {
       `These are the words the reviewer is reading in the help panel, in the ` +
         `catalogue's own English. Answer from them rather than from memory: a ` +
         `tool that promises addresses instead of descriptions cannot afford to ` +
-        `guess at its own controls. "${en["help.title"]}"`,
+        `guess at its own controls. Where they say "the Agent", the reviewer ` +
+        `reads the name you gave with agentName ("Send to Ada"), or your ` +
+        `tool's name when you gave none. "${en["help.title"]}"`,
     ),
     "",
     ...paragraphs.flatMap((text) => [

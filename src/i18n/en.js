@@ -5,17 +5,22 @@ export default {
   "app.version": "Running version",
   "app.updateHint":
     "Version {version} is available. Ask your agent to update MeshCue.",
+  "app.updateHint.named":
+    "Version {version} is available. Ask {agent} to update MeshCue.",
 
   "closing.pending":
     "Nobody has used this review for a while, so it is closing. Anything you do here keeps it open.",
   "closing.done":
     "Closed after being left idle. Every version and the marks you saved are kept — ask the Agent to open this review again to carry on.",
+  "closing.done.named":
+    "Closed after being left idle. Every version and the marks you saved are kept — ask {agent} to open this review again to carry on.",
   "common.close": "Close",
   "common.version": "Version",
 
   "conn.connecting": "Connecting",
   "conn.origin": "Replies to the original conversation",
   "conn.collect": "The Agent collects from here",
+  "conn.collect.named": "{agent} collects from here",
   "conn.local": "Local review",
   "conn.returnToChat": "Return to the original conversation",
   "conn.paused": "Connection paused",
@@ -51,13 +56,17 @@ export default {
   "a11y.viewer": "3D model preview — orbit, zoom and annotate",
 
   "model.awaiting": "Waiting for the Agent to deliver a model",
+  "model.awaiting.named": "Waiting for {agent} to deliver a model",
   "model.awaitingFirst": "Waiting for the Agent to deliver the first model",
+  "model.awaitingFirst.named": "Waiting for {agent} to deliver the first model",
   "model.triangles": "{count} triangles",
   "model.summary": "{count} triangles · {format} · {units}",
   "units.unspecified": "no units",
   "model.readFailed": "Could not read the model file.",
   "model.versionMismatch":
     "The model file does not match the version the Agent specified; marking stopped.",
+  "model.versionMismatch.named":
+    "The model file does not match the version {agent} specified; marking stopped.",
   "model.noExtent": "The model has no displayable extent.",
   "model.animated":
     "Export a static mesh first; this release does not annotate deforming animation.",
@@ -120,6 +129,8 @@ export default {
   "note.title": "Note on {name}",
   "note.placeholder":
     "What should change here? Optional; it goes to the Agent with the mark.",
+  "note.placeholder.named":
+    "What should change here? Optional; it goes to {agent} with the mark.",
 
   "color.red": "red",
   "color.yellow": "yellow",
@@ -189,11 +200,17 @@ export default {
   "recovery.restored": "Restored the draft that had not synced.",
   "recovery.backedUp":
     "The unsynced draft was backed up separately and can be downloaded for the Agent; you are now seeing the version the server saved.",
+  "recovery.backedUp.named":
+    "The unsynced draft was backed up separately and can be downloaded for {agent}; you are now seeing the version the server saved.",
   "recovery.paused":
     "Local storage is full. The unsynced draft is protected and editing is paused; download the backup for the Agent.",
+  "recovery.paused.named":
+    "Local storage is full. The unsynced draft is protected and editing is paused; download the backup for {agent}.",
 
   "echo.summary": "Agent understands: {summary}",
+  "echo.summary.named": "{agent} understands: {summary}",
   "echo.recall": "Read the Agent's understanding again",
+  "echo.recall.named": "Read again what {agent} understood",
   "echo.dismiss": "Put it away",
   "echo.stale":
     "The marks changed — correct the understanding in the original conversation",
@@ -202,8 +219,12 @@ export default {
   "outbox.reasonUnknown": "Reason unknown",
   "outbox.stuck":
     "{count} batches still have not reached the Agent (retried {attempts} times, still trying). {reason}. The marks are saved on this machine — mention it in the original conversation.",
+  "outbox.stuck.named":
+    "{count} batches still have not reached {agent} (retried {attempts} times, still trying). {reason}. The marks are saved on this machine — mention it in the original conversation.",
   "outbox.retrying":
     "{count} batches have not reached the Agent yet; retrying (attempt {attempts}). {reason}. The marks are saved — there is no need to mark again.",
+  "outbox.retrying.named":
+    "{count} batches have not reached {agent} yet; retrying (attempt {attempts}). {reason}. The marks are saved — there is no need to mark again.",
 
   "feedback.default": "Marks carry their 3D position and the current version",
   "feedback.notSubmitted": "Not submitted · the draft saves itself",
@@ -211,11 +232,15 @@ export default {
   "feedback.delivered": "delivered to the original conversation",
   "feedback.acceptedPending": "accepted, delivery not yet confirmed",
   "feedback.waiting": "waiting for the Agent to collect it",
+  "feedback.waiting.named": "waiting for {agent} to collect it",
   "feedback.deliveryUnconfirmed": "delivery unconfirmed, will retry",
   "feedback.read": "the Agent has read it",
+  "feedback.read.named": "{agent} has read it",
   "feedback.unread": "waiting for the Agent to read it",
+  "feedback.unread.named": "waiting for {agent} to read it",
   "feedback.alsoUnsubmitted": "; more changes are not yet submitted",
   "feedback.submit": "Send to Agent",
+  "feedback.submit.named": "Send to {agent}",
   "feedback.submitting": "Submitting…",
   "feedback.submitted":
     "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
@@ -239,12 +264,20 @@ export default {
     "The paint bucket previews the connected near-flat area and fills it on a click; the spread slider sets how far that area may run. It works on a whole connected surface, which can include parts hidden behind other objects. To take a fill back, undo it or delete the mark from the list.",
   "help.p5":
     "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
+  "help.p5.named":
+    "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file {agent} holds never carries them.",
   "help.p6":
     "“Send to Agent” saves and submits the marks with their notes. Say what you want changed in a note or back in the original conversation — both count; the Agent will ask if anything is unclear. Submitting does not change the model by itself.",
+  "help.p6.named":
+    "“Send to {agent}” saves and submits the marks with their notes. Say what you want changed in a note or back in the original conversation — both count; {agent} will ask if anything is unclear. Submitting does not change the model by itself.",
   "help.p7":
     "The tabs along the top list every version the Agent has delivered. Press any of them to look back, and you can mark and submit on an older version directly — each version keeps its own draft, and switching does not affect the others. The marks the Agent receives state which version they target.",
+  "help.p7.named":
+    "The tabs along the top list every version {agent} has delivered. Press any of them to look back, and you can mark and submit on an older version directly — each version keeps its own draft, and switching does not affect the others. The marks {agent} receives state which version they target.",
   "help.p8":
     "“Send to Agent” sends this batch; the Agent replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
+  "help.p8.named":
+    "“Send to {agent}” sends this batch; {agent} replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
   "help.p9":
     "GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Animation, skeletons and compressed GLB are not supported yet. This is a review tool; it does not sculpt the model.",
 };

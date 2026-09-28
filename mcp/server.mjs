@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
+import { MAX_AGENT_NAME } from "../server/agent-name.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -48,6 +49,27 @@ export function mcpOwner(workspace, environment = process.env) {
     .digest("hex")
     .slice(0, 16);
   return `mcp:${digest}`;
+}
+
+/* What the review page calls an agent that did not say its name: the client it
+   runs in, recognised from the name that client gives in `initialize`. Only
+   handshakes that were actually read are listed. A client missing here costs
+   nothing but the page's own word for an agent; a guessed entry that is wrong
+   would put a name on the page that is not the reviewer's tool at all.
+   - claude-code: read from Claude Code 2.1.284 on 2026-09-29
+     (`{"name":"claude-code","title":"Claude Code",…}`).
+   - codex-mcp-client: openai/codex `codex-rs/codex-mcp/src/rmcp_client.rs`
+     at fe50d01 (2026-09-28), `Implementation::new("codex-mcp-client", …)
+     .with_title("Codex")`; read from source, not from a running Codex. */
+export const KNOWN_CLIENTS = Object.freeze({
+  "claude-code": "Claude Code",
+  "codex-mcp-client": "Codex",
+});
+export function clientToolName(clientInfo) {
+  const name = clientInfo?.name;
+  return typeof name === "string" && Object.hasOwn(KNOWN_CLIENTS, name)
+    ? KNOWN_CLIENTS[name]
+    : undefined;
 }
 
 export const TOOL = {
@@ -88,6 +110,12 @@ export const TOOL = {
       activate: { type: "boolean" },
       resume: { type: "boolean" },
       confirmedClientAddress: { type: "string" },
+      agentName: {
+        type: "string",
+        maxLength: MAX_AGENT_NAME,
+        description:
+          "open: what the review page calls you, e.g. “Send to Ada”. The name your user gave you; if they gave none, the name of the tool you run in. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
+      },
     },
     required: ["action"],
   },
@@ -101,6 +129,8 @@ export function createHandler({
 } = {}) {
   const owner = mcpOwner(workspace, environment);
   const context = { workspaceDir: workspace, agentId: "mcp" };
+  // Said once, at the handshake, and true for the life of this connection.
+  let toolName;
   const manager = () =>
     new InstanceManager(context, {
       installRoot: root,
@@ -112,6 +142,7 @@ export function createHandler({
           sessionKey: owner,
           sessionId: owner,
         }),
+      toolName,
       ...managerOptions,
     });
   return async function handle(message) {
@@ -119,7 +150,8 @@ export function createHandler({
     // A notification carries no id and takes no reply; answering one is how a
     // client ends up waiting for a response to something it never asked.
     const reply = (result) => (id === undefined ? null : { id, result });
-    if (method === "initialize")
+    if (method === "initialize") {
+      toolName = clientToolName(params?.clientInfo);
       return reply({
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: {} },
@@ -131,6 +163,7 @@ export function createHandler({
         },
         instructions: instructions(root),
       });
+    }
     if (method === "tools/list") return reply({ tools: [TOOL] });
     if (method === "tools/call") {
       const input = params?.arguments || {};
