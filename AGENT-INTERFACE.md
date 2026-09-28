@@ -124,6 +124,10 @@ Mention a conspicuous number; never delete one yourself.
 These are the only limits. Nothing degrades quietly under them: a mark names a
 source face, and the review mesh's own tessellation never enters the answer.
 
+Whatever its size, a GLB that moves — skins, morph targets or
+`EXT_mesh_gpu_instancing` — is refused with `ANIMATED_MODEL`. Publish the
+static shape that is to be reviewed.
+
 **Run `precheck` on every GLB or STL before `open`.** It is read-only, starts
 no instance and writes nothing. A STEP needs none: `open` tessellates it once,
 measures it and refuses it with the same `MODEL_LIMIT`, and a precheck would
@@ -163,6 +167,9 @@ parameter for it.
   coordinates and units.
 - A submission's `camera` is in the preview's frame — the model scaled into
   three units and, for STEP and STL, stood up — not in model coordinates.
+
+An STL carries no colour, so it is always drawn grey. When colour matters to the
+review, publish STEP, whose declared colours and transparency are read, or GLB.
 
 ## What the reviewer sees
 
@@ -211,8 +218,9 @@ controls. "Look, mark, then say what to change."
 
 - GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated
   once when it arrives and your marks land on that mesh; downloading still gives
-  you the STEP itself. Animation, skeletons and compressed GLB are not supported
-  yet. This is a review tool; it does not sculpt the model.
+  you the STEP itself. An STL carries no colour, so it is always drawn grey;
+  colours come with STEP and GLB. Animation, skeletons and compressed GLB are
+  not supported yet. This is a review tool; it does not sculpt the model.
 
 <!-- reviewer-help:end -->
 

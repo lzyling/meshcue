@@ -116,3 +116,56 @@ test("limit errors carry the measured value, not just the cap", () => {
       error.message.includes(String(MAX_TRIANGLES + 1)),
   );
 });
+
+// The smallest GLB a mesh can be: one triangle, its three vertices at the
+// origin, and whatever else a test puts on its one primitive.
+function triangleGlb(primitive = {}) {
+  let json = JSON.stringify({
+    asset: { version: "2.0" },
+    buffers: [{ byteLength: 36 }],
+    bufferViews: [{ buffer: 0, byteLength: 36 }],
+    accessors: [
+      {
+        bufferView: 0,
+        componentType: 5126,
+        count: 3,
+        type: "VEC3",
+        min: [0, 0, 0],
+        max: [0, 0, 0],
+      },
+    ],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, ...primitive }] }],
+    nodes: [{ mesh: 0 }],
+    scenes: [{ nodes: [0] }],
+    scene: 0,
+  });
+  json = Buffer.from(json.padEnd(Math.ceil(json.length / 4) * 4));
+  const bin = Buffer.alloc(36);
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32LE(data.length, 0);
+    head.writeUInt32LE(type, 4);
+    return Buffer.concat([head, data]);
+  };
+  const header = Buffer.alloc(12);
+  header.writeUInt32LE(0x46546c67, 0);
+  header.writeUInt32LE(2, 4);
+  header.writeUInt32LE(12 + 8 + json.length + 8 + bin.length, 8);
+  return Buffer.concat([
+    header,
+    chunk(0x4e4f534a, json),
+    chunk(0x004e4942, bin),
+  ]);
+}
+
+/* The page has always refused a model that deforms; the service let morph
+   targets through, so `open` succeeded and the reviewer was left with a page
+   that could not show it while the agent heard nothing. Refused here as skins
+   and instances are, it is refused where the agent can see it. */
+test("a GLB with morph targets is refused as animated, before anything is published", () => {
+  assert.equal(inspectModel(triangleGlb(), "glb").triangles, 1);
+  assert.throws(
+    () => inspectModel(triangleGlb({ targets: [{ POSITION: 0 }] }), "glb"),
+    (error) => error.code === "ANIMATED_MODEL" && /morph/i.test(error.message),
+  );
+});

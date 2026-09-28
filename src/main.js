@@ -1350,11 +1350,11 @@ async function loadVersion(fullState) {
       viewer.enabled = false;
       loadedId = null;
       loadedFilename = null;
-      // An identity failure is settled: these bytes will not start matching
-      // that hash on a second attempt, so stop asking and leave the reason on
-      // screen. Everything else — a dropped fetch, a service restarting — is
-      // worth another poll.
-      if (e.code === "HASH_MISMATCH")
+      // A settled refusal — bytes that do not match their hash, a model that
+      // deforms or is too big to draw — will be the same on a second attempt,
+      // so stop asking and leave the reason on screen. Everything else — a
+      // dropped fetch, a service restarting — is worth another poll.
+      if (e.settled || e.code === "HASH_MISMATCH")
         refusedLoad = {
           versionId: model.id,
           sha256: (model.mesh ?? model).sha256,

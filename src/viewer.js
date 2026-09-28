@@ -45,6 +45,12 @@ const Z_UP_FORMATS = new Set(["step", "stp", "stl"]);
 /* How far off the pole a top or bottom view stands, in radians. Far enough
    from the 1e-6 OrbitControls clamps to, too little to see. */
 const POLE_OFFSET = 1e-4;
+/* A refusal these bytes will earn on every attempt. `settled` tells the page to
+   stop asking for them, as it always has for a hash mismatch: a model it cannot
+   show was otherwise fetched and refused again on every 2.2-second poll, for as
+   long as the tab stayed open. */
+const refusal = (message, code) =>
+  Object.assign(new Error(message), { code, settled: true });
 // Let the browser actually paint before a long synchronous block starts. One
 // animation frame only schedules the work; the second is what proves it ran.
 // Off-screen callers — the geometry tests drive this same load path in Node —
@@ -512,9 +518,7 @@ export class ModelViewer {
     if (hash !== shown.sha256) {
       // Coded like the service's own refusal, because they mean the same thing
       // and the page has to stop retrying either of them.
-      const mismatch = new Error(t("model.versionMismatch"));
-      mismatch.code = "HASH_MISMATCH";
-      throw mismatch;
+      throw refusal(t("model.versionMismatch"), "HASH_MISMATCH");
     }
     if (epoch !== this.loadingEpoch) return;
     let object;
@@ -543,7 +547,7 @@ export class ModelViewer {
       size = bounds.getSize(new V()),
       center = bounds.getCenter(new V());
     if (!Number.isFinite(size.length()) || size.length() === 0)
-      throw new Error(t("model.noExtent"));
+      throw refusal(t("model.noExtent"), "MODEL_FORMAT");
     const scale = 3 / Math.max(size.x, size.y, size.z);
     /* The turn goes on `root`, beside the fit, because every coordinate handed
        to the agent stops short of `root`: a pin is in its own mesh's frame, and
@@ -573,12 +577,12 @@ export class ModelViewer {
       if (
         o.isSkinnedMesh ||
         o.isInstancedMesh ||
-        o.geometry.morphAttributes.position?.length
+        Object.values(o.geometry.morphAttributes).some((a) => a?.length)
       )
-        throw new Error(t("model.animated"));
+        throw refusal(t("model.animated"), "ANIMATED_MODEL");
     const sourceTotal = faces.reduce((n, c) => n + c, 0);
     if (sourceTotal > MAX_REVIEW_TRIANGLES)
-      throw new Error(t("model.tooManyTriangles"));
+      throw refusal(t("model.tooManyTriangles"), "MODEL_LIMIT");
     // Share the budget by what each mesh needs, not by how many triangles it
     // happens to start with. A dense mesh used to hold a share far larger than
     // it could ever spend while a mesh of a few large faces was starved down to
@@ -632,7 +636,7 @@ export class ModelViewer {
     // it an over-budget manifest reaches the server, which can only answer with
     // the generic schema rejection and leaves the viewer with no explanation.
     if (total > MAX_REVIEW_TRIANGLES)
-      throw new Error(t("model.meshOverBudget"));
+      throw refusal(t("model.meshOverBudget"), "MODEL_LIMIT");
     this.model = model;
     this.grid.position.y = floor - 0.025;
     this.home();

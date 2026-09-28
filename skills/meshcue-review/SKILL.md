@@ -55,7 +55,8 @@ IPv4 — never for a token or a pairing code.
 
 MeshCue draws STEP and STL +Z up with −Y to the front, and GLB +Y up; rotate a
 model built otherwise before publishing, since nothing is guessed. Marks come
-back in the file's own coordinates and units.
+back in the file's own coordinates and units. STL carries no colour and is
+always drawn grey; publish STEP or GLB when colour matters.
 
 Publishing switches to the new version immediately; nothing queues, and the user
 does not have to end the previous round first. Deliver only the URL the tool

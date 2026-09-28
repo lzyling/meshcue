@@ -192,10 +192,11 @@ export function inspectModel(buffer, format, { derived } = {}) {
     }
     if (
       doc.skins?.length ||
-      doc.nodes?.some((n) => n.extensions?.EXT_mesh_gpu_instancing)
+      doc.nodes?.some((n) => n.extensions?.EXT_mesh_gpu_instancing) ||
+      doc.meshes?.some((m) => m.primitives?.some((p) => p.targets?.length))
     )
       throw new ReviewError(
-        "Convert skins and instances to static meshes before importing.",
+        "Convert skins, instances and morph targets to static meshes before importing.",
         400,
         "ANIMATED_MODEL",
       );

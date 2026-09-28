@@ -134,22 +134,22 @@
   附到标记用可选引用字段。
 - 单位：沿用「不假设单位」，没标单位的 GLB／STL 显示裸数并注明未标。
 
-**小项（原定）**
-- STL 一律灰：`src/viewer.js:530-535`。文档加在 AGENT-INTERFACE 朝向那段之后和 `SKILL.md`；要让审阅者也看到，改 `en.js` 的
+**小项（原定）** —— 09-29 第一轮三项都已做完（见各条 ✅）
+- ✅ STL 一律灰（`db334a2` 之后的提交：六语帮助段＋AGENT-INTERFACE＋SKILL.md）：`src/viewer.js:530-535`。文档加在 AGENT-INTERFACE 朝向那段之后和 `SKILL.md`；要让审阅者也看到，改 `en.js` 的
   `help.p9`＋五语译文再跑 `sync:docs`（AGENT-INTERFACE `:169-217` 是生成的，不能手改）。
-- 中文零件名乱码：**乱码在文件里**——OCCT 写文件时把 UTF-8 字节又按 Latin-1 编了一遍，库只是原样返回（扫描实测：本机 113 个 STEP 的零件名是这种乱码，
+- ✅ 中文零件名乱码（`db334a2`，本机 67 个受影响 STEP 回归：113 个网格名还原，8 个因文件丢了 C1 字节还原不了）：**乱码在文件里**——OCCT 写文件时把 UTF-8 字节又按 Latin-1 编了一遍，库只是原样返回（扫描实测：本机 113 个 STEP 的零件名是这种乱码，
   正确 UTF-8 的 0 个）。修法：在 `applyDeclaredStyles` 之后按 Latin-1 取回字节，能按 UTF-8 解开就还原（放在它之前会破坏取色匹配）。
   名字不在界面显示，只随 read 给 Agent。
-- morph targets：服务端 `server/models.mjs:193-201` 不看 `targets`，precheck／open 放行；页面 `src/viewer.js:572-578` 拒。
+- ✅ morph targets（服务端拒 `ANIMATED_MODEL`，页面查全部 morphAttributes）：服务端 `server/models.mjs:193-201` 不看 `targets`，precheck／open 放行；页面 `src/viewer.js:572-578` 拒。
   按代码看这个错误不算 HASH_MISMATCH，页面每 2.2 秒轮询就重新加载一次，Agent 收不到任何失败信号（未核实）。
   改：服务端抛 `ANIMATED_MODEL`，AGENT-INTERFACE 补上这个错误码。
 
-**扫描查出的新缺陷（不另发补丁，并进 1.4.0）**
-- 🔴 德语／法语界面用紫色涂区域，保存会 400：区域名 `violette Fläche`（15 字符）／`Zone violette`（13）超过区域 `label` 的 12 字符上限
+**扫描查出的新缺陷（不另发补丁，并进 1.4.0）** —— 09-29 第一轮全部修完
+- ✅ 🔴 德语／法语界面（`24755d0`：上限改 32、check-i18n 逐语逐色核对）用紫色涂区域，保存会 400：区域名 `violette Fläche`（15 字符）／`Zone violette`（13）超过区域 `label` 的 12 字符上限
   （`server/index.mjs:338`）。已按代码和六语目录核实，未端到端复现；其他语言、其他颜色都在 12 以内。
-- 🟡 `server/step-styles.mjs:60-71` 的 `decode` 只认大写十六进制，也不认 `\X4\`／`\S\`。SolidWorks 写小写十六进制，零件名对不上，颜色补不回来
+- ✅ 🟡（`db334a2`，assembly1.step 有色 1/3→3/3）`server/step-styles.mjs:60-71` 的 `decode` 只认大写十六进制，也不认 `\X4\`／`\S\`。SolidWorks 写小写十六进制，零件名对不上，颜色补不回来
   （扫描实测 `filament-swatch-box/ref/original/assembly1.step`：库自己 1/3 有色、补 0；改成不分大小写后 3/3）。
-- 🟡 morph 页面反复重载（见上）。
+- ✅ 🟡 morph 页面反复重载（见上）。修法扩到同类：页面对「同样的字节每次都会被拒」的情况（哈希不符、会动的模型、超面数、没有尺寸）一律标 `settled`，不再每 2.2 秒重取。
 
 **Claude Code 插件市场清单（Kelven 09-25 同意随 1.4.0 上线）—— 比「加一个清单文件」大**
 - 仓库根同时做市场根和插件根，MCP 跑 `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs`；根目录不放 `.mcp.json`（否则开发本仓的人会被当成项目级 MCP 加载）。
