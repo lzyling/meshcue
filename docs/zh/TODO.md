@@ -1044,6 +1044,12 @@ glTF 规定「没有材质的 primitive 用默认材质」，而那个默认材�
   → Agent 问「你是哪个版本」，答案可以和它即将执行的行为对不上。**属于「报出来的 ≠ 真实的」那一类。**
 - **dependabot #4（routine group）与 #5（vite 7.3.6 → 8.3.0，跨大版本）** —— 动的是真依赖。
   09-18 只合了三个 `github_actions` 标签的 action 升级 PR；这两个要本地拉下来跑完整套件、确认绿了再给 Kelven。
+- **未查清 · 09-29 `799d144` 的 node 测试红过一次**：这个提交只改 TODO，CI「i18n, format, unit tests」里 `node --test` 退出码 1
+  （84 秒，通过时约 80 秒，不是卡死）；同样代码的 `0e040b3` 两个任务全绿，两次浏览器测试都是 85 过、0 flaky。
+  日志匿名拿不到（API 要仓库管理员权限、网页要登录），所以不知道是哪一条。本机正常跑 6 次、占满 CPU 跑 1 次都全过。
+  **下次再红先看那次的日志**（要 Kelven 登录 GitHub 看，或给一个只读 Actions 的令牌），别凭猜改测试。
+  排查时自己踩的坑：**别在同一个工作副本里并发跑两套 node 测试**——ci-build 的「版本漂移」测试会把另一套改过的
+  `adapters/openclaw/package.json` 当原件恢复，留下 `0.0.1-drift`，之后单跑也红（第五轮踩到，已 `git checkout` 还原，没进任何提交）。
 - ✅ ~~**已知具名 flaky**：`tests/browser/review.spec.js`「a mark arrives at its point instead of
   flying in from the corner」~~ —— **2026-09-29 查清：是真缺陷，已修。**
   `836f7d4`（只改 TODO）的 CI 三次重试都是 634.9 px —— 正好是标签还在图层原点（视图左上角）、
