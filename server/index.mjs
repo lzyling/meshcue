@@ -9,7 +9,11 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
-import { MAX_ROUND_BYTES, MARK_WHOLE_FACE_BYTES } from "./budget.mjs";
+import {
+  MAX_ROUND_BYTES,
+  MARK_WHOLE_FACE_BYTES,
+  MAX_REGION_LABEL,
+} from "./budget.mjs";
 import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
@@ -335,7 +339,7 @@ const annotation = z.discriminatedUnion("type", [
       id,
       type: z.literal("region"),
       coverage: z.enum(["brush-v1", "source-v1", "source-v2"]).optional(),
-      label: z.string().max(12),
+      label: z.string().max(MAX_REGION_LABEL),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       /* Where the mark is and how much surface it covers, in the model's own
          units, worked out by the browser because nothing else can: this service

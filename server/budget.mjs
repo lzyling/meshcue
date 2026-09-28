@@ -12,3 +12,10 @@
    and `WHOLE_FACE_BYTES` in `src/main.js`. */
 export const MAX_ROUND_BYTES = 3_600_000;
 export const MARK_WHOLE_FACE_BYTES = 8;
+
+/* A region's label is the name the page gives it in the reviewer's language —
+   "violette Fläche", "Zone violette" — so it is as long as the longest
+   translation, not as long as a letter. Twelve held every name but those two,
+   and a German or French reviewer painting purple got a failed save.
+   `scripts/check-i18n.mjs` puts every catalogue's region names against it. */
+export const MAX_REGION_LABEL = 32;

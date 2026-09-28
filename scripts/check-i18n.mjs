@@ -114,6 +114,40 @@ for (const file of sources) {
   });
 }
 
+/* 5 · A region is saved under the name the page gives it, in the reviewer's
+   language, and the service holds that name to a length. Twelve characters
+   fitted every name but German and French purple, so those reviewers met a
+   failed save and nothing on the page said why. Every name is checked here
+   against the service's own limit. The colours are the page's palette in
+   `src/main.js`; a `color.*` key this list does not know fails, so a sixth
+   colour cannot arrive without being measured. */
+const { MAX_REGION_LABEL } = await import(
+  pathToFileURL(path.join(repo, "server", "budget.mjs")).href
+);
+const REGION_COLOURS = ["red", "yellow", "green", "blue", "purple"];
+const unmeasured = Object.keys(en).filter(
+  (k) =>
+    k.startsWith("color.") &&
+    k !== "color.choose" &&
+    !REGION_COLOURS.includes(k.slice(6)),
+);
+if (unmeasured.length)
+  fail("colours with no region-name check", unmeasured.join(", "));
+for (const locale of LOCALES) {
+  const table = locale === SOURCE_LOCALE ? en : await load(`${locale}.js`);
+  for (const colour of REGION_COLOURS) {
+    const name = String(table["marks.regionName"]).replace(
+      "{color}",
+      table[`color.${colour}`],
+    );
+    if (name.length > MAX_REGION_LABEL)
+      fail(
+        `${locale}: the ${colour} region is named longer than the service keeps`,
+        `"${name}" is ${name.length} characters; the limit is ${MAX_REGION_LABEL}`,
+      );
+  }
+}
+
 if (problems.length) {
   console.error(`i18n check failed — ${problems.length} problem(s):\n`);
   for (const p of problems)
