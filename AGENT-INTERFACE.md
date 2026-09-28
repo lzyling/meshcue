@@ -250,6 +250,12 @@ mark, then say what to change."
   colours come with STEP and GLB. Animation, skeletons and compressed GLB are
   not supported yet. This is a review tool; it does not sculpt the model.
 
+- Measure: pick the Measure tool, then Point to point (corners snap), Edge
+  length or Two faces — parallel faces give the distance between them, any
+  others the angle. Millimetres show two decimals; a model with no unit shows
+  the bare number. A measurement is gone at the next one unless you press
+  “Keep”, which makes it a mark you can write a note on, undo, delete and send.
+
 <!-- reviewer-help:end -->
 
 ## Reading marks
@@ -260,8 +266,9 @@ from any `note` they wrote on a mark.
 
 - `model.id / sha256 / original / source` — immutable model identity, the
   original file, and the parametric source it came from.
-- `annotations` — lettered pins and coloured regions. Only a pin has a `label`
-  ("A", "B"). A region is identified by its colour and position, never as a
+- `annotations` — lettered pins, coloured regions and, from 1.4.0, numbered
+  measurements. A pin's `label` is a letter ("A", "B") and a measurement's is
+  `M1`, `M2`. A region is identified by its colour and position, never as a
   numbered point that is not drawn on the model. **Colour carries no meaning of
   its own.**
 - A pin's `position` and `normal` are in the source mesh's local coordinates and
@@ -330,11 +337,33 @@ from any `note` they wrote on a mark.
   marks, with `space: "model"`. It is what "the top edge" or "the left of this"
   meant on their screen. A mark made before 1.4.0 has no `view`; the batch's
   `camera` is the nearest thing, and it is in the preview's frame.
+- **A mark of `type: "measure"` is a dimension the reviewer read off this
+  version and kept.** `kind: "points"` is the distance between two points; a
+  click within a few pixels of a triangle corner is taken at the corner.
+  `"edge"` is the length of a straight sharp edge, end to end — sharp meaning
+  the faces either side turn by more than 30°; a curved edge is refused on the
+  page, not measured. `"planes"` is two flat faces: `quantity: "length"` when
+  they are parallel within 0.5°, the gap between them, otherwise
+  `quantity: "angle"`, the angle between the two planes from 0 to 90 degrees,
+  with each face's outward direction in `normals` so that a 45° chamfer and a
+  45° groove can be told apart. `points` are the two ends of the line it was
+  read along and `picks` the source triangles each end was taken on, with
+  `space: "model"`. `read` puts the `unit` beside the `value`: the model's
+  declared unit, `"unspecified"` when there is none, or `"degree"`. The service
+  refuses a measurement whose number is not the one its own points or normals
+  give. Faces and edges are found on the mesh; a STEP's own faces are not used
+  for this yet.
 
 Acknowledge receipt first. If neither the conversation nor a mark's `note` says
 what to change, ask what the mark means. **Do not infer a change from a colour,
 a letter, or the fact that a button was pressed.** If the explanation is already
 sufficient, do not ask again.
+
+**A measurement asks for no change by itself.** It says what the reviewer
+read; what it should become is in its `note` or the conversation ("make this
+22 mm"), and the echo repeats it as from and to — "M1: 20.00 mm to 22 mm" —
+before anything is changed. A measurement with neither is a question to ask,
+not a target to guess.
 
 When marks carry notes, **echo what you understood before changing anything**
 — in the conversation, and with `echo` where a region helps — and wait for

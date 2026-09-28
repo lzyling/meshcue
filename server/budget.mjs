@@ -33,3 +33,16 @@ export const MAX_NOTE = 200;
    significant figures. Measured at about 190 bytes as JSON; the page charges
    this much for every mark that carries one (`VIEW_BYTES` in `src/main.js`). */
 export const MARK_VIEW_BYTES = 240;
+
+/* What a kept measurement adds to a mark: its kind and number, the two ends of
+   the line it was read along, the triangle each end was taken on, and for two
+   faces their normals. Measured at about 300 bytes as JSON with short mesh ids;
+   a mesh id may run to a hundred characters, and there are two. The page
+   charges the same (`MEASURE_BYTES` in `src/main.js`). */
+export const MARK_MEASURE_BYTES = 480;
+
+/* Parallel is within half a degree (`PARALLEL_DEG` in `src/measure.js`), which
+   is when two faces are read as a gap rather than an angle. The service holds
+   a kept measurement to that, and to its own numbers: an angle is the one its
+   normals make, a length the distance between its two points. */
+export const MEASURE_PARALLEL_DEG = 0.5;

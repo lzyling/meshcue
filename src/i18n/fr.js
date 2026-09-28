@@ -291,4 +291,33 @@ export default {
     "« Envoyer à {agent} » envoie ce lot ; {agent} répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
   "help.p9":
     "GLB, STL et STEP, jusqu'à 80 Mo et 600 000 triangles. Un STEP est triangulé une seule fois à son arrivée et vos annotations portent sur ce maillage ; le téléchargement renvoie toujours le STEP lui-même. Un STL ne porte aucune couleur et s'affiche donc toujours en gris ; les couleurs viennent avec STEP et GLB. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
+
+  "tool.measure": "Mesurer",
+  "tool.measureLabel": "Outil de mesure",
+  "tool.measureTitle":
+    "Mesure entre deux points, le long d'une arête ou entre deux faces ; rien n'est gardé sans « Garder »",
+  "hint.measurePoints":
+    "Cliquez deux points · les coins s'aimantent · le bouton droit pivote toujours",
+  "hint.measureEdge":
+    "Pointez une arête droite et cliquez pour lire sa longueur · le bouton droit pivote toujours",
+  "hint.measurePlanes":
+    "Cliquez une face plane, puis une autre · le bouton droit pivote toujours",
+  "measure.kinds": "Quoi mesurer",
+  "measure.points": "Point à point",
+  "measure.edge": "Longueur d'arête",
+  "measure.planes": "Deux faces",
+  "measure.nextPoint": "Cliquez le second point",
+  "measure.nextFace": "Cliquez la seconde face",
+  "measure.keep": "Garder",
+  "measure.keepTitle":
+    "Garder cette mesure comme marque ; elle part avec les autres",
+  "measure.name": "Mesure {label}",
+  "measure.unitless": "{value} (sans unité)",
+  "measure.noEdge":
+    "Pas d'arête droite ici — pointez plus près d'une arête vive.",
+  "measure.curved":
+    "Cette arête est courbe ; seules les arêtes droites se mesurent.",
+  "measure.sameFace": "C'est la même face — cliquez-en une autre.",
+  "help.p10":
+    "Mesurer : choisissez l'outil de mesure, puis « Point à point » (les coins s'aimantent), « Longueur d'arête » ou « Deux faces » — deux faces parallèles donnent leur écart, toutes les autres l'angle entre elles. Les millimètres s'affichent avec deux décimales ; un modèle sans unité n'affiche que le nombre. Une mesure disparaît à la suivante, sauf si vous appuyez sur « Garder » : elle devient alors une marque que vous pouvez annoter, annuler, supprimer et envoyer.",
 };

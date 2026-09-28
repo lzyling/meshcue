@@ -30,7 +30,27 @@ const reviewerSide = (a) => ({
   ...(a.view ? { view: a.view } : {}),
 });
 
-export function summarizeAnnotation(a) {
+/* A kept measurement is already small and already a description -- two points,
+   what they were taken on, a number -- so it goes over whole, with the unit
+   its number is in said beside it: the model's declared unit, "unspecified"
+   when there was none, or degrees for an angle. The agent should not have to
+   find the unit somewhere else in the batch to read one dimension. */
+export function summarizeAnnotation(a, units = "unspecified") {
+  if (a.type === "measure")
+    return {
+      id: a.id,
+      type: "measure",
+      label: a.label,
+      kind: a.kind,
+      quantity: a.quantity,
+      value: a.value,
+      unit: a.quantity === "angle" ? "degree" : units,
+      space: a.space,
+      points: a.points,
+      picks: a.picks,
+      ...(a.normals ? { normals: a.normals } : {}),
+      ...reviewerSide(a),
+    };
   if (a.type === "pin")
     return {
       id: a.id,
@@ -99,6 +119,7 @@ function manifestFor(batch, annotations) {
   const used = new Set();
   for (const a of annotations) {
     if (a.meshId) used.add(a.meshId);
+    for (const pick of a.picks || []) used.add(pick.meshId);
     for (const meshId of Object.keys(a.faces || {})) used.add(meshId);
     for (const patch of a.surfacePatches || []) used.add(patch.meshId);
   }
@@ -141,7 +162,9 @@ export function summarizeSubmission(batch) {
   if (!batch?.annotations) return batch;
   return {
     ...batch,
-    annotations: batch.annotations.map(summarizeAnnotation),
+    annotations: batch.annotations.map((a) =>
+      summarizeAnnotation(a, batch.model?.units || "unspecified"),
+    ),
     meshManifest: manifestFor(batch, batch.annotations),
     // Stated, not implied. An agent that needs the extent has to know it was
     // given a description of one, and has to know what to ask for instead.
@@ -152,6 +175,12 @@ export function summarizeSubmission(batch) {
       ? {
           viewHint:
             "A mark's view is where the reviewer was looking from when they last placed, painted, moved or wrote on it, in the same model frame and units as the positions: the camera position, the point it looked at (target), the direction the top of their screen pointed (up), the vertical field of view in degrees (fov) and the width-to-height aspect. So \"the top\" or \"the left side\" of a mark means what it meant on their screen. A mark made before 1.4.0 has no view; the batch's camera is then the nearest thing, and it is in the preview's scaled coordinates, not the model's.",
+        }
+      : {}),
+    ...(batch.annotations.some((a) => a.type === "measure")
+      ? {
+          measureHint:
+            'A measurement (type "measure") is a dimension the reviewer read off this version and kept. kind "points" is the distance between two points, a point that landed within a few pixels of a triangle corner being taken at the corner; "edge" is the length of a straight sharp edge, end to end; "planes" is two flat faces: quantity "length" when they are parallel (within 0.5 degrees), the gap between them, else quantity "angle", the angle between the two planes, 0 to 90 degrees, with each face\'s outward normal in normals. points are the two ends of the line it was read along, in the model frame and units like every other position; picks are the source triangles each end was taken on. value is in unit: the model\'s declared unit, "unspecified" when none was declared, or "degree". By itself a measurement asks for no change: what it should become is in its note or the conversation, and your echo repeats it as from and to ("12.40 mm to 22 mm") before you change anything. Faces and edges are found on the mesh: a STEP\'s own faces are not used yet.',
         }
       : {}),
     ...(batch.annotations.some((a) => a.note)

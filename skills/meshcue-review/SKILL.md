@@ -134,6 +134,14 @@ is the camera the reviewer last used on it, in model coordinates, with `up` the
 top of their screen: read "top" or "left" against it. Marks from before 1.4.0
 have no `view`.
 
+A mark of `type: "measure"` (M1, M2) is a dimension the reviewer read and kept:
+between two points, along a straight edge, or between two faces (a gap when
+parallel, else an angle), with the `value` and its `unit` side by side. It asks
+for no change by itself. Take the target from its note or the conversation and
+echo it as from and to ("M1: 20.00 mm to 22 mm"); with neither, ask what it
+should be. When `unit` is `"unspecified"`, say the model declares no unit
+rather than calling the number millimetres.
+
 Two kinds of batch are handled differently. A batch with `sealed: true` was not
 handed over deliberately; it is unfinished work closed out on the user's behalf
 when a version's round ended, so ask what they meant rather than executing it as

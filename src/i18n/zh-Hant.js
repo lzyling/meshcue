@@ -254,4 +254,27 @@ export default {
     "按「交給{agent}」把這一批送出；{agent}會給出新版本，你接著在新版本上標記就行。不需要結束什麼，草稿會自動保存。",
   "help.p9":
     "支援 GLB／STL／STEP，上限 80 MB 與 60 萬面。STEP 在匯入時三角化一次，你的標註落在那個網格上；下載拿到的仍是 STEP 本身。STL 不帶顏色，一律顯示為灰色；要顏色請用 STEP 或 GLB。動畫、骨架與壓縮 GLB 尚未支援。這是審閱工具，不會替你改模型。",
+
+  "tool.measure": "測量",
+  "tool.measureLabel": "測量工具",
+  "tool.measureTitle":
+    "量兩點之間、一條直邊或兩個面之間；不按「留下」就不會儲存",
+  "hint.measurePoints": "單擊兩個點 · 靠近角點會自動吸附 · 右鍵照樣旋轉",
+  "hint.measureEdge": "指向一條直邊，單擊讀出長度 · 右鍵照樣旋轉",
+  "hint.measurePlanes": "先單擊一個平面，再單擊另一個 · 右鍵照樣旋轉",
+  "measure.kinds": "測量什麼",
+  "measure.points": "點到點",
+  "measure.edge": "邊長",
+  "measure.planes": "兩個面",
+  "measure.nextPoint": "單擊第二個點",
+  "measure.nextFace": "單擊第二個面",
+  "measure.keep": "留下",
+  "measure.keepTitle": "把這次測量留作標記，隨其他標記一起提交",
+  "measure.name": "測量 {label}",
+  "measure.unitless": "{value}（單位未標）",
+  "measure.noEdge": "這裡沒有直邊，請指得更靠近稜邊。",
+  "measure.curved": "這條邊是彎的，只能量直邊。",
+  "measure.sameFace": "這是同一個面，請單擊另一個面。",
+  "help.p10":
+    "測量：選測量工具，再選「點到點」（靠近角點會自動吸附）、「邊長」或「兩個面」——兩個面平行時給出間距，不平行時給出夾角。毫米顯示兩位小數；沒標單位的模型只顯示數字。量下一次時上一次就會消失；按「留下」才會變成標記，可以寫說明、撤銷、刪除，也會隨提交一起送出。",
 };

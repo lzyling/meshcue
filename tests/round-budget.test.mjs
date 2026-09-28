@@ -9,6 +9,7 @@ import {
   MARK_WHOLE_FACE_BYTES,
   MAX_NOTE,
   MARK_VIEW_BYTES,
+  MARK_MEASURE_BYTES,
 } from "../server/budget.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,6 +38,7 @@ test("the page's budget sits below the service's, and they count alike", () => {
   // reviewer types something the page accepts and the save fails.
   assert.equal(constant("MAX_NOTE"), MAX_NOTE);
   assert.equal(constant("VIEW_BYTES"), MARK_VIEW_BYTES);
+  assert.equal(constant("MEASURE_BYTES"), MARK_MEASURE_BYTES);
 });
 
 test("the face limit is gone from both sides, not merely raised", () => {

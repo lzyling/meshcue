@@ -1030,6 +1030,106 @@ a {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+/* A measurement is read, not pointed at: its reading sits on the middle of its
+   line, dark on a pale ring like the line itself, so it reads on any model
+   and either backdrop. The points it was taken from are dots; under the
+   pointer, a hollow dot is where a click would land and a filled one is a
+   corner it would take. */
+.measure-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #14202a;
+  color: #ffffff;
+  border: 2px solid #ffffffd9;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+  z-index: 3;
+}
+button.measure-label {
+  pointer-events: auto;
+}
+.measure-label b {
+  font-weight: 700;
+  opacity: 0.7;
+  margin-right: 2px;
+}
+.measure-label.selected {
+  background: var(--accent);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.measure-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #14202a;
+  border: 2px solid #ffffff;
+  pointer-events: none;
+  z-index: 2;
+}
+.measure-dot.hover {
+  background: transparent;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px #ffffffd9;
+}
+.measure-dot.hover.snapped {
+  background: var(--accent);
+}
+.annotation-badge.measure-badge {
+  background: #14202a;
+  color: #ffffff;
+  font-size: 9px;
+}
+.measure-options {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.measure-kinds {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.measure-kind {
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: 10px;
+  padding: 5px 9px;
+}
+.measure-kind + .measure-kind {
+  border-left: 1px solid var(--line);
+}
+.measure-kind.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+#measure-reading {
+  min-width: 5em;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+#keep-measure {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 #toast {
   position: fixed;
   bottom: 25px;

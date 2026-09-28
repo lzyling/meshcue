@@ -3,6 +3,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import {
   acceleratedRaycast,
   computeBoundsTree,
@@ -11,6 +14,13 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
+import {
+  faceEdges,
+  isFeatureEdge,
+  straightEdge,
+  planeAt,
+  planesMeasure,
+} from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -45,6 +55,23 @@ const Z_UP_FORMATS = new Set(["step", "stp", "stl"]);
 /* How far off the pole a top or bottom view stands, in radians. Far enough
    from the 1e-6 OrbitControls clamps to, too little to see. */
 const POLE_OFFSET = 1e-4;
+/* How near a triangle's corner a measuring click must land, in screen pixels,
+   to take the corner instead of the point it hit: a model's corners are where
+   its dimensions are, and a hand cannot find one to the pixel. */
+const SNAP_PX = 10;
+// How near an edge the pointer must be for the edge tool to take it.
+const EDGE_PX = 20;
+// The distance from a point to a segment, on the screen.
+const segmentDistance = ([px, py], [ax, ay], [bx, by]) => {
+  const dx = bx - ax,
+    dy = by - ay;
+  const t = Math.max(
+    0,
+    Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)),
+  );
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+};
+const midpoint = ([a, b]) => a.clone().add(b).multiplyScalar(0.5);
 /* A refusal these bytes will earn on every attempt. `settled` tells the page to
    stop asking for them, as it always has for a hash mismatch: a model it cannot
    show was otherwise fetched and refused again on every 2.2-second poll, for as
@@ -181,6 +208,22 @@ export class ModelViewer {
     this.agentOverlay = new THREE.Group();
     this.previewOverlay = new THREE.Group();
     this.scene.add(this.agentOverlay, this.previewOverlay);
+    /* The measurement being taken -- the faces it is between, the one under
+       the pointer, and its line -- kept apart from the marks: a measurement is
+       the reviewer looking and is gone at the next one, while the marks are
+       redrawn on every edit. */
+    this.measureFaces = new THREE.Group();
+    this.measureCandidateGroup = new THREE.Group();
+    this.measureLines = new THREE.Group();
+    this.scene.add(
+      this.measureFaces,
+      this.measureCandidateGroup,
+      this.measureLines,
+    );
+    this.lineMaterials = new Map();
+    this.measureFaceMaterials = new Map();
+    this.measureKind = "points";
+    this.measuring = null;
     this.annotationsVisible = true;
     this.fillTolerance = 6;
     // Two layers, because they are cleared on different schedules. Every pin
@@ -194,6 +237,13 @@ export class ModelViewer {
     this.labels = document.createElement("div");
     this.labels.className = "pin-layer";
     container.append(this.labels);
+    // The measurement's points and reading, cleared on the measurement's own
+    // schedule and not the marks'.
+    this.measureLayer = document.createElement("div");
+    this.measureLayer.className = "pin-layer";
+    container.append(this.measureLayer);
+    this.measureAnchors = [];
+    this.hoverAnchor = null;
     this.ray = new THREE.Raycaster();
     this.ray.firstHitOnly = true;
     this.meshes = [];
@@ -313,10 +363,15 @@ export class ModelViewer {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    // A wide line is so many pixels wide, so it has to know how many there are.
+    for (const material of this.lineMaterials.values())
+      material.resolution.set(width, height);
   }
   setMode(mode) {
     this.editEpoch = (this.editEpoch || 0) + 1;
     this.clickStart = null;
+    // Putting the measuring tool down, or picking it up again, starts over.
+    this.clearMeasure();
     this.controls.enabled = true;
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
@@ -498,6 +553,9 @@ export class ModelViewer {
   clearModel() {
     this.setNeutral(false);
     this.setAnnotations([]);
+    this.clearMeasure();
+    this.planeCache = null;
+    this.edgeCache = null;
     this.clearOverlay(this.agentOverlay);
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
@@ -783,7 +841,7 @@ export class ModelViewer {
      Expansion belongs to drawing, which is what `expandWholeFaces` is for. */
   serializeAnnotations(annotations) {
     return annotations.map((a) =>
-      a.type === "pin" ||
+      a.type !== "region" ||
       ["brush-v1", "source-v1", "source-v2"].includes(a.coverage)
         ? structuredClone(a)
         : {
@@ -831,6 +889,8 @@ export class ModelViewer {
   pointerMove(e) {
     if (this.mode === "fill" && !e.buttons)
       this.previewFill(e.clientX, e.clientY);
+    if (this.mode === "measure" && !e.buttons)
+      this.hoverMeasure(e.clientX, e.clientY);
     if (
       this.gestureStart &&
       Math.hypot(
@@ -873,6 +933,8 @@ export class ModelViewer {
         });
         this.labels.append(el);
         this.pins.push({ el, a, mesh });
+      } else if (a.type === "measure") {
+        this.drawKeptMeasure(a, a.id === selectedId);
       } else {
         for (const [meshId, faces] of Object.entries(a.faces)) {
           const mesh = this.meshMap.get(meshId);
@@ -990,6 +1052,7 @@ export class ModelViewer {
     this.renderer.render(this.scene, this.camera);
     this.reportOrientation();
     this.placePins();
+    this.placeMeasure();
   }
   placePins() {
     if (!this.pins.length) return;
@@ -1007,16 +1070,21 @@ export class ModelViewer {
       this.occlusionValid = true;
     }
     for (const pin of this.pins) {
-      const world = pin.mesh.localToWorld(
-        this.scratch.world.fromArray(pin.a.position),
-      );
+      // A kept measurement's reading hangs at the middle of its line, which is
+      // in the model's frame rather than any one mesh's.
+      const world = pin.model
+        ? this.scratch.world.copy(pin.model).applyMatrix4(this.root.matrixWorld)
+        : pin.mesh.localToWorld(this.scratch.world.fromArray(pin.a.position));
       const projected = this.scratch.projected.copy(world).project(this.camera);
       const inView =
         projected.z >= -1 &&
         projected.z <= 1 &&
         Math.abs(projected.x) < 1 &&
         Math.abs(projected.y) < 1;
-      if (moved) {
+      // A measurement is drawn over the model, so its reading is never behind
+      // it.
+      if (moved && pin.model) pin.unoccluded = true;
+      else if (moved) {
         pin.unoccluded = false;
         if (inView) {
           this.ray.set(
@@ -1043,7 +1111,9 @@ export class ModelViewer {
       // as well, about the layer's own origin. The landing animation scales, so
       // putting the position after it is what keeps a mark on its point instead
       // of flying it in from the corner of the screen.
-      pin.el.style.translate = `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
+      pin.el.style.translate = pin.model
+        ? `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 50%)`
+        : `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
     }
   }
   /* Placing a mark is the one moment a reviewer makes something, and it used to
@@ -1062,6 +1132,16 @@ export class ModelViewer {
     this.effects.append(mark);
   }
   focusAnnotation(a) {
+    if (a.type === "measure") {
+      const p = midpoint(
+        a.points.map((v) => new V().fromArray(v)),
+      ).applyMatrix4(this.root.matrixWorld);
+      const offset = this.camera.position.clone().sub(this.controls.target);
+      this.camera.position.copy(p).add(offset);
+      this.controls.target.copy(p);
+      this.controls.update();
+      return;
+    }
     const mesh = this.meshMap.get(
       a.type === "pin" ? a.meshId : Object.keys(a.faces)[0],
     );
@@ -1250,6 +1330,9 @@ export class ModelViewer {
       this.pinPending
     )
       return;
+    // Measuring edits nothing, so it asks for no lock and leaves nothing to
+    // undo; only keeping one does, and that is the page's to do.
+    if (this.mode === "measure") return this.measureClick(e.clientX, e.clientY);
     const hit = this.rayAt(e.clientX, e.clientY);
     if (!hit) return;
     const epoch = this.editEpoch;
@@ -1296,6 +1379,403 @@ export class ModelViewer {
     } finally {
       this.pinPending = false;
     }
+  }
+  /* Measuring. A measurement is the reviewer looking, not marking: it takes no
+     edit lock, leaves nothing to undo, and is gone at the next one, or when
+     the tool is put down -- unless it is kept, which makes it a mark like any
+     other (`measureMark`, and the page's `keepMeasure`). Everything is worked
+     out in the model's frame and units from the triangles as they arrived
+     (`src/measure.js`); the screen only decides which of them was meant. */
+  setMeasureKind(kind) {
+    this.measureKind = kind;
+    this.clearMeasure();
+  }
+  // A mesh's frame to the model's: composed up to `root` and stopped there,
+  // as `annotationBounds` does, so the fit's scale is never multiplied in.
+  modelFrame(mesh) {
+    const frame = new THREE.Matrix4();
+    for (let o = mesh; o && o !== this.root; o = o.parent)
+      frame.premultiply(o.matrix);
+    return frame;
+  }
+  toScreen(world) {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const p = world.clone().project(this.camera);
+    return [
+      r.left + ((p.x + 1) * r.width) / 2,
+      r.top + ((1 - p.y) * r.height) / 2,
+    ];
+  }
+  lineMaterial(name) {
+    let material = this.lineMaterials.get(name);
+    if (material) return material;
+    const style = {
+      // A pale halo under a dark core, so a line reads on a pale model, a dark
+      // one and either backdrop.
+      halo: { color: 0xffffff, linewidth: 5, opacity: 0.85 },
+      line: { color: 0x14202a, linewidth: 2 },
+      selected: { color: 0x2e9e78, linewidth: 2.5 },
+      hover: { color: 0x2e9e78, linewidth: 3, opacity: 0.6 },
+    }[name];
+    material = new LineMaterial({
+      ...style,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const { width, height } = this.container.getBoundingClientRect();
+    material.resolution.set(width || 1, height || 1);
+    this.lineMaterials.set(name, material);
+    return material;
+  }
+  // A polyline in the model's frame, drawn over the model: a measurement is
+  // there to be read, not hidden behind the thing it measures.
+  modelLine(points, material, order) {
+    const geometry = new LineGeometry();
+    geometry.setPositions(points.flatMap((p) => p.toArray()));
+    const line = new Line2(geometry, material);
+    line.matrixAutoUpdate = false;
+    line.matrix.copy(this.root.matrixWorld);
+    line.renderOrder = order;
+    return line;
+  }
+  addDimension(group, points, core = "line") {
+    group.add(
+      this.modelLine(points, this.lineMaterial("halo"), 7),
+      this.modelLine(points, this.lineMaterial(core), 8),
+    );
+  }
+  // Plain tint, no stripes: the stripes are what says "a mark".
+  addFaces(group, mesh, faces, hover = false) {
+    const key = hover ? "hover" : "fixed";
+    let material = this.measureFaceMaterials.get(key);
+    if (!material) {
+      material = new THREE.MeshBasicMaterial({
+        color: 0x2e9e78,
+        transparent: true,
+        opacity: hover ? 0.22 : 0.42,
+        toneMapped: false,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+        side: THREE.DoubleSide,
+      });
+      this.measureFaceMaterials.set(key, material);
+    }
+    const vertices = mesh.userData.fillTopology.vertices;
+    const coords = [];
+    for (const f of faces) for (const v of vertices[f]) coords.push(...v);
+    const geometry = new THREE.BufferGeometry().setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(coords, 3),
+    );
+    const overlay = new THREE.Mesh(geometry, material);
+    overlay.matrixAutoUpdate = false;
+    overlay.matrix.copy(mesh.matrixWorld);
+    overlay.renderOrder = 4;
+    group.add(overlay);
+  }
+  // The point a click meant: the corner of the triangle it hit when it landed
+  // within a few pixels of one, else the point itself. In the model's frame.
+  snapPoint(hit, x, y) {
+    const mesh = hit.object;
+    const face = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+    let local = mesh.worldToLocal(hit.point.clone()),
+      snapped = false,
+      best = SNAP_PX;
+    for (const corner of mesh.userData.fillTopology.vertices[face] || []) {
+      const at = new V().fromArray(corner);
+      const [sx, sy] = this.toScreen(mesh.localToWorld(at.clone()));
+      const d = Math.hypot(sx - x, sy - y);
+      if (d < best) {
+        best = d;
+        local = at;
+        snapped = true;
+      }
+    }
+    return {
+      meshId: mesh.userData.reviewId,
+      sourceFaceIndex: face,
+      point: local.applyMatrix4(this.modelFrame(mesh)),
+      snapped,
+    };
+  }
+  // The straight edge nearest the pointer among the sharp sides of the
+  // triangle it is over, end to end.
+  edgeAt(hit, x, y) {
+    const mesh = hit.object;
+    const face = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+    const topology = mesh.userData.fillTopology;
+    const screen = (p) =>
+      this.toScreen(mesh.localToWorld(new V().fromArray(p)));
+    let side = null,
+      best = EDGE_PX;
+    for (const s of faceEdges(topology, face)) {
+      if (!isFeatureEdge(topology, face, s.ka, s.kb)) continue;
+      const d = segmentDistance([x, y], screen(s.a), screen(s.b));
+      if (d < best) {
+        best = d;
+        side = s;
+      }
+    }
+    if (!side) return null;
+    const key = `${mesh.userData.reviewId}:${[side.ka, side.kb].sort().join("|")}`;
+    if (this.edgeCache?.key !== key)
+      this.edgeCache = {
+        key,
+        edge: {
+          ...straightEdge(
+            topology,
+            face,
+            side.ka,
+            side.kb,
+            this.modelFrame(mesh),
+          ),
+          meshId: mesh.userData.reviewId,
+          sourceFaceIndex: face,
+        },
+      };
+    return this.edgeCache.edge;
+  }
+  // The flat face under the pointer and the plane through it. Growing a big
+  // face is a walk over every triangle in it, so the last one is kept while
+  // the pointer stays on it.
+  planeUnder(hit) {
+    const mesh = hit.object;
+    const face = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+    const frame = this.modelFrame(mesh);
+    let found = this.planeCache;
+    if (!(found && found.mesh === mesh && found.faceSet.has(face))) {
+      const plane = planeAt(mesh.userData.fillTopology, face, frame);
+      if (!plane) return null;
+      found = this.planeCache = {
+        mesh,
+        meshId: mesh.userData.reviewId,
+        plane,
+        faceSet: new Set(plane.faces),
+      };
+    }
+    return {
+      ...found,
+      sourceFaceIndex: face,
+      pick: mesh.worldToLocal(hit.point.clone()).applyMatrix4(frame),
+    };
+  }
+  hoverMeasure(x, y) {
+    if (!this.enabled) return;
+    const hit = this.rayAt(x, y);
+    const kind = this.measureKind;
+    const candidate = !hit
+      ? null
+      : kind === "edge"
+        ? this.edgeAt(hit, x, y)
+        : kind === "planes"
+          ? this.planeUnder(hit)
+          : this.snapPoint(hit, x, y);
+    const same =
+      kind === "planes"
+        ? candidate?.plane === this.measureCandidate?.plane
+        : kind === "edge" && candidate === this.measureCandidate;
+    this.measureCandidate = candidate;
+    // Where a click would land, and whether it would take a corner.
+    if (kind === "points") {
+      if (!candidate) {
+        this.hoverAnchor?.el.remove();
+        this.hoverAnchor = null;
+        return;
+      }
+      this.hoverAnchor ||= { el: document.createElement("div") };
+      this.hoverAnchor.model = candidate.point;
+      this.hoverAnchor.el.className = `measure-dot hover${candidate.snapped ? " snapped" : ""}`;
+      if (!this.hoverAnchor.el.isConnected)
+        this.measureLayer.append(this.hoverAnchor.el);
+      return;
+    }
+    if (same) return;
+    this.clearOverlay(this.measureCandidateGroup);
+    // A curved edge is not offered: it is not one this tool measures.
+    if (candidate && kind === "edge" && !candidate.curved)
+      this.measureCandidateGroup.add(
+        this.modelLine(candidate.points, this.lineMaterial("hover"), 8),
+      );
+    if (candidate && kind === "planes")
+      this.addFaces(
+        this.measureCandidateGroup,
+        candidate.mesh,
+        candidate.plane.faces,
+        true,
+      );
+  }
+  measureClick(x, y) {
+    const hit = this.rayAt(x, y);
+    if (!hit) return;
+    const kind = this.measureKind;
+    // A finished measurement is replaced by the next click, not added to.
+    if (!this.measuring || this.measuring.result)
+      this.measuring = { kind, picks: [], result: null };
+    const m = this.measuring;
+    if (kind === "points") {
+      m.picks.push(this.snapPoint(hit, x, y));
+      if (m.picks.length === 2) {
+        const points = m.picks.map((p) => p.point);
+        m.result = {
+          quantity: "length",
+          value: points[0].distanceTo(points[1]),
+          points,
+        };
+      }
+    } else if (kind === "edge") {
+      const edge = this.edgeAt(hit, x, y);
+      if (!edge || edge.curved) {
+        this.measuring = null;
+        this.drawMeasure();
+        this.onMeasureRefused?.(edge ? "curved" : "noEdge");
+        return;
+      }
+      m.picks = [edge];
+      m.result = {
+        quantity: "length",
+        value: edge.length,
+        points: edge.ends,
+        line: edge.points,
+      };
+    } else {
+      const face = this.planeUnder(hit);
+      if (!face) return;
+      const first = m.picks[0];
+      if (
+        first?.mesh === face.mesh &&
+        first.faceSet.has(face.sourceFaceIndex)
+      ) {
+        this.onMeasureRefused?.("sameFace");
+        return;
+      }
+      m.picks.push(face);
+      if (m.picks.length === 2)
+        m.result = planesMeasure(m.picks[0], m.picks[1]);
+    }
+    this.drawMeasure();
+  }
+  drawMeasure() {
+    this.clearOverlay(this.measureLines);
+    this.clearOverlay(this.measureFaces);
+    this.measureLayer.replaceChildren();
+    if (this.hoverAnchor) this.measureLayer.append(this.hoverAnchor.el);
+    this.measureAnchors = [];
+    const m = this.measuring;
+    const anchor = (className, model) => {
+      const el = document.createElement("div");
+      el.className = className;
+      this.measureLayer.append(el);
+      this.measureAnchors.push({ el, model: model.clone() });
+      return el;
+    };
+    if (m?.kind === "planes")
+      for (const p of m.picks)
+        this.addFaces(this.measureFaces, p.mesh, p.plane.faces);
+    if (m?.kind === "points")
+      for (const p of m.picks) anchor("measure-dot", p.point);
+    if (m?.result) {
+      this.addDimension(this.measureLines, m.result.line || m.result.points);
+      anchor("measure-label", midpoint(m.result.points)).textContent =
+        this.formatMeasure?.(m.result) ?? String(m.result.value);
+    }
+    this.onMeasure?.(
+      m
+        ? {
+            kind: m.kind,
+            picks: m.picks.length,
+            result: m.result
+              ? { quantity: m.result.quantity, value: m.result.value }
+              : null,
+          }
+        : null,
+    );
+  }
+  placeMeasure() {
+    const anchors = this.hoverAnchor
+      ? [...this.measureAnchors, this.hoverAnchor]
+      : this.measureAnchors;
+    if (!anchors.length) return;
+    const rect = this.container.getBoundingClientRect();
+    for (const a of anchors) {
+      const p = this.scratch.projected
+        .copy(a.model)
+        .applyMatrix4(this.root.matrixWorld)
+        .project(this.camera);
+      a.el.hidden =
+        p.z < -1 || p.z > 1 || Math.abs(p.x) >= 1 || Math.abs(p.y) >= 1;
+      a.el.style.translate = `calc(${((p.x + 1) * rect.width) / 2}px - 50%) calc(${((1 - p.y) * rect.height) / 2}px - 50%)`;
+    }
+  }
+  clearMeasure() {
+    this.measuring = null;
+    this.measureCandidate = null;
+    this.hoverAnchor = null;
+    if (!this.measureLayer) return;
+    this.clearOverlay(this.measureCandidateGroup);
+    this.drawMeasure();
+  }
+  /* The measurement on screen as a mark keeps it: what was measured, between
+     what, and the number, in the model's frame and units (an angle in
+     degrees). Six significant figures, as a region's bounds and a mark's view
+     are, and a coordinate within a billionth of the model of zero is zero. */
+  measureMark() {
+    const m = this.measuring;
+    if (!m?.result) return null;
+    const span = 3 / (this.root.scale.x || 1);
+    const round = (v) =>
+      Math.abs(v) < span * 1e-9 ? 0 : Number(v.toPrecision(6));
+    const unit = (v) => (Math.abs(v) < 1e-9 ? 0 : Number(v.toPrecision(6)));
+    return {
+      kind: m.kind,
+      quantity: m.result.quantity,
+      value: Number(m.result.value.toPrecision(6)),
+      space: "model",
+      points: m.result.points.map((p) => p.toArray().map(round)),
+      picks: m.picks.map((p) => ({
+        meshId: p.meshId,
+        sourceFaceIndex: p.sourceFaceIndex,
+      })),
+      ...(m.kind === "planes"
+        ? {
+            normals: m.picks.map((p) => p.plane.normal.toArray().map(unit)),
+          }
+        : {}),
+    };
+  }
+  // A kept measurement: its line, its reading at the middle of it, and when it
+  // is the one selected, the faces it was taken between.
+  drawKeptMeasure(a, selected) {
+    const points = a.points.map((p) => new V().fromArray(p));
+    this.addDimension(this.overlay, points, selected ? "selected" : "line");
+    if (selected && a.kind === "planes")
+      for (const pick of a.picks) {
+        const mesh = this.meshMap.get(pick.meshId);
+        const plane =
+          mesh?.userData.fillTopology &&
+          planeAt(
+            mesh.userData.fillTopology,
+            pick.sourceFaceIndex,
+            this.modelFrame(mesh),
+          );
+        if (plane) this.addFaces(this.overlay, mesh, plane.faces);
+      }
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = `measure-label${selected ? " selected" : ""}`;
+    const name = document.createElement("b");
+    name.textContent = a.label;
+    el.append(name, ` ${this.formatMeasure?.(a) ?? a.value}`);
+    el.setAttribute("aria-label", t("marks.one", { label: a.label }));
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.onSelect?.(a.id);
+    });
+    this.labels.append(el);
+    this.pins.push({ el, a, model: midpoint(points) });
   }
   stats() {
     return {

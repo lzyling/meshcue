@@ -61,6 +61,7 @@ const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-collapse-left" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5 9 12l5.5 5.5"/><path d="M19 5.5v13"/></g>
 <g id="mc-expand-right" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5 15 12l-5.5 5.5"/><path d="M5 5.5v13"/></g>
 <g id="mc-echo" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 6.8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7.4a2 2 0 0 1-2 2h-6.6L7 19.8v-3.6H6a2 2 0 0 1-2-2z"/></g>
+<g id="mc-measure" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="M5.9 13.1l1.6 1.6M8.3 10.7l2.3 2.3M10.7 8.3l1.6 1.6M13.1 5.9l2.3 2.3" stroke-width="1.3"/></g>
 <g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21.2s6.4-6.3 6.4-11a6.4 6.4 0 1 0-12.8 0c0 4.7 6.4 11 6.4 11z"/><circle cx="12" cy="10" r="2.4"/></g>
 <g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 12S5.6 5.8 12 5.8 22.2 12 22.2 12 18.4 18.2 12 18.2 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></g>
 <g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.6 6.2A9.6 9.6 0 0 1 12 5.8c6.4 0 10.2 6.2 10.2 6.2a17 17 0 0 1-3.2 3.8M6.1 8.2A17 17 0 0 0 1.8 12S5.6 18.2 12 18.2c1.2 0 2.2-.2 3.2-.5"/><path d="M10 10a2.8 2.8 0 0 0 3.9 3.9"/><path d="M3.5 3.5l17 17"/></g>
@@ -155,10 +156,11 @@ app.innerHTML = `${SPRITE}
     <button data-mode="orbit" class="tool active" title="${T("tool.orbitTitle")}" aria-label="${T("tool.orbitLabel")}">${icon("orbit")}<span>${T("tool.orbit")}</span></button>
     <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
+    <button data-mode="measure" class="tool" aria-label="${T("tool.measureLabel")}" title="${T("tool.measureTitle")}">${icon("measure")}<span>${T("tool.measure")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
     <div class="tool-divider"></div><button class="tool" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}<span>${T("tool.marks")}</span></button><button class="tool" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}<span>${T("tool.plain")}</span></button>
    </div>
-   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button></div>
+   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><div class="measure-kinds" role="group" aria-label="${T("measure.kinds")}"><button class="measure-kind active" data-measure="points" aria-pressed="true">${T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${T("measure.planes")}</button></div><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${T("measure.keepTitle")}" disabled>${icon("check")}${T("measure.keep")}</button></div></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${TA("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
@@ -171,7 +173,7 @@ app.innerHTML = `${SPRITE}
   <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p10")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -223,6 +225,11 @@ let pollFlight = null,
   labelCursor = 0,
   relocatingId = null,
   loadedPrecision = null,
+  // The unit the author declared for the model on screen, which is the unit
+  // every length measured on it is in; "unspecified" when they declared none.
+  loadedUnits = "unspecified",
+  // What the measurement on screen has got to, as the viewer last said.
+  measureReport = null,
   // Which version's bytes were refused as not being the ones announced. A load
   // that ends there drops the version it was holding, and the poll's job is to
   // load whatever the page is not holding — so without remembering the refusal
@@ -417,6 +424,59 @@ const colorName = (hex) => (colorKeys[hex] ? t(colorKeys[hex]) : hex);
 function regionName(a) {
   return t("marks.regionName", { color: colorName(a.color) });
 }
+// What a mark is called wherever it is named: its letter, its colour, or its
+// number as a measurement.
+function markName(a) {
+  return a.type === "pin"
+    ? a.label
+    : a.type === "measure"
+      ? t("measure.name", { label: a.label })
+      : regionName(a);
+}
+/* A measurement is read in the reviewer's own numbers -- "12,40 mm" to a
+   German reader -- in the unit the author declared. Millimetres get two
+   decimals. With no declared unit nothing is assumed: the number stands
+   alone and says it has no unit, as the model's own summary does. */
+const MEASURE_KINDS = {
+  points: "measure.points",
+  edge: "measure.edge",
+  planes: "measure.planes",
+};
+const MEASURE_HINTS = {
+  points: "hint.measurePoints",
+  edge: "hint.measureEdge",
+  planes: "hint.measurePlanes",
+};
+const MEASURE_REFUSALS = {
+  noEdge: "measure.noEdge",
+  curved: "measure.curved",
+  sameFace: "measure.sameFace",
+};
+function formatMeasure(m) {
+  const two = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  if (m.quantity === "angle")
+    return `${new Intl.NumberFormat(currentLocale(), two).format(m.value)}\u00b0`;
+  const number = new Intl.NumberFormat(
+    currentLocale(),
+    loadedUnits === "mm" || Math.abs(m.value) >= 1
+      ? two
+      : { minimumSignificantDigits: 3, maximumSignificantDigits: 3 },
+  ).format(m.value);
+  return loadedUnits === "unspecified"
+    ? t("measure.unitless", { value: number })
+    : `${number} ${loadedUnits}`;
+}
+// Measurements are numbered on their own, M1, M2, after the highest kept.
+const measureNumber = (label) => Number(/^M(\d+)$/.exec(label)?.[1] || 0);
+const nextMeasureLabel = () =>
+  `M${
+    Math.max(
+      0,
+      ...annotations
+        .filter((a) => a.type === "measure")
+        .map((a) => measureNumber(a.label)),
+    ) + 1
+  }`;
 /* Browsers give an origin about 5 MB of local storage, and a review has to fit
    inside it with room for the recovery copy an unsynced draft is entitled to.
    The estimate is deliberately rough and deliberately high: a coordinate that
@@ -435,11 +495,16 @@ const faceCountOf = (a) =>
 // (`MARK_VIEW_BYTES`), like `MAX_NOTE` above. A note is charged what it weighs
 // in UTF-8, which is at least what the browser stores.
 const VIEW_BYTES = 240;
+// What a kept measurement adds to a mark: two points, what they were taken
+// on, the number, and for two faces their normals. Held to the service's
+// `MARK_MEASURE_BYTES` by the same test.
+const MEASURE_BYTES = 480;
 const encoder = new TextEncoder();
 const markBytes = (a) =>
   120 +
   encoder.encode(a.note || "").length +
   (a.view ? VIEW_BYTES : 0) +
+  (a.type === "measure" ? MEASURE_BYTES : 0) +
   (a.surfacePatches || []).reduce((m, p) => m + patchBytes(p), 0) +
   (faceCountOf(a) - new Set((a.surfacePatches || []).map(faceOf)).size) *
     WHOLE_FACE_BYTES;
@@ -532,6 +597,69 @@ const viewer = new ModelViewer($("#viewer"), {
   },
   onError: toast,
 });
+viewer.formatMeasure = formatMeasure;
+viewer.onMeasure = (report) => {
+  measureReport = report;
+  showMeasure();
+};
+viewer.onMeasureRefused = (why) => toast(t(MEASURE_REFUSALS[why]));
+/* The reading beside the tool, said to a screen reader as it changes: what to
+   click next, or what was measured. */
+function showMeasure() {
+  const r = measureReport;
+  $("#measure-reading").textContent = r?.result
+    ? formatMeasure(r.result)
+    : r?.picks
+      ? t(r.kind === "planes" ? "measure.nextFace" : "measure.nextPoint")
+      : "";
+  const can = state?.capabilities || {};
+  $("#keep-measure").disabled =
+    !r?.result ||
+    submitting ||
+    !can.canEdit ||
+    !loadedId ||
+    !viewer.enabled ||
+    recoveryBlocked ||
+    accessBlocked;
+}
+/* Keeping a measurement is the one part of measuring that edits anything: it
+   becomes a mark, with the lock, the undo step and the save every mark has,
+   and the viewer lets go of it as a measurement. */
+async function keepMeasure() {
+  const measuring = viewer.measuring;
+  const mark = viewer.measureMark();
+  if (!mark) return;
+  if (annotations.length >= 200) return toast(t("marks.limit"));
+  if (draftBytes() + 120 + MEASURE_BYTES + VIEW_BYTES > MAX_MARK_BYTES)
+    return toast(t("marks.nearStrokeLimit"));
+  try {
+    if (!(await beginEdit())) return;
+    const item = {
+      id: newId(),
+      type: "measure",
+      label: nextMeasureLabel(),
+      ...mark,
+      view: viewer.markView(),
+    };
+    annotations.push(item);
+    selectedId = item.id;
+    if (viewer.measuring === measuring) viewer.clearMeasure();
+    changed();
+    await flushDraft();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+$("#keep-measure").addEventListener("click", () => keepMeasure());
+for (const b of document.querySelectorAll("[data-measure]"))
+  b.addEventListener("click", () => {
+    for (const other of document.querySelectorAll("[data-measure]")) {
+      other.classList.toggle("active", other === b);
+      other.setAttribute("aria-pressed", String(other === b));
+    }
+    viewer.setMeasureKind(b.dataset.measure);
+    $("#tool-hint").textContent = t(MEASURE_HINTS[b.dataset.measure]);
+  });
 /* The theme follows the system, so it can change while the page is open — at
    dusk, or when the reviewer flips the setting mid-review. CSS repaints itself;
    the WebGL canvas will not until it is told to. */
@@ -736,12 +864,19 @@ function updateButtons() {
       version: latest.version || latest.name,
     });
   $("#resume-banner").hidden = !state?.locked || accessBlocked;
+  // Measuring changes nothing, so it is there whenever a model is; only
+  // keeping a measurement asks what may be edited.
   document
     .querySelectorAll("[data-mode]")
-    .forEach((b) => (b.disabled = busy || !can.canEdit));
+    .forEach(
+      (b) =>
+        (b.disabled =
+          b.dataset.mode === "measure" ? !ready : busy || !can.canEdit),
+    );
   document
     .querySelectorAll(".delete-annotation, .edit-action")
     .forEach((b) => (b.disabled = busy || !can.canEdit));
+  showMeasure();
 }
 /* Hiding a mark is a way of looking, not a way of editing: it never reaches
    the draft or the submission, only what the viewer is asked to draw. Keyed by
@@ -777,9 +912,7 @@ function renderAnnotations() {
       eye.setAttribute("aria-pressed", String(hidden));
       eye.setAttribute(
         "aria-label",
-        t(hidden ? "marks.showOne" : "marks.hideOne", {
-          name: a.type === "pin" ? a.label : regionName(a),
-        }),
+        t(hidden ? "marks.showOne" : "marks.hideOne", { name: markName(a) }),
       );
       eye.addEventListener("click", () => {
         if (hiddenMarks.has(a.id)) hiddenMarks.delete(a.id);
@@ -790,11 +923,18 @@ function renderAnnotations() {
       select.className = "annotation-select";
       const badge = document.createElement("span");
       badge.className = "annotation-badge";
-      badge.style.background = a.color;
-      badge.textContent = a.type === "pin" ? a.label : "";
+      if (a.type === "measure") badge.classList.add("measure-badge");
+      else badge.style.background = a.color;
+      badge.textContent = a.type === "region" ? "" : a.label;
       const text = document.createElement("span");
       const title = document.createElement("strong");
-      title.textContent = a.type === "pin" ? t("marks.pin") : regionName(a);
+      // A measurement is named by what it read.
+      title.textContent =
+        a.type === "pin"
+          ? t("marks.pin")
+          : a.type === "measure"
+            ? formatMeasure(a)
+            : regionName(a);
       const detail = document.createElement("small");
       // What the reviewer wrote says more about a mark than how it was made.
       if (a.note) detail.className = "annotation-note";
@@ -802,15 +942,20 @@ function renderAnnotations() {
         a.note ||
         (a.type === "pin"
           ? t("marks.pinned")
-          : ["source-v1", "source-v2"].includes(a.coverage)
-            ? t("marks.alongSurface")
-            : t("marks.legacyFace"));
+          : a.type === "measure"
+            ? t(MEASURE_KINDS[a.kind])
+            : ["source-v1", "source-v2"].includes(a.coverage)
+              ? t("marks.alongSurface")
+              : t("marks.legacyFace"));
       text.append(title, detail);
       select.append(badge, text);
       select.addEventListener("click", () => {
         selectedId = a.id;
-        color = a.color;
-        updatePalette();
+        // A measurement has no colour to hand the palette.
+        if (a.color) {
+          color = a.color;
+          updatePalette();
+        }
         renderAnnotations();
       });
       const remove = document.createElement("button");
@@ -820,7 +965,7 @@ function renderAnnotations() {
         "aria-label",
         a.type === "pin"
           ? t("marks.deleteLabel", { label: a.label })
-          : t("marks.deleteOne", { name: regionName(a) }),
+          : t("marks.deleteOne", { name: markName(a) }),
       );
       remove.disabled =
         !!(state?.locked && !state?.owned) || submitting || recoveryBlocked;
@@ -840,9 +985,7 @@ function renderAnnotations() {
       focus.textContent = t("marks.frame");
       focus.setAttribute(
         "aria-label",
-        t("marks.frameOne", {
-          name: a.type === "pin" ? a.label : regionName(a),
-        }),
+        t("marks.frameOne", { name: markName(a) }),
       );
       focus.addEventListener("click", () => viewer.focusAnnotation(a));
       row.append(eye, select, focus);
@@ -880,9 +1023,7 @@ function renderNote() {
   const box = noteBox();
   $("#mark-note").hidden = !a || $("#annotations-list").hidden;
   if (!a) return;
-  $("#mark-note-title").textContent = t("note.title", {
-    name: a.type === "pin" ? a.label : regionName(a),
-  });
+  $("#mark-note-title").textContent = t("note.title", { name: markName(a) });
   // Never rewritten under someone typing into it; it is refreshed from the
   // mark as soon as they leave it.
   if (document.activeElement !== box || box.dataset.markId !== a.id) {
@@ -944,9 +1085,11 @@ function setMode(next) {
     .querySelectorAll("[data-mode]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
   $("#fill-control").hidden = next !== "fill";
-  // Looking makes nothing, so there is nothing for a colour to apply to.
-  $(".palette").hidden = ["orbit", "relocate"].includes(next);
+  // Looking makes nothing, so there is nothing for a colour to apply to; and
+  // a measurement is a number, not a colour.
+  $(".palette").hidden = ["orbit", "relocate", "measure"].includes(next);
   $("#new-region").hidden = next !== "fill";
+  $("#measure-options").hidden = next !== "measure";
   // Once every option inside it is gone the frame is all that is left, and an
   // empty frame still reads as a window that failed to close.
   $("#tool-options").hidden = [...$("#tool-options").children].every(
@@ -957,6 +1100,7 @@ function setMode(next) {
     relocate: t("hint.relocate"),
     label: t("hint.label"),
     orbit: t("hint.orbit"),
+    measure: t(MEASURE_HINTS[viewer.measureKind]),
   }[next];
 }
 function updatePalette() {
@@ -1136,6 +1280,7 @@ $("#undo").addEventListener("click", () => travelHistory());
 $("#redo").addEventListener("click", () => travelHistory(true));
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && mode === "relocate") setMode("orbit");
+  if (e.key === "Escape" && mode === "measure") viewer.clearMeasure();
   if (["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement?.tagName))
     return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -1404,6 +1549,7 @@ async function loadVersion(fullState) {
   $("#recovery-banner").hidden = true;
   $("#model-name").textContent = model.name;
   $("#model-version").textContent = model.version;
+  loadedUnits = model.units || "unspecified";
   $("#model-info").textContent =
     `${model.format.toUpperCase()} · ${unitsLabel(model.units)}`;
   $("#loading").hidden = false;
@@ -1849,6 +1995,8 @@ window.__reviewDiagnostics = () => ({
   labelCursor,
   dirty: editSeq > savedSeq,
   annotations: viewer.serializeAnnotations(annotations),
+  // The measurement on screen and not yet kept, as the reading shows it.
+  measuring: measureReport,
   camera: viewer.cameraState(),
   // Which way the camera calls up. It is deliberately not part of the camera a
   // draft stores — that one is a place to stand, and this is how a view can be

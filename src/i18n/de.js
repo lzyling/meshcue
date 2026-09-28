@@ -294,4 +294,33 @@ export default {
     "„An {agent}“ sendet diesen Stapel; {agent} antwortet mit einer neuen Version, auf der Sie weiter markieren. Es muss nichts abgeschlossen werden, und Entwürfe speichern sich selbst.",
   "help.p9":
     "GLB, STL und STEP, bis 80 MB und 600.000 Dreiecke. Ein STEP wird beim Eintreffen einmal trianguliert, und Ihre Markierungen liegen auf diesem Netz; heruntergeladen wird weiterhin das STEP selbst. Ein STL trägt keine Farbe und wird daher immer grau gezeigt; Farben kommen mit STEP und GLB. Animation, Skelette und komprimiertes GLB werden noch nicht unterstützt. Dies ist ein Prüfwerkzeug; es modelliert nicht.",
+
+  "tool.measure": "Messen",
+  "tool.measureLabel": "Messwerkzeug",
+  "tool.measureTitle":
+    "Misst zwischen zwei Punkten, entlang einer Kante oder zwischen zwei Flächen; nichts bleibt, wenn Sie es nicht behalten",
+  "hint.measurePoints":
+    "Zwei Punkte anklicken · Ecken rasten ein · die rechte Taste dreht weiterhin",
+  "hint.measureEdge":
+    "Auf eine gerade Kante zeigen und klicken, um ihre Länge zu lesen · die rechte Taste dreht weiterhin",
+  "hint.measurePlanes":
+    "Eine ebene Fläche anklicken, dann eine zweite · die rechte Taste dreht weiterhin",
+  "measure.kinds": "Was gemessen wird",
+  "measure.points": "Punkt zu Punkt",
+  "measure.edge": "Kantenlänge",
+  "measure.planes": "Zwei Flächen",
+  "measure.nextPoint": "Zweiten Punkt anklicken",
+  "measure.nextFace": "Zweite Fläche anklicken",
+  "measure.keep": "Behalten",
+  "measure.keepTitle":
+    "Diese Messung als Markierung behalten; sie wird mit den anderen gesendet",
+  "measure.name": "Messung {label}",
+  "measure.unitless": "{value} (ohne Einheit)",
+  "measure.noEdge":
+    "Hier ist keine gerade Kante – zeigen Sie näher an eine scharfe Kante.",
+  "measure.curved":
+    "Diese Kante ist gekrümmt; gemessen werden nur gerade Kanten.",
+  "measure.sameFace": "Das ist dieselbe Fläche – klicken Sie eine andere an.",
+  "help.p10":
+    "Messen: Wählen Sie das Messwerkzeug, dann „Punkt zu Punkt“ (Ecken rasten ein), „Kantenlänge“ oder „Zwei Flächen“ – parallele Flächen ergeben ihren Abstand, alle anderen den Winkel. Millimeter erscheinen mit zwei Nachkommastellen; ein Modell ohne Einheit zeigt nur die Zahl. Eine Messung verschwindet bei der nächsten, außer Sie drücken „Behalten“: Dann wird sie eine Markierung, die Sie beschriften, rückgängig machen, löschen und senden können.",
 };

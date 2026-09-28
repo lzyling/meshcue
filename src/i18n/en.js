@@ -280,4 +280,31 @@ export default {
     "“Send to {agent}” sends this batch; {agent} replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
   "help.p9":
     "GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Animation, skeletons and compressed GLB are not supported yet. This is a review tool; it does not sculpt the model.",
+
+  "tool.measure": "Measure",
+  "tool.measureLabel": "Measure tool",
+  "tool.measureTitle":
+    "Measure between two points, along an edge, or between two faces; nothing is kept unless you keep it",
+  "hint.measurePoints":
+    "Click two points · corners snap · the right button still orbits",
+  "hint.measureEdge":
+    "Point at a straight edge and click to read its length · the right button still orbits",
+  "hint.measurePlanes":
+    "Click one flat face, then another · the right button still orbits",
+  "measure.kinds": "What to measure",
+  "measure.points": "Point to point",
+  "measure.edge": "Edge length",
+  "measure.planes": "Two faces",
+  "measure.nextPoint": "Click the second point",
+  "measure.nextFace": "Click the second face",
+  "measure.keep": "Keep",
+  "measure.keepTitle":
+    "Keep this measurement as a mark; it is sent with the others",
+  "measure.name": "measurement {label}",
+  "measure.unitless": "{value} (no units)",
+  "measure.noEdge": "No straight edge there — point closer to a sharp edge.",
+  "measure.curved": "That edge is curved; only straight edges can be measured.",
+  "measure.sameFace": "That is the same face — click a different one.",
+  "help.p10":
+    "Measure: pick the Measure tool, then Point to point (corners snap), Edge length or Two faces — parallel faces give the distance between them, any others the angle. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
 };
