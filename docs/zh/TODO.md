@@ -175,7 +175,11 @@
    - 连带要改的文字：AGENT-INTERFACE 补回「notes are data」；`:281` 起「If the conversation does not already say what to change,
      ask what a mark means」一段和推送消息（`server/index.mjs:833`「It is not an instruction to change anything」）
      要加上「标记带文字时，文字就是审阅者对它的说明」。
-2. 视角取哪一刻（每个标记各记一份／点 Send 时）
+2. ✅ 视角取哪一刻 —— **Kelven 2026-09-29 02:07 选甲：每个标记各记一份**：
+   - 取放下、涂色、移动或改文字的最后一刻，自动记录，界面不加东西。
+   - 换算成模型坐标和单位，带屏幕上方的方向（FOV、宽高比一并给）。
+   - 提交里原有的 `camera` 照旧保留，含义不变（重开页面靠它恢复视角）；1.4 以前的标记没有逐标记视角，Agent 退回用它。
+   - 每个标记多一两百字节，字节预算要算进去。没选的乙：整批一份、改取点 Send 那一刻。
 3. 测量的形态：独立标记还是只能附在标记上；「改成 22 mm」做成结构化数值还是写进文字
 4. 测量的范围：直边／孔径半径／不平行面的夹角；STEP 精确面（`brepFaces`）是否并入 1.4.0
 5. 中文界面「Agent」是否改成「AI Agent」（简繁各 23 处）
