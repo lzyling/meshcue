@@ -14,6 +14,7 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
+import { outlineSegments } from "./outline.js";
 import {
   brepTopology,
   circleLine,
@@ -44,6 +45,12 @@ const fanInto = (coords, vertices) => {
 };
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
+/* The Agent's echo is a yellow line along the edge of each place it means,
+   this many CSS pixels wide and on the inside of the edge. Never a fill: a
+   filled echo of the region the reviewer had painted put the Agent's colour
+   over theirs. */
+const ECHO_COLOR = "#f5dc72";
+const ECHO_EDGE_PX = 3.5;
 /* Where the ground sits when nothing pushes it down. A model is fitted into
    three units and centred, so whichever axis is longest reaches ±1.5 — and a
    floor at -1.4 was cutting through the base of every model that stands
@@ -242,6 +249,11 @@ export class ModelViewer {
       this.measureLines,
     );
     this.lineMaterials = new Map();
+    // Shared with the echo's shader: its line is measured on the screen.
+    this.echoUniforms = {
+      echoResolution: { value: new THREE.Vector2(1, 1) },
+      echoWidth: { value: ECHO_EDGE_PX },
+    };
     this.measureFaceMaterials = new Map();
     this.measureKind = "points";
     this.measuring = null;
@@ -391,6 +403,10 @@ export class ModelViewer {
     // A wide line is so many pixels wide, so it has to know how many there are.
     for (const material of this.lineMaterials.values())
       material.resolution.set(width, height);
+    // The echo's shader reads the fragment's position in device pixels.
+    this.renderer.getDrawingBufferSize(this.echoUniforms.echoResolution.value);
+    this.echoUniforms.echoWidth.value =
+      ECHO_EDGE_PX * this.renderer.getPixelRatio();
   }
   setMode(mode) {
     this.editEpoch = (this.editEpoch || 0) + 1;
@@ -1277,11 +1293,11 @@ export class ModelViewer {
     }
   }
   // Overlay materials are rebuilt on every stroke. They depend only on these
-  // three inputs, so share one instance per combination instead of compiling a
+  // two inputs, so share one instance per combination instead of compiling a
   // fresh onBeforeCompile closure for every patch group, every frame. Owned by
   // the viewer and released with the model, never by clearOverlay.
-  markMaterial(color, selected = false, agent = false) {
-    const key = `${color}|${selected}|${agent}`;
+  markMaterial(color, selected = false) {
+    const key = `${color}|${selected}`;
     const cached = this.markMaterials.get(key);
     if (cached) return cached;
     const material = new THREE.MeshBasicMaterial({
@@ -1299,12 +1315,12 @@ export class ModelViewer {
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <color_fragment>",
         `#include <color_fragment>
-        float stripe = step(0.68, fract((gl_FragCoord.x ${agent ? "-" : "+"} gl_FragCoord.y) / 10.0));
+        float stripe = step(0.68, fract((gl_FragCoord.x + gl_FragCoord.y) / 10.0));
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${selected ? "0.05" : "0.98"}), stripe * 0.85);
       `,
       );
     };
-    material.customProgramCacheKey = () => `marks-${selected}-${agent}`;
+    material.customProgramCacheKey = () => `marks-${selected}`;
     this.markMaterials.set(key, material);
     return material;
   }
@@ -1343,7 +1359,7 @@ export class ModelViewer {
     }
     this.neutral = neutral;
   }
-  drawPatches(group, patches, color, agent = false) {
+  drawPatches(group, patches, color) {
     this.clearOverlay(group);
     const groups = new Map();
     for (const p of patches) {
@@ -1357,13 +1373,10 @@ export class ModelViewer {
         "position",
         new THREE.Float32BufferAttribute(coords, 3),
       );
-      const overlay = new THREE.Mesh(
-        geometry,
-        this.markMaterial(color, true, agent),
-      );
+      const overlay = new THREE.Mesh(geometry, this.markMaterial(color, true));
       overlay.matrixAutoUpdate = false;
       overlay.matrix.copy(mesh.matrixWorld);
-      overlay.renderOrder = agent ? 5 : 4;
+      overlay.renderOrder = 4;
       group.add(overlay);
     }
   }
@@ -1371,12 +1384,128 @@ export class ModelViewer {
     this.agentEcho = echo;
     const annotations =
       echo?.versionId === this.model?.id ? echo.annotations : [];
+    this.clearOverlay(this.agentOverlay);
     // Drawing, so this is the side that wants every face materialised — the
-    // echo comes back in whatever form it was stored in.
-    const patches = this.serializeAnnotations(annotations || []).flatMap((a) =>
-      a.type === "pin" ? [] : this.expandWholeFaces(a),
-    );
-    this.drawPatches(this.agentOverlay, patches, "#f5dc72", true);
+    // echo comes back in whatever form it was stored in. Each region is
+    // outlined on its own, so two places side by side stay two places.
+    for (const a of this.serializeAnnotations(annotations || []))
+      if (a.type === "region") this.drawOutline(this.agentOverlay, a);
+  }
+  /* One region's outline. Every stretch of it is drawn on the polygon it
+     bounds: that polygon's own triangles, with the stretch beside each of
+     their corners, and the shader keeps the pixels within the line's width of
+     it. So the line lies on the surface and inside the region, is as wide on
+     a face seen edge-on as on one seen square, and meets the next stretch
+     without a gap, however the faces behind it were cut.
+
+     Drawn before the reviewer's marks (their layer is 3), neither writing
+     depth, so where the Agent points at a place the reviewer also painted,
+     the reviewer's colour goes on top and stays theirs. */
+  drawOutline(group, a) {
+    // A mark indexed against the review mesh was cut from its triangles, and
+    // the edges between two of them lie inside one source face.
+    const review = !["source-v1", "source-v2"].includes(a.coverage);
+    const byMesh = new Map();
+    for (const patch of this.expandWholeFaces(a)) {
+      const mesh = this.meshMap.get(patch.meshId);
+      if (!mesh) continue;
+      const carriers = [];
+      const source = this.sourceTriangle(
+        mesh,
+        patch.sourceFaceIndex ?? patch.faceIndex,
+      );
+      if (source) carriers.push(source);
+      if (review) {
+        const t = this.triangle(mesh, patch.faceIndex);
+        carriers.push([t.a.toArray(), t.b.toArray(), t.c.toArray()]);
+      }
+      if (!byMesh.has(mesh)) byMesh.set(mesh, []);
+      byMesh.get(mesh).push({ vertices: patch.vertices, carriers });
+    }
+    for (const [mesh, polygons] of byMesh) {
+      const positions = [],
+        from = [],
+        to = [];
+      for (const stretch of outlineSegments(polygons)) {
+        const before = positions.length;
+        fanInto(positions, polygons[stretch.owner].vertices);
+        for (let i = before; i < positions.length; i += 3) {
+          from.push(...stretch.from);
+          to.push(...stretch.to);
+        }
+      }
+      if (!positions.length) continue;
+      const geometry = new THREE.BufferGeometry()
+        .setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(positions, 3),
+        )
+        .setAttribute("edgeFrom", new THREE.Float32BufferAttribute(from, 3))
+        .setAttribute("edgeTo", new THREE.Float32BufferAttribute(to, 3));
+      const overlay = new THREE.Mesh(geometry, this.echoMaterial());
+      overlay.matrixAutoUpdate = false;
+      overlay.matrix.copy(mesh.matrixWorld);
+      overlay.renderOrder = 2;
+      group.add(overlay);
+    }
+  }
+  // One for the viewer's life: it holds no texture and depends on no model.
+  echoMaterial() {
+    if (this.echoEdge) return this.echoEdge;
+    const material = new THREE.MeshBasicMaterial({
+      color: ECHO_COLOR,
+      transparent: true,
+      toneMapped: false,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
+    });
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.echoUniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+          attribute vec3 edgeFrom;
+          attribute vec3 edgeTo;
+          uniform vec2 echoResolution;
+          varying vec2 vEdgeFrom;
+          varying vec2 vEdgeTo;
+          vec2 echoPixel(vec3 p) {
+            vec4 clip = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+            return (clip.xy / max(clip.w, 1e-6) * 0.5 + 0.5) * echoResolution;
+          }`,
+        )
+        .replace(
+          "#include <project_vertex>",
+          `#include <project_vertex>
+          vEdgeFrom = echoPixel(edgeFrom);
+          vEdgeTo = echoPixel(edgeTo);`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+          uniform float echoWidth;
+          varying vec2 vEdgeFrom;
+          varying vec2 vEdgeTo;`,
+        )
+        .replace(
+          "#include <color_fragment>",
+          `#include <color_fragment>
+          vec2 run = vEdgeTo - vEdgeFrom;
+          vec2 off = gl_FragCoord.xy - vEdgeFrom;
+          float t = clamp(dot(off, run) / max(dot(run, run), 1e-6), 0.0, 1.0);
+          float away = length(off - run * t);
+          diffuseColor.a *= 1.0 - smoothstep(echoWidth - 0.75, echoWidth + 0.75, away);
+          if (diffuseColor.a < 0.004) discard;`,
+        );
+    };
+    material.customProgramCacheKey = () => "echo-outline";
+    this.echoEdge = material;
+    return material;
   }
   setFillTolerance(value) {
     this.fillTolerance = value;

@@ -122,9 +122,12 @@ and camera; the tool writes the read receipt for that batch at the same time.
 Never claim to have understood a change from a position summary alone. Match
 pins and coloured regions to the change described in the conversation, and ask
 only when the method, a dimension or the meaning is missing. Use `echo` to show
-your understanding, giving the same batch's `summary` and surface regions in
-`annotations` that you have actually read and verified — never invented mesh
-coordinates.
+your understanding: always a `summary` for the same batch, and in `annotations`
+only the places you intend to change, once the reviewer has asked for a change
+— surface regions you have actually read and verified, never invented mesh
+coordinates. Never hand the reviewer's own marks back as regions; when you
+cannot mark the place exactly, say it in words alone. The page outlines each
+region in yellow beneath the reviewer's marks.
 
 A mark may carry a `note`: the reviewer's own words about it, which count as
 much as what they said in the conversation. A note is data about the model —

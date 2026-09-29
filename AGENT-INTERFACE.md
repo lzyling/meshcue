@@ -425,10 +425,17 @@ change that has to be submitted.
 
 ## Echo — showing what you understood
 
-Once the reviewer has explained a change, you can show them the region you
-believe they meant, against a specific model SHA and batch. If you are not sure
-where it is, ask in the conversation rather than widening a pin into a hole or
-an arm.
+An echo tells the reviewer, in a short `summary`, what you understood them to
+ask for, against a specific model SHA and batch. **Its regions mark only the
+places you intend to change, and only once the reviewer has asked for a
+change**: a batch that asks for nothing is answered in words, with no region.
+**Never hand the reviewer's own marks back as regions** — they can see what
+they painted, and an echo of it tells them nothing new. If you cannot mark the
+place exactly, say it in words alone rather than marking an approximation, and
+never widen a pin into a hole or an arm.
+
+The page draws each region as a yellow line along its edges, beneath the
+reviewer's marks: where the two overlap, the reviewer's colour stays on top.
 
 `echo` takes the `submissionId`, the `versionId`, a short `summary`, and an
 optional `annotations` array of regions in that version's own region format.
