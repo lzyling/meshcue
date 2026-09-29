@@ -2140,6 +2140,10 @@ export class ModelViewer {
     this.pins.push({ el, a, model: measureAnchor(a), ring });
   }
   stats() {
+    const core = this.lineMaterials.get("echo-core");
+    const echoLines = this.agentOverlay.children.filter(
+      (o) => o.material === core,
+    );
     return {
       versionId: this.model?.id,
       meshes: this.meshes.length,
@@ -2147,6 +2151,15 @@ export class ModelViewer {
       neutral: !!this.neutral,
       fillFaces: this.fillPatches?.length || 0,
       agentEchoId: this.agentEcho?.id || null,
+      // The echo as drawn: how many outlines, through how many stretches, and
+      // where their dashes stand, so a test can tell a moving line from a
+      // still one without reading pixels.
+      echoLines: echoLines.length,
+      echoSegments: echoLines.reduce(
+        (n, o) => n + o.geometry.attributes.instanceStart.count,
+        0,
+      ),
+      echoDashOffset: core?.dashOffset ?? null,
       // The canvas takes its colour from the theme tokens by hand rather than
       // by rule, so whether it followed a theme change is only checkable here.
       background: this.scene.background?.getHexString() || null,

@@ -6,43 +6,15 @@ import path from "node:path";
 import { once } from "node:events";
 import * as THREE from "three";
 
-/* The Agent's echo, drawn on a model whose every face is known: a plate
-   20 × 15 × 8 mm, modelled flat on +Z and centred on the origin. The page
-   stands an STL up and fits it into three units by its long side, so the
-   file's (x, y, z) is the preview's 0.15 × (x, z, -y). Faces 2 and 3 are the
-   top, 4 and 5 the front (-Y), which is the side the page shows first. */
+import { writePlate, writeInwardPlate } from "./echo-models.mjs";
 
 const repo = process.cwd();
-const url = "http://127.0.0.1:43174";
+// Standalone red/green runs can use an isolated build and port without
+// touching another worktree's source, build, server or Playwright results.
+const port = process.env.ECHO_TEST_PORT || "43174";
+const url = `http://127.0.0.1:${port}`;
 let child, dir, env;
 
-function writePlate() {
-  const stl = path.join(dir, "plate.stl");
-  const [lo, hi] = [
-    [-10, -7.5, -4],
-    [10, 7.5, 4],
-  ];
-  const corner = (i) => [0, 1, 2].map((k) => ((i >> k) & 1 ? hi : lo)[k]);
-  const quads = [
-    [0, 2, 3, 1],
-    [4, 5, 7, 6],
-    [0, 1, 5, 4],
-    [2, 6, 7, 3],
-    [0, 4, 6, 2],
-    [1, 3, 7, 5],
-  ];
-  const facet = (a, b, c) =>
-    `facet normal 0 0 0\nouter loop\n${[a, b, c]
-      .map((i) => `vertex ${corner(i).join(" ")}`)
-      .join("\n")}\nendloop\nendfacet`;
-  fs.writeFileSync(
-    stl,
-    `solid plate\n${quads
-      .flatMap(([a, b, c, d]) => [facet(a, b, c), facet(a, c, d)])
-      .join("\n")}\nendsolid plate\n`,
-  );
-  return stl;
-}
 const ctl = (...args) =>
   execFileSync(process.execPath, ["scripts/reviewctl.mjs", ...args], {
     cwd: repo,
@@ -51,18 +23,22 @@ const ctl = (...args) =>
   });
 
 test.beforeEach(async () => {
-  fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
-  dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-echo-"));
+  const dataRoot = path.resolve(repo, process.env.ECHO_TEST_DATA_ROOT || "tmp");
+  fs.mkdirSync(dataRoot, { recursive: true });
+  dir = fs.mkdtempSync(path.join(dataRoot, "be-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
   fs.copyFileSync("tests/fake-openclaw.mjs", path.join(bin, "openclaw"));
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: "43174",
+    PORT: port,
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
-    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
+    REVIEW_DIST_DIR: path.resolve(
+      repo,
+      process.env.ECHO_TEST_DIST || "tmp/refinement-dist",
+    ),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_UPDATE_CHECK: "off",
@@ -75,12 +51,18 @@ test.beforeEach(async () => {
     env,
     stdio: ["ignore", log, log],
   });
-  for (let i = 0; i < 80; i++) {
-    try {
-      if ((await fetch(`${url}/api/health`)).ok) break;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 100));
-  }
+  fs.closeSync(log);
+  await expect
+    .poll(async () => {
+      if (child.exitCode !== null)
+        throw new Error(fs.readFileSync(path.join(dir, "server.log"), "utf8"));
+      try {
+        return (await fetch(`${url}/api/health`)).ok;
+      } catch {
+        return false;
+      }
+    })
+    .toBe(true);
 });
 test.afterEach(async () => {
   if (child && child.exitCode === null) {
@@ -112,7 +94,7 @@ async function screenOf(page, [x, y, z]) {
   };
 }
 /* Pixels by what they read as. The reviewer's first colour is a coral red and
-   the echo a pale yellow; the white and dark stripes that tell a mark from the
+   the echo cyan; the white and dark stripes that tell a mark from the
    model are neither, and the grey model is neither. */
 async function colours(page, clip) {
   const shot = await page.screenshot({ clip });
@@ -127,13 +109,13 @@ async function colours(page, clip) {
     context.drawImage(image, 0, 0);
     const px = context.getImageData(0, 0, canvas.width, canvas.height).data;
     let red = 0,
-      yellow = 0;
+      cyan = 0;
     for (let i = 0; i < px.length; i += 4) {
       const [r, g, b] = [px[i], px[i + 1], px[i + 2]];
       if (r > 170 && g < 160 && b < 150 && r - g > 50) red++;
-      if (r > 170 && g > 170 && b < 150 && g - b > 50) yellow++;
+      if (g > 145 && b > 170 && b - r > 55 && g - r > 35) cyan++;
     }
-    return { red, yellow };
+    return { red, cyan };
   }, shot.toString("base64"));
 }
 const around = (p, half) => ({
@@ -143,20 +125,16 @@ const around = (p, half) => ({
   height: half * 2,
 });
 
-test("the echo outlines what the Agent means and never paints over the reviewer's marks", async ({
-  page,
-}) => {
-  ctl("publish", writePlate(), "--version", "plate", "--units", "mm");
+async function submitTop(page, file) {
+  ctl("publish", file, "--version", "plate", "--units", "mm");
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
   const top = await screenOf(page, [2, 1, 4]);
-  const front = await screenOf(page, [2, -7.5, 0]);
   await page
     .getByRole("button", { name: "Paint bucket tool", exact: true })
     .click();
   await page.mouse.click(top.x, top.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
-  // Out of the way, so the pointer's preview is not what gets measured.
   await page.getByRole("button", { name: "Orbit tool", exact: true }).click();
   await page.mouse.move(5, 5);
   await page.getByRole("button", { name: /Send to Agent/ }).click();
@@ -173,31 +151,27 @@ test("the echo outlines what the Agent means and never paints over the reviewer'
   const submission = JSON.parse(ctl("read", receipt.id));
   const [painted] = submission.annotations;
   expect(painted.type).toBe("region");
-  const meshId = Object.keys(painted.faces)[0];
-  const beforeTop = await colours(page, around(top, 8));
-  expect(beforeTop.red).toBeGreaterThan(40);
-  expect(beforeTop.yellow).toBe(0);
-  /* What the Agent sent in the round this came from: the reviewer's own region
-     handed back, and beside it the face it meant to change. */
+  return { submission, painted, meshId: Object.keys(painted.faces)[0], top };
+}
+
+async function echo(
+  page,
+  submission,
+  annotations,
+  summary = "Echo regression",
+) {
   const file = path.join(dir, "echo.json");
   fs.writeFileSync(
     file,
     JSON.stringify({
       submissionId: submission.id,
       versionId: submission.versionId,
-      summary: "Raise the top; the front face moves with it",
-      annotations: [
-        painted,
-        {
-          id: crypto.randomUUID(),
-          type: "region",
-          coverage: "source-v2",
-          label: "front",
-          color: "#f5dc72",
-          faces: { [meshId]: [4, 5] },
-        },
-      ],
+      summary,
+      annotations,
     }),
+  );
+  const previous = await page.evaluate(
+    () => window.__reviewDiagnostics().viewer.agentEchoId,
   );
   ctl("echo", file);
   await expect(page.locator("#echo-panel")).toBeVisible();
@@ -205,36 +179,210 @@ test("the echo outlines what the Agent means and never paints over the reviewer'
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().viewer.agentEchoId),
     )
-    .not.toBeNull();
-  // The reviewer's colour is still what the reviewer's region reads as.
-  const echoedTop = await colours(page, around(top, 8));
-  expect(echoedTop.yellow).toBe(0);
-  expect(echoedTop.red).toBeGreaterThan(40);
-  // The face the Agent meant is not filled in: its middle stays the model.
-  const middle = await colours(page, around(front, 8));
-  expect(middle.yellow).toBe(0);
-  // It is outlined instead, along its edges.
-  const corners = await Promise.all(
-    [
-      [-10, -7.5, -4],
-      [10, -7.5, -4],
-      [10, -7.5, 4],
-      [-10, -7.5, 4],
-    ].map((p) => screenOf(page, p)),
-  );
-  const xs = corners.map((c) => c.x),
-    ys = corners.map((c) => c.y);
-  const face = {
-    x: Math.min(...xs) - 6,
-    y: Math.min(...ys) - 6,
-    width: Math.max(...xs) - Math.min(...xs) + 12,
-    height: Math.max(...ys) - Math.min(...ys) + 12,
-  };
-  const outlined = await colours(page, face);
-  expect(outlined.yellow).toBeGreaterThan(150);
-  // An outline, not an area: a fraction of the face it goes round.
-  expect(outlined.yellow).toBeLessThan((face.width * face.height) / 3);
-  await page.screenshot({
-    path: path.join(repo, "tmp/screenshots/2026-09-29-echo-outline.png"),
-  });
+    .not.toBe(previous);
+}
+const region = (meshId, faces, extra = {}) => ({
+  id: crypto.randomUUID(),
+  type: "region",
+  coverage: "source-v2",
+  label: "echo surface",
+  color: "#f5dc72",
+  faces: { [meshId]: faces },
+  ...extra,
 });
+const diagnostics = (page) =>
+  page.evaluate(() => window.__reviewDiagnostics().viewer);
+
+async function shot(page, testInfo, name) {
+  const file = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path: file });
+  await testInfo.attach(name, { path: file, contentType: "image/png" });
+}
+async function edgeColours(page, points) {
+  const corners = await Promise.all(points.map((p) => screenOf(page, p)));
+  // Sample thin strips *on each edge*, not a whole face that could pass if
+  // its interior was filled. Several separated spots cover dash gaps.
+  let cyan = 0,
+    red = 0;
+  for (let i = 0; i < corners.length; i++) {
+    const a = corners[i],
+      b = corners[(i + 1) % corners.length];
+    for (const t of [0.25, 0.5, 0.75]) {
+      const c = await colours(
+        page,
+        around({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, 5),
+      );
+      cyan += c.cyan;
+      red += c.red;
+    }
+  }
+  return { cyan, red };
+}
+const topEdges = [
+  [-10, -7.5, 4],
+  [10, -7.5, 4],
+  [10, 7.5, 4],
+  [-10, 7.5, 4],
+];
+const frontEdges = [
+  [-10, -7.5, -4],
+  [10, -7.5, -4],
+  [10, -7.5, 4],
+  [-10, -7.5, 4],
+];
+
+test("cyan echo edges leave overlapping red marks and face interiors unfilled", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { submission, painted, meshId, top } = await submitTop(
+    page,
+    writePlate(dir),
+  );
+  const before = await colours(page, around(top, 8));
+  expect(before.red).toBeGreaterThan(40);
+  expect(before.cyan).toBe(0);
+  await echo(page, submission, [painted, region(meshId, [4, 5])]);
+  await shot(page, testInfo, "cyan-overlap-and-unfilled-front");
+  const middle = await colours(
+    page,
+    around(await screenOf(page, [2, -7.5, 0]), 8),
+  );
+  expect(middle.cyan).toBe(0);
+  expect(middle.red).toBe(0);
+  const after = await colours(page, around(top, 8));
+  expect(after.cyan).toBe(0);
+  expect(after.red).toBeGreaterThan(40);
+  expect(
+    (await edgeColours(page, topEdges)).cyan,
+    "cyan must remain visible on the red region boundary",
+  ).toBeGreaterThan(80);
+  expect(
+    (await edgeColours(page, frontEdges)).cyan,
+    "unpainted face has cyan edges, not a fill",
+  ).toBeGreaterThan(80);
+});
+
+test("echo diagnostics animate, freeze under reduced motion, and resume on a live media switch", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const { submission, painted } = await submitTop(page, writePlate(dir));
+  await echo(page, submission, [painted]);
+  const d = await diagnostics(page);
+  expect(d.echoLines).toBe(1);
+  expect(d.echoSegments).toBeGreaterThanOrEqual(4);
+  expect(Number.isFinite(d.echoDashOffset)).toBe(true);
+  await expect
+    .poll(async () => (await diagnostics(page)).echoDashOffset)
+    .not.toBe(d.echoDashOffset);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Wait on rendered frames, not a timeout that could sample before the
+  // media-query change has been consumed by the animation loop.
+  const offsets = await page.evaluate(async () => {
+    const frame = () => new Promise(requestAnimationFrame);
+    await frame();
+    await frame();
+    const values = [];
+    for (let i = 0; i < 12; i++) {
+      await frame();
+      values.push(window.__reviewDiagnostics().viewer.echoDashOffset);
+    }
+    return values;
+  });
+  expect(new Set(offsets).size).toBe(1);
+  expect(Number.isFinite(offsets[0])).toBe(true);
+  await shot(page, testInfo, "reduced-motion-still");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect
+    .poll(async () => (await diagnostics(page)).echoDashOffset)
+    .not.toBe(offsets[0]);
+  const resumed = (await diagnostics(page)).echoDashOffset;
+  await expect
+    .poll(async () => (await diagnostics(page)).echoDashOffset)
+    .not.toBe(resumed);
+});
+
+for (const withNormals of [true, false]) {
+  test(`DoubleSide inward GLB ${withNormals ? "outward vertex normals" : "missing normals"}: surface edges stay visible and hidden back edges are occluded`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const { submission, meshId } = await submitTop(
+      page,
+      writeInwardPlate(dir, withNormals),
+    );
+    // A small triangle fully inside the front face, not at the silhouette:
+    // a line sunk below the surface cannot accidentally peek around its edge.
+    // Face 4 has corners (-10,-4), (10,4), (10,-4) in front-plane x/z.
+    const visible = [
+      [2, -7.5, -2],
+      [6, -7.5, 0],
+      [6, -7.5, -2],
+    ];
+    const patch = (points) => points.map(([x, y, z]) => [x, z, -y]);
+    await echo(page, submission, [
+      region(meshId, [4], {
+        surfacePatches: [
+          {
+            meshId,
+            faceIndex: 4,
+            sourceFaceIndex: 4,
+            vertices: patch(visible),
+          },
+        ],
+      }),
+    ]);
+    await shot(
+      page,
+      testInfo,
+      `inward-${withNormals ? "normals" : "missing"}-visible`,
+    );
+    expect(
+      (await edgeColours(page, visible)).cyan,
+      "cyan edges must sit above the inward-wound surface",
+    ).toBeGreaterThan(60);
+    expect(
+      (await colours(page, around(await screenOf(page, [4.7, -7.5, -1.3]), 3)))
+        .cyan,
+      "patch interior is not filled",
+    ).toBe(0);
+    // Bottom face, hidden well inside the plate. Depth-test-off strokes would
+    // show through its top/front. Use an inset triangle to avoid silhouettes.
+    const hidden = [
+      [-2, -2, -4],
+      [2, 2, -4],
+      [2, -2, -4],
+    ];
+    await echo(
+      page,
+      submission,
+      [
+        region(meshId, [0], {
+          surfacePatches: [
+            {
+              meshId,
+              faceIndex: 0,
+              sourceFaceIndex: 0,
+              vertices: patch(hidden),
+            },
+          ],
+        }),
+      ],
+      "Hidden underside",
+    );
+    await shot(
+      page,
+      testInfo,
+      `inward-${withNormals ? "normals" : "missing"}-occluded`,
+    );
+    expect(
+      (await edgeColours(page, hidden)).cyan,
+      "back edges must not penetrate the opaque model",
+    ).toBe(0);
+    // A positive structural guard stops an empty/missing overlay passing the
+    // no-cyan check: it exists, but depth testing occludes it.
+    expect((await diagnostics(page)).echoLines).toBe(1);
+    expect((await diagnostics(page)).echoSegments).toBe(3);
+  });
+}
