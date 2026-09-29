@@ -476,13 +476,16 @@ try {
     upgraded.access.browsers[0].id,
     beforeUpgrade.access.browsers[0].id,
   );
-  const manifest = path.join(root, "openclaw.plugin.json");
-  const removedManifest = path.join(root, "openclaw.plugin.test-backup.json");
-  fs.renameSync(manifest, removedManifest);
+  // An uninstall takes the package.json at the install's root with it, and
+  // that is what the service looks for (the plugin manifest is OpenClaw's
+  // alone, and was the marker until 1.4.0).
+  const packageFile = path.join(root, "package.json");
+  const removedPackage = path.join(root, "package.test-backup.json");
+  fs.renameSync(packageFile, removedPackage);
   try {
     assert.equal((await browserPost("review/begin", owner)).status, 503);
   } finally {
-    fs.renameSync(removedManifest, manifest);
+    fs.renameSync(removedPackage, packageFile);
   }
   console.log(
     JSON.stringify({
