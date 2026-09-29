@@ -104,6 +104,15 @@
 
 > 按「先扫全、出清单、再批量做」。三路只读扫描，关键几处人工复核过（标「未核实」的没有）。行号以 v1.3.2 为准。
 
+**实测后两处修改（Kelven 2026-09-29 17:42 装 1.4.0-dev 实测后提出，发版前做）**
+1. ✅ 回显不能盖住审阅者的标记 —— **17:45 同意**：
+   - 规矩（AGENT-INTERFACE、SKILL、推送消息都写）：回显的区域只标「准备要改的位置」，且只在审阅者提了修改之后才标；
+     标不准就只用文字，不硬标；不把审阅者自己的标记原样再画一遍。起因：POP 在无修改要求时把他的红色区域原样 echo 成黄色。
+   - 画法：回显区域改为只描黄边、不填色，并画在审阅者标记之下（现为 `#f5dc72` 整片填充、renderOrder 5 高于用户标记 4）。
+2. 收到标记后先在原对话回一句（待定）：交标记后要等大模型读完才有回复，对话里几十秒到几分钟无反馈。
+   可用官方出站命令 `openclaw message send --channel telegram --target <chatId> --thread-id <topicId> --json` 由桥直接发回执，
+   Telegram 还支持 `openclaw message edit` 在读取后改成已读；不经过大模型。只有 OpenClaw 有推送桥，MCP／CLI 无此问题也无此回执。
+
 **版本判定**：标记文字、相机新字段、测量都做成**可选的新增字段**，`camera.position／target` 保留现在的预览坐标含义，
 不动 `label`，不升 `schemaVersion` → **minor**（先例：1.3.0 加 `bounds.space` 没升号）。
 会逼成 major 的做法：把 `camera` 原地改成模型坐标、改 `label` 含义、新字段设成必填、升 schemaVersion。
