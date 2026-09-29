@@ -68,6 +68,66 @@ function carried(a, b, carriers, span) {
   return null;
 }
 
+// A polygon's normal by Newell's method, unnormalised; its winding says which
+// side it points to.
+export function faceNormal(vertices) {
+  const n = [0, 0, 0];
+  for (let i = 0; i < vertices.length; i++) {
+    const [x1, y1, z1] = vertices[i];
+    const [x2, y2, z2] = vertices[(i + 1) % vertices.length];
+    n[0] += (y1 - y2) * (z1 + z2);
+    n[1] += (z1 - z2) * (x1 + x2);
+    n[2] += (x1 - x2) * (y1 + y2);
+  }
+  return n;
+}
+
+/* Outline stretches in the order they run, each pointing on from the last, so
+   a dash pattern measured along them flows round the loop instead of starting
+   afresh at every stretch. A run that does not close is started from one of
+   its ends, so it comes out whole; pieces that never meet come out one after
+   the other, and the dashes jump only between them. A stretch turned round
+   keeps everything else it carries. */
+export function chainSegments(segments) {
+  const key = (p) => p.map((v) => v.toFixed(5)).join(",");
+  const at = new Map();
+  segments.forEach((s, i) => {
+    for (const end of [s.from, s.to]) {
+      const k = key(end);
+      if (!at.has(k)) at.set(k, []);
+      at.get(k).push(i);
+    }
+  });
+  const lone = (p) => at.get(key(p)).length === 1;
+  const used = new Set();
+  const chained = [];
+  const follow = (first) => {
+    let current = first;
+    chained.push(current);
+    for (;;) {
+      const next = at.get(key(current.to)).find((j) => !used.has(j));
+      if (next === undefined) return;
+      used.add(next);
+      const s = segments[next];
+      current =
+        key(s.from) === key(current.to) ? s : { ...s, from: s.to, to: s.from };
+      chained.push(current);
+    }
+  };
+  // The ends of open runs first; whatever is left over is loops.
+  segments.forEach((s, i) => {
+    if (used.has(i) || !(lone(s.from) || lone(s.to))) return;
+    used.add(i);
+    follow(lone(s.from) ? s : { ...s, from: s.to, to: s.from });
+  });
+  segments.forEach((s, i) => {
+    if (used.has(i)) return;
+    used.add(i);
+    follow(s);
+  });
+  return chained;
+}
+
 /* `polygons` are `{ vertices, carriers }`: a polygon's corners, and the
    triangles its edges may lie along — the face it was cut from, and for a mark
    indexed against the review mesh the review triangle too. Returns the outline

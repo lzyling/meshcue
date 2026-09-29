@@ -16,7 +16,7 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
-import { outlineSegments } from "./outline.js";
+import { chainSegments, faceNormal, outlineSegments } from "./outline.js";
 import {
   brepTopology,
   circleLine,
@@ -45,50 +45,6 @@ const fanInto = (coords, vertices) => {
   for (let i = 1; i < vertices.length - 1; i++)
     coords.push(...vertices[0], ...vertices[i], ...vertices[i + 1]);
 };
-// A polygon's normal by Newell's method; its winding says which side is out.
-const faceNormal = (vertices) => {
-  const n = [0, 0, 0];
-  for (let i = 0; i < vertices.length; i++) {
-    const [x1, y1, z1] = vertices[i];
-    const [x2, y2, z2] = vertices[(i + 1) % vertices.length];
-    n[0] += (y1 - y2) * (z1 + z2);
-    n[1] += (z1 - z2) * (x1 + x2);
-    n[2] += (x1 - x2) * (y1 + y2);
-  }
-  return n;
-};
-/* Outline stretches in the order they run, each pointing on from the last, so
-   a dash pattern measured along them flows round the loop instead of starting
-   afresh at every stretch. */
-function chainSegments(segments) {
-  const key = (p) => p.map((v) => v.toFixed(5)).join(",");
-  const at = new Map();
-  segments.forEach((s, i) => {
-    for (const end of [s.from, s.to]) {
-      const k = key(end);
-      if (!at.has(k)) at.set(k, []);
-      at.get(k).push(i);
-    }
-  });
-  const used = new Set();
-  const chained = [];
-  for (let i = 0; i < segments.length; i++) {
-    if (used.has(i)) continue;
-    used.add(i);
-    let current = segments[i];
-    chained.push(current);
-    for (;;) {
-      const next = (at.get(key(current.to)) || []).find((j) => !used.has(j));
-      if (next === undefined) break;
-      used.add(next);
-      const s = segments[next];
-      current =
-        key(s.from) === key(current.to) ? s : { ...s, from: s.to, to: s.from };
-      chained.push(current);
-    }
-  }
-  return chained;
-}
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
 /* The Agent's echo is a line of a kind a reviewer never draws: dashed, moving
