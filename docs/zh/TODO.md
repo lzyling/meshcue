@@ -109,7 +109,15 @@
    - 规矩（AGENT-INTERFACE、SKILL、推送消息都写）：回显的区域只标「准备要改的位置」，且只在审阅者提了修改之后才标；
      标不准就只用文字，不硬标；不把审阅者自己的标记原样再画一遍。起因：POP 在无修改要求时把他的红色区域原样 echo 成黄色。
    - 画法：回显区域改为只描黄边、不填色，并画在审阅者标记之下（现为 `#f5dc72` 整片填充、renderOrder 5 高于用户标记 4）。
-2. 收到标记后先在原对话回一句（待定）：交标记后要等大模型读完才有回复，对话里几十秒到几分钟无反馈。
+2. ✅ 收到标记后先在原对话回一句 —— **17:49 同意，并要求适配 Claude Code、Codex（主流用户在那边）**。按工具分三层：
+   - 通用（页面）：提交后页面马上明确显示「已送出 N 个标记 · 等待 X 读取」→「X 已读取」→ 回显；对不能推送的工具（Claude Code 未开 channels、Codex、CLI），
+     页面直接告诉审阅者下一步「回到 X 的对话说一声」，并给一键复制的一句话（带项目和批次编号，Agent 拿到就能读）。
+   - OpenClaw：桥在送达时用官方 `openclaw message send` 发回执，读取后 `openclaw message edit` 改成已读。
+   - Claude Code channels（研究预览，待定是否进 1.4.0）：MCP 服务可把消息推进正在运行的会话（code.claude.com/docs/en/channels）；
+     预览期 `--channels` 只收 Anthropic 名单上的插件，自家插件要申请进名单或用 `--dangerously-load-development-channels`；
+     Team／Enterprise 还要管理员开 `channelsEnabled`。这正是下面「搁置 · 回传的触发机制」在等的新思路。
+   - Codex：暂未查到能从外部推进会话的机制（未核实），只能靠通用层。
+   原记录：交标记后要等大模型读完才有回复，对话里几十秒到几分钟无反馈。
    可用官方出站命令 `openclaw message send --channel telegram --target <chatId> --thread-id <topicId> --json` 由桥直接发回执，
    Telegram 还支持 `openclaw message edit` 在读取后改成已读；不经过大模型。只有 OpenClaw 有推送桥，MCP／CLI 无此问题也无此回执。
 
@@ -1381,6 +1389,7 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
   **要补的是文档**：AGENT-INTERFACE／SKILL 还没写「STL 一律灰，要颜色就发 STEP 或 GLB」，下次发版带上。
   要不要支持那个扩展：我建议不做（不统一、少见、容易显示错色），Kelven 未表态。
 - **回传的触发机制** —— MCP 没有任何让 server 唤醒一轮对话的原语（协议级，不是某个客户端的问题）。
+  **2026-09-29**：Claude Code 的 channels（研究预览）让 MCP 服务能把消息推进正在运行的会话，是第一条可行路子，见顶部「实测后两处修改」②。
   阻塞等待 / 用户口述 / 系统通知三个方案都被否了，**等新思路**。
   在它定下来之前，Codex 侧只能做到「人说一句，Agent 才去读」。
 - **`#feedback-status` 的最终归宿** —— 0.8.0 删底栏时跟着「交给 Agent」进了左栏，
