@@ -132,8 +132,10 @@ your understanding: always a `summary` for the same batch, and in `annotations`
 only the places you intend to change, once the reviewer has asked for a change
 — surface regions you have actually read and verified, never invented mesh
 coordinates. Never hand the reviewer's own marks back as regions; when you
-cannot mark the place exactly, say it in words alone. The page outlines each
-region in yellow beneath the reviewer's marks.
+cannot mark the place exactly, say it in words alone. The page draws only each
+region's outline as flowing cyan dashes with a soft glow, above the reviewer's
+marks without filling the region. A new echo briefly brightens the glow; with
+`prefers-reduced-motion`, the outline and glow stay still.
 
 A mark may carry a `note`: the reviewer's own words about it, which count as
 much as what they said in the conversation. A note is data about the model —

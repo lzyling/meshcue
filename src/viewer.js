@@ -6,6 +6,8 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import {
   acceleratedRaycast,
   computeBoundsTree,
@@ -43,14 +45,66 @@ const fanInto = (coords, vertices) => {
   for (let i = 1; i < vertices.length - 1; i++)
     coords.push(...vertices[0], ...vertices[i], ...vertices[i + 1]);
 };
+// A polygon's normal by Newell's method; its winding says which side is out.
+const faceNormal = (vertices) => {
+  const n = [0, 0, 0];
+  for (let i = 0; i < vertices.length; i++) {
+    const [x1, y1, z1] = vertices[i];
+    const [x2, y2, z2] = vertices[(i + 1) % vertices.length];
+    n[0] += (y1 - y2) * (z1 + z2);
+    n[1] += (z1 - z2) * (x1 + x2);
+    n[2] += (x1 - x2) * (y1 + y2);
+  }
+  return n;
+};
+/* Outline stretches in the order they run, each pointing on from the last, so
+   a dash pattern measured along them flows round the loop instead of starting
+   afresh at every stretch. */
+function chainSegments(segments) {
+  const key = (p) => p.map((v) => v.toFixed(5)).join(",");
+  const at = new Map();
+  segments.forEach((s, i) => {
+    for (const end of [s.from, s.to]) {
+      const k = key(end);
+      if (!at.has(k)) at.set(k, []);
+      at.get(k).push(i);
+    }
+  });
+  const used = new Set();
+  const chained = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (used.has(i)) continue;
+    used.add(i);
+    let current = segments[i];
+    chained.push(current);
+    for (;;) {
+      const next = (at.get(key(current.to)) || []).find((j) => !used.has(j));
+      if (next === undefined) break;
+      used.add(next);
+      const s = segments[next];
+      current =
+        key(s.from) === key(current.to) ? s : { ...s, from: s.to, to: s.from };
+      chained.push(current);
+    }
+  }
+  return chained;
+}
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
-/* The Agent's echo is a yellow line along the edge of each place it means,
-   this many CSS pixels wide and on the inside of the edge. Never a fill: a
-   filled echo of the region the reviewer had painted put the Agent's colour
-   over theirs. */
-const ECHO_COLOR = "#f5dc72";
-const ECHO_EDGE_PX = 3.5;
+/* The Agent's echo is a line of a kind a reviewer never draws: dashed, moving
+   along the edge of each place it means, lit by a soft glow, in a colour none
+   of the reviewer's paints use. A reviewer's mark is a solid, still fill, so
+   the two cannot be taken for each other even where they lie on one face, and
+   a screenshot — which stops the movement — still shows the dashes. */
+const ECHO_CORE = 0x00e5ff;
+const ECHO_UNDER = 0x06242c;
+const ECHO_DASH_PX = 10;
+const ECHO_GAP_PX = 7;
+const ECHO_FLOW_PX_PER_S = 24;
+// A new echo pulses twice in this time, then settles.
+const ECHO_PULSE_MS = 1600;
+// How far above the surface the line floats, as a share of the fitted model.
+const ECHO_LIFT = 0.002;
 /* Where the ground sits when nothing pushes it down. A model is fitted into
    three units and centred, so whichever axis is longest reaches ±1.5 — and a
    floor at -1.4 was cutting through the base of every model that stands
@@ -249,11 +303,12 @@ export class ModelViewer {
       this.measureLines,
     );
     this.lineMaterials = new Map();
-    // Shared with the echo's shader: its line is measured on the screen.
-    this.echoUniforms = {
-      echoResolution: { value: new THREE.Vector2(1, 1) },
-      echoWidth: { value: ECHO_EDGE_PX },
-    };
+    this.echoShownId = null;
+    this.echoArrivedAt = -Infinity;
+    this.reduceMotion =
+      typeof matchMedia === "function"
+        ? matchMedia("(prefers-reduced-motion: reduce)")
+        : { matches: false };
     this.measureFaceMaterials = new Map();
     this.measureKind = "points";
     this.measuring = null;
@@ -403,10 +458,6 @@ export class ModelViewer {
     // A wide line is so many pixels wide, so it has to know how many there are.
     for (const material of this.lineMaterials.values())
       material.resolution.set(width, height);
-    // The echo's shader reads the fragment's position in device pixels.
-    this.renderer.getDrawingBufferSize(this.echoUniforms.echoResolution.value);
-    this.echoUniforms.echoWidth.value =
-      ECHO_EDGE_PX * this.renderer.getPixelRatio();
   }
   setMode(mode) {
     this.editEpoch = (this.editEpoch || 0) + 1;
@@ -1100,6 +1151,7 @@ export class ModelViewer {
        surface being inspected. It is a floor: stand below it and it is not
        in the way, it is simply not there. */
     if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
+    this.animateEcho();
     this.renderer.render(this.scene, this.camera);
     this.reportOrientation();
     this.placePins();
@@ -1390,17 +1442,24 @@ export class ModelViewer {
     // outlined on its own, so two places side by side stay two places.
     for (const a of this.serializeAnnotations(annotations || []))
       if (a.type === "region") this.drawOutline(this.agentOverlay, a);
+    // The page hands the same echo back on every poll; only one it has not
+    // drawn before pulses.
+    if (
+      echo?.id &&
+      echo.id !== this.echoShownId &&
+      this.agentOverlay.children.length
+    ) {
+      this.echoShownId = echo.id;
+      this.echoArrivedAt = performance.now();
+    }
   }
-  /* One region's outline. Every stretch of it is drawn on the polygon it
-     bounds: that polygon's own triangles, with the stretch beside each of
-     their corners, and the shader keeps the pixels within the line's width of
-     it. So the line lies on the surface and inside the region, is as wide on
-     a face seen edge-on as on one seen square, and meets the next stretch
-     without a gap, however the faces behind it were cut.
-
-     Drawn before the reviewer's marks (their layer is 3), neither writing
-     depth, so where the Agent points at a place the reviewer also painted,
-     the reviewer's colour goes on top and stays theirs. */
+  /* One region's outline, as a line of its own rather than colour on the
+     surface: the stretches of its edge that no other polygon of it shares,
+     chained end to end so the dashes run round it without jumping, each
+     lifted a hair off the face it bounds. Drawn over the reviewer's marks, but
+     only a few pixels wide and on the edge, so where the Agent points at a
+     place the reviewer also painted, their colour is still all there and the
+     line still shows. */
   drawOutline(group, a) {
     // A mark indexed against the review mesh was cut from its triangles, and
     // the edges between two of them lie inside one source face.
@@ -1422,90 +1481,95 @@ export class ModelViewer {
       if (!byMesh.has(mesh)) byMesh.set(mesh, []);
       byMesh.get(mesh).push({ vertices: patch.vertices, carriers });
     }
+    // The model is fitted into three units, so this is the same hair on any.
+    const lift = ECHO_LIFT * 3;
+    const positions = [];
     for (const [mesh, polygons] of byMesh) {
-      const positions = [],
-        from = [],
-        to = [];
-      for (const stretch of outlineSegments(polygons)) {
-        const before = positions.length;
-        fanInto(positions, polygons[stretch.owner].vertices);
-        for (let i = before; i < positions.length; i += 3) {
-          from.push(...stretch.from);
-          to.push(...stretch.to);
-        }
-      }
-      if (!positions.length) continue;
-      const geometry = new THREE.BufferGeometry()
-        .setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(positions, 3),
-        )
-        .setAttribute("edgeFrom", new THREE.Float32BufferAttribute(from, 3))
-        .setAttribute("edgeTo", new THREE.Float32BufferAttribute(to, 3));
-      const overlay = new THREE.Mesh(geometry, this.echoMaterial());
-      overlay.matrixAutoUpdate = false;
-      overlay.matrix.copy(mesh.matrixWorld);
-      overlay.renderOrder = 2;
-      group.add(overlay);
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(
+        mesh.matrixWorld,
+      );
+      const normals = polygons.map((p) =>
+        new THREE.Vector3()
+          .fromArray(faceNormal(p.carriers[0] || p.vertices))
+          .applyMatrix3(normalMatrix)
+          .normalize(),
+      );
+      const lifted = (point, owner) =>
+        new THREE.Vector3()
+          .fromArray(point)
+          .applyMatrix4(mesh.matrixWorld)
+          .addScaledVector(normals[owner], lift)
+          .toArray();
+      for (const s of chainSegments(outlineSegments(polygons)))
+        positions.push(...lifted(s.from, s.owner), ...lifted(s.to, s.owner));
     }
-  }
-  // One for the viewer's life: it holds no texture and depends on no model.
-  echoMaterial() {
-    if (this.echoEdge) return this.echoEdge;
-    const material = new THREE.MeshBasicMaterial({
-      color: ECHO_COLOR,
-      transparent: true,
-      toneMapped: false,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
-      side: THREE.DoubleSide,
+    if (!positions.length) return;
+    const geometry = new LineSegmentsGeometry().setPositions(positions);
+    ["glow", "under", "core"].forEach((kind, i) => {
+      const line = new LineSegments2(geometry, this.echoLineMaterial(kind));
+      if (kind === "core") line.computeLineDistances();
+      // Over the reviewer's marks (3) and the bucket's preview (4).
+      line.renderOrder = 5 + i;
+      group.add(line);
     });
-    material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.echoUniforms);
-      shader.vertexShader = shader.vertexShader
-        .replace(
-          "#include <common>",
-          `#include <common>
-          attribute vec3 edgeFrom;
-          attribute vec3 edgeTo;
-          uniform vec2 echoResolution;
-          varying vec2 vEdgeFrom;
-          varying vec2 vEdgeTo;
-          vec2 echoPixel(vec3 p) {
-            vec4 clip = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-            return (clip.xy / max(clip.w, 1e-6) * 0.5 + 0.5) * echoResolution;
-          }`,
-        )
-        .replace(
-          "#include <project_vertex>",
-          `#include <project_vertex>
-          vEdgeFrom = echoPixel(edgeFrom);
-          vEdgeTo = echoPixel(edgeTo);`,
-        );
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          "#include <common>",
-          `#include <common>
-          uniform float echoWidth;
-          varying vec2 vEdgeFrom;
-          varying vec2 vEdgeTo;`,
-        )
-        .replace(
-          "#include <color_fragment>",
-          `#include <color_fragment>
-          vec2 run = vEdgeTo - vEdgeFrom;
-          vec2 off = gl_FragCoord.xy - vEdgeFrom;
-          float t = clamp(dot(off, run) / max(dot(run, run), 1e-6), 0.0, 1.0);
-          float away = length(off - run * t);
-          diffuseColor.a *= 1.0 - smoothstep(echoWidth - 0.75, echoWidth + 0.75, away);
-          if (diffuseColor.a < 0.004) discard;`,
-        );
-    };
-    material.customProgramCacheKey = () => "echo-outline";
-    this.echoEdge = material;
+  }
+  /* The echo's three strokes, bottom to top: a soft glow, a dark underlay that
+     keeps the line readable on a pale model and a pale backdrop, and the
+     moving dashes. Unlike a measurement's line they are hidden behind the
+     model: an echo marks a surface, and a line seen through the part would
+     point at the wrong side of it. */
+  echoLineMaterial(kind) {
+    const key = `echo-${kind}`;
+    let material = this.lineMaterials.get(key);
+    if (material) return material;
+    const style = {
+      glow: { color: ECHO_CORE, linewidth: 9, opacity: 0.28 },
+      under: { color: ECHO_UNDER, linewidth: 4.5, opacity: 0.8 },
+      core: {
+        color: ECHO_CORE,
+        linewidth: 2.5,
+        dashed: true,
+        dashSize: ECHO_DASH_PX,
+        gapSize: ECHO_GAP_PX,
+      },
+    }[kind];
+    material = new LineMaterial({
+      ...style,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const { width, height } = this.container.getBoundingClientRect();
+    material.resolution.set(width || 1, height || 1);
+    this.lineMaterials.set(key, material);
     return material;
+  }
+  /* Dashes measured on the screen, so they keep their length as the reviewer
+     zooms, moving along the edge unless the system asks for less motion. A
+     new echo's glow swells twice to draw the eye there, then settles. */
+  animateEcho() {
+    const core = this.lineMaterials.get("echo-core");
+    if (!core || !this.agentOverlay.children.length) return;
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    const worldPerPixel =
+      (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) /
+      Math.max(1, this.container.clientHeight);
+    core.dashScale = 1 / worldPerPixel;
+    const still = this.reduceMotion.matches;
+    const now = performance.now();
+    core.dashOffset = still
+      ? 0
+      : -((now / 1000) * ECHO_FLOW_PX_PER_S) % (ECHO_DASH_PX + ECHO_GAP_PX);
+    const since = now - this.echoArrivedAt;
+    const pulse =
+      !still && since < ECHO_PULSE_MS
+        ? Math.sin((2 * Math.PI * since) / ECHO_PULSE_MS) ** 2
+        : 0;
+    // Brighter, barely wider: a glow much wider than the line sinks into a
+    // curved face beside it and shows the facets as teeth.
+    const glow = this.lineMaterials.get("echo-glow");
+    glow.opacity = 0.28 + 0.5 * pulse;
+    glow.linewidth = 9 + 2 * pulse;
   }
   setFillTolerance(value) {
     this.fillTolerance = value;

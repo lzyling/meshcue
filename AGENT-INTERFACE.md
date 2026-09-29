@@ -280,9 +280,11 @@ mark, then say what to change."
 - After “Send to Agent” the lines under the button follow the batch: how many
   marks were sent, then when the Agent read them, then its understanding, which
   appears at the bottom right of the model. Where it points at places on the
-  model it draws a yellow line along their edges, beneath your own marks. If the
-  Agent cannot be told automatically, the panel says so and gives you a sentence
-  to paste into its conversation.
+  model, it draws flowing cyan dashes with a soft glow along the region
+  outlines, above your own marks without filling the regions. A new echo briefly
+  brightens the glow; with reduced motion enabled, it stays still. If the Agent
+  cannot be told automatically, the panel says so and gives you a sentence to
+  paste into its conversation.
 
 <!-- reviewer-help:end -->
 
@@ -465,8 +467,11 @@ they painted, and an echo of it tells them nothing new. If you cannot mark the
 place exactly, say it in words alone rather than marking an approximation, and
 never widen a pin into a hole or an arm.
 
-The page draws each region as a yellow line along its edges, beneath the
-reviewer's marks: where the two overlap, the reviewer's colour stays on top.
+The page draws only each region's outline as flowing cyan dashes with a soft
+glow, above the reviewer's marks without filling the region. This separates
+the echo from yellow marks and keeps its edge visible where marks overlap; the
+reviewer's marks remain unchanged. A new echo briefly brightens the glow.
+With `prefers-reduced-motion`, the outline and glow stay still.
 
 `echo` takes the `submissionId`, the `versionId`, a short `summary`, and an
 optional `annotations` array of regions in that version's own region format.
