@@ -346,7 +346,7 @@
      - 文档：AGENT-INTERFACE 新增「What the page calls you — agentName」一节；帮助段前言加一句「这些 the Agent 在页面上是你报的名字」，
        同步脚本遇到占位符直接报错；SKILL.md 第 4 节教报名字；reviewctl 加 `agent` 命令（测试和手动排查用）。
      - 截图核过：英文宽屏「Send to Ada」、中文帮助「交给爆爆」、德语 23 字名字窄屏、法语「Envoyer à Claude Code」。
-   - ✅ **09-29 17:xx 名字后面加工具**（Kelven 16:57，31619：「爆爆（OpenClaw）」比单写「爆爆」清楚，左下角提交按钮也照改）：
+   - ✅ **09-29 17:xx 名字后面加工具**（dev `0769c56`；Kelven 16:57，31619：「爆爆（OpenClaw）」比单写「爆爆」清楚，左下角提交按钮也照改）：
      - 规则：名字和工具都有、两者不同 →「爆爆（OpenClaw）」；只有工具 →「OpenClaw」（服务端这时把工具名也当名字给，页面只说一次）；
        有名字但认不出工具（CLI）→「爆爆」；都没有 → 页面自己的词（中文「AI Agent」）。名字和工具只差大小写也只说一次。
      - 服务端 `publicState` 多给 `agentTool`（`agentName` 照旧＝名字或工具，旧页面、旧调用方不受影响）；`open` 返回、`status` 也带 `agentTool`。
