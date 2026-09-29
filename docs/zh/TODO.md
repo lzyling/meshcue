@@ -239,7 +239,7 @@
 - 两个硬坑：① 插件 MCP 的 cwd 是插件根，而 `mcp/server.mjs:97` 拿 `process.cwd()` 当 workspace，要改读 `CLAUDE_PROJECT_DIR`；
   ② `dist/` 不在 git 里，按 git 装的插件没有网页（`PACKAGE_INCOMPLETE`），要么首次启动构建到 `${CLAUDE_PLUGIN_DATA}`，要么发版附预构建包。
   依赖在插件安装时怎么装，按官方文档，未核实。
-- ✅ **09-29 第六轮做完**（方案按上面两条硬坑改过，见下）：
+- ✅ **09-29 第六轮做完**（`2b442c7`；方案按上面两条硬坑改过，见下）：
   - 读官方文档（code.claude.com/docs 的 plugins、marketplace-reference、loading、mcp 各页）定的三件事：
     ① 从 git 装的插件会被拷进 `~/.claude/plugins/cache/<市场>/<插件>/<版本>/`，根目录同时有 `package.json` 和锁文件时，Claude Code 在那里跑
     `npm ci --ignore-scripts`（60 秒超时、devDependencies 照装、`prepare` 不跑）——所以按 git 装永远没有 `dist/`；
@@ -263,6 +263,11 @@
     页面名字是「Claude Code」、从项目里那份校验过的副本启动、包目录一个字节没多。两处变异验过会红（打包标记去掉 → `PACKAGE_INCOMPLETE`；不读 `MESHCUE_WORKSPACE` → 3 条红）。
   - **未核实**：`archive` 来源从 GitHub Release 下载这一步（要等 1.4.0 发版、资产真的存在才能测；GitHub 的 releases/download 会 302 到 objects.githubusercontent.com，
     Claude Code 跟不跟重定向没实测）；真会话里（不是 `claude mcp list`）的 cwd；Windows。发版后第一件事：按 README 两行命令真装一次。
+  - CI（`2b442c7`）：unit 1.5 分钟绿（含新测试和出包）；浏览器 85 过、2 跳过、0 flaky，9.4 分钟。
+  - 开发包：`tmp/candidate-140-2b442c7`（含 OpenClaw 宿主构建），`package-smoke` 11/11；同一包照发版工作流的办法 zip 成 4.2 MB，
+    装进隔离配置 `claude mcp list` ✔ Connected，`claude plugin details` 列出 1 个技能（meshcue-review）＋1 个 MCP 服务器。`claude plugin validate` 不收 zip，只收目录。
+  - 发版时顺手核对：AGENT-INTERFACE「every release states the SHA-256 of its own artifact」——Release 正文至今只附提交号，
+    从没有过制品；1.4.0 起有了 zip 资产，GitHub 会不会在资产上显示 digest、这句要不要改成「资产的 SHA-256」，发版后看实际页面再定（未核实）。
 
 **依赖**：dependabot #5（vite 8）只动 devDependency，`vite.config.js` 没用到改名项，风险低 —— rebase 到 dev 跑全套再交 Kelven。
 #8（three 0.186）按规划留 1.5.0。
