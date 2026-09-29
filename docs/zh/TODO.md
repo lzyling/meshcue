@@ -270,6 +270,9 @@
   - CI（`2b442c7`）：unit 1.5 分钟绿（含新测试和出包）；浏览器 85 过、2 跳过、0 flaky，9.4 分钟。
   - 开发包：`tmp/candidate-140-2b442c7`（含 OpenClaw 宿主构建），`package-smoke` 11/11；同一包照发版工作流的办法 zip 成 4.2 MB，
     装进隔离配置 `claude mcp list` ✔ Connected，`claude plugin details` 列出 1 个技能（meshcue-review）＋1 个 MCP 服务器。`claude plugin validate` 不收 zip，只收目录。
+  - 09-29 17:2x 第二个开发包 `tmp/candidate-140-final/package`（`a215b5b` 构建，和冒烟过的 `1a6d081` 构建逐字节相同，含名字加工具）。
+    冒烟先撞出 `80c2acc` 留下的测试缺口：「卸载冻结写入」那例还在改名 `openclaw.plugin.json`，服务端已改看 package.json，于是拿到 200 而不是 503；
+    改成挪走 package.json 后 11/11（`a215b5b`）。已按 Kelven 31619 装进本机 OpenClaw（装一次），等他重启后一起实测显示名、标记文字、测量、推送进话题、回显。
   - 发版时顺手核对：AGENT-INTERFACE「every release states the SHA-256 of its own artifact」——Release 正文至今只附提交号，
     从没有过制品；1.4.0 起有了 zip 资产，GitHub 会不会在资产上显示 digest、这句要不要改成「资产的 SHA-256」，发版后看实际页面再定（未核实）。
 
@@ -346,7 +349,7 @@
      - 文档：AGENT-INTERFACE 新增「What the page calls you — agentName」一节；帮助段前言加一句「这些 the Agent 在页面上是你报的名字」，
        同步脚本遇到占位符直接报错；SKILL.md 第 4 节教报名字；reviewctl 加 `agent` 命令（测试和手动排查用）。
      - 截图核过：英文宽屏「Send to Ada」、中文帮助「交给爆爆」、德语 23 字名字窄屏、法语「Envoyer à Claude Code」。
-   - ✅ **09-29 17:xx 名字后面加工具**（dev `0769c56`；Kelven 16:57，31619：「爆爆（OpenClaw）」比单写「爆爆」清楚，左下角提交按钮也照改）：
+   - ✅ **09-29 17:0x–17:1x 名字后面加工具**（dev `0769c56`；Kelven 16:57，31619：「爆爆（OpenClaw）」比单写「爆爆」清楚，左下角提交按钮也照改）：
      - 规则：名字和工具都有、两者不同 →「爆爆（OpenClaw）」；只有工具 →「OpenClaw」（服务端这时把工具名也当名字给，页面只说一次）；
        有名字但认不出工具（CLI）→「爆爆」；都没有 → 页面自己的词（中文「AI Agent」）。名字和工具只差大小写也只说一次。
      - 服务端 `publicState` 多给 `agentTool`（`agentName` 照旧＝名字或工具，旧页面、旧调用方不受影响）；`open` 返回、`status` 也带 `agentTool`。
