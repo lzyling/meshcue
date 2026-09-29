@@ -1,10 +1,65 @@
 #!/usr/bin/env node
 // Test-only executable. Production never adds this directory to PATH.
 import fs from "node:fs";
-const args = process.argv.slice(2),
-  method = args[2],
-  params = JSON.parse(args[args.indexOf("--params") + 1]);
+import path from "node:path";
+const args = process.argv.slice(2);
 const file = process.env.REVIEW_FAKE_GATEWAY_LOG;
+/* `openclaw message send|edit`: a line written straight into a chat, never
+   into a session. Kept in a file of its own, because it runs beside the
+   Gateway calls of the same batch and the two would overwrite each other's
+   record. A file named `fake-messages-offline` beside it makes it fail the
+   way a channel that cannot be reached does. */
+if (args[0] === "message") {
+  const dir = path.dirname(file);
+  const log = path.join(dir, "fake-messages.json");
+  const option = (name) => {
+    const at = args.indexOf(name);
+    return at === -1 ? undefined : args[at + 1];
+  };
+  if (fs.existsSync(path.join(dir, "fake-messages-offline"))) {
+    console.error("Fixture channel is unreachable");
+    process.exit(1);
+  }
+  const sent = fs.existsSync(log)
+    ? JSON.parse(fs.readFileSync(log, "utf8"))
+    : [];
+  const action = args[1];
+  if (!["send", "edit"].includes(action))
+    throw new Error("Unexpected message action");
+  const messageId =
+    action === "send"
+      ? String(1000 + sent.filter((s) => s.action === "send").length)
+      : option("--message-id");
+  sent.push({
+    action,
+    channel: option("--channel"),
+    target: option("--target"),
+    accountId: option("--account"),
+    threadId: option("--thread-id"),
+    messageId,
+    message: option("--message"),
+    json: args.includes("--json"),
+  });
+  fs.writeFileSync(log, JSON.stringify(sent));
+  // The shape the real command prints with --json: pretty, and the id on top.
+  console.log(
+    JSON.stringify(
+      {
+        action,
+        channel: option("--channel"),
+        dryRun: false,
+        handledBy: "plugin",
+        messageId,
+        payload: { ok: true, messageId },
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
+const method = args[2],
+  params = JSON.parse(args[args.indexOf("--params") + 1]);
 const state = fs.existsSync(file)
   ? JSON.parse(fs.readFileSync(file, "utf8"))
   : { calls: [], messages: [] };

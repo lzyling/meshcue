@@ -683,6 +683,7 @@ export class ReviewStore {
     revision,
     submissionId,
     sealed = false,
+    locale = null,
   }) {
     const old = this.state.submissions.find((x) => x.id === submissionId);
     if (old) {
@@ -718,6 +719,11 @@ export class ReviewStore {
       origin: structuredClone(this.state.reviewOrigin),
       model: structuredClone(this.state.models[versionId]),
       annotations: structuredClone(d.annotations),
+      // Said beside the batch, which the page is never sent back: how many
+      // marks it holds, and the language the reviewer read the page in when
+      // they handed it over, which any line written back to them is in.
+      markCount: d.annotations.length,
+      ...(locale ? { locale } : {}),
       camera: d.camera,
     };
     this.state.submissions.push(item);

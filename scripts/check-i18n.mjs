@@ -96,6 +96,16 @@ for (const file of sources) {
   for (const m of text.matchAll(AGENT_CALL)) agentCalled.add(m[1]);
   for (const m of text.matchAll(LITERAL)) mentioned.add(m[1]);
 }
+/* The service writes a few lines of its own in the reviewer's language — the
+   receipt in their conversation — from these same catalogues, so a key it
+   asks for is not dead either. */
+const serverDir = path.join(repo, "server");
+for (const entry of readdirSync(serverDir))
+  if (entry.endsWith(".mjs"))
+    for (const m of readFileSync(path.join(serverDir, entry), "utf8").matchAll(
+      LITERAL,
+    ))
+      mentioned.add(m[1]);
 const NAMED = ".named";
 const unknown = [...called, ...agentCalled].filter((k) => !(k in en));
 if (unknown.length) fail("call sites using unknown keys", unknown.join(", "));

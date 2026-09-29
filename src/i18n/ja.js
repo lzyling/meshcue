@@ -230,11 +230,9 @@ export default {
 
   "feedback.default": "印には 3D の位置と現在のバージョンが付きます",
   "feedback.notSubmitted": "未送信 · 下書きは自動で保存されます",
-  "feedback.saved": "保存しました",
+  "feedback.sentCount": "送った印：{count} 件",
   "feedback.delivered": "元の会話に届きました",
   "feedback.acceptedPending": "受理済み、配信は未確認",
-  "feedback.waiting": "エージェントの取得待ち",
-  "feedback.waiting.named": "{agent}の取得待ち",
   "feedback.deliveryUnconfirmed": "配信未確認、再試行します",
   "feedback.read": "エージェントが読みました",
   "feedback.read.named": "{agent}が読みました",
@@ -252,6 +250,35 @@ export default {
   "settings.themeSystem": "システムに従う",
   "settings.themeLight": "ライト",
   "settings.themeDark": "ダーク",
+
+  "receipt.next": "エージェントの理解はモデルの右下に表示されます",
+  "receipt.next.named": "{agent}の理解はモデルの右下に表示されます",
+  "receipt.understood":
+    "エージェントの理解が {time} に届きました（モデルの右下）",
+  "receipt.understood.named":
+    "{agent}の理解が {time} に届きました（モデルの右下）",
+  "receipt.nudge":
+    "エージェントには自動では通知されません。その会話でひとこと伝えてください。次の文をそのまま貼り付けられます：",
+  "receipt.nudge.named":
+    "{agent}には自動では通知されません。その会話でひとこと伝えてください。次の文をそのまま貼り付けられます：",
+  "receipt.line":
+    "MeshCue で印を {count} 件送りました。meshcue read で読んでください：project {project}、submissionId {submission}",
+  "receipt.lineNoProject":
+    "MeshCue で印を {count} 件送りました。meshcue read で読んでください：submissionId {submission}",
+  "receipt.copy": "コピー",
+  "receipt.copied": "コピーしました",
+  "receipt.copyTitle": "この文をコピー",
+  "receipt.copyFailed":
+    "コピーできませんでした。文を選択したので、手動でコピーしてください",
+  "receipt.listJoin": "、",
+  "receipt.chatSent":
+    "📐 印を {count} 件受け取りました（{marks}）。エージェントに渡し、読み取り中です……",
+  "receipt.chatSent.named":
+    "📐 印を {count} 件受け取りました（{marks}）。{agent}に渡し、読み取り中です……",
+  "receipt.chatRead":
+    "📐 印を {count} 件受け取りました（{marks}）。エージェントが読み取り、意図を理解しているところです……",
+  "receipt.chatRead.named":
+    "📐 印を {count} 件受け取りました（{marks}）。{agent}が読み取り、意図を理解しているところです……",
 
   "help.open": "使い方",
   "help.eyebrow": "クイックスタート",
@@ -318,4 +345,8 @@ export default {
     "その点では円が決まりません。縁に沿って離れた 3 点をクリックしてください。",
   "help.p10":
     "計測：計測ツールを選び、「点と点」（角の近くは角に吸着）、「辺の長さ」、「2 つの面」（平行なら間の距離、平行でなければ角度）、「3 点円」（穴や軸の縁を 3 点クリックすると直径）から選びます。STEP ではファイル自身の面で測ります。面はまるごと取り、辺は 2 つの面が接するところです。ミリメートルは小数点以下 2 桁、単位のないモデルは数字だけを表示します。計測は次を測ると消えます。「残す」を押すと印になり、メモを書く・元に戻す・削除する・送ることができます。",
+  "help.p11":
+    "「エージェントへ送る」を押すと、ボタンの下にこの一式の進み具合が順に表示されます。送った印の数、エージェントが読んだ時刻、そしてその理解です。理解はモデルの右下に表示され、モデル上の場所を示すときは、その縁に沿って黄色の線を引きます。線はあなたの印の下に描かれます。エージェントに自動で通知できないときはそう表示し、その会話に貼り付ける一文を用意します。",
+  "help.p11.named":
+    "「{agent}へ送る」を押すと、ボタンの下にこの一式の進み具合が順に表示されます。送った印の数、{agent}が読んだ時刻、そしてその理解です。理解はモデルの右下に表示され、モデル上の場所を示すときは、その縁に沿って黄色の線を引きます。線はあなたの印の下に描かれます。{agent}に自動で通知できないときはそう表示し、その会話に貼り付ける一文を用意します。",
 };

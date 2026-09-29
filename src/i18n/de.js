@@ -243,11 +243,9 @@ export default {
     "Markierungen tragen ihre 3D-Position und die aktuelle Version",
   "feedback.notSubmitted":
     "Nicht gesendet · der Entwurf speichert sich von selbst",
-  "feedback.saved": "Gespeichert",
+  "feedback.sentCount": "Markierungen gesendet: {count}",
   "feedback.delivered": "im ursprünglichen Gespräch zugestellt",
   "feedback.acceptedPending": "angenommen, Zustellung noch nicht bestätigt",
-  "feedback.waiting": "wartet darauf, vom Agenten abgeholt zu werden",
-  "feedback.waiting.named": "wartet darauf, von {agent} abgeholt zu werden",
   "feedback.deliveryUnconfirmed":
     "Zustellung unbestätigt, wird erneut versucht",
   "feedback.read": "der Agent hat sie gelesen",
@@ -266,6 +264,37 @@ export default {
   "settings.themeSystem": "Dem System folgen",
   "settings.themeLight": "Hell",
   "settings.themeDark": "Dunkel",
+
+  "receipt.next":
+    "Was der Agent verstanden hat, erscheint unten rechts am Modell",
+  "receipt.next.named":
+    "Was {agent} verstanden hat, erscheint unten rechts am Modell",
+  "receipt.understood":
+    "Was der Agent verstanden hat, kam um {time} – unten rechts am Modell",
+  "receipt.understood.named":
+    "Was {agent} verstanden hat, kam um {time} – unten rechts am Modell",
+  "receipt.nudge":
+    "Der Agent wird nicht automatisch benachrichtigt. Sagen Sie es ihm in seinem Gespräch – diesen Satz können Sie einfügen:",
+  "receipt.nudge.named":
+    "{agent} wird nicht automatisch benachrichtigt. Sagen Sie es im Gespräch – diesen Satz können Sie einfügen:",
+  "receipt.line":
+    "Ich habe meine MeshCue-Markierungen gesendet ({count}). Bitte lies sie mit meshcue read – project {project}, submissionId {submission}",
+  "receipt.lineNoProject":
+    "Ich habe meine MeshCue-Markierungen gesendet ({count}). Bitte lies sie mit meshcue read – submissionId {submission}",
+  "receipt.copy": "Kopieren",
+  "receipt.copied": "Kopiert",
+  "receipt.copyTitle": "Diesen Satz kopieren",
+  "receipt.copyFailed":
+    "Kopieren nicht möglich – der Satz ist markiert, bitte selbst kopieren",
+  "receipt.listJoin": ", ",
+  "receipt.chatSent":
+    "📐 Markierungen erhalten: {count} ({marks}). An den Agenten übergeben, wird gerade gelesen …",
+  "receipt.chatSent.named":
+    "📐 Markierungen erhalten: {count} ({marks}). An {agent} übergeben, wird gerade gelesen …",
+  "receipt.chatRead":
+    "📐 Markierungen erhalten: {count} ({marks}). Der Agent hat sie gelesen und arbeitet heraus, was gemeint ist …",
+  "receipt.chatRead.named":
+    "📐 Markierungen erhalten: {count} ({marks}). {agent} hat sie gelesen und arbeitet heraus, was gemeint ist …",
 
   "help.open": "Anleitung",
   "help.eyebrow": "SCHNELLSTART",
@@ -335,4 +364,8 @@ export default {
     "Durch diese Punkte geht kein Kreis – klicken Sie drei getrennte Punkte rund um den Rand an.",
   "help.p10":
     "Messen: Wählen Sie das Messwerkzeug, dann „Punkt zu Punkt“ (Ecken rasten ein), „Kantenlänge“, „Zwei Flächen“ – parallele Flächen ergeben ihren Abstand, alle anderen den Winkel – oder „3-Punkt-Kreis“: Drei Klicks auf den Rand einer Bohrung oder Welle ergeben ihren Durchmesser. Bei einem STEP ist eine Fläche die der Datei selbst, als Ganzes, und eine Kante die Stelle, an der zwei davon zusammentreffen. Millimeter erscheinen mit zwei Nachkommastellen; ein Modell ohne Einheit zeigt nur die Zahl. Eine Messung verschwindet bei der nächsten, außer Sie drücken „Behalten“: Dann wird sie eine Markierung, die Sie beschriften, rückgängig machen, löschen und senden können.",
+  "help.p11":
+    "Nach „An den Agenten“ zeigen die Zeilen unter der Schaltfläche, wie weit der Stapel ist: wie viele Markierungen gesendet wurden, wann der Agent sie gelesen hat, dann sein Verständnis, das unten rechts am Modell erscheint. Zeigt er auf Stellen am Modell, zieht er eine gelbe Linie an ihren Rändern entlang, unter Ihren eigenen Markierungen. Kann der Agent nicht automatisch benachrichtigt werden, sagt die Leiste das und gibt Ihnen einen Satz, den Sie in sein Gespräch einfügen.",
+  "help.p11.named":
+    "Nach „An {agent}“ zeigen die Zeilen unter der Schaltfläche, wie weit der Stapel ist: wie viele Markierungen gesendet wurden, wann {agent} sie gelesen hat, dann das Verständnis, das unten rechts am Modell erscheint. Sind Stellen am Modell gemeint, wird an ihren Rändern eine gelbe Linie gezogen, unter Ihren eigenen Markierungen. Kann {agent} nicht automatisch benachrichtigt werden, sagt die Leiste das und gibt Ihnen einen Satz, den Sie in das Gespräch einfügen.",
 };

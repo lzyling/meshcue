@@ -21,6 +21,13 @@ import {
 import { notifierFor, notifierSummary } from "./notify.mjs";
 import { IdleWatch, viewerUse, agentUse, idleMsFrom } from "./idle.mjs";
 import { originInput, normalizeOrigin } from "./origin.mjs";
+import {
+  receiptRoute,
+  receiptText,
+  sendReceipt,
+  editReceipt,
+} from "./receipt.mjs";
+import { matchLocale } from "../src/i18n/index.js";
 import { agentNameSchema } from "./agent-name.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import { createUpdateWatch, updateCheckEnabled } from "./upstream.mjs";
@@ -486,6 +493,11 @@ function stateFor(clientId, full = false, versionId) {
     version,
     ...(update ? { update } : {}),
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
+    /* The project as the Agent named it when it opened this review. A host
+       that cannot be pushed to hears of a batch only when the reviewer tells
+       it, and the sentence the page offers them for that names the project,
+       so the Agent can read the batch without asking which one. */
+    project: (config.managed && config.projectPath) || null,
     limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
     // The countdown rides along on every poll, not only during the
     // announcement: a throttled background tab can sleep through the whole
@@ -918,6 +930,80 @@ app.post("/api/review/finish", async (req, res) => {
   res.json({ ...state, sealed: sealed.id });
 });
 const feedbackFlights = new Map();
+/* The line in the reviewer's own conversation (see `receipt.mjs`): written
+   when a batch they handed over is accepted, changed when the Agent reads it.
+   A sealed batch gets none; the Agent closed that round, not the reviewer.
+   Each step is tried once and only logged when it fails. */
+const receiptFlights = new Map();
+const receiptEdits = new Set();
+function receiptLine(item, stage) {
+  return receiptText(stage, {
+    locale: item.locale,
+    annotations: item.annotations || [],
+    agentName: store.agentName(),
+    agentTool: store.agentTool(),
+  });
+}
+// Written against whatever the batch's status is by then, which is not
+// necessarily the one it had when the command was started.
+function keepReceipt(id, chatReceipt) {
+  const current = store.state.submissions.find((s) => s.id === id);
+  if (current) store.submissionStatus(id, current.status, { chatReceipt });
+}
+function announceReceipt(item) {
+  if (item.sealed || item.chatReceipt || receiptFlights.has(item.id)) return;
+  const route = receiptRoute(store.submissionOrigin(item));
+  if (!route) return;
+  const flight = (async () => {
+    try {
+      const messageId = await sendReceipt(route, receiptLine(item, "sent"));
+      keepReceipt(item.id, { messageId, sentAt: Date.now() });
+      log.info("receipt", "receipt written in the conversation", {
+        submissionId: item.id,
+        messageId,
+      });
+    } catch (error) {
+      log.warn(
+        "receipt",
+        "no receipt in the conversation; the batch is unaffected",
+        {
+          submissionId: item.id,
+          ...errorDetail(error),
+        },
+      );
+    } finally {
+      receiptFlights.delete(item.id);
+    }
+  })();
+  receiptFlights.set(item.id, flight);
+}
+// A read can land while the receipt is still being written; it waits for it.
+function receiptRead(submission) {
+  if (submission.sealed || receiptEdits.has(submission.id)) return;
+  const pending = receiptFlights.get(submission.id);
+  if (!pending && !submission.chatReceipt?.messageId) return;
+  receiptEdits.add(submission.id);
+  (async () => {
+    await pending;
+    const current = store.state.submissions.find((s) => s.id === submission.id);
+    const receipt = current?.chatReceipt;
+    const route = current && receiptRoute(store.submissionOrigin(current));
+    if (!receipt?.messageId || receipt.readAt || !route) return;
+    try {
+      await editReceipt(route, receipt.messageId, receiptLine(current, "read"));
+      keepReceipt(current.id, { ...receipt, readAt: Date.now() });
+    } catch (error) {
+      log.warn(
+        "receipt",
+        "the receipt was not marked read; the batch is unaffected",
+        {
+          submissionId: submission.id,
+          ...errorDetail(error),
+        },
+      );
+    }
+  })().finally(() => receiptEdits.delete(submission.id));
+}
 function attachManifest(item) {
   if (item.meshManifest) return item;
   item.meshManifest = JSON.parse(
@@ -931,9 +1017,19 @@ function attachManifest(item) {
 }
 app.post("/api/feedback", async (req, res) => {
   const p = owner
-    .extend({ revision: z.number().int().min(0), submissionId: id })
+    .extend({
+      revision: z.number().int().min(0),
+      submissionId: id,
+      locale: z.string().max(35).optional(),
+    })
     .parse(req.body);
-  const item = attachManifest(store.createSubmission(p));
+  const item = attachManifest(
+    store.createSubmission({
+      ...p,
+      // Only a language there is a catalogue for; anything else is no answer.
+      locale: matchLocale(p.locale),
+    }),
+  );
   if (item.status === "accepted")
     return res.json({ ...item, annotations: undefined });
   res.json(await deliverFeedback(item));
@@ -1065,6 +1161,8 @@ function deliverFeedback(item) {
             lastError: null,
             stalledAt: null,
           });
+          // Beside the delivery, never part of it: nothing here waits on it.
+          announceReceipt(item);
           // A host that cannot be read back is not a host that failed to
           // deliver. Without observe the receipt is the Agent's own read
           // acknowledgement, which is the more honest of the two anyway.
@@ -1471,7 +1569,9 @@ agentApp.post("/read", (req, res) => {
     .object({ submissionId: id, versionId: id })
     .strict()
     .parse(req.body);
-  res.json(store.acknowledgeRead(p.submissionId, p.versionId));
+  const submission = store.acknowledgeRead(p.submissionId, p.versionId);
+  receiptRead(submission);
+  res.json(submission);
 });
 agentApp.post("/echo", (req, res) => {
   const p = z

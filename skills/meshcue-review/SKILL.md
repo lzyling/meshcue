@@ -119,6 +119,12 @@ tell the user to reload or close it.
 On a submission notice, call `meshcue`'s `read` with the `project` and
 `submissionId` from the notice to read the full 3D annotations, model version
 and camera; the tool writes the read receipt for that batch at the same time.
+Where the host cannot push (an MCP client, the CLI), the notice is a sentence
+the reviewer pastes from the page — "I've sent my MeshCue marks (6). Please
+read them with meshcue read — project …, submissionId …", in their language:
+read that batch the same way. On OpenClaw the service has already told the
+reviewer's conversation the batch arrived, and marks it read when you read it;
+your reply still follows.
 Never claim to have understood a change from a position summary alone. Match
 pins and coloured regions to the change described in the conversation, and ask
 only when the method, a dimension or the meaning is missing. Use `echo` to show

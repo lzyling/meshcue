@@ -205,11 +205,9 @@ export default {
 
   "feedback.default": "標記會帶上三維位置與目前版本",
   "feedback.notSubmitted": "未提交 · 草稿會自動保存",
-  "feedback.saved": "已保存",
+  "feedback.sentCount": "已送出 {count} 個標記",
   "feedback.delivered": "已送達原對話",
   "feedback.acceptedPending": "已接納，投遞待確認",
-  "feedback.waiting": "等待 AI Agent 來取",
-  "feedback.waiting.named": "等待{agent}來取",
   "feedback.deliveryUnconfirmed": "投遞未確認，會重試",
   "feedback.read": "AI Agent 已讀取",
   "feedback.read.named": "{agent}已讀取",
@@ -226,6 +224,32 @@ export default {
   "settings.themeSystem": "跟隨系統",
   "settings.themeLight": "淺色",
   "settings.themeDark": "深色",
+
+  "receipt.next": "AI Agent 的理解會顯示在模型右下角",
+  "receipt.next.named": "{agent}的理解會顯示在模型右下角",
+  "receipt.understood": "AI Agent 的理解已在 {time} 送到，見模型右下角",
+  "receipt.understood.named": "{agent}的理解已在 {time} 送到，見模型右下角",
+  "receipt.nudge":
+    "AI Agent 收不到自動通知，請回到它的對話裡說一聲，可以直接貼上這句：",
+  "receipt.nudge.named":
+    "{agent}收不到自動通知，請回到它的對話裡說一聲，可以直接貼上這句：",
+  "receipt.line":
+    "我在 MeshCue 交了 {count} 個標記，請用 meshcue read 讀取：project {project}，submissionId {submission}",
+  "receipt.lineNoProject":
+    "我在 MeshCue 交了 {count} 個標記，請用 meshcue read 讀取：submissionId {submission}",
+  "receipt.copy": "複製",
+  "receipt.copied": "已複製",
+  "receipt.copyTitle": "複製這句話",
+  "receipt.copyFailed": "無法複製：已選取這句話，請自行複製",
+  "receipt.listJoin": "、",
+  "receipt.chatSent":
+    "📐 已收到 {count} 個標記（{marks}），已交給 AI Agent，正在讀取……",
+  "receipt.chatSent.named":
+    "📐 已收到 {count} 個標記（{marks}），已交給{agent}，正在讀取……",
+  "receipt.chatRead":
+    "📐 已收到 {count} 個標記（{marks}），AI Agent 已讀取，正在理解……",
+  "receipt.chatRead.named":
+    "📐 已收到 {count} 個標記（{marks}），{agent}已讀取，正在理解……",
 
   "help.open": "使用說明",
   "help.eyebrow": "快速上手",
@@ -287,4 +311,8 @@ export default {
   "measure.noCircle": "這幾個點定不出圓，請在邊緣上分散單擊三個不同的點。",
   "help.p10":
     "測量：選測量工具，再選「點到點」（靠近角點會自動吸附）、「邊長」、「兩個面」——兩個面平行時給出間距，不平行時給出夾角——或「三點定圓」：在孔或軸的邊緣上單擊三個點，得出直徑。STEP 模型按檔案自己的面來量：面整面取，邊是兩個面相接的地方。毫米顯示兩位小數；沒標單位的模型只顯示數字。量下一次時上一次就會消失；按「留下」才會變成標記，可以寫說明、撤銷、刪除，也會隨提交一起送出。",
+  "help.p11":
+    "按下「交給 AI Agent」後，按鈕下方會一路顯示這批標記的進度：送出了幾個，AI Agent 何時讀取，再到它的理解——理解顯示在模型右下角；要在模型上指出位置時，它會沿邊描一圈黃線，畫在你的標記之下。AI Agent 收不到自動通知時，這裡會直接說明，並給出一句話讓你貼到它的對話裡。",
+  "help.p11.named":
+    "按下「交給{agent}」後，按鈕下方會一路顯示這批標記的進度：送出了幾個，{agent}何時讀取，再到它的理解——理解顯示在模型右下角；要在模型上指出位置時，它會沿邊描一圈黃線，畫在你的標記之下。{agent}收不到自動通知時，這裡會直接說明，並給出一句話讓你貼到它的對話裡。",
 };

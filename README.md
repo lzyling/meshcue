@@ -103,8 +103,8 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 281 unit and integration tests
-npm run test:browser # 88 real-Chromium tests, isolated port and data
+npm test             # 288 unit and integration tests
+npm run test:browser # 91 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever

@@ -230,11 +230,9 @@ export default {
 
   "feedback.default": "Marks carry their 3D position and the current version",
   "feedback.notSubmitted": "Not submitted · the draft saves itself",
-  "feedback.saved": "Saved",
+  "feedback.sentCount": "Marks sent: {count}",
   "feedback.delivered": "delivered to the original conversation",
   "feedback.acceptedPending": "accepted, delivery not yet confirmed",
-  "feedback.waiting": "waiting for the Agent to collect it",
-  "feedback.waiting.named": "waiting for {agent} to collect it",
   "feedback.deliveryUnconfirmed": "delivery unconfirmed, will retry",
   "feedback.read": "the Agent has read it",
   "feedback.read.named": "{agent} has read it",
@@ -252,6 +250,37 @@ export default {
   "settings.themeSystem": "Follow the system",
   "settings.themeLight": "Light",
   "settings.themeDark": "Dark",
+
+  "receipt.next":
+    "What the Agent understood will appear at the bottom right of the model",
+  "receipt.next.named":
+    "What {agent} understood will appear at the bottom right of the model",
+  "receipt.understood":
+    "What the Agent understood arrived at {time}, at the bottom right of the model",
+  "receipt.understood.named":
+    "What {agent} understood arrived at {time}, at the bottom right of the model",
+  "receipt.nudge":
+    "The Agent is not told automatically. Say so in its conversation — you can paste this:",
+  "receipt.nudge.named":
+    "{agent} is not told automatically. Say so in its conversation — you can paste this:",
+  "receipt.line":
+    "I've sent my MeshCue marks ({count}). Please read them with meshcue read — project {project}, submissionId {submission}",
+  "receipt.lineNoProject":
+    "I've sent my MeshCue marks ({count}). Please read them with meshcue read — submissionId {submission}",
+  "receipt.copy": "Copy",
+  "receipt.copied": "Copied",
+  "receipt.copyTitle": "Copy this sentence",
+  "receipt.copyFailed":
+    "Could not copy — the sentence is selected; copy it yourself",
+  "receipt.listJoin": ", ",
+  "receipt.chatSent":
+    "📐 Marks received: {count} ({marks}). Handed to the Agent, reading them now…",
+  "receipt.chatSent.named":
+    "📐 Marks received: {count} ({marks}). Handed to {agent}, reading them now…",
+  "receipt.chatRead":
+    "📐 Marks received: {count} ({marks}). The Agent has read them and is working out what you meant…",
+  "receipt.chatRead.named":
+    "📐 Marks received: {count} ({marks}). {agent} has read them and is working out what you meant…",
 
   "help.open": "How to use",
   "help.eyebrow": "QUICK START",
@@ -318,4 +347,8 @@ export default {
     "No circle runs through those points — click three separate points spread around the rim.",
   "help.p10":
     "Measure: pick the Measure tool, then Point to point (corners snap), Edge length, Two faces — parallel faces give the distance between them, any others the angle — or 3-point circle, three clicks on the rim of a hole or shaft for its diameter. On a STEP a face is the file's own face, whole, and an edge is where two of them meet. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
+  "help.p11":
+    "After “Send to Agent” the lines under the button follow the batch: how many marks were sent, then when the Agent read them, then its understanding, which appears at the bottom right of the model. Where it points at places on the model it draws a yellow line along their edges, beneath your own marks. If the Agent cannot be told automatically, the panel says so and gives you a sentence to paste into its conversation.",
+  "help.p11.named":
+    "After “Send to {agent}” the lines under the button follow the batch: how many marks were sent, then when {agent} read them, then its understanding, which appears at the bottom right of the model. Where it points at places on the model it draws a yellow line along their edges, beneath your own marks. If {agent} cannot be told automatically, the panel says so and gives you a sentence to paste into its conversation.",
 };

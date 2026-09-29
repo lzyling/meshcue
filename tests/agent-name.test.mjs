@@ -246,6 +246,8 @@ const SAMPLE = {
   reason: "R",
   summary: "S",
   version: "9.9.9",
+  time: "18:32",
+  marks: "A",
 };
 test("every sentence about the Agent reads with a name and without one", (t) => {
   t.after(() => {
@@ -337,7 +339,7 @@ test("every sentence that names the Agent says the name and the tool", (t) => {
   setAgentName(agentLabel("爆爆", "OpenClaw"));
   assert.equal(ta("feedback.submit"), "交给爆爆（OpenClaw）");
   assert.equal(ta("conn.collect"), "由爆爆（OpenClaw）来取");
-  assert.equal(ta("feedback.waiting"), "等待爆爆（OpenClaw）来取");
+  assert.equal(ta("feedback.unread"), "等待爆爆（OpenClaw）读取");
   assert.equal(
     ta("echo.summary", { summary: "加厚" }),
     "爆爆（OpenClaw）理解：加厚",

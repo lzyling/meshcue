@@ -277,6 +277,13 @@ mark, then say what to change."
   shows the bare number. A measurement is gone at the next one unless you press
   “Keep”, which makes it a mark you can write a note on, undo, delete and send.
 
+- After “Send to Agent” the lines under the button follow the batch: how many
+  marks were sent, then when the Agent read them, then its understanding, which
+  appears at the bottom right of the model. Where it points at places on the
+  model it draws a yellow line along their edges, beneath your own marks. If the
+  Agent cannot be told automatically, the panel says so and gives you a sentence
+  to paste into its conversation.
+
 <!-- reviewer-help:end -->
 
 ## Reading marks
@@ -419,9 +426,33 @@ does not mean read.
 - An unconfirmed send keeps its submission id and retries under the same
   idempotency key.
 
-The page shows saved, delivered and read separately. An old receipt never covers
-later unsubmitted changes — including deleting every mark, which is itself a
-change that has to be submitted.
+The page shows the batch under the button that sent it: how many marks went and
+that it waits to be read, then that you read it and when, then that your echo
+has arrived — and, while it is unread on a host that pushes, whether the push
+was delivered. An old receipt never covers later unsubmitted changes —
+including deleting every mark, which is itself a change that has to be
+submitted.
+
+**Where nothing can push to you, the reviewer's sentence is the notice.** An
+MCP client or the CLI (`status` reports `notifier.send: false`) is never told
+that a batch exists. The page says so to the reviewer and offers them a
+sentence to paste into your conversation, in their language, naming the batch:
+
+```
+I've sent my MeshCue marks (6). Please read them with meshcue read — project projects/phone-stand, submissionId 3f2a…
+```
+
+When a message like that arrives, call `read` with that `project` and
+`submissionId` and carry on as for a pushed batch. Without a project (a review
+started outside a managed project) it names only the `submissionId`.
+
+**On OpenClaw, the reviewer's conversation hears of the batch at once.** When
+the host accepts a batch from a Telegram conversation, the service writes a
+line there with the host's own outbound command — "📐 Marks received: 6 (M1–M4,
+A, red area). Handed to Ada (OpenClaw), reading them now…", in the reviewer's
+language — and edits it when your `read` writes the receipt. It is written by
+the service, not by you; it does not stand in for your own reply once you have
+read the batch.
 
 ## Echo — showing what you understood
 

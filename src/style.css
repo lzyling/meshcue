@@ -863,6 +863,48 @@ a {
   line-height: 1.6;
   min-width: 0;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+}
+/* Once a batch has gone, the first line answers "did it arrive?", so it is set
+   as the answer; the line under it says how far the rest has got. */
+#feedback-status.sent #feedback-line {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Where the Agent cannot be woken, what to do about it, and the sentence to
+   do it with. Shown until the Agent reads the batch. */
+.receipt-nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid var(--warn-line);
+  border-radius: 7px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.receipt-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#receipt-line {
+  padding: 5px 6px;
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+#receipt-copy {
+  align-self: flex-end;
+  min-height: 24px;
+  padding: 3px 10px;
+  font-size: 10px;
 }
 .primary-button {
   background: var(--accent);
@@ -1334,6 +1376,30 @@ dialog .muted {
      is; the box itself is kept to two lines, and `maxlength` still counts. */
   .annotations-panel:has(#mark-note:not([hidden])) {
     max-height: 220px;
+  }
+  /* The same for the sentence to paste: it is the one thing on the page the
+     reviewer has to act on, so the list gives up its room for it. Across the
+     full width the button fits beside the sentence. */
+  .annotations-panel:has(#receipt-nudge:not([hidden])) {
+    max-height: 250px;
+  }
+  /* Both at once, which is what just after sending with a mark chosen looks
+     like, and the list still keeps a row. */
+  .annotations-panel:has(#mark-note:not([hidden])):has(
+      #receipt-nudge:not([hidden])
+    ) {
+    max-height: 330px;
+  }
+  .receipt-copy {
+    flex-direction: row;
+    align-items: center;
+  }
+  #receipt-line {
+    flex: 1;
+    min-width: 0;
+  }
+  #receipt-copy {
+    align-self: center;
   }
   .mark-note {
     padding: 6px 8px 5px;

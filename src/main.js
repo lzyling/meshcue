@@ -146,7 +146,7 @@ app.innerHTML = `${SPRITE}
   <div class="sr-only"><h2 id="model-name">${TA("model.awaiting")}</h2><span id="model-version">—</span><span id="save-status" aria-live="polite">${T("save.preparing")}</span></div>
   <div id="version-tabs" class="version-tabs" role="tablist" aria-label="${T("a11y.versionTabs")}" hidden></div>
   <div class="review-body">
-  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div id="mark-note" class="mark-note" hidden><label id="mark-note-title" for="mark-note-text"></label><textarea id="mark-note-text" rows="3" maxlength="${MAX_NOTE}" placeholder="${TA("note.placeholder")}"></textarea><small id="mark-note-count" aria-hidden="true"></small></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${submitLabel()}</button><span id="feedback-status">${T("feedback.default")}</span></div></aside>
+  <aside class="annotations-panel"><div class="annotations-heading"><strong>${T("marks.heading")} <span id="annotation-count">0</span></strong><button id="toggle-annotations" class="quiet-dark" aria-label="${T("marks.collapse")}" aria-expanded="true">${icon("collapse-left")}</button></div><div id="annotations-list"><div class="annotation-empty">${T("marks.empty").replace(/\n/g, "<br>")}</div></div><div id="mark-note" class="mark-note" hidden><label id="mark-note-title" for="mark-note-text"></label><textarea id="mark-note-text" rows="3" maxlength="${MAX_NOTE}" placeholder="${TA("note.placeholder")}"></textarea><small id="mark-note-count" aria-hidden="true"></small></div><div class="panel-actions"><button id="submit-feedback" class="primary-button" disabled>${submitLabel()}</button><div id="feedback-status" aria-live="polite"><span id="feedback-line">${T("feedback.default")}</span><span id="feedback-detail" hidden></span></div><div id="receipt-nudge" class="receipt-nudge" hidden><span id="receipt-nudge-text"></span><div class="receipt-copy"><span id="receipt-line"></span><button id="receipt-copy" class="quiet" title="${T("receipt.copyTitle")}">${T("receipt.copy")}</button></div></div></div></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${T("review.loadingModel")}</span></div>
@@ -175,7 +175,7 @@ app.innerHTML = `${SPRITE}
   <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p10")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p10")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p data-agent-text="help.p11">${TA("help.p11")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -1785,33 +1785,124 @@ function wasReclaimed() {
   const slack = Math.max(lastIdle.graceMs || 0, 60_000) * 2;
   return lastIdle.forMs >= lastIdle.limitMs - slack;
 }
+/* The batch as far as it has got, under the button that sent it: how many
+   marks went, then that the Agent has read them and when, then that its
+   understanding has arrived. Handing over used to show only "saved"; the
+   reviewer then watched a conversation that said nothing for as long as the
+   Agent took to read and think, and could not tell whether anything had
+   arrived. The service says each step as it happens, so this only ever
+   repeats what it was told. */
+const clock = (at) =>
+  new Intl.DateTimeFormat(currentLocale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(at));
+function showFeedback(line, detail = "") {
+  $("#feedback-line").textContent = line;
+  $("#feedback-detail").textContent = detail;
+  $("#feedback-detail").hidden = !detail;
+}
 function updateReceipt() {
   if (submitting) return;
   const last = state?.submissions?.findLast((s) => s.versionId === loadedId);
+  // What to say where nobody will be told: a host with no way to push.
+  const unheard =
+    !!last && !last.readAt && !last.sealed && !state?.notifier?.send;
+  $("#receipt-nudge").hidden = !unheard;
+  if (unheard) showNudge(last);
+  $("#feedback-status").classList.toggle("sent", !!last);
   if (!last) {
-    $("#feedback-status").textContent = annotations.length
-      ? t("feedback.notSubmitted")
-      : t("feedback.default");
+    showFeedback(
+      annotations.length ? t("feedback.notSubmitted") : t("feedback.default"),
+    );
     return;
   }
-  // "waiting" is not a delivery in progress. Saying "will retry" about a host
-  // that never had anywhere to push would promise something nothing is doing.
-  const delivery = last.deliveredAt
-    ? t("feedback.delivered")
-    : last.status === "waiting"
-      ? ta("feedback.waiting")
-      : last.status === "accepted"
-        ? t("feedback.acceptedPending")
-        : t("feedback.deliveryUnconfirmed");
-  const status = `${t("feedback.saved")} · ${delivery} · ${
-    last.readAt ? ta("feedback.read") : ta("feedback.unread")
-  }`;
-  $("#feedback-status").textContent =
-    status +
-    (editSeq > savedSeq || revision !== last.revision
+  // A batch saved before the count was kept is the draft it was cut from.
+  const count = last.markCount ?? annotations.length;
+  const later =
+    editSeq > savedSeq || revision !== last.revision
       ? t("feedback.alsoUnsubmitted")
-      : "");
+      : "";
+  const sent = t("feedback.sentCount", { count });
+  if (!last.readAt) {
+    /* Where the host pushes, how far the push got. "accepted" is not
+       "delivered", and a host with nowhere to push has nothing to report
+       here: the note below it says what to do instead. */
+    const delivery = !state?.notifier?.send
+      ? ""
+      : last.deliveredAt
+        ? t("feedback.delivered")
+        : last.status === "accepted"
+          ? t("feedback.acceptedPending")
+          : t("feedback.deliveryUnconfirmed");
+    showFeedback(`${sent} · ${ta("feedback.unread")}${later}`, delivery);
+    return;
+  }
+  const echo = state?.echo?.submissionId === last.id ? state.echo : null;
+  showFeedback(
+    `${sent} · ${ta("feedback.read")} · ${clock(last.readAt)}${later}`,
+    echo
+      ? ta("receipt.understood", { time: clock(echo.createdAt) })
+      : ta("receipt.next"),
+  );
 }
+/* A host reached over a tool protocol cannot be woken: the batch waits until
+   the Agent is asked about it. So the page says so, and hands the reviewer a
+   sentence to paste into that conversation, in their own language, naming
+   exactly what `read` needs. */
+function nudgeLine(last) {
+  const vars = {
+    count: last.markCount ?? annotations.length,
+    project: state?.project,
+    submission: last.id,
+  };
+  return state?.project
+    ? t("receipt.line", vars)
+    : t("receipt.lineNoProject", vars);
+}
+function showNudge(last) {
+  $("#receipt-nudge-text").textContent = ta("receipt.nudge");
+  $("#receipt-line").textContent = nudgeLine(last);
+}
+/* The page is often served over plain HTTP on the local network, where the
+   clipboard API does not exist; the older copy command still works there. And
+   where neither does, the sentence is left selected for the reviewer. */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const box = document.createElement("textarea");
+    box.value = text;
+    box.setAttribute("readonly", "");
+    box.style.position = "fixed";
+    box.style.opacity = "0";
+    document.body.append(box);
+    box.select();
+    let done = false;
+    try {
+      done = document.execCommand("copy");
+    } catch {
+      done = false;
+    }
+    box.remove();
+    return done;
+  }
+}
+$("#receipt-copy").addEventListener("click", async () => {
+  const button = $("#receipt-copy");
+  if (await copyText($("#receipt-line").textContent)) {
+    button.textContent = t("receipt.copied");
+    clearTimeout(button.timer);
+    button.timer = setTimeout(
+      () => (button.textContent = t("receipt.copy")),
+      2500,
+    );
+    return;
+  }
+  getSelection().selectAllChildren($("#receipt-line"));
+  toast(t("receipt.copyFailed"));
+});
 // The one channel that would report a delivery failure is the channel that is
 // failing, so the reviewer is the only person present to tell. A single missed
 // attempt is a blip the retry covers; from the second one the page says so and
@@ -1899,6 +1990,8 @@ $("#submit-feedback").addEventListener("click", async () => {
       ...owner(),
       revision,
       submissionId: submissionKey,
+      // The language any line written back to the reviewer is in.
+      locale: currentLocale(),
     });
     state.draft = { ...state.draft, submittedRevision: revision };
     state.submissions = [
@@ -1908,7 +2001,7 @@ $("#submit-feedback").addEventListener("click", async () => {
     updateReceipt();
     toast(t("feedback.submitted"));
   } catch (e) {
-    $("#feedback-status").textContent = e.message;
+    showFeedback(e.message);
     toast(e.message);
   } finally {
     submitting = false;

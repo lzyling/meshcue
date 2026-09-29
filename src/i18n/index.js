@@ -160,7 +160,26 @@ export function ta(key, vars) {
   const table = CATALOGUES[locale] || en;
   const text = agentName && (table[`${key}.named`] ?? en[`${key}.named`]);
   if (!text) return t(key, vars);
-  const name = agentName;
+  return withName(text, vars, agentName);
+}
+
+/* The same sentence with the language and the name given rather than read off
+   the page. The service writes a line into the reviewer's conversation, in
+   the language their page was in, after the page has moved on or closed. */
+export function sentence(which, key, vars, name = null) {
+  const table = CATALOGUES[which] || en;
+  const named = name && (table[`${key}.named`] ?? en[`${key}.named`]);
+  if (named) return withName(named, vars, name);
+  const text = table[key] ?? en[key] ?? key;
+  if (!vars) return text;
+  return text.replace(PLACEHOLDER, (whole, slot) =>
+    Object.prototype.hasOwnProperty.call(vars, slot)
+      ? String(vars[slot])
+      : whole,
+  );
+}
+
+function withName(text, vars, name) {
   return text.replace(PLACEHOLDER, (whole, slot, at) => {
     if (slot !== "agent")
       return vars && Object.prototype.hasOwnProperty.call(vars, slot)

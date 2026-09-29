@@ -240,11 +240,9 @@ export default {
   "feedback.default":
     "Les marques emportent leur position 3D et la version actuelle",
   "feedback.notSubmitted": "Non envoyé · le brouillon s'enregistre tout seul",
-  "feedback.saved": "Enregistré",
+  "feedback.sentCount": "Marques envoyées : {count}",
   "feedback.delivered": "remis à la conversation d'origine",
   "feedback.acceptedPending": "accepté, remise pas encore confirmée",
-  "feedback.waiting": "en attente de récupération par l'agent",
-  "feedback.waiting.named": "en attente de récupération par {agent}",
   "feedback.deliveryUnconfirmed": "remise non confirmée, nouvel essai prévu",
   "feedback.read": "l'Agent l'a lu",
   "feedback.read.named": "{agent} l'a lu",
@@ -263,6 +261,37 @@ export default {
   "settings.themeSystem": "Suivre le système",
   "settings.themeLight": "Clair",
   "settings.themeDark": "Sombre",
+
+  "receipt.next":
+    "Ce que l'Agent a compris s'affichera en bas à droite du modèle",
+  "receipt.next.named":
+    "Ce qu'a compris {agent} s'affichera en bas à droite du modèle",
+  "receipt.understood":
+    "Ce que l'Agent a compris est arrivé à {time}, en bas à droite du modèle",
+  "receipt.understood.named":
+    "Ce qu'a compris {agent} est arrivé à {time}, en bas à droite du modèle",
+  "receipt.nudge":
+    "L'Agent n'est pas prévenu automatiquement. Dites-le-lui dans sa conversation — vous pouvez coller cette phrase :",
+  "receipt.nudge.named":
+    "{agent} n'est pas prévenu automatiquement. Dites-le dans sa conversation — vous pouvez coller cette phrase :",
+  "receipt.line":
+    "J'ai envoyé mes marques MeshCue ({count}). Lis-les avec meshcue read — project {project}, submissionId {submission}",
+  "receipt.lineNoProject":
+    "J'ai envoyé mes marques MeshCue ({count}). Lis-les avec meshcue read — submissionId {submission}",
+  "receipt.copy": "Copier",
+  "receipt.copied": "Copié",
+  "receipt.copyTitle": "Copier cette phrase",
+  "receipt.copyFailed":
+    "Copie impossible : la phrase est sélectionnée, copiez-la vous-même",
+  "receipt.listJoin": ", ",
+  "receipt.chatSent":
+    "📐 Marques reçues : {count} ({marks}). Transmises à l'Agent, lecture en cours…",
+  "receipt.chatSent.named":
+    "📐 Marques reçues : {count} ({marks}). Transmises à {agent}, lecture en cours…",
+  "receipt.chatRead":
+    "📐 Marques reçues : {count} ({marks}). L'Agent les a lues et cherche ce que vous vouliez dire…",
+  "receipt.chatRead.named":
+    "📐 Marques reçues : {count} ({marks}). {agent} les a lues et cherche ce que vous vouliez dire…",
 
   "help.open": "Mode d'emploi",
   "help.eyebrow": "DÉMARRAGE RAPIDE",
@@ -332,4 +361,8 @@ export default {
     "Aucun cercle ne passe par ces points — cliquez trois points distincts, répartis sur le bord.",
   "help.p10":
     "Mesurer : choisissez l'outil de mesure, puis « Point à point » (les coins s'aimantent), « Longueur d'arête », « Deux faces » — deux faces parallèles donnent leur écart, toutes les autres l'angle entre elles — ou « Cercle par 3 points » : trois clics sur le bord d'un trou ou d'un arbre donnent son diamètre. Sur un STEP, une face est celle du fichier, entière, et une arête l'endroit où deux d'entre elles se rencontrent. Les millimètres s'affichent avec deux décimales ; un modèle sans unité n'affiche que le nombre. Une mesure disparaît à la suivante, sauf si vous appuyez sur « Garder » : elle devient alors une marque que vous pouvez annoter, annuler, supprimer et envoyer.",
+  "help.p11":
+    "Après « Envoyer à l'Agent », les lignes sous le bouton suivent le lot : combien de marques sont parties, puis l'heure à laquelle l'Agent les a lues, puis ce qu'il a compris, qui s'affiche en bas à droite du modèle. Quand il désigne des endroits du modèle, il trace une ligne jaune le long de leurs bords, sous vos propres marques. Si l'Agent ne peut pas être prévenu automatiquement, le panneau le dit et vous donne une phrase à coller dans sa conversation.",
+  "help.p11.named":
+    "Après « Envoyer à {agent} », les lignes sous le bouton suivent le lot : combien de marques sont parties, puis l'heure à laquelle {agent} les a lues, puis sa compréhension, qui s'affiche en bas à droite du modèle. Quand des endroits du modèle sont désignés, une ligne jaune est tracée le long de leurs bords, sous vos propres marques. Si {agent} ne peut pas être prévenu automatiquement, le panneau le dit et vous donne une phrase à coller dans la conversation.",
 };
