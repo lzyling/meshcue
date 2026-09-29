@@ -228,6 +228,10 @@
   改：服务端抛 `ANIMATED_MODEL`，AGENT-INTERFACE 补上这个错误码。
 
 **扫描查出的新缺陷（不另发补丁，并进 1.4.0）** —— 09-29 第一轮全部修完
+- ✅ 🔴 **CLI／MCP 打开的审阅页，一切写入都被拒（0.9.0 起就有，09-29 实测发现，`80c2acc` 修）**：受管实例判断「安装还在」看的是
+  `installRoot/openclaw.plugin.json`，只有 OpenClaw 包有；npm／git 安装和克隆都没有，于是页面的每个写请求（含局域网浏览器领取准入）
+  都回 503 `INTEGRATION_DISABLED`，页面能打开、什么都标不了。改看 `package.json`（每种安装根目录都有、卸载时一起消失）。
+  没有测试从「没有清单的安装」开过受管实例，所以一直没人看到；新测试在旧代码上红。给 Kelven 从克隆起 1.4.0-dev 测试页时发现。
 - ✅ 🔴 德语／法语界面（`24755d0`：上限改 32、check-i18n 逐语逐色核对）用紫色涂区域，保存会 400：区域名 `violette Fläche`（15 字符）／`Zone violette`（13）超过区域 `label` 的 12 字符上限
   （`server/index.mjs:338`）。已按代码和六语目录核实，未端到端复现；其他语言、其他颜色都在 12 以内。
 - ✅ 🟡（`db334a2`，assembly1.step 有色 1/3→3/3）`server/step-styles.mjs:60-71` 的 `decode` 只认大写十六进制，也不认 `\X4\`／`\S\`。SolidWorks 写小写十六进制，零件名对不上，颜色补不回来
