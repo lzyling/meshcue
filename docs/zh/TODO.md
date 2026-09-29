@@ -104,11 +104,23 @@
 
 > 按「先扫全、出清单、再批量做」。三路只读扫描，关键几处人工复核过（标「未核实」的没有）。行号以 v1.3.2 为准。
 
-**实测后两处修改（Kelven 2026-09-29 17:42 装 1.4.0-dev 实测后提出，发版前做）**
+**实测后两处修改（Kelven 2026-09-29 17:42 装 1.4.0-dev 实测后提出，发版前做）** —— ✅ **09-29 18:07–18:5x 两处都做完**
+（① `897f751`、② `bbbd054`，dev 已推，CI 绿）；开发包 `tmp/candidate-140-bbbd054/package` 冒烟 11/11。
+**装包**：19:08 等因子工人 19:00 那期跑完、查无其他活动会话后，`openclaw plugins install <绝对路径> --force --accept-capabilities` 一次成功
+（Applied in Gateway generation 3）；装后目录与包逐字节相同，openclaw.json 哈希前后一致，新增日志 0 条 reloaded or disabled，
+`meshcue inspect`／`memory_search` 仍可用。旧包备份 `tmp/meshcue-plugin-1.4.0-dev-a215b5b-backup-20260929`。**等 Kelven 手动重启后实测**：
+重启后要先 `open` 验收项目，实例才换新构建；再交一批看话题里的即时回执和读后改已读、回显只描边、页面状态块。
+本机 node 288 条 287 过 1 跳过、浏览器 91 条 90 过 1 跳过（跳的是要真局域网的 LAN HTTP 那条）；`897f751` 单独在临时工作树跑 node 281 条 280 过 1 跳过。
 1. ✅ 回显不能盖住审阅者的标记 —— **17:45 同意**：
    - 规矩（AGENT-INTERFACE、SKILL、推送消息都写）：回显的区域只标「准备要改的位置」，且只在审阅者提了修改之后才标；
      标不准就只用文字，不硬标；不把审阅者自己的标记原样再画一遍。起因：POP 在无修改要求时把他的红色区域原样 echo 成黄色。
-   - 画法：回显区域改为只描黄边、不填色，并画在审阅者标记之下（现为 `#f5dc72` 整片填充、renderOrder 5 高于用户标记 4）。
+   - 画法：回显区域改为只描黄边、不填色，并画在审阅者标记之下（原为 `#f5dc72` 整片填充、renderOrder 5，审阅者标记是 3，桶预览 4）。
+   - ✅ **做完**（`897f751`）：`src/outline.js` 算区域外边界——多边形的每条边按它所在的载边（源三角形的边，两端精确坐标作键，相邻三角形正好共用）归组，
+     载边上被覆盖一次的段是轮廓、两次就在区域里面；不在任何载边上的边（切过面的）一律是轮廓。按审阅网格索引的旧标记（brush-v1、无 coverage）再加审阅三角形作载边。
+     查看器把每段轮廓画在它所属多边形自己的三角形上，着色器只留离这段线 3.5 CSS 像素内的片元（屏幕空间，斜看同宽，段与段圆头相接不断开），
+     线在区域内侧；层级 2、不写深度，审阅者标记（层级 3）盖在上面。每个回显区域单独描边。标记材质的 agent 分支删了。
+     测试：node `outline.test.mjs` 5 条；浏览器 `echo.spec.js` 1 条（平板顶面涂红，回显「顶面＋正面」：顶面中心仍是红、正面中心不填黄、
+     正面边上有黄边且不到面积三分之一）——旧代码上先跑过，顶面中心 178 个黄像素，红。截图 `tmp/screenshots/2026-09-29-echo-outline.png` 核过。
 2. ✅ 收到标记后先在原对话回一句 —— **17:49 同意，并要求适配 Claude Code、Codex（主流用户在那边）**。按工具分三层：
    - 通用（页面）：提交后页面马上明确显示「已送出 N 个标记 · 等待 X 读取」→「X 已读取」→ 回显；对不能推送的工具（Claude Code 未开 channels、Codex、CLI），
      页面直接告诉审阅者下一步「回到 X 的对话说一声」，并给一键复制的一句话（带项目和批次编号，Agent 拿到就能读）。
@@ -120,6 +132,31 @@
    原记录：交标记后要等大模型读完才有回复，对话里几十秒到几分钟无反馈。
    可用官方出站命令 `openclaw message send --channel telegram --target <chatId> --thread-id <topicId> --json` 由桥直接发回执，
    Telegram 还支持 `openclaw message edit` 在读取后改成已读；不经过大模型。只有 OpenClaw 有推送桥，MCP／CLI 无此问题也无此回执。
+   - ✅ **第 1、2 层做完**（`bbbd054`）：
+     - 页面：按钮下两行——「已送出 N 个标记 · 等待X读取」→「已送出 N 个标记 · X已读取 · 18:32」（加粗）；第二行在能推送的宿主上是送达情况
+       （已送达原对话／已接纳投递待确认／投递未确认会重试），读取后「X的理解会显示在模型右下角」，回显到了变「X的理解已在 18:33 送到，见模型右下角」。
+       收不到推送（状态 `notifier.send` 为假：MCP、CLI、REVIEW_BRIDGE=off）且未读时，下面多一块黄底提示
+       「X收不到自动通知，请回到它的对话里说一声，可以直接粘贴这句：」＋那句话＋「复制」，读取后自动收起。
+       那句话用审阅者页面语言：「我在 MeshCue 交了 N 个标记，请用 meshcue read 读取：project …，submissionId …」（状态新增 `project`＝受管时
+       Agent open 用的项目路径；没有项目时只带批次号）。复制先用剪贴板 API，局域网 http 页面没有就退到 `execCommand("copy")`，都不行就选中那句话并提示。
+       窄屏（≤760px）有提示时面板上限 250px，说明框同时开着 330px。提交记录新增 `markCount`、`locale`（只收有目录的语言）。
+       旧键 `feedback.saved`、`feedback.waiting` 六语删掉；新增 `feedback.sentCount`、`receipt.*`、帮助第 11 段（已 sync 进 AGENT-INTERFACE）。
+     - OpenClaw：`server/receipt.mjs`。chat.send 被接纳后，用 `openclaw message send --channel telegram --target <chatId> --account <accountId>
+       --thread-id <topicId> --message … --json` 发「📐 已收到 6 个标记（M1–M4、A、红色区域），已交给爆爆（OpenClaw），正在读取……」
+       （审阅者页面语言；文案在六语目录里，服务端经新纯函数 `sentence()` 取；三个以上连号写成区间、重名区域计数、超 8 项省略、
+       名字只留字母数字空格连字符），messageId 记在批次 `chatReceipt`；Agent `read` 写回执时 `openclaw message edit --message-id` 改成
+       「……爆爆（OpenClaw）已读取，正在理解……」；读取早于发出就等发完再改，只改一次。只有 Telegram 路由有；webchat（Control UI）、
+       MCP／CLI、sealed 批次没有。失败只记日志（`[receipt]`），不重试、不影响送达和读取。
+       **未核实**：`--json` 输出顶层 `messageId` 是按 OpenClaw 2026.9.5 源码 `buildMessageCliJson` 核的（dry-run 只验了命令形状、约 8 秒），
+       真机 Telegram 发出与编辑没跑过，要重启后实测。
+     - 服务端取文案：`src/i18n/index.js` 加 `sentence(locale, key, vars, name)`（`ta` 改用同一个 `withName`）；`package.json` files 加 `src/i18n/`
+       （npm 装法的服务端要 import 目录；OpenClaw 包由 esbuild 打进 runtime）；`check-i18n` 也数 `server/*.mjs` 里的键引用。
+     - AGENT-INTERFACE「Delivery status」、SKILL §6 教 Agent：收不到推送时审阅者贴过来的那句话就是通知，拿 project＋submissionId 直接 read；
+       OpenClaw 那行回执是服务写的，不代替自己读完后的回复。
+     - 测试：node `receipt.test.mjs` 7 条（文案、列表、路由、Telegram 发出＋读后改一次、发不出不影响批次、webchat 与 sealed 不发、状态带 project）；
+       浏览器 `receipt.spec.js` 3 条（能推送：三步文字；收不到推送：中文提示、那句话、复制进剪贴板、读后收起；无剪贴板 API 的退路＋420px 窄屏都在面板内）。
+       测试替身 `fake-openclaw.mjs` 认 `message send|edit`，记在单独的 `fake-messages.json`（和网关状态文件分开，并发时不互相覆盖）。
+       截图核过中文 1440 宽、420 宽（`tmp/screenshots/2026-09-29-receipt-zh-*.png`）。
 
 **版本判定**：标记文字、相机新字段、测量都做成**可选的新增字段**，`camera.position／target` 保留现在的预览坐标含义，
 不动 `label`，不升 `schemaVersion` → **minor**（先例：1.3.0 加 `bounds.space` 没升号）。
