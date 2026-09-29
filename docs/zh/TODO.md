@@ -367,6 +367,13 @@
   放在本地分支 `vite8-on-dev`（工作树 `tmp/wt-vite8`，没推）。实际解析到 **vite 8.3.1**（rolldown 1.2.11；PR 锁的是 8.3.0）。
   结果：格式检查过；node 268 条 267 过 1 跳过；浏览器 87 条 85 过 2 跳过、0 失败（5.1 分钟；比本机基线多跳的那条是要本机大贴图模型的用例，工作树里没有，CI 上也跳）；
   `build:integration` 出包正常，页面 JS 884.9 → 873.8 KB；`npm audit` 0 漏洞；vite 构建 0.3 秒。要合的话：把这个分支的两处改动提交到 dev（或让 dependabot rebase #5），CI 再跑一遍。
+- ✅ **09-30 04:28 Kelven 定：合**（消息 31827）。旧分支落后 16 个提交，作废；在 dev `efb770e` 上新开工作树 `tmp/wt-vite8b`（分支 `vite8`）重做：
+  `npm install --save-dev vite@^8.3.0`，npm 写成 `"^8.3.1"`（8.3.1，rolldown 1.2.11）。锁文件的变化全是打包器换代带来的：rollup 和它的平台包去掉
+  （含只被 rollup 引用的 `@napi-rs/lzma-linux-x64-gnu`），加进 rolldown、lightningcss、`@oxc-project/types`。
+  同一份源码对比：页面 JS 909.9 → 898.6 KB（gzip 247.5 → 241.8），CSS 23.3 → 23.6 KB（Lightning CSS 为 `color-scheme` 补了两个没用到的
+  `--lightningcss-light/dark` 开关变量，颜色值没变，查看器读的 `--canvas-*` 一致），构建 0.56 → 0.30 秒。
+  结果：check-i18n、prettier 全过；node 300 条 299 过 1 跳过；浏览器 94 条 92 过 2 跳过 0 失败（5.7 分钟，同 vite 7 基线）；出包冒烟 11/11；`npm audit` 0 漏洞。
+  PR #5 的目标分支就是 dev，推上去后由 Dependabot 自己判定过时并关闭（pop 上没有 GitHub 账号权限，不手动关）。旧工作树 `tmp/wt-vite8`（分支 `vite8-on-dev`）待清理。
 
 **同类扫描：页面上有、提交里没带给 Agent 的**
 - 相机采样时机、每批只一份、宽高比（高，见上）。
