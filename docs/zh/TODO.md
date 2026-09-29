@@ -113,7 +113,7 @@
    - 通用（页面）：提交后页面马上明确显示「已送出 N 个标记 · 等待 X 读取」→「X 已读取」→ 回显；对不能推送的工具（Claude Code 未开 channels、Codex、CLI），
      页面直接告诉审阅者下一步「回到 X 的对话说一声」，并给一键复制的一句话（带项目和批次编号，Agent 拿到就能读）。
    - OpenClaw：桥在送达时用官方 `openclaw message send` 发回执，读取后 `openclaw message edit` 改成已读。
-   - Claude Code channels（研究预览，待定是否进 1.4.0）：MCP 服务可把消息推进正在运行的会话（code.claude.com/docs/en/channels）；
+   - Claude Code channels（研究预览）—— **Kelven 18:05 定：不进 1.4.0，列入后续版本再做**：MCP 服务可把消息推进正在运行的会话（code.claude.com/docs/en/channels）；
      预览期 `--channels` 只收 Anthropic 名单上的插件，自家插件要申请进名单或用 `--dangerously-load-development-channels`；
      Team／Enterprise 还要管理员开 `channelsEnabled`。这正是下面「搁置 · 回传的触发机制」在等的新思路。
    - Codex：暂未查到能从外部推进会话的机制（未核实），只能靠通用层。
@@ -1390,6 +1390,7 @@ R34 拆掉了 `degraded` 那一档，但 `reviewSurface()` 的中点细分**还�
   要不要支持那个扩展：我建议不做（不统一、少见、容易显示错色），Kelven 未表态。
 - **回传的触发机制** —— MCP 没有任何让 server 唤醒一轮对话的原语（协议级，不是某个客户端的问题）。
   **2026-09-29**：Claude Code 的 channels（研究预览）让 MCP 服务能把消息推进正在运行的会话，是第一条可行路子，见顶部「实测后两处修改」②。
+  Kelven 09-29 18:05 定：列入后续版本（1.4.0 之后）单独立项；立项时一并准备申请进 Anthropic 官方 channel 名单的材料。
   阻塞等待 / 用户口述 / 系统通知三个方案都被否了，**等新思路**。
   在它定下来之前，Codex 侧只能做到「人说一句，Agent 才去读」。
 - **`#feedback-status` 的最终归宿** —— 0.8.0 删底栏时跟着「交给 Agent」进了左栏，
