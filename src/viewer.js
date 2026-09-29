@@ -16,7 +16,12 @@ import {
 import { reviewSurface, surfaceCost, SURFACE_ALGORITHM } from "./surface.js";
 import { buildFillTopology, planarFaces } from "./planar-fill.js";
 import { wholeFaces } from "./annotation-edits.js";
-import { chainSegments, faceNormal, outlineSegments } from "./outline.js";
+import {
+  chainSegments,
+  faceNormal,
+  outlineSegments,
+  sourceVertexNormals,
+} from "./outline.js";
 import {
   brepTopology,
   circleLine,
@@ -61,6 +66,8 @@ const ECHO_FLOW_PX_PER_S = 24;
 const ECHO_PULSE_MS = 1600;
 // How far above the surface the line floats, as a share of the fitted model.
 const ECHO_LIFT = 0.002;
+// How far toward the eye every stroke is drawn, as a share of its distance.
+const ECHO_TOWARD_EYE = 0.001;
 /* Where the ground sits when nothing pushes it down. A model is fitted into
    three units and centred, so whichever axis is longest reaches ±1.5 — and a
    floor at -1.4 was cutting through the base of every model that stands
@@ -753,6 +760,10 @@ export class ModelViewer {
             ? extra[i]
             : Math.floor((spare * extra[i]) / demand));
         o.userData.fillTopology = buildFillTopology(o.geometry, o.matrixWorld);
+        o.userData.echoSource = {
+          normals: sourceVertexNormals(o.geometry),
+          groups: o.geometry.groups.map((g) => ({ ...g })),
+        };
         /* The faces of the file itself, as its tessellation wrote them into
            the mesh's `extras` (`server/step.mjs`), which the loader hands on
            as `userData`. Read only from a STEP the service converted: in any
@@ -1411,11 +1422,11 @@ export class ModelViewer {
   }
   /* One region's outline, as a line of its own rather than colour on the
      surface: the stretches of its edge that no other polygon of it shares,
-     chained end to end so the dashes run round it without jumping, each
-     lifted a hair off the face it bounds. Drawn over the reviewer's marks, but
-     only a few pixels wide and on the edge, so where the Agent points at a
-     place the reviewer also painted, their colour is still all there and the
-     line still shows. */
+     chained end to end so the dashes run round it without jumping, and
+     brought a hair in front of the face it bounds. Drawn over the reviewer's
+     marks, but only a few pixels wide and on the edge, so where the Agent
+     points at a place the reviewer also painted, their colour is still all
+     there and the line still shows. */
   drawOutline(group, a) {
     // A mark indexed against the review mesh was cut from its triangles, and
     // the edges between two of them lie inside one source face.
@@ -1425,42 +1436,73 @@ export class ModelViewer {
       const mesh = this.meshMap.get(patch.meshId);
       if (!mesh) continue;
       const carriers = [];
-      const source = this.sourceTriangle(
-        mesh,
-        patch.sourceFaceIndex ?? patch.faceIndex,
-      );
+      const sourceFace =
+        patch.sourceFaceIndex ??
+        (review
+          ? mesh.geometry.userData.sourceFaces?.[patch.faceIndex]
+          : patch.faceIndex) ??
+        patch.faceIndex;
+      const source = this.sourceTriangle(mesh, sourceFace);
       if (source) carriers.push(source);
       if (review) {
         const t = this.triangle(mesh, patch.faceIndex);
         carriers.push([t.a.toArray(), t.b.toArray(), t.c.toArray()]);
       }
       if (!byMesh.has(mesh)) byMesh.set(mesh, []);
-      byMesh.get(mesh).push({ vertices: patch.vertices, carriers });
+      byMesh.get(mesh).push({ vertices: patch.vertices, carriers, sourceFace });
     }
-    // The model is fitted into three units, so this is the same hair on any.
-    const lift = ECHO_LIFT * 3;
     const positions = [];
+    const lifts = [];
     for (const [mesh, polygons] of byMesh) {
+      /* Prefer the file's normals, not a guess that triangle winding means
+         outward. Without them, only a single-sided material tells us which
+         side is drawn; a double-sided one uses the eye-depth bias alone.
+         Keep lift separate from position: the shader turns it toward the
+         visible side when the reviewer orbits behind a double-sided sheet. */
+      const { normals: sourceNormals, groups = [] } =
+        mesh.userData.echoSource || {};
       const normalMatrix = new THREE.Matrix3().getNormalMatrix(
         mesh.matrixWorld,
       );
-      const normals = polygons.map((p) =>
-        new THREE.Vector3()
-          .fromArray(faceNormal(p.carriers[0] || p.vertices))
+      const normals = polygons.map((p) => {
+        const n = new THREE.Vector3();
+        if (sourceNormals) n.fromArray(sourceNormals, p.sourceFace * 3);
+        if (!n.lengthSq()) {
+          const materialIndex =
+            groups.find(
+              (g) =>
+                p.sourceFace * 3 >= g.start &&
+                p.sourceFace * 3 < g.start + g.count,
+            )?.materialIndex ?? 0;
+          const material = Array.isArray(mesh.material)
+            ? mesh.material[materialIndex]
+            : mesh.material;
+          if (material?.side !== THREE.DoubleSide) {
+            n.fromArray(faceNormal(p.carriers[0] || p.vertices));
+            if (material?.side === THREE.BackSide) n.negate();
+          }
+        }
+        return n
           .applyMatrix3(normalMatrix)
-          .normalize(),
-      );
-      const lifted = (point, owner) =>
+          .normalize()
+          .multiplyScalar(ECHO_LIFT * 3);
+      });
+      const world = (point) =>
         new THREE.Vector3()
           .fromArray(point)
           .applyMatrix4(mesh.matrixWorld)
-          .addScaledVector(normals[owner], lift)
           .toArray();
-      for (const s of chainSegments(outlineSegments(polygons)))
-        positions.push(...lifted(s.from, s.owner), ...lifted(s.to, s.owner));
+      for (const s of chainSegments(outlineSegments(polygons))) {
+        positions.push(...world(s.from), ...world(s.to));
+        lifts.push(...normals[s.owner].toArray());
+      }
     }
     if (!positions.length) return;
     const geometry = new LineSegmentsGeometry().setPositions(positions);
+    geometry.setAttribute(
+      "instanceLift",
+      new THREE.InstancedBufferAttribute(new Float32Array(lifts), 3),
+    );
     ["glow", "under", "core"].forEach((kind, i) => {
       const line = new LineSegments2(geometry, this.echoLineMaterial(kind));
       if (kind === "core") line.computeLineDistances();
@@ -1473,7 +1515,12 @@ export class ModelViewer {
      keeps the line readable on a pale model and a pale backdrop, and the
      moving dashes. Unlike a measurement's line they are hidden behind the
      model: an echo marks a surface, and a line seen through the part would
-     point at the wrong side of it. */
+     point at the wrong side of it.
+
+     Each stroke is drawn a little way toward the eye, along every point's own
+     line of sight: that moves nothing on the screen, keeps the line in front
+     of the face it lies on from whichever side it is seen, and, being a share
+     of the distance, holds at any zoom. */
   echoLineMaterial(kind) {
     const key = `echo-${kind}`;
     let material = this.lineMaterials.get(key);
@@ -1495,6 +1542,21 @@ export class ModelViewer {
       depthWrite: false,
       toneMapped: false,
     });
+    const toward = (1 - ECHO_TOWARD_EYE).toFixed(6);
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader =
+        "attribute vec3 instanceLift;\n" +
+        shader.vertexShader.replace(
+          "vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );",
+          `vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
+        vec3 lift = mat3(modelViewMatrix) * instanceLift;
+        start.xyz += dot(lift, -start.xyz) < 0.0 ? -lift : lift;
+        end.xyz += dot(lift, -end.xyz) < 0.0 ? -lift : lift;
+        start.xyz *= ${toward};
+        end.xyz *= ${toward};`,
+        );
+    };
+    material.customProgramCacheKey = () => "echo-surface-lift-toward-eye";
     const { width, height } = this.container.getBoundingClientRect();
     material.resolution.set(width || 1, height || 1);
     this.lineMaterials.set(key, material);

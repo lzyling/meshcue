@@ -82,6 +82,33 @@ export function faceNormal(vertices) {
   return n;
 }
 
+// Keep the file's vertex normals in source-face order before the review mesh
+// replaces it. A missing or unusable normal stays zero, not a normal invented
+// from winding: a double-sided mesh may deliberately be wound the other way.
+export function sourceVertexNormals(geometry) {
+  const normal = geometry.attributes.normal;
+  if (!normal) return null;
+  const count =
+    (geometry.index?.count || geometry.attributes.position.count) / 3;
+  const result = new Float32Array(count * 3);
+  for (let face = 0; face < count; face++) {
+    const sum = [0, 0, 0];
+    for (let k = 0; k < 3; k++) {
+      const i = geometry.index?.getX(face * 3 + k) ?? face * 3 + k;
+      sum[0] += normal.getX(i);
+      sum[1] += normal.getY(i);
+      sum[2] += normal.getZ(i);
+    }
+    const length = Math.hypot(...sum);
+    if (Number.isFinite(length) && length > 1e-10)
+      result.set(
+        sum.map((v) => v / length),
+        face * 3,
+      );
+  }
+  return result;
+}
+
 /* Outline stretches in the order they run, each pointing on from the last, so
    a dash pattern measured along them flows round the loop instead of starting
    afresh at every stretch. A run that does not close is started from one of
