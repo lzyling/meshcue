@@ -142,7 +142,7 @@ of the release it was cut with; add `lzyling/meshcue#v<version>` to hold one.
 For any other MCP client, install a tagged commit and point the client at it:
 
 ```sh
-npm i -g "github:lzyling/meshcue#v1.3.2"
+npm i -g "github:lzyling/meshcue#v1.4.0"
 ```
 
 ```toml
@@ -155,7 +155,7 @@ Or start it without installing, at the cost of a fetch and a build each time:
 ```toml
 [mcp_servers.meshcue]
 command = "npx"
-args = ["-p", "github:lzyling/meshcue#v1.3.2", "meshcue-mcp"]
+args = ["-p", "github:lzyling/meshcue#v1.4.0", "meshcue-mcp"]
 ```
 
 Pin the tag. Without one, npm takes whatever the default branch holds at that
