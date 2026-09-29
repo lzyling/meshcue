@@ -781,3 +781,37 @@ test("a host with nowhere to push holds the batch for collection instead of fail
   const read = await f.ipc("/submissions/collected-batch");
   assert.equal(read.body.annotations.length, annotations.length);
 });
+
+/* Every install of MeshCue has a package.json at its root -- the OpenClaw
+   package, an npm or git install, a clone -- and only the OpenClaw package has
+   a plugin manifest. The manifest was the "still installed" marker, so a review
+   opened through the CLI or MCP refused every write from the page as if the
+   extension had been disabled, including the claim a LAN browser makes. */
+test("a managed review installed without an OpenClaw manifest still takes writes", async (t) => {
+  const root = fs.mkdtempSync(path.join(process.cwd(), "tmp", "install-root-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, "package.json"), "{}");
+  const frozen = { ...origin, sessionId: "fixture-generation" };
+  const f = await startReview(t, {
+    origin: frozen,
+    managed: true,
+    installRoot: root,
+  });
+  const model = await f.publish();
+  const ready = () =>
+    f.api("ready", {
+      method: "POST",
+      body: {
+        versionId: model.id,
+        clientId: "cli-owner",
+        sha256: model.sha256,
+        meshes: [mesh],
+      },
+    });
+  assert.equal((await ready()).status, 200);
+  // Taking the install away is still what pauses the page's writes.
+  fs.rmSync(path.join(root, "package.json"));
+  const gone = await ready();
+  assert.equal(gone.status, 503);
+  assert.equal(gone.body.code, "INTEGRATION_DISABLED");
+});

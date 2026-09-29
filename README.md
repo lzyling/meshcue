@@ -103,7 +103,7 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 272 unit and integration tests
+npm test             # 273 unit and integration tests
 npm run test:browser # 87 real-Chromium tests, isolated port and data
 ```
 

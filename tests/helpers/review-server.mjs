@@ -15,6 +15,7 @@ export async function startReview(
     instance,
     workspace,
     managed = false,
+    installRoot,
     stallAfter,
     idleHours,
     idleTickMs,
@@ -32,7 +33,7 @@ export async function startReview(
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   fs.writeFileSync(
     path.join(dir, "config.json"),
-    JSON.stringify({ origin, instance, managed }),
+    JSON.stringify({ origin, instance, managed, installRoot }),
   );
   let port = "0";
   const launch = () =>

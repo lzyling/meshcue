@@ -107,12 +107,17 @@ const idleTickMs = Math.max(
 const idle = idleMs > 0 ? new IdleWatch({ idleMs }) : null;
 const idleReport = () => (idle ? idle.report(Date.now(), idleTickMs) : null);
 let maintenanceUntil = 0;
+/* An install that has been taken away pauses the page's writes. Every install
+   has a package.json at its root -- the OpenClaw package, an npm or git install,
+   a clone -- and only OpenClaw's has a plugin manifest, which was the marker
+   until 1.4.0: a review opened through the CLI or MCP refused every write,
+   including a LAN browser's claim, as if the extension had been disabled. */
 const managedEnabled = () =>
   !config.managed ||
   (Date.now() >= maintenanceUntil &&
     !fs.existsSync(path.join(runtime, "disabled.json")) &&
     (!config.installRoot ||
-      fs.existsSync(path.join(config.installRoot, "openclaw.plugin.json"))));
+      fs.existsSync(path.join(config.installRoot, "package.json"))));
 const cookieName = instanceCookieName(instance);
 function sessionCookie(headers) {
   const scoped = parseSessionCookie(headers, cookieName);

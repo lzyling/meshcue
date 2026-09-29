@@ -63,6 +63,11 @@ function setup(t) {
     path.join(workspace, "openclaw.plugin.json"),
     JSON.stringify({ id: "meshcue" }),
   );
+  // Every real install has one, and it is what says the install is still there.
+  fs.writeFileSync(
+    path.join(workspace, "package.json"),
+    JSON.stringify({ name: "meshcue" }),
+  );
   const ctx = {
     workspaceDir: workspace,
     fsPolicy: { workspaceOnly: true },
