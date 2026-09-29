@@ -72,7 +72,7 @@ const parameters = {
       type: "string",
       maxLength: MAX_AGENT_NAME,
       description:
-        "open: what the review page calls you, e.g. “Send to Ada”. The name your user gave you; if they gave none, leave it out and the page says OpenClaw. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
+        "open: what the review page calls you, followed by OpenClaw, e.g. “Send to Ada (OpenClaw)”. The name your user gave you; if they gave none, leave it out and the page says OpenClaw. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
     },
     submissionId: { type: "string" },
     geometry: { type: "boolean" },

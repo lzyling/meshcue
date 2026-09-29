@@ -1,6 +1,8 @@
 /* 日本語。ツール名は並べて置かれるため短くしています（「消しゴム」など）。
    括弧は全角（）、引用は「」を使い、半角の " は文字列を切ってしまうので避けます。 */
 export default {
+  "agent.withTool": "{name}（{tool}）",
+
   "app.tagline": "3D モデルのレビューと注記",
   "app.version": "実行中のバージョン",
   "app.updateHint":

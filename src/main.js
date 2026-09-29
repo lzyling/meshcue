@@ -12,6 +12,7 @@ import {
   LOCALES,
   localeName,
 } from "./i18n/index.js";
+import { agentLabel } from "./agent-label.js";
 import {
   readThemeChoice,
   storeThemeChoice,
@@ -84,8 +85,9 @@ const T = (key, vars) => esc(t(key, vars));
 // The same for a sentence about the Agent, which carries its name when known.
 const TA = (key, vars) => esc(ta(key, vars));
 /* The button that hands the marks over says who to: a name the Agent chose, in
-   any script and up to twenty-four characters. The words give way before the
-   button does, and the whole of them stays in the tooltip. */
+   any script and up to twenty-four characters, and the tool it runs in after
+   it. The words give way before the button does, and the whole of them stays
+   in the tooltip. */
 const submitLabel = () =>
   `<span class="submit-label" title="${TA("feedback.submit")}">${TA("feedback.submit")}</span> ${icon("send")}`;
 /* The service names its refusals and the browser is what has to say them out
@@ -1640,12 +1642,12 @@ function sameValue(left, right) {
     )
   );
 }
-/* The Agent's name arrives with the service's first answer, after the page was
-   drawn in its own words, and changes when another conversation takes the
-   review over. What was drawn once at start-up is drawn again here; every
+/* The Agent's name and tool arrive with the service's first answer, after the
+   page was drawn in its own words, and change when another conversation takes
+   the review over. What was drawn once at start-up is drawn again here; every
    other sentence about the Agent looks the name up each time it is written. */
-function nameAgent(name) {
-  if (!setAgentName(name)) return;
+function nameAgent(name, tool) {
+  if (!setAgentName(agentLabel(name, tool))) return;
   for (const el of document.querySelectorAll("[data-agent-text]"))
     el.textContent = ta(el.dataset.agentText);
   if (!loadedId) $("#model-name").textContent = ta("model.awaiting");
@@ -1672,7 +1674,7 @@ async function readState() {
       accessRecoveryNeeded = true;
       incoming = await api(statePath);
     }
-    nameAgent(incoming.agentName);
+    nameAgent(incoming.agentName, incoming.agentTool);
     // A sibling tab may have collected the shared HttpOnly cookie. This tab
     // still needs its own association even if it did not win /claim.
     if (wasBlocked) accessRecoveryNeeded = true;

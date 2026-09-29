@@ -816,6 +816,8 @@ export class InstanceManager {
           publication: published?.status || "unchanged",
           // What the page calls you; null means its own word for an agent.
           agentName: state.agentName ?? null,
+          // The tool the page writes after that name, when the two differ.
+          agentTool: state.agentTool ?? null,
           admission,
           accessPolicy: "30 days inactive; renew on use",
           reviewLifetime: "reclaimed after a day with no use; reopen to resume",

@@ -61,8 +61,9 @@ export async function render() {
         `catalogue's own English. Answer from them rather than from memory: a ` +
         `tool that promises addresses instead of descriptions cannot afford to ` +
         `guess at its own controls. Where they say "the Agent", the reviewer ` +
-        `reads the name you gave with agentName ("Send to Ada"), or your ` +
-        `tool's name when you gave none. "${en["help.title"]}"`,
+        `reads the name you gave with agentName and, when the host knows it, ` +
+        `your tool's name after it ("Send to Ada (OpenClaw)"), or your ` +
+        `tool's name alone when you gave none. "${en["help.title"]}"`,
     ),
     "",
     ...paragraphs.flatMap((text) => [

@@ -1,6 +1,8 @@
 /* Français. Les noms d'outils restent courts parce qu'ils se suivent dans une
    barre : « Gomme », pas « Outil gomme ». */
 export default {
+  "agent.withTool": "{name} ({tool})",
+
   "app.tagline": "Revue et annotation de modèles 3D",
   "app.version": "Version en cours",
   "app.updateHint":

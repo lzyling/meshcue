@@ -1,7 +1,8 @@
-/* The page calls the Agent by the name it gave. Only a browser shows that the
- * name reaches the sentences drawn once at start-up as well as those written
- * later, that it goes in as words and never as markup, and that a long one
- * shortens inside its button instead of pushing the button out of the panel.
+/* The page calls the Agent by the name it gave, with the tool it runs in after
+ * it. Only a browser shows that the name reaches the sentences drawn once at
+ * start-up as well as those written later, that it goes in as words and never
+ * as markup, and that a long one shortens inside its button instead of pushing
+ * the button out of the panel.
  */
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -91,16 +92,21 @@ test("the page says the Agent's name wherever it spoke of the Agent", async ({
   const button = page.locator("#submit-feedback");
   await expect(button).toHaveText("Send to Agent");
   ctl("agent", "--name", "Ada", "--tool", "OpenClaw");
-  // The next poll brings it; nothing is reloaded.
-  await expect(button).toHaveText("Send to Ada");
+  // The next poll brings it; nothing is reloaded. The tool follows the name,
+  // so a reader who has never met Ada knows what it is.
+  await expect(button).toHaveText("Send to Ada (OpenClaw)");
   await expect(page.locator("#mark-note-text")).toHaveAttribute(
     "placeholder",
-    "What should change here? Optional; it goes to Ada with the mark.",
+    "What should change here? Optional; it goes to Ada (OpenClaw) with the mark.",
   );
   await page.locator("#help-button").click();
   const help = page.locator("#help-dialog");
-  await expect(help).toContainText("“Send to Ada” saves and submits");
-  await expect(help).toContainText("Ada will ask if anything is unclear");
+  await expect(help).toContainText(
+    "“Send to Ada (OpenClaw)” saves and submits",
+  );
+  await expect(help).toContainText(
+    "Ada (OpenClaw) will ask if anything is unclear",
+  );
   // Drawn at start-up in the page's own words; none of them may be left.
   expect(await help.innerText()).not.toMatch(/\bagent\b/i);
   await page.keyboard.press("Escape");
@@ -111,36 +117,46 @@ test("the page says the Agent's name wherever it spoke of the Agent", async ({
   await expect(button.locator("b")).toHaveCount(0);
 });
 
-test("a Chinese reader reads AI Agent until there is a name, and no space inside a Chinese one", async ({
+test("a Chinese reader reads AI Agent until there is a name, then the name and its tool in full-width brackets", async ({
   browser,
 }) => {
   const page = await reader(browser, "zh-CN", ["zh-CN", "zh"]);
   const button = page.locator("#submit-feedback");
   await expect(button).toHaveText("交给 AI Agent");
+  // Only the tool: said once.
   ctl("agent", "--tool", "OpenClaw");
   await expect(button).toHaveText("交给 OpenClaw");
   ctl("agent", "--name", "爆爆", "--tool", "OpenClaw");
-  await expect(button).toHaveText("交给爆爆");
+  await expect(button).toHaveText("交给爆爆（OpenClaw）");
+  await expect(page.locator("#mark-note-text")).toHaveAttribute(
+    "placeholder",
+    "这里要怎么改？选填，会随标记交给爆爆（OpenClaw）。",
+  );
   await page.locator("#help-button").click();
   await expect(page.locator("#help-dialog")).toContainText(
-    "「交给爆爆」会保存并提交标记和说明",
+    "「交给爆爆（OpenClaw）」会保存并提交标记和说明",
   );
+  await page.keyboard.press("Escape");
+  // The CLI cannot say which tool is calling, so its name stands alone.
+  ctl("agent", "--name", "爆爆");
+  await expect(button).toHaveText("交给爆爆");
 });
 
 test("a long name shortens inside the button instead of pushing it out", async ({
   browser,
 }) => {
+  // The most the page can be given: a name at the limit and a tool after it.
   const name = "W".repeat(24);
-  ctl("agent", "--name", name);
+  ctl("agent", "--name", name, "--tool", "Claude Code");
   for (const viewport of [
     { width: 1440, height: 1000 },
     { width: 700, height: 900 },
   ]) {
     const page = await reader(browser, "de-DE", ["de-DE", "de"], viewport);
     const label = page.locator("#submit-feedback .submit-label");
-    await expect(label).toHaveText(`An ${name}`);
+    await expect(label).toHaveText(`An ${name} (Claude Code)`);
     // The whole name is still there for whoever points at it.
-    await expect(label).toHaveAttribute("title", `An ${name}`);
+    await expect(label).toHaveAttribute("title", `An ${name} (Claude Code)`);
     // The button stays in its panel, and its words and icon stay in it.
     const box = await page.evaluate(() => {
       const rect = (el) => el.getBoundingClientRect();

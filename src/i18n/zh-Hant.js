@@ -1,6 +1,8 @@
 /* 繁體中文。原本的介面文案是粵語口語，這一份改寫成標準書面中文：粵語讀者
    讀書面中文沒有障礙，多開一個 yue-Hant 目錄卻要多養一份文案。 */
 export default {
+  "agent.withTool": "{name}（{tool}）",
+
   "app.tagline": "3D 模型審閱與標注",
   "app.version": "正在執行的版本",
   "app.updateHint": "有新版本 {version}。讓你的 AI Agent 更新 MeshCue。",

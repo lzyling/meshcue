@@ -1,6 +1,8 @@
 /* The source language. Every other catalogue is a translation of this file and
    is checked against its key set; see scripts/check-i18n.mjs. */
 export default {
+  "agent.withTool": "{name} ({tool})",
+
   "app.tagline": "3D model review and annotation",
   "app.version": "Running version",
   "app.updateHint":

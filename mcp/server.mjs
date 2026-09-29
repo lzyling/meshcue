@@ -114,7 +114,7 @@ export const TOOL = {
         type: "string",
         maxLength: MAX_AGENT_NAME,
         description:
-          "open: what the review page calls you, e.g. “Send to Ada”. The name your user gave you; if they gave none, the name of the tool you run in. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
+          "open: what the review page calls you, e.g. “Send to Ada”, or “Send to Ada (Claude Code)” when it recognises the client you run in. The name your user gave you; if they gave none, the name of the tool you run in. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
       },
     },
     required: ["action"],

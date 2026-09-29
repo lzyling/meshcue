@@ -80,6 +80,14 @@ deliver a model”. Give `agentName` with every `open`:
 - if they gave you none, the name of the tool you run in: `OpenClaw`,
   `Claude Code`, `Codex`.
 
+Where the host knows which tool you run in, the page writes it in brackets
+after the name you gave, so a reviewer who has never met Ada still learns what
+it is and where the marks go: “Send to Ada (OpenClaw)”, and with full-width
+brackets in Chinese and Japanese, “交给爆爆（OpenClaw）”. That is every sentence
+that names you, the submit button included; a name that is the tool's own is
+said once. The CLI cannot tell which tool is calling, so a name given there
+stands alone.
+
 It is plain text on one line, at most 24 characters, and is only ever shown as
 text. A control or text-direction character is refused with `BAD_AGENT_NAME`,
 and then nothing was opened or changed. The CLI takes it as `--agent-name`.
@@ -91,7 +99,8 @@ no name at all the page uses the tool's: the OpenClaw extension says OpenClaw,
 and over MCP a client recognised from its handshake (`claude-code` is Claude
 Code, `codex-mcp-client` is Codex) is called by that. Otherwise the page uses
 its own word, “the Agent” (“AI Agent” in Chinese). `open` answers with the
-`agentName` the page shows; `null` means that word.
+`agentName` the page uses, `null` meaning that word, and `agentTool`, the tool
+it writes after the name (`null` when the host cannot tell).
 
 ## `status.notifier` — whether anyone will tell you
 
@@ -212,7 +221,8 @@ These are the words the reviewer is reading in the help panel, in the
 catalogue's own English. Answer from them rather than from memory: a tool that
 promises addresses instead of descriptions cannot afford to guess at its own
 controls. Where they say "the Agent", the reviewer reads the name you gave
-with agentName ("Send to Ada"), or your tool's name when you gave none. "Look,
+with agentName and, when the host knows it, your tool's name after it ("Send
+to Ada (OpenClaw)"), or your tool's name alone when you gave none. "Look,
 mark, then say what to change."
 
 - Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to

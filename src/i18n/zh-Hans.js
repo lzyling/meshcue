@@ -1,6 +1,8 @@
 /* 简体中文。不是繁体那份的逐字转换：文件／默认／刷新／标签页这些是用词差别，
    转换器换不出来。 */
 export default {
+  "agent.withTool": "{name}（{tool}）",
+
   "app.tagline": "3D 模型审阅与标注",
   "app.version": "正在运行的版本",
   "app.updateHint": "有新版本 {version}。让你的 AI Agent 更新 MeshCue。",

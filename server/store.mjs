@@ -416,6 +416,8 @@ export class ReviewStore {
       startedAt: s.startedAt,
       // What the page calls the Agent; null leaves it to the page's own word.
       agentName: this.agentName(),
+      // The tool it runs in, which the page puts after a name it was given.
+      agentTool: this.agentTool(),
     };
   }
   /* The Agent names itself when it opens a review: the name its user gave it,
@@ -439,10 +441,20 @@ export class ReviewStore {
     return this.agentName();
   }
   agentName() {
+    const agent = this.ownAgent();
+    return agent ? agent.name || agent.tool || null : null;
+  }
+  /* The tool the name came through. The page writes it after the name, so a
+     reviewer who has never met the name still learns what it is: "Ada
+     (OpenClaw)". Null when the caller could not say, as the CLI cannot. */
+  agentTool() {
+    return this.ownAgent()?.tool || null;
+  }
+  ownAgent() {
     const agent = this.state.agent;
-    if (!agent || agent.owner !== ownerKey(this.state.reviewOrigin))
-      return null;
-    return agent.name || agent.tool || null;
+    return agent && agent.owner === ownerKey(this.state.reviewOrigin)
+      ? agent
+      : null;
   }
   assertVersion(versionId) {
     if (!this.versionInBinding(versionId))

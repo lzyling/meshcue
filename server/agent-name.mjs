@@ -9,8 +9,9 @@ import { z } from "zod";
    of the page's own sentences.
 
    Twenty-four is room for "Claude Code", a name in any script and a word or two
-   more, and still leaves "Send to …" fitting its button. Counted in UTF-16 code
-   units, the way `String.length` counts. */
+   more. The page writes the tool after a name, "Send to Ada (OpenClaw)", and a
+   button too narrow for both shortens its words and keeps them whole in its
+   tooltip. Counted in UTF-16 code units, the way `String.length` counts. */
 export const MAX_AGENT_NAME = 24;
 
 const STEERING =

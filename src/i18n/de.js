@@ -1,6 +1,8 @@
 /* Deutsch. Die Werkzeugnamen sind bewusst kurz gehalten — „Radierer“ statt
    „Radiergummi“ —, weil sie in einer Leiste nebeneinander stehen. */
 export default {
+  "agent.withTool": "{name} ({tool})",
+
   "app.tagline": "3D-Modelle prüfen und markieren",
   "app.version": "Laufende Version",
   "app.updateHint":

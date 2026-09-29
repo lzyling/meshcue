@@ -346,6 +346,19 @@
      - 文档：AGENT-INTERFACE 新增「What the page calls you — agentName」一节；帮助段前言加一句「这些 the Agent 在页面上是你报的名字」，
        同步脚本遇到占位符直接报错；SKILL.md 第 4 节教报名字；reviewctl 加 `agent` 命令（测试和手动排查用）。
      - 截图核过：英文宽屏「Send to Ada」、中文帮助「交给爆爆」、德语 23 字名字窄屏、法语「Envoyer à Claude Code」。
+   - ✅ **09-29 17:xx 名字后面加工具**（Kelven 16:57，31619：「爆爆（OpenClaw）」比单写「爆爆」清楚，左下角提交按钮也照改）：
+     - 规则：名字和工具都有、两者不同 →「爆爆（OpenClaw）」；只有工具 →「OpenClaw」（服务端这时把工具名也当名字给，页面只说一次）；
+       有名字但认不出工具（CLI）→「爆爆」；都没有 → 页面自己的词（中文「AI Agent」）。名字和工具只差大小写也只说一次。
+     - 服务端 `publicState` 多给 `agentTool`（`agentName` 照旧＝名字或工具，旧页面、旧调用方不受影响）；`open` 返回、`status` 也带 `agentTool`。
+     - 页面在 `src/agent-label.js` 拼好再交给 `setAgentName`，所有 named 句子（按钮、状态行、回显、帮助、说明框提示、等候标题…）一起变；
+       括号走新词条 `agent.withTool`：中日全角「{name}（{tool}）」、英德法半角「{name} ({tool})」。中日空格规则照旧（「交给 Ada（OpenClaw）」）。
+       词条必须在 i18n 目录以外被引用（check-i18n 只扫那里），所以拼法放在独立模块而不是 `i18n/index.js`。
+     - 测试：node 加 3 条（服务端给两样、四种情况含不重复、句子里的完整写法），MCP 那条加 `agentTool`；浏览器 3 条改期望
+       （英文「Send to Ada (OpenClaw)」；中文「交给爆爆（OpenClaw）」＋CLI 只有名字时「交给爆爆」；24 个 W＋「Claude Code」宽窄屏仍省略、不出按钮）。
+       先在旧逻辑上跑：node 4 条红、浏览器 3 条红；三处变异（去掉不重复、`agentTool` 恒空、中文改半角括号）各自会红。
+     - 截图核过（中文，1440 与 700 宽）：按钮「交给爆爆（OpenClaw）」完整显示、没有省略；顶栏「由爆爆（OpenClaw）来取」（860 以下本来就隐藏）；
+       提交后状态行「已保存 · 等待爆爆（OpenClaw）来取 · 等待爆爆（OpenClaw）读取」，宽屏折成两行；说明框提示同样是完整写法。
+     - 文档：AGENT-INTERFACE「What the page calls you」、帮助段前言、SKILL.md、两个入口的 agentName 说明都改成带工具的例子。
 
 ---
 
