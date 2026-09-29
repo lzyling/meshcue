@@ -239,9 +239,37 @@
 - 两个硬坑：① 插件 MCP 的 cwd 是插件根，而 `mcp/server.mjs:97` 拿 `process.cwd()` 当 workspace，要改读 `CLAUDE_PROJECT_DIR`；
   ② `dist/` 不在 git 里，按 git 装的插件没有网页（`PACKAGE_INCOMPLETE`），要么首次启动构建到 `${CLAUDE_PLUGIN_DATA}`，要么发版附预构建包。
   依赖在插件安装时怎么装，按官方文档，未核实。
+- ✅ **09-29 第六轮做完**（方案按上面两条硬坑改过，见下）：
+  - 读官方文档（code.claude.com/docs 的 plugins、marketplace-reference、loading、mcp 各页）定的三件事：
+    ① 从 git 装的插件会被拷进 `~/.claude/plugins/cache/<市场>/<插件>/<版本>/`，根目录同时有 `package.json` 和锁文件时，Claude Code 在那里跑
+    `npm ci --ignore-scripts`（60 秒超时、devDependencies 照装、`prepare` 不跑）——所以按 git 装永远没有 `dist/`；
+    ② 管理器的 `PACKAGE_INCOMPLETE` 本来就写明「no ad-hoc build was attempted」，运行时临时构建网页违背这条；
+    ③ 文档表格说 stdio MCP 进程只导出 `CLAUDE_PLUGIN_ROOT`／`CLAUDE_PLUGIN_DATA`，`${CLAUDE_PROJECT_DIR}` 要写在 args／env 里由 Claude Code 替换。
+  - **定的方案**：仓库根只做市场（`.claude-plugin/marketplace.json`，根目录没有 plugin.json 也没有 `.mcp.json`）；插件本体是发版附带的预构建包，
+    市场条目用 `archive` 来源指向 `releases/download/v<版本>/meshcue-<版本>.zip`。这个包就是 `build:integration` 出的那个 OpenClaw 包，
+    多了 `.claude-plugin/plugin.json`（名字 meshcue；版本由构建写入，模板 `adapters/claude-code/plugin.json` 自己不带版本，免得发版多一处要改）
+    和打包过的 `mcp/server.mjs`（带 `__MESHCUE_PACKAGED__`，走和 OpenClaw 一样的「每个项目一份校验过的副本」启动，插件更新删旧目录也不影响正在跑的审阅）。
+    包里没有锁文件，Claude Code 不跑 npm。URL 按 package.json 去掉 -dev 的版本写，发版提交不用改它；在 dev 上它指向正在做的版本（还不存在），
+    用户读的是 main。在 tag 上加市场（`lzyling/meshcue#v<版本>`）就连包一起钉住——和 README「Pin the tag」同一个道理。没有 sha256 钉（包在打 tag 之后才构建，除非构建可复现）。
+  - 工作区：`mcp/server.mjs` 读 `MESHCUE_WORKSPACE`，插件把它设成 `${CLAUDE_PROJECT_DIR}`；没给就用 cwd（原行为）；给了但不是存在的绝对目录
+    （比如没替换的占位符）→ 每次调用都拒 `WORKSPACE_INVALID`，握手照答，不退回 cwd。
+  - 发版工作流拆成两个任务：`package`（只读权限，唯一跑 npm 的地方）构建并 zip，`release`（写权限）只下载这个产物、建 Release 时附上。
+  - **实测（本机 claude 2.1.284，配置目录隔离在仓库 `tmp/cc-home`，没碰本机 Claude Code 配置）**：`claude plugin validate` 市场和包都通过；
+    本地目录市场装上后，在项目目录跑 `claude mcp list` 显示 `plugin:meshcue:meshcue ✔ Connected`。探针记下：**cwd 是项目目录，不是插件根**
+    （TODO 当初那条「cwd 是插件根」在 2.1.284 上不成立），`CLAUDE_PROJECT_DIR` 也在进程环境里（文档表格没列），`${CLAUDE_PROJECT_DIR}` 替换进 `MESHCUE_WORKSPACE` 生效。
+    文档没承诺 cwd，所以照样显式传。
+  - 测试 `tests/claude-plugin.test.mjs` 4 条：工作区取值与拒绝；坏工作区握手照答、调用全拒；市场条目＝本版资产名、发版工作流按同一名字附上、根目录不许有 plugin.json／.mcp.json；
+    打包后的服务端从包目录起（不是项目目录、没有 node_modules）、客户端报 claude-code，inspect 报本版本且文档路径在包里，open 一个 STL 拿到页面、
+    页面名字是「Claude Code」、从项目里那份校验过的副本启动、包目录一个字节没多。两处变异验过会红（打包标记去掉 → `PACKAGE_INCOMPLETE`；不读 `MESHCUE_WORKSPACE` → 3 条红）。
+  - **未核实**：`archive` 来源从 GitHub Release 下载这一步（要等 1.4.0 发版、资产真的存在才能测；GitHub 的 releases/download 会 302 到 objects.githubusercontent.com，
+    Claude Code 跟不跟重定向没实测）；真会话里（不是 `claude mcp list`）的 cwd；Windows。发版后第一件事：按 README 两行命令真装一次。
 
 **依赖**：dependabot #5（vite 8）只动 devDependency，`vite.config.js` 没用到改名项，风险低 —— rebase 到 dev 跑全套再交 Kelven。
 #8（three 0.186）按规划留 1.5.0。
+- ✅ **09-29 第六轮跑完，等 Kelven 定合不合**：PR 基于 1.3.1，和 dev 的锁文件冲突，所以在 dev（`aa01d57`）上照它的改动重做（`"vite": "^8.3.0"`、重新生成锁文件），
+  放在本地分支 `vite8-on-dev`（工作树 `tmp/wt-vite8`，没推）。实际解析到 **vite 8.3.1**（rolldown 1.2.11；PR 锁的是 8.3.0）。
+  结果：格式检查过；node 268 条 267 过 1 跳过；浏览器 87 条 85 过 2 跳过、0 失败（5.1 分钟；比本机基线多跳的那条是要本机大贴图模型的用例，工作树里没有，CI 上也跳）；
+  `build:integration` 出包正常，页面 JS 884.9 → 873.8 KB；`npm audit` 0 漏洞；vite 构建 0.3 秒。要合的话：把这个分支的两处改动提交到 dev（或让 dependabot rebase #5），CI 再跑一遍。
 
 **同类扫描：页面上有、提交里没带给 Agent 的**
 - 相机采样时机、每批只一份、宽高比（高，见上）。

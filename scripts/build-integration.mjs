@@ -78,6 +78,24 @@ await build({
     __MESHCUE_BUILD_VERSION__: JSON.stringify(pluginManifest.version),
   },
 });
+/* The same package is a Claude Code plugin. Its manifest starts this server
+   with `node` from inside the package, where there is no node_modules, so it
+   is bundled like the adapter; and it is marked packaged, so a review runs
+   from the verified per-project copy of runtime/ and web/ rather than from
+   files the host deletes when it replaces the package. */
+await build({
+  entryPoints: [path.join(repo, "mcp/server.mjs")],
+  outfile: path.join(out, "mcp/server.mjs"),
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+  banner,
+  define: {
+    __MESHCUE_BUILD_VERSION__: JSON.stringify(pluginManifest.version),
+    __MESHCUE_PACKAGED__: "true",
+  },
+});
 execFileSync(
   process.execPath,
   [
@@ -136,6 +154,27 @@ for (const name of ["package.json", "openclaw.plugin.json"]) {
     );
   fs.copyFileSync(source, path.join(out, name));
 }
+/* The Claude Code manifest carries no version of its own: a third literal is a
+   third thing a release has to remember to bump, and the host keeps a user on
+   whatever that string says. It is written here, from the one the other two
+   manifests are held to. */
+const claudeManifest = JSON.parse(
+  fs.readFileSync(path.join(repo, "adapters/claude-code/plugin.json"), "utf8"),
+);
+if ("version" in claudeManifest)
+  throw new Error(
+    "adapters/claude-code/plugin.json declares a version; the build writes the package's own.",
+  );
+const { name: claudeName, ...claudeRest } = claudeManifest;
+fs.mkdirSync(path.join(out, ".claude-plugin"));
+fs.writeFileSync(
+  path.join(out, ".claude-plugin/plugin.json"),
+  JSON.stringify(
+    { name: claudeName, version: pluginManifest.version, ...claudeRest },
+    null,
+    2,
+  ) + "\n",
+);
 // The project's own two declarations are the other half of the same drift.
 // They do not travel in this package, but the tag written into the install
 // instructions comes from the first and `npm ci` reads the second, so a release
@@ -207,6 +246,17 @@ for (const [key, relative] of Object.entries(DOC_FILES)) {
       `The package is missing ${relative}, which inspect reports as ${key}.`,
     );
 }
+// The plugin manifest names its server by a path inside the package. The host
+// would only find out it is wrong when the server failed to start.
+for (const server of Object.values(claudeManifest.mcpServers || {}))
+  for (const arg of server.args || [])
+    if (arg.startsWith("${CLAUDE_PLUGIN_ROOT}/")) {
+      const relative = arg.slice("${CLAUDE_PLUGIN_ROOT}/".length);
+      if (!fs.existsSync(path.join(out, relative)))
+        throw new Error(
+          `The Claude Code manifest starts ${relative}, which the package does not have.`,
+        );
+    }
 /* The last step asks the host to bless the package, which needs a global
    `openclaw` on PATH. CI has no such thing, and it is not a dependency of this
    project -- adding one so a workflow can finish is a global npm install on a

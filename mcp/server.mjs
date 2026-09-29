@@ -121,21 +121,68 @@ export const TOOL = {
   },
 };
 
+/* Where the models are. A client that starts this server in the project it is
+   working on needs to say nothing: the working directory is the workspace. A
+   host that starts it somewhere else says so in MESHCUE_WORKSPACE -- Claude
+   Code starts a plugin's server in the plugin's own directory, so the plugin
+   passes `${CLAUDE_PROJECT_DIR}` here. Given, it has to be an absolute path to
+   a directory that exists. A placeholder the host left unexpanded, or a path
+   that is not there, is refused rather than quietly replaced by the working
+   directory, which for a plugin is the installed package: reviews and models
+   written there would vanish with the next update. */
+export function resolveWorkspace(
+  environment = process.env,
+  cwd = process.cwd(),
+) {
+  const given = environment.MESHCUE_WORKSPACE;
+  if (given === undefined || given === "") return { workspace: cwd };
+  if (
+    path.isAbsolute(given) &&
+    fs.existsSync(given) &&
+    fs.statSync(given).isDirectory()
+  )
+    return { workspace: given };
+  return {
+    error: {
+      code: "WORKSPACE_INVALID",
+      message: `MESHCUE_WORKSPACE must be an absolute path to an existing directory; it is ${JSON.stringify(given)}. Nothing was read or written.`,
+    },
+  };
+}
+
+/* In a built package the server and the page travel bundled, as runtime/ and
+   web/, and the manager launches a verified copy of them per project, so a
+   review keeps running when the host replaces the package it came from. From
+   a clone they are the sources and the vite build beside them. */
+const PACKAGED =
+  typeof __MESHCUE_PACKAGED__ === "boolean" && __MESHCUE_PACKAGED__;
+
 export function createHandler({
-  workspace = process.cwd(),
+  workspace,
   root = ROOT,
   environment = process.env,
   managerOptions = {},
+  packaged = PACKAGED,
 } = {}) {
-  const owner = mcpOwner(workspace, environment);
+  let refusal;
+  if (workspace === undefined) {
+    const resolved = resolveWorkspace(environment);
+    workspace = resolved.workspace;
+    refusal = resolved.error;
+  }
+  const owner = refusal ? null : mcpOwner(workspace, environment);
   const context = { workspaceDir: workspace, agentId: "mcp" };
   // Said once, at the handshake, and true for the life of this connection.
   let toolName;
   const manager = () =>
     new InstanceManager(context, {
       installRoot: root,
-      serverEntry: path.join(root, "server/index.mjs"),
-      distRoot: path.join(root, "dist"),
+      ...(packaged
+        ? {}
+        : {
+            serverEntry: path.join(root, "server/index.mjs"),
+            distRoot: path.join(root, "dist"),
+          }),
       resolveOrigin: () =>
         normalizeOrigin({
           harness: "mcp",
@@ -171,6 +218,11 @@ export function createHandler({
         return reply({
           isError: true,
           content: [{ type: "text", text: `Unknown tool: ${params?.name}` }],
+        });
+      if (refusal)
+        return reply({
+          isError: true,
+          content: [{ type: "text", text: JSON.stringify(refusal) }],
         });
       try {
         const result =

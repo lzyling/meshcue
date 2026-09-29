@@ -1,0 +1,21 @@
+{
+  "name": "meshcue",
+  "displayName": "MeshCue",
+  "description": "Browser-based 3D model review: publish a GLB, STL or STEP, let a person mark and measure it, and read their marks back.",
+  "author": {
+    "name": "Kelven Ling"
+  },
+  "homepage": "https://github.com/lzyling/meshcue",
+  "repository": "https://github.com/lzyling/meshcue",
+  "license": "Apache-2.0",
+  "keywords": ["3d", "cad", "review", "annotation", "step", "stl", "glb"],
+  "mcpServers": {
+    "meshcue": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs"],
+      "env": {
+        "MESHCUE_WORKSPACE": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}

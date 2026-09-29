@@ -103,7 +103,7 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 268 unit and integration tests
+npm test             # 272 unit and integration tests
 npm run test:browser # 87 real-Chromium tests, isolated port and data
 ```
 
@@ -125,7 +125,21 @@ npm run build:integration -- tmp/candidate/package
 openclaw plugins install ./tmp/candidate/package
 ```
 
-For any MCP client, install a tagged commit and point the client at it:
+For Claude Code, add this repository as a plugin marketplace and install the
+plugin from it:
+
+```sh
+claude plugin marketplace add lzyling/meshcue
+claude plugin install meshcue@meshcue
+```
+
+The plugin is the package attached to each release, with the server, the page
+and the Skill already built, so installing it runs no build and no
+`npm install`. It needs Node.js 22 or later on `PATH`, and it works in the
+directory Claude Code was started in. The catalog on `main` names the package
+of the release it was cut with; add `lzyling/meshcue#v<version>` to hold one.
+
+For any other MCP client, install a tagged commit and point the client at it:
 
 ```sh
 npm i -g "github:lzyling/meshcue#v1.3.2"

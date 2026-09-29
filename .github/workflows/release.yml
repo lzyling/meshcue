@@ -6,21 +6,65 @@ on:
   push:
     tags: ["v*"]
 
-# The only job in this repository that writes anything. CI stays read-only —
-# this one needs to create a release object, and that is the whole list.
+# Read-only unless a job says otherwise, and only one does.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # The plugin package the Claude Code marketplace points at, built from the
+  # tag. npm runs here and nowhere near a token that can write: installing the
+  # dependencies runs their install scripts, and this job can only read.
+  package:
+    name: build the plugin package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - run: npm ci
+      # The same build CI runs on every push, with the same skip: the host step
+      # needs a global openclaw a runner has no business installing. The build
+      # refuses a package whose manifests disagree; the tag has to agree too,
+      # because .claude-plugin/marketplace.json names the asset by it.
+      - name: build and zip the package
+        env:
+          MESHCUE_SKIP_HOST_BUILD: "1"
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          declared="$(node -p 'require("./package.json").version')"
+          if [ "$declared" != "$version" ]; then
+            echo "::error::$GITHUB_REF_NAME is not the version package.json declares ($declared)" >&2
+            exit 1
+          fi
+          npm run build:integration -- tmp/release-package
+          (cd tmp/release-package && zip -r -X -q "../meshcue-$version.zip" .)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package
+          path: tmp/meshcue-*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  # The only job in this repository that writes anything: it creates a release
+  # object and attaches the package it was handed, and that is the whole list.
   release:
     name: publish the tag as a release
+    needs: package
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The notes come from the tag's own annotation, so the tag object has
           # to be fetched, not just the commit it points at.
           fetch-depth: 0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: package
+          path: ${{ runner.temp }}/package
       # gh is preinstalled on the runner, so the token stays inside a first
       # party tool: no third-party action is handed a credential to create a
       # release with. The repository's own GITHUB_TOKEN expires with the job.
@@ -56,4 +100,5 @@ jobs:
           gh release create "$tag" \
             --title "MeshCue ${tag#v}" \
             --notes-file "$RUNNER_TEMP/notes.md" \
-            --verify-tag
+            --verify-tag \
+            "$RUNNER_TEMP/package/meshcue-${tag#v}.zip"

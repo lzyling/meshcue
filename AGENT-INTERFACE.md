@@ -27,9 +27,18 @@ second and runs the `prepare` script in it.
 
 | Host             | Install                                                                                                                     | It worked when                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Claude Code      | `claude plugin marketplace add lzyling/meshcue`, then `claude plugin install meshcue@meshcue`; Node.js 22 or later on `PATH` | `/mcp` shows `plugin:meshcue:meshcue` connected and `inspect` reports the project directory |
 | Any MCP client   | `npm i -g "github:lzyling/meshcue#v1.3.2"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
 | CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
 | OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
+
+The Claude Code plugin is the package attached to the release, already built;
+it starts this same MCP server from inside the package and names the project
+in `MESHCUE_WORKSPACE`, set to `${CLAUDE_PROJECT_DIR}`. Any host that starts
+`meshcue-mcp` somewhere other than the project can do the same: without it the
+working directory is the workspace. A value that is not an absolute path to an
+existing directory — an unexpanded placeholder, say — is refused on every call
+with `WORKSPACE_INVALID`, rather than replaced by the working directory.
 
 MeshCue is **not published on npm**. A package named `meshcue` or `meshcue-mcp`
 on that registry is not this project; every release states the SHA-256 of its
