@@ -5,12 +5,13 @@
 
 **Point at the model. Let the Agent read what you meant.**
 
-https://github.com/user-attachments/assets/711ffa94-dab0-44b6-90ce-c6df4dd65614
+https://github.com/user-attachments/assets/fee043ff-0c6e-4c8c-a6db-f3c21601fae3
 
-<sub>43 seconds, with sound. It is an animation, rendered from code with Remotion,
-and the drone frame in it was made for the film; the recording below is the
-application itself. A Chinese cut (中文版) is in the
-[announcement](https://github.com/lzyling/meshcue/discussions/9).</sub>
+<sub>What 1.4 added, in 51 seconds, with sound. It is an animation, rendered from
+code with Remotion, and the drone frame in it was made for the film; the
+recording below is the application itself. A Chinese cut (中文版) is in the
+[announcement](https://github.com/lzyling/meshcue/discussions/10), and the
+43-second film from 1.3 in [discussion #9](https://github.com/lzyling/meshcue/discussions/9).</sub>
 
 ![A reviewer turns a bracket with the right mouse button, drops lettered pins A and B on two surfaces, fills a face with the paint bucket, and presses Send to Agent](docs/media/demo.gif)
 
