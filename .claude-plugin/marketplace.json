@@ -11,7 +11,7 @@
       "description": "Publish a GLB, STL or STEP for a person to mark and measure in the browser, and read their marks back.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/lzyling/meshcue/releases/download/v1.4.0/meshcue-1.4.0.zip"
+        "url": "https://github.com/lzyling/meshcue/releases/download/v1.4.1/meshcue-1.4.1.zip"
       },
       "category": "design",
       "homepage": "https://github.com/lzyling/meshcue",
