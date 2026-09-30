@@ -99,7 +99,9 @@
 - 和 text-to-cad 的引用互通：**先验证**它的 cadgen 编号能否和我们的 STEP 面一一对上；能对上就在 `read` 结果里附上它的引用。
 
 **1.7.0 · GLB 完整支持**（原 1.5.0 整版，「任何合规 GLB 都能打开，并按作者意图显示」；并入原 1.6.0 的 LOD 和材质变体）
-- （待定）3MF 直接打开：拓竹的原生格式，text-to-cad 也导出 3MF。10-01 提出，Kelven 还没表态。
+- **3MF 不直接支持**（10-01 03:13 Kelven 否决「直接打开 3MF」）：3MF 工程里多是打印机和材料信息，模型本身就是网格；
+  用户不能直接往 MeshCue 导入文件，模型都经 Agent 发布，所以由 Agent 先转成 GLB 或 STL 再发。
+  Skill 里补一句（我的建议）：3MF 有多个零件或颜色时转 GLB，保留零件划分和颜色（1.5 的装配树要用）；单件单色转 STL 也行。
 - 原 1.6.0 并入：同一 GLB 里多级 LOD 叠在一起、`KHR_materials_variants` 只显示默认（「动画只显示初始姿势」挪到 1.9.0）。
 - A1 压缩：Draco、Meshopt、`KHR_mesh_quantization`、KTX2／BasisU 贴图 —— 现在 `extensionsRequired` 白名单一律拒。
 - A2 骨骼角色：按绑定姿势显示（不播放），标记照旧落在面上 —— 现在服务端、查看器都拒（`ANIMATED_MODEL`）。
