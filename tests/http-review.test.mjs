@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { startReview } from "./helpers/review-server.mjs";
+import { atomicJson } from "../server/store.mjs";
 
 const origin = {
   harness: "openclaw",
@@ -67,10 +68,7 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
     body: { ...owner, revision: 0, annotations, camera: null },
   });
   const log = path.join(f.dir, "fake-gateway.json");
-  fs.writeFileSync(
-    log,
-    JSON.stringify({ calls: [], messages: [], offline: true }),
-  );
+  atomicJson(log, { calls: [], messages: [], offline: true });
   const submitted = {
     ...owner,
     revision: draft.body.revision,
@@ -125,7 +123,7 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
   await f.restart();
   const gateway = JSON.parse(fs.readFileSync(log, "utf8"));
   gateway.offline = false;
-  fs.writeFileSync(log, JSON.stringify(gateway));
+  atomicJson(log, gateway);
   let batch;
   for (let i = 0; i < 40; i++) {
     batch = (await f.ipc("/submissions/outbox-batch-one")).body;
@@ -177,7 +175,7 @@ test("managed outbox survives Gateway outage and service restart, and cannot red
   assert.equal(send.originatingThreadId, undefined);
   assert.equal(send.queueMode, "collect");
   state.sessions = { [frozen.sessionKey]: "unrelated-new-task" };
-  fs.writeFileSync(log, JSON.stringify(state));
+  atomicJson(log, state);
   const changed = await f.api("draft", {
     method: "PUT",
     body: {
@@ -685,10 +683,7 @@ test("a repeatedly refused batch says so in its own status and recovers cleanly"
     body: { ...owner, revision: 0, annotations, camera: null },
   });
   const log = path.join(f.dir, "fake-gateway.json");
-  fs.writeFileSync(
-    log,
-    JSON.stringify({ calls: [], messages: [], offline: true }),
-  );
+  atomicJson(log, { calls: [], messages: [], offline: true });
   assert.equal(
     (
       await f.api("feedback", {
@@ -721,7 +716,7 @@ test("a repeatedly refused batch says so in its own status and recovers cleanly"
   // that gets through stops claiming a failure it no longer has.
   const gateway = JSON.parse(fs.readFileSync(log, "utf8"));
   gateway.offline = false;
-  fs.writeFileSync(log, JSON.stringify(gateway));
+  atomicJson(log, gateway);
   for (let i = 0; i < 40; i++) {
     batch = (await f.ipc("/submissions/stalling-batch")).body;
     if (batch.status === "accepted") break;

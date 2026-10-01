@@ -4,6 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 const args = process.argv.slice(2);
 const file = process.env.REVIEW_FAKE_GATEWAY_LOG;
+// The test process reads while the service polls this stand-in in another
+// process. Direct writes expose an empty/partial JSON file between truncate
+// and write; publish a complete sibling file instead. Keep this executable
+// self-contained because browser fixtures copy it into their isolated PATH.
+function publishJson(file, value) {
+  const temporary = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(value));
+  fs.renameSync(temporary, file);
+}
 /* `openclaw message send|edit`: a line written straight into a chat, never
    into a session. Kept in a file of its own, because it runs beside the
    Gateway calls of the same batch and the two would overwrite each other's
@@ -40,7 +49,7 @@ if (args[0] === "message") {
     message: option("--message"),
     json: args.includes("--json"),
   });
-  fs.writeFileSync(log, JSON.stringify(sent));
+  publishJson(log, sent);
   // The shape the real command prints with --json: pretty, and the id on top.
   console.log(
     JSON.stringify(
@@ -64,7 +73,7 @@ const state = fs.existsSync(file)
   ? JSON.parse(fs.readFileSync(file, "utf8"))
   : { calls: [], messages: [] };
 state.calls.push({ method, params });
-fs.writeFileSync(file, JSON.stringify(state));
+publishJson(file, state);
 if (state.offline) throw new Error("Fixture Gateway is offline");
 const sessionId = state.sessions?.[params.sessionKey] || "fixture-generation";
 const leaf = `leaf-${state.messages.length}`;
@@ -128,12 +137,12 @@ if (method === "chat.send") {
       ],
     });
   }
-  fs.writeFileSync(file, JSON.stringify(state));
+  publishJson(file, state);
   console.log(
     JSON.stringify({ status: "started", runId: params.idempotencyKey }),
   );
 } else if (method === "chat.history") {
-  fs.writeFileSync(file, JSON.stringify(state));
+  publishJson(file, state);
   console.log(
     JSON.stringify({
       messages: state.messages.filter(
