@@ -5,6 +5,8 @@ import path from "node:path";
 import { once } from "node:events";
 import * as THREE from "three";
 import { fetchLoadedModel, loadedModelDisposition } from "./loaded-model.mjs";
+import { trackGpuTextures, gpuTextureSnapshot } from "./gpu-textures.mjs";
+import { withEmbeddedTexture } from "../fixtures/textured-glb.mjs";
 
 const repo = process.cwd(),
   url = "http://127.0.0.1:43174";
@@ -514,10 +516,64 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
   });
 });
 
+test("generated textured GLB releases its GPU textures on every switch to STL", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  const textured = path.join(dir, "textured-bracket.glb");
+  fs.writeFileSync(
+    textured,
+    withEmbeddedTexture(fs.readFileSync("tmp/samples/parametric-bracket.glb")),
+  );
+  const stl = writePlate();
+  await trackGpuTextures(page);
+  await ready(page);
+  const baseline = await gpuTextureSnapshot(page);
+  for (let cycle = 0; cycle < 3; cycle++) {
+    for (const file of [textured, stl]) {
+      const result = JSON.parse(
+        execFileSync(
+          process.execPath,
+          [
+            "scripts/reviewctl.mjs",
+            "publish",
+            file,
+            "--name",
+            "Texture lifecycle fixture",
+            "--version",
+            `cycle-${cycle}`,
+          ],
+          { cwd: repo, env, encoding: "utf8" },
+        ),
+      );
+      await expect
+        .poll(() =>
+          page.evaluate(() => window.__reviewDiagnostics().viewer.versionId),
+        )
+        .toBe(result.model.id);
+      await expect(page.locator("#loading")).toBeHidden();
+      if (file === textured) {
+        // Prove the test actually uploads its image: a missing/unused texture
+        // must not turn the subsequent cleanup assertion into a vacuous pass.
+        await expect
+          .poll(async () => (await gpuTextureSnapshot(page)).count)
+          .toBe(baseline.count + 1);
+        const uploaded = await gpuTextureSnapshot(page);
+        expect(uploaded.objects).toHaveLength(baseline.objects.length + 1);
+      } else {
+        // r186 owns a 16x16 DFG_LUT even before a textured model is loaded.
+        // Match the actual pre-model WebGL objects, not a hard-coded count
+        // of zero (or one), so a retained model texture still fails this test.
+        await expect.poll(() => gpuTextureSnapshot(page)).toEqual(baseline);
+      }
+    }
+  }
+});
+
 test("real textured GLB, large mesh and STL load sequentially without retaining old GPU resources", async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
   // These are real models from the developer's own media library, not fixtures
   // this repository ships or generates: a textured GLB, the same head at full
   // density, and an STL. The case is worth keeping — nothing generated stresses
@@ -534,9 +590,11 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     ),
     "needs the local media library: media/3d/TRex_Head_*.glb and 3dbenchy.stl",
   );
+  await trackGpuTextures(page);
   await ready(page);
+  const baseline = await gpuTextureSnapshot(page);
   const metrics = [];
-  for (const [file, name] of heavy) {
+  for (const [file, name] of [...heavy, ...heavy]) {
     const t = Date.now();
     const result = JSON.parse(
       execFileSync(
@@ -569,7 +627,13 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     await expect(page.locator("#loading")).toBeHidden();
     const d = await page.evaluate(() => window.__reviewDiagnostics());
     expect(d.viewer.geometries).toBeLessThanOrEqual(d.viewer.meshes + 2);
-    if (file.endsWith(".stl")) expect(d.viewer.textures).toBe(0);
+    if (file.endsWith(".stl")) {
+      await expect.poll(() => gpuTextureSnapshot(page)).toEqual(baseline);
+    } else {
+      await expect
+        .poll(async () => (await gpuTextureSnapshot(page)).count)
+        .toBeGreaterThan(baseline.count);
+    }
     metrics.push({
       file,
       sourceTriangles: result.model.triangles,

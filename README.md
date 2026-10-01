@@ -105,7 +105,7 @@ From a clone, for development:
 npm ci
 npm run samples      # generate the parametric sample models
 npm test             # 300 unit and integration tests
-npm run test:browser # 94 real-Chromium tests, isolated port and data
+npm run test:browser # 95 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever
