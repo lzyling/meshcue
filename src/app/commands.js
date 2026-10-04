@@ -66,7 +66,7 @@ export function createCommandRegistry() {
     dispatch(event) {
       const id = shortcuts.get(eventShortcut(event));
       if (!id || !commands.get(id).enabled("keyboard")) return false;
-      event.preventDefault();
+      if (commands.get(id).preventDefault !== false) event.preventDefault();
       commands.get(id).run();
       return true;
     },

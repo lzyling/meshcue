@@ -1,3 +1,4 @@
+import { latestVersion } from "../versions.js";
 import { t } from "../i18n/index.js";
 export function installVersionsBar(review) {
   // Tabs are the whole point of keeping every version: a marking made against an

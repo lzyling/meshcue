@@ -57,6 +57,16 @@ test("buttons and shortcuts run the registered action and respect enablement", (
     false,
   );
   assert.deepEqual(calls, ["redo", "redo", "redo"]);
+  commands.register({
+    id: "escape",
+    labelKey: "common.close",
+    shortcuts: "Escape",
+    preventDefault: false,
+    run() {},
+  });
+  const escape = key("Escape");
+  assert.equal(commands.dispatch(escape), true);
+  assert.equal(escape.prevented, undefined);
 });
 
 test("shortcut typing and modal guards cover focused and nested editable targets", () => {

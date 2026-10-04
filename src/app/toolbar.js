@@ -254,6 +254,8 @@ export function registerToolbarCommands(review) {
     id: "escape",
     labelKey: "common.close",
     shortcuts: "Escape",
+    preventDefault: false,
+    enabled: () => ["relocate", "measure"].includes(review.mode),
     run: () => {
       if (review.mode === "relocate") review.setMode("orbit");
       if (review.mode === "measure") review.viewer.clearMeasure();
