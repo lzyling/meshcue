@@ -94,6 +94,41 @@ export function installVersionsBar(review) {
     );
   }
 
+  function restoreVersionChoice(incoming) {
+    if (review.restoredVersionChoice || !incoming.active) return;
+    review.restoredVersionChoice = true;
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(`meshcue-view-${incoming.reviewId}`),
+      );
+      // An agent activation since the last visit wins. Old reviews and removed
+      // versions must never send the page back to an unavailable model.
+      if (
+        saved?.activeId === incoming.active.id &&
+        incoming.versions.some((version) => version.id === saved.viewingId)
+      ) {
+        review.viewingId = saved.viewingId;
+        review.followActive = saved.viewingId === incoming.active.id;
+      }
+    } catch {
+      /* Storage is optional; the active model remains the fallback. */
+    }
+  }
+
+  function rememberVersionChoice() {
+    try {
+      localStorage.setItem(
+        `meshcue-view-${review.loadedReviewId}`,
+        JSON.stringify({
+          viewingId: review.viewingId,
+          activeId: review.state?.active?.id,
+        }),
+      );
+    } catch {
+      /* A full or disabled store must not prevent model loading. */
+    }
+  }
+
   async function selectVersion(id) {
     if (
       !id ||
@@ -117,6 +152,7 @@ export function installVersionsBar(review) {
       review.viewingId = id;
       // Choosing the version the Agent is showing hands the choice back to it.
       review.followActive = id === review.state?.active?.id;
+      review.rememberVersionChoice();
       const full = await review.api(
         `state?clientId=${encodeURIComponent(review.clientId)}&versionId=${encodeURIComponent(id)}&full=1`,
       );
@@ -195,6 +231,7 @@ export function installVersionsBar(review) {
       review.loadedPrecision = stats;
       await review.restoreDraft(fullState.draft);
       review.initialDraftRestored = true;
+      review.rememberVersionChoice();
       review.renderAnnotations();
       review.$("#loading").hidden = true;
       review.$("#save-status").textContent =
@@ -235,6 +272,8 @@ export function installVersionsBar(review) {
     markVersionOverflow,
     wasRefused,
     selectVersion,
+    restoreVersionChoice,
+    rememberVersionChoice,
     loadVersion,
   });
 }

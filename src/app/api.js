@@ -104,9 +104,14 @@ export function installApi(review) {
       review.accessBlocked = false;
       const recovered = review.accessRecoveryNeeded;
       review.accessRecoveryNeeded = false;
-      // Follow whatever the Agent puts on screen, unless the reviewer pinned an
-      // earlier tab. Their own choice outranks the Agent's; an unsynced draft
-      // outranks both, because reloading the viewer would discard it.
+      review.restoreVersionChoice(incoming);
+      // A pinned tab survives polls and reloads, until the agent activates a
+      // different model. Unsaved edits still defer that switch below.
+      if (
+        review.state?.active?.id &&
+        incoming.active?.id !== review.state.active.id
+      )
+        review.followActive = true;
       const wanted = review.followActive
         ? incoming.active?.id
         : review.viewingId;

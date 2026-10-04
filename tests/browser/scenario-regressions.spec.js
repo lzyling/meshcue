@@ -5,7 +5,7 @@ import fs from "node:fs";
 const evidence = "tmp/b1-fix/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
-const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());
+const diag = (page) => page.evaluate(() => window.__reviewDiagnostics?.());
 async function open(page) {
   fs.mkdirSync(evidence, { recursive: true });
   environment = await startScenario({
@@ -193,3 +193,51 @@ for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
     });
   }
 }
+
+async function publish(page, fixture, version) {
+  const file = fixture.split("/").at(-1);
+  fs.copyFileSync(fixture, `${environment.workspace}/${file}`);
+  const result = await environment.ipc("/publish", {
+    file,
+    name: "Version regression",
+    version,
+  });
+  await expect
+    .poll(async () => (await diag(page))?.versionId)
+    .toBe(result.model.id);
+  return result.model.id;
+}
+
+test("Bug 4: reload preserves the chosen older version and a newly active version takes over", async ({
+  page,
+}) => {
+  await open(page);
+  const first = (await diag(page))?.versionId;
+  const second = await publish(page, "tmp/samples/bunny-figurine.glb", "v2");
+  await page.locator(`.version-tab[data-version-id="${first}"]`).click();
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(first);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(first);
+  const third = await publish(page, "tmp/samples/occlusion-check.glb", "v3");
+  await page.reload();
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(third);
+  // A deleted/stale browser choice must fall back to the active model.
+  await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((k) =>
+      k.startsWith("meshcue-view-"),
+    );
+    const saved = JSON.parse(localStorage.getItem(key));
+    saved.viewingId = "missing-version";
+    localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(third);
+  // A new active model while the page is closed also outranks the saved choice.
+  await page.locator(`.version-tab[data-version-id="${second}"]`).click();
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(second);
+  await page.goto("about:blank");
+  await environment.ipc("/activate", { versionId: first });
+  await page.goto(environment.url);
+  await expect.poll(async () => (await diag(page))?.versionId).toBe(first);
+});
