@@ -263,7 +263,21 @@ export function installAnnotationsPanel(review) {
         list.append(row);
       }
       review.renderNote();
+      review.revealSelectedMark();
     });
+  }
+
+  function revealSelectedMark() {
+    const list = review.$("#annotations-list");
+    const row = list.querySelector(".selected");
+    if (!row || list.hidden) return;
+    // Scroll only the list: scrollIntoView can move the whole phone page and
+    // hide the note field we have just made room for. Read after note layout.
+    const seat = row.getBoundingClientRect(),
+      rail = list.getBoundingClientRect();
+    if (seat.top < rail.top) list.scrollTop -= rail.top - seat.top;
+    else if (seat.bottom > rail.bottom)
+      list.scrollTop += seat.bottom - rail.bottom;
   }
 
   function renderNote() {
@@ -327,6 +341,7 @@ export function installAnnotationsPanel(review) {
     formatMeasure,
     onPaint,
     renderAnnotations,
+    revealSelectedMark,
     renderNote,
     commitNote,
   });
@@ -521,6 +536,7 @@ export function bindAnnotationsPanel(review) {
     // Handing the marks over is done while looking at them, so it folds with
     // them; a send button left standing in the gap gives most of the width back.
     review.$(".panel-actions").hidden = collapsed;
+    if (!collapsed) review.revealSelectedMark();
     // A plus beside a list of marks reads as "add a mark", which is a thing this
     // page can actually do — just not here. The control moves a panel sideways,
     // so it points the way the panel will go.

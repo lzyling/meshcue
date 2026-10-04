@@ -2133,3 +2133,24 @@ dialog .muted {
     height: 60px;
   }
 }
+
+/* === FIX lane: phone marks retain a readable list beside their note === */
+@media (max-width: 760px) {
+  /* A capped panel spent its whole height on the heading, note and send area,
+     leaving the list only a few pixels. Let those siblings take their natural
+     height and reserve a scrollable card-sized viewport for the marks. */
+  .annotations-panel,
+  .annotations-panel:has(#mark-note:not([hidden])),
+  .annotations-panel:has(#receipt-nudge:not([hidden])),
+  .annotations-panel:has(#mark-note:not([hidden])):has(#receipt-nudge:not([hidden])) {
+    max-height: none;
+  }
+  #annotations-list {
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 100px;
+  }
+  .annotation-empty {
+    padding: 12px 10px;
+  }
+}

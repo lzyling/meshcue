@@ -99,3 +99,41 @@ for (const locale of ["en", "zh-Hant", "de"]) {
     }
   });
 }
+
+async function addPin(page) {
+  await page.locator('[data-mode="label"]').click();
+  const count = (await diag(page)).annotationCount;
+  const box = await page.locator("#viewer canvas").boundingBox();
+  await page.mouse.click(
+    box.x + box.width * (0.43 + count * 0.02),
+    box.y + box.height * 0.6,
+  );
+  await expect(page.locator("#annotation-count")).toHaveText(String(count + 1));
+}
+
+test("Bug 2: phone empty guidance and selected mark actions fit beside the note", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await open(page);
+  await screenshot(page, "bug2-empty");
+  expect.soft(await unobscured(page.locator(".annotation-empty"))).toBe(true);
+  await addPin(page);
+  await screenshot(page, "bug2-selected");
+  for (const selector of [
+    ".annotation-row.selected",
+    ".annotation-row.selected .annotation-select",
+    ".annotation-row.selected .delete-annotation",
+    "#mark-note-text",
+  ]) {
+    expect.soft(await unobscured(page.locator(selector)), selector).toBe(true);
+  }
+  for (const button of await page
+    .locator(".annotation-row.selected .annotation-action")
+    .all())
+    expect.soft(await unobscured(button)).toBe(true);
+  await page.locator("#mark-note-text").fill("Keep this note visible");
+  await expect(page.locator("#mark-note-text")).toHaveValue(
+    "Keep this note visible",
+  );
+});
