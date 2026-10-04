@@ -33,20 +33,28 @@ try {
     canvas.height = image.height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(image, 0, 0);
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let differing = 0;
-    for (let i = 0; i < data.length; i += 4)
-      if (
-        Math.abs(data[i] - data[0]) +
-          Math.abs(data[i + 1] - data[1]) +
-          Math.abs(data[i + 2] - data[2]) >
-        30
-      )
-        differing++;
-    return { differing, total: data.length / 4 };
+    // Sample the model's central area, away from the toolbar, cube and rounded
+    // viewport corners. UI chrome alone must not make an empty render pass.
+    const data = ctx.getImageData(
+      Math.floor(canvas.width * 0.3),
+      Math.floor(canvas.height * 0.25),
+      Math.floor(canvas.width * 0.4),
+      Math.floor(canvas.height * 0.5),
+    ).data;
+    const colors = new Map();
+    for (let i = 0; i < data.length; i += 4) {
+      const color = `${data[i]},${data[i + 1]},${data[i + 2]}`;
+      colors.set(color, (colors.get(color) || 0) + 1);
+    }
+    const total = data.length / 4;
+    return {
+      differing: total - Math.max(...colors.values()),
+      total,
+      colors: colors.size,
+    };
   }, fs.readFileSync(screenshot).toString("base64"));
   assert.ok(
-    pixels.differing > pixels.total * 0.01,
+    pixels.differing > pixels.total * 0.01 && pixels.colors > 100,
     "Fixture screenshot must contain rendered detail",
   );
   console.log(
