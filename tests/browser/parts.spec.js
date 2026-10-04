@@ -327,6 +327,15 @@ test("phone parts sheet opens from the toolbar without covering the model", asyn
   await expect(page.locator("#parts-panel")).toBeHidden();
   await page.locator('[data-command="parts-panel"]').click();
   await expect(page.locator("#parts-panel")).toBeVisible();
+  // The sheet enters layout before ResizeObserver has resized the WebGL canvas.
+  // Wait for the rendered surface, not just the panel's display property.
+  await expect
+    .poll(async () => {
+      const p = await page.locator("#parts-panel").boundingBox();
+      const c = await page.locator("#viewer canvas").boundingBox();
+      return p.y >= c.y + c.height;
+    })
+    .toBe(true);
   const panel = await page.locator("#parts-panel").boundingBox(),
     canvas = await page.locator("#viewer canvas").boundingBox();
   expect(canvas.x).toBeGreaterThanOrEqual(0);

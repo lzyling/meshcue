@@ -344,4 +344,13 @@ test("showing a child of a hidden mesh node draws only the child", () => {
   assert.equal(child.material.visible, true);
   assert.equal(viewer.parts.meshPickable("mesh-0"), false);
   assert.equal(viewer.parts.meshPickable("mesh-1"), true);
+  child.geometry.userData.sourceFaces = [0];
+  child.updateMatrixWorld(true);
+  const pin = viewer.pinFromHit({
+    object: child,
+    point: new THREE.Vector3(1, 0, 0),
+    faceIndex: 0,
+    face: { normal: new THREE.Vector3(-0, 0, 1) },
+  });
+  assert.deepEqual(pin.normal, JSON.parse(JSON.stringify(pin.normal)));
 });
