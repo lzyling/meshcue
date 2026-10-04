@@ -262,6 +262,7 @@ test("STL exposes a single part and hundreds of nodes build without duplicate id
 test("part opacity restores source alpha through plain view and updates existing cap counters", () => {
   const material = new THREE.MeshStandardMaterial({
     opacity: 0.6,
+    alphaTest: 0.4,
     transparent: true,
     depthWrite: true,
   });
@@ -295,6 +296,7 @@ test("part opacity restores source alpha through plain view and updates existing
   viewer.setNeutral(true);
   viewer.parts.setTransparent(id, true);
   assert.equal(a.material.opacity, 0.18);
+  assert.equal(a.material.alphaTest, 0);
   assert.equal(a.material.depthWrite, false);
   assert.equal(b.material.opacity, 0.6);
   assert.equal(counter.visible, false);
@@ -302,6 +304,7 @@ test("part opacity restores source alpha through plain view and updates existing
   viewer.setNeutral(true);
   viewer.parts.setTransparent(id, false);
   assert.equal(a.material.opacity, 0.6);
+  assert.equal(a.material.alphaTest, 0.4);
   assert.equal(a.material.transparent, true);
   assert.equal(a.material.depthWrite, true);
   assert.equal(counter.visible, true);

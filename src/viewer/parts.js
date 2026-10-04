@@ -93,11 +93,20 @@ export class PartsMethods {
               opacity: material.opacity,
               transparent: material.transparent,
               depthWrite: material.depthWrite,
+              alphaTest: material.alphaTest,
             });
+          // An alpha-mask cutoff above the temporary opacity would discard
+          // every fragment. Preserve texture alpha, but suspend that cutoff
+          // until the reviewer restores the source appearance.
           Object.assign(
             material,
             transparent
-              ? { opacity: 0.18, transparent: true, depthWrite: false }
+              ? {
+                  opacity: 0.18,
+                  transparent: true,
+                  depthWrite: false,
+                  alphaTest: 0,
+                }
               : this.partMaterials.get(material),
           );
           material.needsUpdate = true;
