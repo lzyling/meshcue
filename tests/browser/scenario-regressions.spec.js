@@ -241,3 +241,35 @@ test("Bug 4: reload preserves the chosen older version and a newly active versio
   await page.goto(environment.url);
   await expect.poll(async () => (await diag(page))?.versionId).toBe(first);
 });
+
+const continuedMarking = {
+  en: "You can keep marking this version.",
+  "zh-Hans": "您可以继续标记此版本。",
+  "zh-Hant": "您可以繼續標記此版本。",
+  de: "Sie können diese Version weiter markieren.",
+  fr: "Vous pouvez continuer à annoter cette version.",
+  ja: "このバージョンへのマーキングは続けられます。",
+};
+for (const [locale, message] of Object.entries(continuedMarking)) {
+  test(`Bug 6: submitted toast agrees that marking remains available (${locale})`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (locale) => localStorage.setItem("meshcue-locale", locale),
+      locale,
+    );
+    await open(page);
+    await addPin(page);
+    await page.locator("#submit-feedback").click();
+    await expect(page.locator("#toast")).toBeVisible();
+    await expect(page.locator("#toast")).toContainText(message, {
+      timeout: 1500,
+    });
+    await expect(page.locator('[data-mode="label"]')).toBeEnabled();
+    await expect(page.locator("#mark-note-text")).toBeEditable();
+    await page.locator("#mark-note-text").fill("Still editable after sending");
+    await expect
+      .poll(async () => (await diag(page)).annotations[0].note)
+      .toBe("Still editable after sending");
+  });
+}
