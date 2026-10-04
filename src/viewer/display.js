@@ -74,7 +74,7 @@ export class DisplayMethods {
     if (this.grid) this.grid.position.y = y;
   }
   setNeutral(neutral) {
-    if (this.displayStyle) {
+    if (this.displayStyle && !this.displayClearing) {
       this.neutral = neutral;
       this.applyDisplayStyle();
       return;

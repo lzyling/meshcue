@@ -31,12 +31,19 @@ export class DisplayModesMethods {
     const clear = this.clearModel;
     this.clearModel = (...args) => {
       this.releaseDisplay();
-      return clear.apply(this, args);
+      this.displayClearing = true;
+      try {
+        return clear.apply(this, args);
+      } finally {
+        this.displayClearing = false;
+      }
     };
     const load = this.load;
     this.load = async (...args) => {
-      const result = await load.apply(this, args);
-      if (result) {
+      const pending = load.apply(this, args);
+      const epoch = this.loadingEpoch;
+      const result = await pending;
+      if (result && epoch === this.loadingEpoch) {
         this.applyDisplayStyle();
         this.buildDisplayEdges();
       }
@@ -117,6 +124,7 @@ export class DisplayModesMethods {
           m.blendSrc = THREE.SrcAlphaFactor;
           m.blendDst = THREE.OneMinusSrcAlphaFactor;
           m.forceSinglePass = true;
+          if ("transmission" in m) m.transmission = 0;
         }
         if (this.neutral && this.displayStyle !== "hidden") {
           m.onBeforeCompile = (shader) => {
@@ -156,11 +164,18 @@ export class DisplayModesMethods {
           : edge.userData.feature;
     }
     this.applySectionMaterials();
+    if (this.displayEdges.length) this.updateDisplayEdgeColor();
   }
   updateDisplayEdgeColor() {
     const dark = document.documentElement.dataset.theme === "dark";
     for (const edge of this.displayEdges)
-      edge.material.color.set(dark ? 0x162630 : 0x26343d);
+      edge.material.color.set(
+        dark && this.displayStyle === "wireframe"
+          ? 0xa5b7c4
+          : dark
+            ? 0x162630
+            : 0x26343d,
+      );
   }
   async buildDisplayEdges() {
     const generation = this.displayGeneration;

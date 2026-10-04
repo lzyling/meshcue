@@ -17,47 +17,60 @@ export function extractEdges(
     if (!vertices.has(key)) vertices.set(key, vertices.size);
     ids[i] = vertices.get(key);
   }
+  // A linked list in typed storage avoids one object and one owners array per
+  // edge: at 600k triangles those tiny allocations outweighed the model itself.
+  // Each triangle corner identifies its outgoing edge and its owning face.
+  // Numeric pair keys remain exact below the 600k source-triangle ceiling.
+  const next = new Int32Array(ids.length).fill(-1);
+  const selected = new Uint8Array(ids.length);
   const cos = Math.cos((threshold * Math.PI) / 180);
   for (let face = 0; face < ids.length / 3; face++) {
-    const normal = normals.subarray(face * 3, face * 3 + 3);
-    if (normal.reduce((sum, n) => sum + n * n, 0) < 0.5) continue;
+    const n = face * 3;
+    if (normals[n] ** 2 + normals[n + 1] ** 2 + normals[n + 2] ** 2 < 0.5)
+      continue;
     for (let j = 0; j < 3; j++) {
       const a = face * 3 + j,
         b = face * 3 + ((j + 1) % 3);
       if (ids[a] === ids[b]) continue;
       const key =
-        ids[a] < ids[b] ? `${ids[a]}:${ids[b]}` : `${ids[b]}:${ids[a]}`;
-      const edge = edges.get(key);
-      if (!edge) edges.set(key, { a, b, owners: [face], feature: false });
+        Math.min(ids[a], ids[b]) * ids.length + Math.max(ids[a], ids[b]);
+      const first = edges.get(key);
+      if (first === undefined) edges.set(key, a);
       else {
-        edge.feature ||= edge.owners.some((other) =>
-          faceIds
+        for (
+          let owner = first;
+          owner !== -1 && !selected[first];
+          owner = next[owner]
+        ) {
+          const other = Math.floor(owner / 3);
+          selected[first] = faceIds
             ? faceIds[other] !== faceIds[face]
-            : normal.reduce(
-                (sum, n, k) => sum + n * normals[other * 3 + k],
-                0,
-              ) <
-              cos - 1e-7,
-        );
-        edge.owners.push(face);
+            : normals[n] * normals[other * 3] +
+                normals[n + 1] * normals[other * 3 + 1] +
+                normals[n + 2] * normals[other * 3 + 2] <
+              cos - 1e-7;
+        }
+        next[a] = next[first];
+        next[first] = a;
       }
     }
   }
   let count = 0;
-  for (const edge of edges.values())
-    if (edge.feature || edge.owners.length === 1) count++;
+  for (const first of edges.values())
+    if (selected[first] || next[first] === -1) count++;
   const feature = new Float32Array(count * 6);
   // STEP wireframe follows file faces; triangle diagonals are intentionally
   // absent even where those triangles approximate a curved B-rep surface.
   const wire = faceIds ? feature : new Float32Array(edges.size * 6);
   let f = 0,
     w = 0;
-  for (const edge of edges.values()) {
-    const selected = edge.feature || edge.owners.length === 1;
-    for (const i of [edge.a, edge.b])
+  for (const first of edges.values()) {
+    const include = selected[first] || next[first] === -1;
+    const b = first - (first % 3) + ((first + 1) % 3);
+    for (const i of [first, b])
       for (let k = 0; k < 3; k++) {
         const value = positions[i * 3 + k];
-        if (selected) feature[f++] = value;
+        if (include) feature[f++] = value;
         if (!faceIds) wire[w++] = value;
       }
   }
