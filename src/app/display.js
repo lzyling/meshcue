@@ -95,7 +95,8 @@ export function bindDisplay(review) {
     if (!menu.contains(event.target) && !button.contains(event.target)) close();
   });
   menu.addEventListener("focusout", (event) => {
-    if (!menu.contains(event.relatedTarget)) close();
+    if (!menu.contains(event.relatedTarget) && event.relatedTarget !== button)
+      close();
   });
   bindPerformance(review);
 }

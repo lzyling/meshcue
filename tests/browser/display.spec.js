@@ -151,6 +151,10 @@ test("display menu is keyboard reachable, persists and reuses version edge cache
 }) => {
   await open(page);
   expect((await diagnostics(page)).viewer.display.style).toBe("edges");
+  await page.locator("#display-toggle").click();
+  await expect(page.locator("#display-menu")).toBeVisible();
+  await page.locator("#display-toggle").click();
+  await expect(page.locator("#display-menu")).toBeHidden();
   await page.locator("#display-toggle").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-style="edges"]')).toBeFocused();
