@@ -83,7 +83,7 @@ they are done rather than waiting for a message that cannot arrive.
 | -------------- | -------------------------------- | -------------------------------- |
 | Triangles      | 600,000                          | publish refused, `MODEL_LIMIT`   |
 | File size      | 80 MB                            | publish refused, `MODEL_LIMIT`   |
-| Texture pixels | 8192×8192 each, 33,554,432 total | publish refused, `TEXTURE_LIMIT` |
+| Textures | 8192×8192 each, 384 MiB estimated GPU memory (RGBA8 + mipmaps) | publish refused, `TEXTURE_LIMIT` |
 
 A mark names a source face, so a model at the cap marks exactly as precisely as
 a small one — there is no band below these limits where something quietly gets
@@ -104,7 +104,7 @@ From a clone, for development:
 ```sh
 npm ci
 npm run samples      # generate the parametric sample models
-npm test             # 301 unit and integration tests
+npm test             # 313 unit and integration tests
 npm run test:browser # 95 real-Chromium tests, isolated port and data
 ```
 
