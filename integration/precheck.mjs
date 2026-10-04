@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { packGltf } from "../server/gltf-pack.mjs";
 import path from "node:path";
 import {
   inspectModel,
@@ -64,7 +65,13 @@ export function precheckModel(ctx, file, { derived } = {}) {
     };
   let metadata;
   try {
-    metadata = inspectModel(fs.readFileSync(actual), format, { derived });
+    let buffer = fs.readFileSync(actual);
+    if (format === "gltf") {
+      buffer = packGltf(buffer, actual, workspace, MAX_BYTES);
+      base.bytes = buffer.length;
+      base.format = "glb";
+    }
+    metadata = inspectModel(buffer, base.format, { derived });
   } catch (error) {
     // A malformed or unsupported file is not a sizing answer; let it surface as
     // itself. Only the two size limits become a verdict.
@@ -100,7 +107,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
   return {
     ...result,
     verdict: "ok",
-    reason: `${triangles} triangles, ${(stat.size / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
+    reason: `${triangles} triangles, ${(base.bytes / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
     simplify: null,
   };
 }
