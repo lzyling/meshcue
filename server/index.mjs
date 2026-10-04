@@ -464,12 +464,14 @@ const annotation = z.discriminatedUnion("type", [
     .strict(),
 ]);
 const owner = z.object({ versionId: id, clientId: id });
-const camera = z.object({
-  position: vec3,
-  target: vec3,
-  projection: z.literal("orthographic").optional(),
-  visibleHeight: z.number().finite().positive().optional(),
-}).nullable();
+const camera = z
+  .object({
+    position: vec3,
+    target: vec3,
+    projection: z.literal("orthographic").optional(),
+    visibleHeight: z.number().finite().positive().optional(),
+  })
+  .nullable();
 const draftSchema = owner.extend({
   revision: z.number().int().min(0),
   labelCursor: z.number().int().min(0).max(1000000).optional(),

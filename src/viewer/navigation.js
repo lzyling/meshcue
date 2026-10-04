@@ -76,6 +76,7 @@ export class NavigationMethods {
 
   cancelNavigation() {
     this.navigationAnimation = null;
+    this.navigationNormal = null;
   }
 
   animateNavigation(
@@ -174,6 +175,7 @@ export class NavigationMethods {
     this.navigationHoverDirty = false;
     // previewFill performs exactly one section-aware raycast, then uses the
     // bucket's connected-face definition. It never hits a synthetic cap.
+    this.previewOverlay.visible = true;
     this.previewFill(...this.navigationPointer);
     for (const overlay of this.previewOverlay.children)
       overlay.material = this.markMaterial("#2e9e78", true);
@@ -284,6 +286,9 @@ export class NavigationMethods {
     }
   }
 
+  /* Public feature seam: box is in preview/world coordinates, as returned by
+     visibleNavigationBounds. A part-tree caller can supply its own selection
+     bounds without changing camera direction or reaching into controls. */
   fitTo(
     box,
     {
@@ -399,11 +404,11 @@ export class NavigationMethods {
     const same =
       this.navigationNormal?.pointer === this.navigationPointer.join(",");
     if (same) normal.copy(this.navigationNormal.normal).negate();
+    this.viewFrom(normal.x, normal.y, normal.z);
     this.navigationNormal = {
       pointer: this.navigationPointer.join(","),
       normal: normal.clone(),
     };
-    this.viewFrom(normal.x, normal.y, normal.z);
     return true;
   }
 }

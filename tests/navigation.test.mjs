@@ -79,9 +79,9 @@ test("navigation arrow turns use exact angles and stay finite at the poles", () 
       0.01,
     );
   }
-  const top = rotateDirection(new THREE.Vector3(0, 0, 1), 0, -90);
+  const top = rotateDirection(new THREE.Vector3(0, 0, 1), 0, 90);
   assert.ok(top.y > 0.999);
-  const adjacent = rotateDirection(top, 0, 90);
+  const adjacent = rotateDirection(top, 0, -90);
   assert.ok(adjacent.z > 0.999);
 });
 
@@ -112,4 +112,65 @@ test("navigation easing has stationary ends and animation cancellation preserves
   viewer.animateNavigation(new THREE.Vector3(5, 0, 0), new THREE.Vector3());
   assert.equal(viewer.navigationAnimation, null);
   assert.deepEqual(applied[0].toArray(), [5, 0, 0]);
+});
+
+test("navigation cursor zoom fixes the picked surface on screen and clamps the actual orbit distance", () => {
+  for (const orthographic of [false, true]) {
+    const camera = orthographic
+      ? new THREE.OrthographicCamera(-4, 4, 3, -3, 0.001, 100)
+      : new THREE.PerspectiveCamera(38, 4 / 3, 0.001, 100);
+    camera.fov = 38;
+    camera.aspect = 4 / 3;
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    const anchor = new THREE.Vector3(0.7, 0.2, 1);
+    const before = anchor.clone().project(camera);
+    const target = new THREE.Vector3();
+    const viewer = Object.assign(new NavigationMethods(), {
+      camera,
+      ray: new THREE.Raycaster(),
+      controls: {
+        target,
+        minDistance: 0.003,
+        maxDistance: 60,
+        minZoom: 0.05,
+        maxZoom: 1000,
+        update: () => {
+          camera.lookAt(target);
+          camera.updateMatrixWorld();
+        },
+      },
+      renderer: {
+        domElement: {
+          getBoundingClientRect: () => ({
+            left: 0,
+            top: 0,
+            width: 800,
+            height: 600,
+          }),
+        },
+      },
+      rayAt: (x, y) => {
+        viewer.ray.setFromCamera(
+          new THREE.Vector2(x / 400 - 1, 1 - y / 300),
+          camera,
+        );
+        return { point: anchor.clone() };
+      },
+    });
+    viewer.zoomNavigation(0.8, (before.x + 1) * 400, (1 - before.y) * 300);
+    const after = anchor.clone().project(camera);
+    near(before.x, after.x);
+    near(before.y, after.y);
+    if (!orthographic) {
+      near(camera.position.distanceTo(target), 4);
+      viewer.zoomNavigation(1000, 400, 300);
+      near(camera.position.distanceTo(target), 60);
+    } else {
+      near(camera.zoom, 1.25);
+      viewer.zoomNavigation(1e-8, 400, 300);
+      near(camera.zoom, 1000);
+    }
+  }
 });

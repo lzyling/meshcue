@@ -613,5 +613,9 @@ Object.defineProperties(
 
 Object.defineProperties(
   ModelViewer.prototype,
-  Object.fromEntries(Object.entries(Object.getOwnPropertyDescriptors(NavigationMethods.prototype)).filter(([name]) => name !== "constructor")),
+  Object.fromEntries(
+    Object.entries(
+      Object.getOwnPropertyDescriptors(NavigationMethods.prototype),
+    ).filter(([name]) => name !== "constructor"),
+  ),
 );

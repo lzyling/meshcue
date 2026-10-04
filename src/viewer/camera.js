@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { perspectiveDistance, visibleHeight } from "./navigation-math.js";
 import { V } from "./shared.js";
 
 /* How far off the pole a top or bottom view stands, in radians. Far enough
@@ -69,6 +70,7 @@ export class CameraMethods {
     const height = this.renderer.domElement.clientHeight || 1;
     this.cancelNavigation();
     const perPixel = this.navigationHeight() / height;
+    this.camera.updateMatrixWorld();
     const right = new V().setFromMatrixColumn(this.camera.matrix, 0),
       up = new V().setFromMatrixColumn(this.camera.matrix, 1);
     const shift = right
@@ -135,13 +137,25 @@ export class CameraMethods {
   restoreCamera(data) {
     if (!data) return;
     this.cancelNavigation();
-    if (data.projection === "orthographic")
-      this.setProjection("orthographic", false);
-    if (this.camera.isOrthographicCamera && data.visibleHeight > 0)
-      this.camera.zoom =
-        (this.camera.top - this.camera.bottom) / data.visibleHeight;
     this.camera.position.fromArray(data.position);
     this.controls.target.fromArray(data.target);
+    // The user's remembered projection wins over a draft saved in another
+    // projection. Convert its target-plane span so restoring a draft neither
+    // loses its framing nor silently undoes the display preference.
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const height =
+      data.projection === "orthographic" && data.visibleHeight > 0
+        ? data.visibleHeight
+        : visibleHeight(offset.length(), this.camera.fov);
+    if (this.camera.isOrthographicCamera)
+      this.camera.zoom = (this.camera.top - this.camera.bottom) / height;
+    else if (data.projection === "orthographic")
+      this.camera.position
+        .copy(this.controls.target)
+        .addScaledVector(
+          offset.normalize(),
+          perspectiveDistance(height, this.camera.fov),
+        );
     this.controls.update();
   }
   home() {

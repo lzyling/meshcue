@@ -2568,7 +2568,15 @@ test("the wheel zooms and Shift+wheel pans, whatever is turning it", async ({
   await page.mouse.wheel(0, 240);
   await page.waitForTimeout(200);
   const zoomed = await page.evaluate(() => window.__reviewDiagnostics().camera);
-  expect(zoomed.target).toEqual(start.target);
+  // Cursor-directed zoom shifts the pivot across the screen plane while
+  // increasing the orbit distance; it must still preserve the view direction.
+  const offset = (c) =>
+    new THREE.Vector3(...c.position).sub(new THREE.Vector3(...c.target));
+  expect(offset(zoomed).length()).toBeGreaterThan(offset(start).length());
+  expect(offset(zoomed).normalize().dot(offset(start).normalize())).toBeCloseTo(
+    1,
+    8,
+  );
   expect(zoomed.position).not.toEqual(start.position);
 
   // Pan is Shift plus that same gesture — two fingers or a wheel, either way.
@@ -2578,7 +2586,7 @@ test("the wheel zooms and Shift+wheel pans, whatever is turning it", async ({
   await page.waitForTimeout(200);
   const panned = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.keyboard.up("Shift");
-  // Panning moves what the camera is looking at; zooming never does.
+  // Panning translates the pivot; cursor-directed zoom may also translate it.
   expect(panned.target).not.toEqual(before.target);
   const travelled = Math.hypot(
     panned.target[0] - before.target[0],

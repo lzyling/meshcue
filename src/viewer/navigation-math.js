@@ -67,7 +67,7 @@ export function rotateDirection(direction, horizontal, vertical) {
   const right = new THREE.Vector3()
     .crossVectors(new THREE.Vector3(0, 1, 0), d)
     .normalize();
-  d.applyAxisAngle(right, THREE.MathUtils.degToRad(vertical));
+  d.applyAxisAngle(right, THREE.MathUtils.degToRad(-vertical));
   d.applyAxisAngle(
     new THREE.Vector3(0, 1, 0),
     THREE.MathUtils.degToRad(horizontal),
