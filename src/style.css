@@ -1841,18 +1841,46 @@ dialog .muted {
   font: inherit;
   line-height: 1.5;
 }
-#perf-panel[data-verdict="normal"] { border-color: var(--accent); }
-#perf-panel[data-verdict="normal"] pre::first-line { color: var(--accent); }
-#perf-panel[data-verdict="warning"] { border-color: var(--warn); }
-#perf-panel[data-verdict="warning"] pre::first-line { color: var(--warn); }
-#perf-panel[data-verdict="bad"] { border-color: var(--danger); }
-#perf-panel[data-verdict="bad"] pre::first-line { color: var(--danger); }
+#perf-panel[data-verdict="normal"] {
+  border-color: var(--accent);
+}
+#perf-panel[data-verdict="normal"] pre::first-line {
+  color: var(--accent);
+}
+#perf-panel[data-verdict="warning"] {
+  border-color: var(--warn);
+}
+#perf-panel[data-verdict="warning"] pre::first-line {
+  color: var(--warn);
+}
+#perf-panel[data-verdict="bad"] {
+  border-color: var(--danger);
+}
+#perf-panel[data-verdict="bad"] pre::first-line {
+  color: var(--danger);
+}
 /* Reserve canvas space while the overlay is open: neither a surface mark nor
    its DOM pin can end up underneath the report. ResizeObserver updates the
    camera and line widths through the viewer's existing resize path. */
-.performance-open #viewer { right: 250px; width: auto; }
+.performance-open #viewer {
+  right: 250px;
+  width: auto;
+}
 @media (max-width: 700px) {
-  .performance-open #viewer { right: 0; top: 170px; height: auto; }
-  #perf-panel { top: 35px; left: 8px; right: 116px; width: auto; max-height: 125px; }
-  .toolbar:has(#display-toggle) { max-width: calc(100% - 16px); flex-wrap: wrap; }
+  .performance-open #viewer {
+    right: 0;
+    top: 170px;
+    height: auto;
+  }
+  #perf-panel {
+    top: 35px;
+    left: 8px;
+    right: 116px;
+    width: auto;
+    max-height: 125px;
+  }
+  .toolbar:has(#display-toggle) {
+    max-width: calc(100% - 16px);
+    flex-wrap: wrap;
+  }
 }
