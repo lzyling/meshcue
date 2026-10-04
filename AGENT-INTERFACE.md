@@ -153,6 +153,35 @@ Mention a conspicuous number; never delete one yourself.
    time, which is enough to compare.
 3. **Never end a review for the reviewer.** `finish` is for when they ask.
 
+## Accepted model formats
+
+Publish GLB 2.0, glTF 2.0 (`.gltf`), STL or STEP. GLB/glTF geometry may use
+`KHR_draco_mesh_compression`, `EXT_meshopt_compression` and
+`KHR_mesh_quantization`. Draco and Meshopt decoders ship inside the package;
+reviewing needs no CDN or internet access. Compressed geometry receives the
+same triangle, primitive and texture checks as uncompressed geometry.
+
+A `.gltf` may reference `.bin` buffers and PNG/JPEG images in its directory or
+subdirectories, inside the permitted workspace. Relative URIs and `data:` URIs
+are accepted. Publication packs all resources into one immutable GLB: the
+returned `format`, `filename`, `sha256` and byte count describe that packed GLB;
+`original` still identifies the input `.gltf`. Changing a resource creates a new
+model hash. Precheck reports the packed GLB's size and budgets too.
+
+Absolute paths, remote URLs and other schemes are refused with
+`GLTF_RESOURCE_URI`; escaping the directory tree (including through a symlink)
+with `GLTF_RESOURCE_OUTSIDE`; missing/non-file resources with
+`GLTF_RESOURCE_MISSING`. Invalid JSON, buffer bounds or compression data use
+`MODEL_FORMAT`. Existing size and texture refusals keep their codes.
+
+Decoding preserves the encoded triangle order deterministically. Compression
+exporters may reorder triangles; face IDs only correspond to an uncompressed
+twin with the same decoded topology and order, and marks remain bound to their
+model SHA. MeshCue does not infer a mapping to a separately re-exported mesh.
+
+3MF is still unsupported: convert it to GLB or STL before publishing. This adds
+no support for KTX2/BasisU textures, animation, instancing or lights.
+
 ## Model limits and `precheck`
 
 | Limit          | Threshold                            | On exceeding                                    |
@@ -197,7 +226,7 @@ Whatever its size, a GLB that moves — skins, morph targets or
 `EXT_mesh_gpu_instancing` — is refused with `ANIMATED_MODEL`. Publish the
 static shape that is to be reviewed.
 
-**Run `precheck` on every GLB or STL before `open`.** It is read-only, starts
+**Run `precheck` on every GLB, glTF or STL before `open`.** It is read-only, starts
 no instance and writes nothing. A STEP needs none: `open` tessellates it once,
 measures it and refuses it with the same `MODEL_LIMIT`, and a precheck would
 only tessellate it a second time.
@@ -292,11 +321,12 @@ mark, then say what to change."
   you carry on marking that one. Nothing has to be closed off, and drafts save
   themselves.
 
-- GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated
-  once when it arrives and your marks land on that mesh; downloading still gives
-  you the STEP itself. An STL carries no colour, so it is always drawn grey;
-  colours come with STEP and GLB. Animation, skeletons and compressed GLB are
-  not supported yet. This is a review tool; it does not sculpt the model.
+- GLB, glTF, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is
+  tessellated once when it arrives and your marks land on that mesh; downloading
+  still gives you the STEP itself. An STL carries no colour, so it is always
+  drawn grey; colours come with STEP and GLB. Draco and Meshopt compression are
+  supported; animation and skeletons are not supported yet. This is a review
+  tool; it does not sculpt the model.
 
 - Measure: pick the Measure tool, then Point to point (corners snap), Edge
   length, Two faces — parallel faces give the distance between them, any others

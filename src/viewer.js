@@ -2,7 +2,7 @@ import { removeNonTrianglePrimitives } from "./glb-primitives.js";
 import { sectionRange } from "./section.js";
 import { modelDigest } from "./browser-crypto.js";
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createGltfLoader } from "./viewer/gltf-loader.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import {
   acceleratedRaycast,
@@ -327,7 +327,7 @@ export class ModelViewer {
     if (epoch !== this.loadingEpoch) return;
     let object;
     if (shown.format === "glb") {
-      const gltf = await new GLTFLoader().parseAsync(data, "");
+      const gltf = await createGltfLoader().parseAsync(data, "");
       object = gltf.scene;
       removeNonTrianglePrimitives(object);
       if (declaresNoMaterials(data)) {

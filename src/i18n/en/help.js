@@ -32,7 +32,7 @@ export default {
   "help.p8.named":
     "“Send to {agent}” sends this batch; {agent} replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
   "help.p9":
-    "GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Animation, skeletons and compressed GLB are not supported yet. This is a review tool; it does not sculpt the model.",
+    "GLB, glTF, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Draco and Meshopt compression are supported; animation and skeletons are not supported yet. This is a review tool; it does not sculpt the model.",
   "help.p10":
     "Measure: pick the Measure tool, then Point to point (corners snap), Edge length, Two faces — parallel faces give the distance between them, any others the angle — or 3-point circle, three clicks on the rim of a hole or shaft for its diameter. On a STEP a face is the file's own face, whole, and an edge is where two of them meet. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
   "help.p11":
