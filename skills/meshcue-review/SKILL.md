@@ -30,7 +30,7 @@ project and one originating session.
 
 ## 3. Measuring before publishing
 
-Run `precheck` on a GLB or STL before every `open`; it only reads and starts no
+Run `precheck` on a GLB, glTF or STL before every `open`; it only reads and starts no
 instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MB, and they are the only ones
 — a dense model marks exactly as precisely as a sparse one.
 
@@ -41,6 +41,18 @@ cap. Prefer re-exporting from STEP or a modelling script with a looser chord
 height — geometry stays exact. Use headless Blender decimation only when there
 is a mesh and no source. Done means the user knows whether they are reviewing
 original or simplified geometry.
+
+Accepted formats are GLB 2.0, glTF 2.0, STL and STEP. Draco
+(`KHR_draco_mesh_compression`), Meshopt (`EXT_meshopt_compression`) and
+`KHR_mesh_quantization` are supported with bundled offline decoders and the
+same geometry and texture budgets. A `.gltf` may use relative buffers and
+PNG/JPEG images in its own directory tree, inside the workspace, or `data:`
+URIs. It is packed at publication into one GLB; the published hash and size
+identify that packed file, including its resources. Absolute/remote resource
+URIs, escaping paths/symlinks and missing files are refused. Do not move saved
+face IDs between separately exported meshes: an exporter may reorder faces.
+3MF remains unsupported; convert 3MF to GLB or STL first. KTX2/BasisU,
+animation, instancing and lights remain outside supported review formats.
 
 ## 4. Publishing a draft and delivering the URL
 
