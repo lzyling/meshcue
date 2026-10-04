@@ -40,8 +40,14 @@ export function bindOrientation(review) {
   for (const region of buildOrientCube(review.orientCube, {
     label: (view) => (review.CUBE_KEYS[view] ? t(review.CUBE_KEYS[view]) : ""),
     title: (view) => t("cube.viewFrom", { side: review.cubeTitle(view) }),
-  }))
-    region.el.addEventListener("click", () =>
-      review.viewer.viewFrom(...region.view.split(",").map(Number)),
-    );
+  })) {
+    const id = `navigation-cube-${region.view}`;
+    review.commands.register({
+      id,
+      labelKey: review.CUBE_KEYS[region.view] || "cube.viewFrom",
+      enabled: () => review.viewer.enabled,
+      run: () => review.viewer.viewFrom(...region.view.split(",").map(Number)),
+    });
+    region.el.dataset.command = id;
+  }
 }

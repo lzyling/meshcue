@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "Projection",
+  "navigation.perspective": "Perspective",
+  "navigation.orthographic": "Orthographique",
+  "navigation.fit": "Tout cadrer",
+  "navigation.iso": "Isométrique",
+  "navigation.zoomIn": "Agrandir",
+  "navigation.zoomOut": "Réduire",
+  "navigation.normal": "Vue normale à la face",
+  "navigation.noFace": "Aucune face sous le pointeur",
+  "navigation.shortcuts": "Raccourcis clavier",
+  "navigation.axes": "Axes du fichier modèle",
+  "navigation.rotateLeft": "Tourner à gauche",
+  "navigation.rotateRight": "Tourner à droite",
+  "navigation.rotateUp": "Tourner vers le haut",
+  "navigation.rotateDown": "Tourner vers le bas",
+  "navigation.panLeft": "Déplacer à gauche",
+  "navigation.panRight": "Déplacer à droite",
+  "navigation.panUp": "Déplacer vers le haut",
+  "navigation.panDown": "Déplacer vers le bas",
+  "help.p13":
+    "Navigation : dans Rotation, double-cliquer sur une surface fixe le centre de rotation ; dans le vide, cela cadre tout. F cadre la géométrie visible dans la direction actuelle ; Accueil revient à la vue isométrique cadrée. Le choix entre perspective et orthographique est mémorisé. Maj+1–7 : avant, arrière, gauche, droite, dessus, dessous, isométrique. Les flèches tournent de 15°, Ctrl+flèches de 5°, Maj+flèches de 90° ; Ctrl+Maj+flèches déplacent. Z réduit, Maj+Z agrandit. N regarde la face sous le pointeur perpendiculairement ; N à nouveau inverse le côté. Glisser le cube pour tourner, ses flèches tournent de 90°. Maj+/ affiche tous les raccourcis. Les vues changent avec une courte animation, instantanément si les animations sont réduites ; toute navigation interrompt l’animation.",
+};

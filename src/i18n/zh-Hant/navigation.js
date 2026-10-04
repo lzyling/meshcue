@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "投影",
+  "navigation.perspective": "透視",
+  "navigation.orthographic": "正交",
+  "navigation.fit": "符合全部",
+  "navigation.iso": "等軸測",
+  "navigation.zoomIn": "放大",
+  "navigation.zoomOut": "縮小",
+  "navigation.normal": "正視表面",
+  "navigation.noFace": "游標下沒有表面",
+  "navigation.shortcuts": "鍵盤快捷鍵",
+  "navigation.axes": "模型檔案座標軸",
+  "navigation.rotateLeft": "向左旋轉",
+  "navigation.rotateRight": "向右旋轉",
+  "navigation.rotateUp": "向上旋轉",
+  "navigation.rotateDown": "向下旋轉",
+  "navigation.panLeft": "向左平移",
+  "navigation.panRight": "向右平移",
+  "navigation.panUp": "向上平移",
+  "navigation.panDown": "向下平移",
+  "help.p13":
+    "導覽：在旋轉工具中按兩下表面可設定旋轉中心，按兩下空白處可符合全部。F 沿目前方向符合可見幾何體；首頁按鈕回到符合視窗的等軸測視圖。投影可切換透視與正交，並記住選擇。Shift+1–7 依序選擇前、後、左、右、上、下、等軸測。方向鍵旋轉 15°，Ctrl+方向鍵 5°，Shift+方向鍵 90°；Ctrl+Shift+方向鍵平移。Z 縮小，Shift+Z 放大。N 正視游標下的表面，再按 N 從另一側看。拖動視圖立方體旋轉，箭頭每次轉 90°。Shift+/ 列出全部快捷鍵。視圖切換有短暫動畫；偏好減少動態效果時立即切換，導覽輸入可中斷動畫。",
+};

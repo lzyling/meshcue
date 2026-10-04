@@ -5,6 +5,7 @@ export class EditingMethods {
     this.gestureStart = [e.clientX, e.clientY];
     this.lastGestureDragged = false;
     if (
+      e.pointerType === "touch" ||
       e.button !== 0 ||
       this.mode === "orbit" ||
       !this.enabled ||

@@ -19,6 +19,7 @@ import {
 import { installEcho, bindEcho } from "./app/echo.js";
 import { bindKeyboard } from "./app/keyboard.js";
 import { installMeasure, bindMeasure } from "./app/measure.js";
+import { bindNavigation } from "./app/navigation.js";
 import { bindOrientation } from "./app/orientation.js";
 import { installReceipt, bindReceipt, bindSubmission } from "./app/receipt.js";
 import { bindSection } from "./app/section.js";
@@ -64,6 +65,7 @@ bindSection(review);
 bindMeasure(review);
 bindSettings(review);
 bindOrientation(review);
+bindNavigation(review);
 bindAnnotationEditing(review);
 bindToolbarOptions(review);
 bindEcho(review);

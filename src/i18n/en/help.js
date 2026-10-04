@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
   "help.p1":
-    "Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to pan — the same on a mouse as on a trackpad. The left button is never the camera's, so you can mark without putting a tool down.",
+    "Right-drag to orbit, wheel or pinch to zoom toward the pointer, middle-drag or Shift+wheel to pan — on a mouse or trackpad. In the Orbit tool, left-drag also rotates; Shift+left-drag or Shift+right-drag pans. Marking tools keep the left button for marks. On a touchscreen, one finger rotates and two fingers pinch or pan; touch taps do not place marks.",
   "help.p2":
     "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":

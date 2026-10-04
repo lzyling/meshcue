@@ -198,10 +198,7 @@ export class SectionViewMethods {
     // hover/fill work still refers to the reviewer's original screen point.
     const previous = this.ray.ray.clone();
     try {
-      this.ray.set(
-        this.camera.position,
-        world.clone().sub(this.camera.position).normalize(),
-      );
+      this.navigationRayTo(world);
       const hit = sectionIntersection(
         this.sectionHits(),
         this.sectionClips[0],
@@ -210,7 +207,7 @@ export class SectionViewMethods {
       );
       return (
         !!hit?.sectionCap &&
-        hit.distance < this.camera.position.distanceTo(world) - 1e-6
+        hit.distance < this.ray.ray.origin.distanceTo(world) - 1e-6
       );
     } finally {
       this.ray.ray.copy(previous);

@@ -111,7 +111,14 @@ const row = (page, name) =>
     .locator(".parts-row")
     .filter({ has: page.getByRole("button", { name, exact: true }) });
 const select = (page, name) => row(page, name).locator(".parts-name").click();
-const front = (page) => page.locator('[data-view="0,0,1"]').press("Enter");
+const front = async (page) => {
+  await page.locator('[data-view="0,0,1"]').press("Enter");
+  // Navigation animates cube views. The behind-part assertions require the
+  // completed front view, not a pointer click that interrupts it mid-turn.
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
+};
 async function open(page, file) {
   ctl(
     "publish",

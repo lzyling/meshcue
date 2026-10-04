@@ -63,6 +63,9 @@ export class PartsMethods {
     // Cancel that stale hit just as changing tools cancels a pending edit.
     this.editEpoch = (this.editEpoch || 0) + 1;
     this.clickStart = null;
+    // Visibility/transparency can expose a different surface at the same
+    // screen pixel. It is a new pick, not the second click of the last label.
+    this.lastLabelAt = null;
     this.effects?.replaceChildren();
     let changed = false;
     for (const mesh of this.meshes) {

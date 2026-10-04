@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "Projektion",
+  "navigation.perspective": "Perspektivisch",
+  "navigation.orthographic": "Orthografisch",
+  "navigation.fit": "Alles einpassen",
+  "navigation.iso": "Isometrisch",
+  "navigation.zoomIn": "Vergrößern",
+  "navigation.zoomOut": "Verkleinern",
+  "navigation.normal": "Senkrecht auf Fläche",
+  "navigation.noFace": "Keine Fläche unter dem Zeiger",
+  "navigation.shortcuts": "Tastenkürzel",
+  "navigation.axes": "Achsen der Modelldatei",
+  "navigation.rotateLeft": "Nach links drehen",
+  "navigation.rotateRight": "Nach rechts drehen",
+  "navigation.rotateUp": "Nach oben drehen",
+  "navigation.rotateDown": "Nach unten drehen",
+  "navigation.panLeft": "Nach links verschieben",
+  "navigation.panRight": "Nach rechts verschieben",
+  "navigation.panUp": "Nach oben verschieben",
+  "navigation.panDown": "Nach unten verschieben",
+  "help.p13":
+    "Navigation: Im Drehwerkzeug setzt ein Doppelklick auf eine Fläche den Drehpunkt, auf freien Raum passt er alles ein. F passt sichtbare Geometrie aus der aktuellen Richtung ein; Home zeigt die eingepasste Isometrie. Perspektivische oder orthografische Projektion wird gespeichert. Umschalt+1–7: vorne, hinten, links, rechts, oben, unten, isometrisch. Pfeile drehen 15°, Strg+Pfeile 5°, Umschalt+Pfeile 90°; Strg+Umschalt+Pfeile verschieben. Z verkleinert, Umschalt+Z vergrößert. N blickt senkrecht auf die Fläche unter dem Zeiger; erneut N wechselt die Seite. Den Würfel ziehen zum Drehen, seine Pfeile drehen um 90°. Umschalt+/ zeigt alle Tastenkürzel. Ansichtswechsel sind kurz animiert, bei reduzierter Bewegung sofort; Navigation unterbricht die Animation.",
+};

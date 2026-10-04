@@ -25,5 +25,5 @@ test("Node discovers the same complete catalogues consumed by documentation", as
   assert.deepEqual(mergeCatalogueFeatures(await loadFeatures()), CATALOGUES);
   assert.equal(Object.keys(CATALOGUES).length, 6);
   assert.deepEqual(LOCALES, ["en", "zh-Hans", "zh-Hant", "de", "fr", "ja"]);
-  assert.equal(Object.keys(CATALOGUES.en).length, 272);
+  assert.equal(Object.keys(CATALOGUES.en).length, 292);
 });

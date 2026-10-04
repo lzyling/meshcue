@@ -113,7 +113,7 @@ export default {
   "tool.bucketSpread": "油漆桶範圍",
   "tool.newRegion": "新區域",
   "tool.newRegionHint": "下一次填色會自成一個顏色區域。",
-  "hint.orbit": "右鍵拖動旋轉 · 雙指或中鍵平移 · 滾輪縮放",
+  "hint.orbit": "左鍵或右鍵拖動旋轉 · Shift+拖動或中鍵平移 · 滾輪/捏合縮放",
   "hint.fill": "懸停預覽 · 點擊填充 · 右鍵照樣旋轉",
   "hint.relocate": "點選表面移動標籤 · 按 Esc 取消",
 
