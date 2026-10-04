@@ -1,0 +1,40 @@
+export default {
+  "marks.heading": "Marks this round",
+  "marks.collapse": "Collapse the mark list",
+  "marks.expand": "Expand the mark list",
+  "marks.empty": "Mark the spots you want changed\non the model.",
+  "marks.limit": "A round holds at most 200 marks.",
+  "marks.nearStrokeLimit":
+    "This round has as much marking as the browser will keep. Submit this batch and the next one starts empty.",
+  "marks.nearMarkLimit":
+    "Every face of this model is already marked in this round.",
+  "marks.pin": "Point label",
+  "marks.regionName": "{color} area",
+  "marks.pinned": "Pinned to the surface",
+  "marks.alongSurface": "Marked along the surface",
+  "marks.legacyFace": "Legacy whole-face mark · kept as-is",
+  "marks.one": "Mark {label}",
+  "marks.showOne": "Show {name}",
+  "marks.hideOne": "Hide {name}",
+  "marks.deleteLabel": "Delete label {label}",
+  "marks.deleteOne": "Delete {name}",
+  "marks.frame": "Frame",
+  "marks.frameOne": "Frame {name}",
+  "marks.move": "Move",
+  "marks.moveLabel": "Move label {label}",
+  "marks.moveHint": "Click the surface to move {label}; Esc cancels.",
+  "marks.hide": "Hide marks",
+  "marks.show": "Show marks",
+  "note.title": "Note on {name}",
+  "note.placeholder":
+    "What should change here? Optional; it goes to the Agent with the mark.",
+  "note.placeholder.named":
+    "What should change here? Optional; it goes to {agent} with the mark.",
+
+  "color.red": "red",
+  "color.yellow": "yellow",
+  "color.green": "green",
+  "color.blue": "blue",
+  "color.purple": "purple",
+  "color.choose": "Choose colour {color}",
+};

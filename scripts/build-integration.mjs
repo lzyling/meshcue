@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
+import { i18nBundlePlugin } from "./i18n-bundle.mjs";
 import { DOC_FILES } from "../integration/manager.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,6 +37,7 @@ await build({
   entryPoints: [path.join(repo, "server/index.mjs")],
   outfile: path.join(out, "runtime/server.mjs"),
   bundle: true,
+  plugins: [i18nBundlePlugin],
   platform: "node",
   format: "esm",
   target: "node22",
@@ -49,6 +51,7 @@ await build({
   entryPoints: [path.join(repo, "server/step-child.mjs")],
   outfile: path.join(out, "runtime/step-child.mjs"),
   bundle: true,
+  plugins: [i18nBundlePlugin],
   platform: "node",
   format: "esm",
   target: "node22",
@@ -58,6 +61,7 @@ await build({
   entryPoints: [path.join(repo, "scripts/reviewctl.mjs")],
   outfile: path.join(out, "scripts/reviewctl.mjs"),
   bundle: true,
+  plugins: [i18nBundlePlugin],
   platform: "node",
   format: "esm",
   target: "node22",
@@ -67,6 +71,7 @@ await build({
   entryPoints: [path.join(repo, "adapters/openclaw/index.mjs")],
   outfile: path.join(out, "index.mjs"),
   bundle: true,
+  plugins: [i18nBundlePlugin],
   platform: "node",
   format: "esm",
   target: "node22",
@@ -87,6 +92,7 @@ await build({
   entryPoints: [path.join(repo, "mcp/server.mjs")],
   outfile: path.join(out, "mcp/server.mjs"),
   bundle: true,
+  plugins: [i18nBundlePlugin],
   platform: "node",
   format: "esm",
   target: "node22",

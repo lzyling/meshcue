@@ -1,22 +1,19 @@
-import en from "./en.js";
-import zhHans from "./zh-Hans.js";
-import zhHant from "./zh-Hant.js";
-import de from "./de.js";
-import fr from "./fr.js";
-import ja from "./ja.js";
+import { mergeCatalogueFeatures } from "./merge.js";
+
+// Vite expands the glob eagerly; Node discovers the same files for the server
+// and documentation tools. Adding a feature needs no central import-list edit.
+const features = import.meta.env
+  ? import.meta.glob("./*/*.js", { eager: true, import: "default" })
+  : await (
+      await import(/* @vite-ignore */ "./node-features.js")
+    ).loadFeatures();
 
 /* Every catalogue ships in the bundle rather than being fetched. Six languages
    of interface text is a few tens of kilobytes next to three.js, and buying
    that back would cost an async boundary before the first paint — a reviewer
    would watch the page render in English and then change under them. */
-export const CATALOGUES = {
-  en,
-  "zh-Hans": zhHans,
-  "zh-Hant": zhHant,
-  de,
-  fr,
-  ja,
-};
+export const CATALOGUES = mergeCatalogueFeatures(features);
+const en = CATALOGUES.en;
 
 /* A language is listed in its own language: someone who needs to switch to
    Japanese is, by definition, not reading the current one well enough to find
@@ -35,7 +32,8 @@ export function localeName(tag) {
 }
 
 export const SOURCE_LOCALE = "en";
-export const LOCALES = Object.keys(CATALOGUES);
+// Keep the established language-menu order when feature filenames are sorted.
+export const LOCALES = ["en", "zh-Hans", "zh-Hant", "de", "fr", "ja"];
 
 /* Chinese cannot be resolved by primary subtag alone: `zh` is not a language a
    catalogue can be written in, only a family. Region is what actually decides
