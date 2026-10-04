@@ -35,6 +35,7 @@
   --surface-sunken: #eaedee;
   --canvas-a: #f0f3f5;
   --canvas-b: #dde3e7;
+  --section-fill: #bd801a;
   /* Painted by WebGL, not by a rule, but they are theme and belong here. */
   --canvas-grid: #ccd4d9;
   --canvas-grid-line: #b4bec5;
@@ -95,6 +96,7 @@
   color-scheme: light;
 }
 :root[data-theme="dark"] {
+  --section-fill: #edb64b;
   color-scheme: dark;
   --surface: #23282b;
   --surface-raised: #2d3236;
@@ -1748,4 +1750,39 @@ dialog .muted {
   .primary-button {
     padding: 7px 5px;
   }
+}
+
+/* Section remains available beside every marking tool. Its panel lives above
+   the tool options so neither the measurement controls nor the cut controls
+   have to disappear while the reviewer is inspecting an interior. */
+.section-options {
+  position: absolute;
+  left: 16px;
+  top: 52px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, calc(100% - 150px));
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--overlay);
+  color: var(--ink);
+  font-size: 12px;
+}
+.section-options[hidden] {
+  display: none;
+}
+.section-options input[type="number"] {
+  width: 90px;
+}
+.section-options input[type="range"] {
+  width: 120px;
+  accent-color: var(--section-fill);
+}
+.section-options small {
+  flex-basis: 100%;
+  color: var(--ink-muted);
 }

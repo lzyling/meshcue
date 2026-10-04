@@ -69,6 +69,7 @@ const SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
 <g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></g>
 <g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 0 0 16.8z" fill="currentColor" stroke="none"/></g>
 <g id="mc-language" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><path d="M12 3.6a12.6 12.6 0 0 1 0 16.8a12.6 12.6 0 0 1 0-16.8z"/></g>
+<g id="mc-section" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10M2 12h20"/></g>
 <g id="mc-theme" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></g>
 </defs></svg>`;
 const icon = (name) =>
@@ -159,10 +160,12 @@ app.innerHTML = `${SPRITE}
     <button data-mode="label" class="tool" title="${T("tool.labelTitle")}" aria-label="${T("tool.labelLabel")}">${icon("pin")}<span>${T("tool.label")}</span></button>
     <button data-mode="fill" class="tool" aria-label="${T("tool.bucketLabel")}" title="${T("tool.bucketTitle")}">${icon("fill")}<span>${T("tool.bucket")}</span></button>
     <button data-mode="measure" class="tool" aria-label="${T("tool.measureLabel")}" title="${T("tool.measureTitle")}">${icon("measure")}<span>${T("tool.measure")}</span></button>
+    <button id="section-toggle" class="tool" aria-pressed="false" aria-expanded="false" aria-controls="section-options" disabled>${icon("section")}<span>${T("section.title")}</span></button>
     <div class="tool-divider"></div><button class="tool small" id="undo" title="${T("tool.undoTitle")}" aria-label="${T("tool.undo")}">${icon("undo")}</button><button class="tool small" id="redo" title="${T("tool.redo")}" aria-label="${T("tool.redo")}">${icon("redo")}</button>
     <div class="tool-divider"></div><button class="tool" id="toggle-marks" aria-pressed="false" title="${T("marks.hide")}" aria-label="${T("marks.hide")}">${icon("eye")}<span>${T("tool.marks")}</span></button><button class="tool" id="neutral-view" aria-pressed="false" title="${T("view.plain")}" aria-label="${T("view.plain")}">${icon("plain")}<span>${T("tool.plain")}</span></button>
    </div>
    <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${icon("plus")}${T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><div class="measure-kinds" role="group" aria-label="${T("measure.kinds")}"><button class="measure-kind active" data-measure="points" aria-pressed="true">${T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${T("measure.planes")}</button><button class="measure-kind" data-measure="circle" aria-pressed="false">${T("measure.circle")}</button></div><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${T("measure.keepTitle")}" disabled>${icon("check")}${T("measure.keep")}</button></div></div>
+   <div id="section-options" class="section-options" role="group" aria-label="${T("section.title")}" hidden><label>${T("section.axis")} <select id="section-axis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label><label for="section-offset">${T("section.offset")} <span id="section-units"></span></label><input id="section-range" type="range" aria-label="${T("section.offset")}"><input id="section-offset" type="number" step="any"><button id="section-flip" class="quiet-dark" aria-pressed="false">${T("section.flip")}</button><button id="section-off" class="quiet-dark">${T("section.off")}</button><small>${T("section.hint")}</small></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span class="echo-swatch" aria-hidden="true"></span><span id="echo-summary"></span><span id="echo-stale" hidden>${T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${TA("echo.recall")}">${icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${T("loading.preparing")}</strong><span id="loading-hint">${T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
@@ -175,7 +178,7 @@ app.innerHTML = `${SPRITE}
   <div id="closing-banner" class="pending-banner warn" hidden><span id="closing-text"></span></div>
  </section>
 </main><div id="toast" role="status" hidden></div>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p10")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p data-agent-text="help.p11">${TA("help.p11")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${T("common.close")}">${icon("close")}</button><span class="eyebrow">${T("help.eyebrow")}</span><h2>${T("help.title")}</h2><p>${T("help.p1")}</p><p>${T("help.p2")}</p><p>${T("help.p3")}</p><p>${T("help.p4")}</p><p>${T("help.p10")}</p><p data-agent-text="help.p5">${TA("help.p5")}</p><p data-agent-text="help.p6">${TA("help.p6")}</p><p data-agent-text="help.p7">${TA("help.p7")}</p><p data-agent-text="help.p8">${TA("help.p8")}</p><p data-agent-text="help.p11">${TA("help.p11")}</p><p data-agent-text="help.p12">${TA("help.p12")}</p><p class="muted">${T("help.p9")}</p></dialog>`;
 
 const base = new URL("./", location.href);
 const endpoint = (path) => new URL(path, base).href;
@@ -614,6 +617,48 @@ const viewer = new ModelViewer($("#viewer"), {
   },
   onError: toast,
 });
+// This panel changes only the viewer. In particular it never calls changed(),
+// which would turn a viewing aid into a draft edit or a submission field.
+viewer.onSection = () => {
+  const section = viewer.section;
+  $("#section-toggle").disabled = !viewer.sectionBounds;
+  $("#section-toggle").setAttribute("aria-pressed", String(!!section));
+  $("#section-toggle").setAttribute("aria-expanded", String(!!section));
+  $("#section-toggle").classList.toggle("active", !!section);
+  $("#section-options").hidden = !section;
+  if (!section) return;
+  $("#section-axis").value = section.axis;
+  $("#section-flip").setAttribute("aria-pressed", String(section.flip));
+  const { min, max } = viewer.stats().section;
+  $("#section-range").step = (max - min) / 1000 || 1;
+  for (const id of ["#section-range", "#section-offset"]) {
+    const input = $(id);
+    input.min = min;
+    input.max = max;
+    input.value = section.offset;
+  }
+  $("#section-units").textContent =
+    loadedUnits === "unspecified" ? "" : loadedUnits;
+};
+$("#section-toggle").addEventListener("click", () =>
+  viewer.setSection(viewer.section ? null : {}),
+);
+$("#section-off").addEventListener("click", () => {
+  viewer.setSection(null);
+  $("#section-toggle").focus();
+});
+$("#section-axis").addEventListener("change", (e) =>
+  viewer.setSection({ axis: e.target.value }),
+);
+$("#section-flip").addEventListener("click", () =>
+  viewer.setSection({ flip: !viewer.section.flip }),
+);
+for (const id of ["#section-range", "#section-offset"])
+  $(id).addEventListener(id === "#section-range" ? "input" : "change", (e) => {
+    if (Number.isFinite(e.target.valueAsNumber))
+      viewer.setSection({ offset: e.target.valueAsNumber });
+    else viewer.onSection();
+  });
 viewer.formatMeasure = formatMeasure;
 viewer.onMeasure = (report) => {
   measureReport = report;
