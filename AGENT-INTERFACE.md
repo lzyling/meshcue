@@ -172,7 +172,9 @@ Absolute paths, remote URLs and other schemes are refused with
 `GLTF_RESOURCE_URI`; escaping the directory tree (including through a symlink)
 with `GLTF_RESOURCE_OUTSIDE`; missing/non-file resources with
 `GLTF_RESOURCE_MISSING`. Invalid JSON, buffer bounds or compression data use
-`MODEL_FORMAT`. Existing size and texture refusals keep their codes.
+`MODEL_FORMAT`. An empty model file also returns `MODEL_FORMAT`, with the same
+empty-file explanation from publication and precheck. Existing size and texture
+refusals keep their codes.
 
 Decoding preserves the encoded triangle order deterministically. Compression
 exporters may reorder triangles; face IDs only correspond to an uncompressed
