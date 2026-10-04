@@ -1,6 +1,18 @@
 /* Français. Les noms d'outils restent courts parce qu'ils se suivent dans une
    barre : « Gomme », pas « Outil gomme ». */
 export default {
+  "section.title": "Coupe",
+  "section.axis": "Axe du modèle",
+  "section.offset": "Décalage",
+  "section.flip": "Inverser le côté",
+  "section.off": "Désactiver / réinitialiser",
+  "section.hint":
+    "L’ambre montre les faces arrière, pas une surface sur le plan de coupe.",
+  "help.p12":
+    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces arrière ambrées donnent aux solides fermés un aspect rempli ; elles sont derrière le plan et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+  "help.p12.named":
+    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces arrière ambrées donnent aux solides fermés un aspect rempli ; elles sont derrière le plan et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+
   "agent.withTool": "{name} ({tool})",
 
   "app.tagline": "Revue et annotation de modèles 3D",

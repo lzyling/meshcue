@@ -1,4 +1,12 @@
 import { removeNonTrianglePrimitives } from "./glb-primitives.js";
+import {
+  sectionPlane,
+  sectionRange,
+  retainedPoint,
+  sectionIntersection,
+  sectionPick,
+  sectionSegment,
+} from "./section.js";
 import { modelDigest } from "./browser-crypto.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -203,6 +211,12 @@ export class ModelViewer {
       alpha: false,
       powerPreference: "high-performance",
     });
+    this.renderer.localClippingEnabled = true;
+    this.section = null;
+    this.sectionClips = [];
+    this.sectionSides = new Map();
+    this.sectionFill = new THREE.Group();
+    this.scene.add(this.sectionFill);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     /* ACES is built for film, and its shoulder is doing the wrong job here: it
@@ -392,6 +406,9 @@ export class ModelViewer {
   applyTheme() {
     const token = (name) =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    this.sectionColor = token("--section-fill") || "#bd801a";
+    if (this.sectionFillMaterial)
+      this.sectionFillMaterial.color.set(this.sectionColor);
     const backdrop = new THREE.Color(token("--canvas-b") || "#e9ede8");
     this.scene.background = backdrop;
     this.scene.fog = new THREE.Fog(backdrop, 10, 35);
@@ -607,6 +624,12 @@ export class ModelViewer {
     this.controls.enableDamping = damping;
   }
   clearModel() {
+    this.setSection(null);
+    this.sectionBounds = null;
+    this.sectionFill?.clear();
+    this.sectionFillMaterial?.dispose();
+    this.sectionFillMaterial = null;
+    this.onSection?.();
     this.setNeutral(false);
     this.setAnnotations([]);
     this.clearMeasure();
@@ -697,6 +720,7 @@ export class ModelViewer {
       center = bounds.getCenter(new V());
     if (!Number.isFinite(size.length()) || size.length() === 0)
       throw refusal(t("model.noExtent"), "MODEL_FORMAT");
+    this.sectionBounds = bounds.clone();
     const scale = 3 / Math.max(size.x, size.y, size.z);
     /* The turn goes on `root`, beside the fit, because every coordinate handed
        to the agent stops short of `root`: a pin is in its own mesh's frame, and
@@ -800,6 +824,7 @@ export class ModelViewer {
     if (total > MAX_REVIEW_TRIANGLES)
       throw refusal(t("model.meshOverBudget"), "MODEL_LIMIT");
     this.model = model;
+    this.onSection?.();
     this.grid.position.y = floor - 0.025;
     this.home();
     const manifest = this.meshes.map((o) => ({
@@ -825,6 +850,130 @@ export class ModelViewer {
       sourceTriangles: sourceTotal,
     };
   }
+  // Section state never enters cameraState, markView or serialization. The
+  // shared plane object changes in place so existing and newly drawn overlays
+  // always agree, without rebuilding geometry as the slider moves.
+  setSection(change) {
+    if (change && !this.sectionBounds) return;
+    const previous = this.section;
+    if (!change) this.section = null;
+    else {
+      const axis = change.axis || previous?.axis || "x";
+      const range = sectionRange(this.sectionBounds, axis);
+      const offset =
+        change.offset ??
+        (previous?.axis === axis ? previous.offset : range.offset);
+      this.section = {
+        axis,
+        flip: change.flip ?? previous?.flip ?? false,
+        offset: Math.max(
+          range.min,
+          Math.min(range.max, Number.isFinite(offset) ? offset : range.offset),
+        ),
+      };
+    }
+    if (this.section) {
+      const plane = sectionPlane(this.section, this.root.matrixWorld);
+      // GPU plane tests use floats after the camera transform. Retain a tiny
+      // margin in the fitted three-unit scene so a plane at the bounds does
+      // not punch speckled holes through a face exactly on that boundary.
+      plane.constant += 1e-6;
+      if (this.sectionClips?.length) this.sectionClips[0].copy(plane);
+      else this.sectionClips = [plane];
+      if (!this.sectionFillMaterial) {
+        this.sectionFillMaterial = new THREE.MeshBasicMaterial({
+          color: this.sectionColor || "#bd801a",
+          side: THREE.BackSide,
+          toneMapped: false,
+        });
+        // Geometry belongs to the source mesh. These draw-only siblings share
+        // it and are cleared without disposal before the model is released.
+        for (const mesh of this.meshes) {
+          const fill = new THREE.Mesh(mesh.geometry, this.sectionFillMaterial);
+          fill.matrixAutoUpdate = false;
+          fill.matrix.copy(mesh.matrixWorld);
+          this.sectionFill.add(fill);
+        }
+      }
+    } else this.sectionClips = [];
+    if (this.sectionFill) this.sectionFill.visible = !!this.section;
+    if (!!previous !== !!this.section) this.applySectionMaterials();
+    this.occlusionValid = false;
+    this.clearOverlay(this.previewOverlay);
+    this.fillTarget = null;
+    this.measureCandidate = null;
+    this.hoverAnchor?.el.remove();
+    this.hoverAnchor = null;
+    this.clearOverlay(this.measureCandidateGroup);
+    this.effects?.replaceChildren();
+    this.onSection?.();
+  }
+  clipMaterial(material) {
+    const clips = this.sectionClips || [];
+    if (material.clippingPlanes !== clips) {
+      material.clippingPlanes = clips;
+      material.needsUpdate = true;
+    }
+    return material;
+  }
+  restoreSectionSides() {
+    for (const [material, side] of this.sectionSides || []) {
+      material.side = side;
+      material.needsUpdate = true;
+    }
+    this.sectionSides?.clear();
+  }
+  applySectionMaterials() {
+    this.restoreSectionSides();
+    for (const mesh of this.meshes) {
+      for (const material of Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material]) {
+        this.clipMaterial(material);
+        if (this.section) {
+          this.sectionSides.set(
+            material,
+            this.sectionSides.get(material) ?? material.side,
+          );
+          material.side = THREE.FrontSide;
+          material.needsUpdate = true;
+        }
+      }
+    }
+    if (this.sectionFillMaterial) this.clipMaterial(this.sectionFillMaterial);
+    for (const cache of [
+      this.markMaterials,
+      this.lineMaterials,
+      this.measureFaceMaterials,
+    ])
+      for (const material of cache?.values() || []) this.clipMaterial(material);
+  }
+  sectionHits() {
+    if (!this.section) return this.ray.intersectObjects(this.meshes, false);
+    // BVH's firstHitOnly would return the discarded exterior and never reach
+    // the exposed interior. Raycast both sides to account for the fill, then
+    // restore the draw materials before the renderer can see the change.
+    const sides = new Map();
+    for (const mesh of this.meshes)
+      for (const material of Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material])
+        if (!sides.has(material)) {
+          sides.set(material, material.side);
+          material.side = THREE.DoubleSide;
+        }
+    const first = this.ray.firstHitOnly;
+    this.ray.firstHitOnly = false;
+    try {
+      return this.ray.intersectObjects(this.meshes, false);
+    } finally {
+      this.ray.firstHitOnly = first;
+      for (const [material, side] of sides) material.side = side;
+    }
+  }
+  sectionContains(world) {
+    return retainedPoint(world, this.sectionClips?.[0]);
+  }
   rayAt(x, y) {
     // Input can arrive before the next render after orbit/home changes.
     this.camera.updateMatrixWorld();
@@ -836,7 +985,11 @@ export class ModelViewer {
       ),
       this.camera,
     );
-    return this.ray.intersectObjects(this.meshes, false)[0] || null;
+    return sectionPick(
+      this.sectionHits(),
+      this.sectionClips?.[0],
+      this.ray.ray.direction,
+    );
   }
   triangle(mesh, index) {
     const g = mesh.geometry,
@@ -1167,13 +1320,20 @@ export class ModelViewer {
               .sub(this.camera.position)
               .normalize(),
           );
-          const hit = this.ray.intersectObjects(this.meshes, false)[0];
+          const hit = sectionIntersection(
+            this.sectionHits(),
+            this.sectionClips?.[0],
+          );
           pin.unoccluded =
             !hit ||
             hit.distance >= this.camera.position.distanceTo(world) - 0.015;
         }
       }
-      pin.el.hidden = !inView || !pin.unoccluded || !this.annotationsVisible;
+      pin.el.hidden =
+        !inView ||
+        !pin.unoccluded ||
+        !this.annotationsVisible ||
+        !this.sectionContains(world);
       // The tail is what marks the spot, so the tail is what sits on it. The
       // label used to be centred above the point with a near-square corner
       // hinting at a direction it was not actually anchored in, which left the
@@ -1342,6 +1502,7 @@ export class ModelViewer {
       );
     };
     material.customProgramCacheKey = () => `marks-${selected}`;
+    this.clipMaterial(material);
     this.markMaterials.set(key, material);
     return material;
   }
@@ -1352,6 +1513,7 @@ export class ModelViewer {
     this.previewOverlay.visible = visible;
   }
   setNeutral(neutral) {
+    this.restoreSectionSides();
     for (const mesh of this.meshes) {
       if (neutral && !mesh.userData.originalMaterial) {
         mesh.userData.originalMaterial = mesh.material;
@@ -1379,6 +1541,7 @@ export class ModelViewer {
       }
     }
     this.neutral = neutral;
+    this.applySectionMaterials();
   }
   drawPatches(group, patches, color) {
     this.clearOverlay(group);
@@ -1558,9 +1721,22 @@ export class ModelViewer {
         end.xyz *= ${toward};`,
         );
     };
-    material.customProgramCacheKey = () => "echo-surface-lift-toward-eye";
+    const liftShader = material.onBeforeCompile;
+    material.onBeforeCompile = (shader) => {
+      liftShader(shader);
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <clipping_planes_vertex>",
+        `vec4 sectionDrawPosition = mvPosition;
+        mvPosition = modelViewMatrix * vec4(position.y < 0.5 ? instanceStart : instanceEnd, 1.0);
+        #include <clipping_planes_vertex>
+        mvPosition = sectionDrawPosition;`,
+      );
+    };
+    material.customProgramCacheKey = () =>
+      "echo-surface-lift-toward-eye-section";
     const { width, height } = this.container.getBoundingClientRect();
     material.resolution.set(width || 1, height || 1);
+    this.clipMaterial(material);
     this.lineMaterials.set(key, material);
     return material;
   }
@@ -1742,6 +1918,7 @@ export class ModelViewer {
     });
     const { width, height } = this.container.getBoundingClientRect();
     material.resolution.set(width || 1, height || 1);
+    this.clipMaterial(material);
     this.lineMaterials.set(name, material);
     return material;
   }
@@ -1778,6 +1955,7 @@ export class ModelViewer {
         polygonOffsetUnits: -2,
         side: THREE.DoubleSide,
       });
+      this.clipMaterial(material);
       this.measureFaceMaterials.set(key, material);
     }
     const vertices = mesh.userData.fillTopology.vertices;
@@ -1803,7 +1981,9 @@ export class ModelViewer {
       best = SNAP_PX;
     for (const corner of mesh.userData.fillTopology.vertices[face] || []) {
       const at = new V().fromArray(corner);
-      const [sx, sy] = this.toScreen(mesh.localToWorld(at.clone()));
+      const world = mesh.localToWorld(at.clone());
+      if (!this.sectionContains(world)) continue;
+      const [sx, sy] = this.toScreen(world);
       const d = Math.hypot(sx - x, sy - y);
       if (d < best) {
         best = d;
@@ -1824,13 +2004,20 @@ export class ModelViewer {
     const mesh = hit.object;
     const face = mesh.geometry.userData.sourceFaces[hit.faceIndex];
     const topology = mesh.userData.fillTopology;
-    const screen = (p) =>
-      this.toScreen(mesh.localToWorld(new V().fromArray(p)));
     let side = null,
       best = EDGE_PX;
     for (const s of faceEdges(topology, face)) {
       if (!isFeatureEdge(topology, face, s.ka, s.kb)) continue;
-      const d = segmentDistance([x, y], screen(s.a), screen(s.b));
+      const visible = sectionSegment(
+        mesh.localToWorld(new V().fromArray(s.a)),
+        mesh.localToWorld(new V().fromArray(s.b)),
+        this.sectionClips?.[0],
+      );
+      if (!visible) continue;
+      const d = segmentDistance(
+        [x, y],
+        ...visible.map((p) => this.toScreen(p)),
+      );
       if (d < best) {
         best = d;
         side = s;
@@ -2059,10 +2246,15 @@ export class ModelViewer {
     for (const a of anchors) {
       const p = this.scratch.projected
         .copy(a.model)
-        .applyMatrix4(this.root.matrixWorld)
-        .project(this.camera);
+        .applyMatrix4(this.root.matrixWorld);
+      const retained = this.sectionContains(p);
+      p.project(this.camera);
       a.el.hidden =
-        p.z < -1 || p.z > 1 || Math.abs(p.x) >= 1 || Math.abs(p.y) >= 1;
+        !retained ||
+        p.z < -1 ||
+        p.z > 1 ||
+        Math.abs(p.x) >= 1 ||
+        Math.abs(p.y) >= 1;
       if (!a.el.classList.contains("measure-label"))
         a.el.style.translate = `calc(${((p.x + 1) * rect.width) / 2}px - 50%) calc(${((1 - p.y) * rect.height) / 2}px - 50%)`;
     }
@@ -2147,6 +2339,14 @@ export class ModelViewer {
       (o) => o.material === core,
     );
     return {
+      section: this.section
+        ? {
+            ...this.section,
+            ...sectionRange(this.sectionBounds, this.section.axis),
+            offset: this.section.offset,
+          }
+        : null,
+      sectionColor: this.sectionFillMaterial?.color.getHexString() || null,
       versionId: this.model?.id,
       meshes: this.meshes.length,
       annotationsVisible: this.annotationsVisible,

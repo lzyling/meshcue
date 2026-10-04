@@ -1,6 +1,17 @@
 /* The source language. Every other catalogue is a translation of this file and
    is checked against its key set; see scripts/check-i18n.mjs. */
 export default {
+  "section.title": "Section",
+  "section.axis": "Model axis",
+  "section.offset": "Offset",
+  "section.flip": "Flip side",
+  "section.off": "Off / reset",
+  "section.hint": "Amber shows back faces, not a surface at the cut.",
+  "help.p12":
+    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Amber back faces help closed solids look filled; they are behind the plane and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
+  "help.p12.named":
+    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Amber back faces help closed solids look filled; they are behind the plane and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
+
   "agent.withTool": "{name} ({tool})",
 
   "app.tagline": "3D model review and annotation",
