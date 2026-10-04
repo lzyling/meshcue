@@ -61,6 +61,7 @@ export class SectionViewMethods {
             // The model owns this geometry; only the draw siblings and their
             // materials belong to the section, so disposal never frees it twice.
             const counter = new THREE.Mesh(mesh.geometry, material);
+            counter.userData.partMeshId = mesh.userData.reviewId;
             counter.matrixAutoUpdate = false;
             counter.matrix.copy(mesh.matrixWorld);
             counter.renderOrder = -3 + pass;
@@ -116,6 +117,8 @@ export class SectionViewMethods {
     this.hoverAnchor = null;
     this.clearOverlay(this.measureCandidateGroup);
     this.effects?.replaceChildren();
+    this.syncPartCaps?.();
+    this.highlightPart?.(this.partHover || this.parts?.selected());
     this.onSection?.();
   }
   clipMaterial(material) {
@@ -160,7 +163,10 @@ export class SectionViewMethods {
       for (const material of cache?.values() || []) this.clipMaterial(material);
   }
   sectionHits() {
-    if (!this.section) return this.ray.intersectObjects(this.meshes, false);
+    const meshes = this.meshes.filter(
+      (mesh) => this.parts?.meshPickable(mesh.userData.reviewId) ?? true,
+    );
+    if (!this.section) return this.ray.intersectObjects(meshes, false);
     // BVH's firstHitOnly would return the discarded exterior and never reach
     // the exposed interior. Raycast both sides to account for the fill, then
     // restore the draw materials before the renderer can see the change.
@@ -176,7 +182,7 @@ export class SectionViewMethods {
     const first = this.ray.firstHitOnly;
     this.ray.firstHitOnly = false;
     try {
-      return this.ray.intersectObjects(this.meshes, false);
+      return this.ray.intersectObjects(meshes, false);
     } finally {
       this.ray.firstHitOnly = first;
       for (const [material, side] of sides) material.side = side;

@@ -15,6 +15,7 @@ import { sourceVertexNormals } from "./outline.js";
 import { brepTopology } from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
+import { PartsMethods } from "./viewer/parts.js";
 import { CameraMethods } from "./viewer/camera.js";
 import { DisplayMethods } from "./viewer/display.js";
 import { SectionViewMethods } from "./viewer/section-view.js";
@@ -216,6 +217,7 @@ export class ModelViewer {
       passive: false,
       capture: true,
     });
+    this.initializeParts();
     this.renderer.setAnimationLoop(() => this.render());
   }
   resize() {
@@ -302,6 +304,8 @@ export class ModelViewer {
     this.meshes = [];
     this.meshMap.clear();
     this.occlusionValid = false;
+    this.partHover = null;
+    this.parts?.reset();
     this.renderer.renderLists.dispose();
   }
   async load(model, url, onStage = () => {}) {
@@ -326,9 +330,16 @@ export class ModelViewer {
     }
     if (epoch !== this.loadingEpoch) return;
     let object;
+    const partNames = new Map();
     if (shown.format === "glb") {
       const gltf = await new GLTFLoader().parseAsync(data, "");
       object = gltf.scene;
+      object.userData.partsScene = true;
+      object.traverse((node) => {
+        const index = gltf.parser.associations.get(node)?.nodes;
+        if (index !== undefined)
+          partNames.set(node, gltf.parser.json.nodes[index].name || "");
+      });
       removeNonTrianglePrimitives(object);
       if (declaresNoMaterials(data)) {
         const grey = reviewGrey();
@@ -375,6 +386,14 @@ export class ModelViewer {
     this.root.traverse((o) => {
       if (o.isMesh) source.push(o);
     });
+    if (
+      STEP_FORMATS.has(model.format) &&
+      model.mesh &&
+      source.every((mesh) => Number.isInteger(mesh.userData.stepMeshIndex))
+    )
+      source.sort(
+        (a, b) => a.userData.stepMeshIndex - b.userData.stepMeshIndex,
+      );
     const faces = source.map(
       (o) =>
         (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3,
@@ -456,6 +475,7 @@ export class ModelViewer {
     // the generic schema rejection and leaves the viewer with no explanation.
     if (total > MAX_REVIEW_TRIANGLES)
       throw refusal(t("model.meshOverBudget"), "MODEL_LIMIT");
+    this.buildParts(object, partNames);
     this.model = model;
     this.onSection?.();
     this.grid.position.y = floor - 0.025;
@@ -605,6 +625,15 @@ Object.defineProperties(
   Object.fromEntries(
     Object.entries(
       Object.getOwnPropertyDescriptors(EditingMethods.prototype),
+    ).filter(([name]) => name !== "constructor"),
+  ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.fromEntries(
+    Object.entries(
+      Object.getOwnPropertyDescriptors(PartsMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
 );

@@ -1792,3 +1792,121 @@ dialog .muted {
 [data-toolbar-slot] {
   display: contents;
 }
+
+/* === Lane P: parts tree and phone sheet === */
+#parts-panel {
+  width: 224px;
+  flex: 0 0 224px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  overflow: hidden;
+}
+#parts-panel[hidden] {
+  display: none;
+}
+.parts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+.parts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.parts-actions button {
+  font-size: 10px;
+  padding: 5px;
+}
+.parts-actions [aria-pressed="true"] {
+  background: var(--line);
+}
+#parts-tree {
+  flex: 1;
+  min-height: 68px;
+  overflow: auto;
+  position: relative;
+}
+.parts-rows {
+  position: relative;
+}
+.parts-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+.parts-row:hover,
+.parts-row[aria-selected="true"] {
+  background: var(--line);
+}
+.parts-row[aria-selected="true"] {
+  box-shadow: inset 3px 0 #bd801a;
+}
+.parts-row .parts-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 6px 3px;
+}
+.parts-row .icon-only {
+  flex: 0 0 25px;
+  min-width: 25px;
+  padding: 4px;
+}
+.parts-row.part-hidden .parts-name {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.parts-row.part-transparent .parts-name {
+  font-style: italic;
+}
+@media (max-width: 1000px) {
+  .review-body:has(#parts-panel:not([hidden])) {
+    flex-wrap: wrap;
+  }
+  #parts-panel {
+    order: 3;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 190px;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-width: 0;
+  }
+}
+@media (max-width: 760px) {
+  /* The extra display button must stay reachable without scrolling the clipped
+     viewer shell, which would shift the canvas out from under the model. */
+  .toolbar:has([data-command="parts-panel"]) {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: max-content;
+  }
+  #parts-panel {
+    flex: 0 0 170px;
+    height: 170px;
+    order: 3;
+  }
+  .review-body:has(#parts-panel:not([hidden])) {
+    flex-wrap: nowrap;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-height: 220px;
+  }
+}

@@ -1,4 +1,5 @@
 import "./style.css";
+import { bindParts } from "./app/parts.js";
 import {
   installAnnotationsPanel,
   initializeAnnotations,
@@ -58,6 +59,7 @@ initializeState(review);
 initializeDraftCache(review);
 initializeAnnotations(review);
 createViewer(review);
+bindParts(review);
 bindSection(review);
 bindMeasure(review);
 bindSettings(review);
