@@ -27,7 +27,10 @@ export function bindParts(review) {
       .$('[data-command="parts-panel"]')
       .setAttribute("aria-expanded", String(open));
     viewer.hoverPart(null);
-    if (open) render();
+    if (open) {
+      reveal(selected());
+      render();
+    }
   };
   commands.register({
     id: "parts-panel",

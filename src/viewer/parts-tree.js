@@ -26,6 +26,16 @@ export function buildPartTree(
       meshParts.set(object.userData.reviewId, id);
     }
     object.children.forEach((child, index) => {
+      // GLTFLoader splits a multi-material node into primitive meshes that do
+      // not exist in the file's node hierarchy. Keep those meshes on their
+      // owning part instead of inventing selectable child parts for materials.
+      if (names.size && child.isMesh && !names.has(child)) {
+        if (child.userData.reviewId) {
+          entry.meshIds.push(child.userData.reviewId);
+          meshParts.set(child.userData.reviewId, id);
+        }
+        return;
+      }
       const next = visit(child, `${path}.${index}`, id);
       if (next) {
         entry.childIds.push(next.id);
