@@ -62,7 +62,9 @@ export class PickingMethods {
       faceIndex: hit.faceIndex,
       sourceFaceIndex: hit.object.geometry.userData.sourceFaces[hit.faceIndex],
       position: position.toArray(),
-      normal: hit.face.normal.toArray(),
+      // Cross products can produce -0, which JSON restores as +0. Canonicalize
+      // it at creation so a saved pin is identical before and after reload.
+      normal: hit.face.normal.toArray().map((v) => (v === 0 ? 0 : v)),
       barycentric: this.triangle(hit.object, hit.faceIndex)
         .getBarycoord(position, new V())
         .toArray(),

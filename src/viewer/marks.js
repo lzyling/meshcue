@@ -202,6 +202,7 @@ export class MarksMethods {
     );
   }
   setAnnotations(annotations, selectedId) {
+    this.partAnnotations = [annotations, selectedId];
     this.clearOverlay(this.overlay);
     this.labels.replaceChildren();
     this.pins = [];
@@ -215,7 +216,7 @@ export class MarksMethods {
     for (const a of annotations) {
       if (a.type === "pin") {
         const mesh = this.meshMap.get(a.meshId);
-        if (!mesh) continue;
+        if (!mesh || this.parts?.meshVisible(a.meshId) === false) continue;
         const el = document.createElement("button");
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
@@ -230,11 +231,12 @@ export class MarksMethods {
         this.labels.append(el);
         this.pins.push({ el, a, mesh });
       } else if (a.type === "measure") {
-        this.drawKeptMeasure(a, a.id === selectedId);
+        if (!a.picks?.some((p) => this.parts?.meshVisible(p.meshId) === false))
+          this.drawKeptMeasure(a, a.id === selectedId);
       } else {
         for (const [meshId, faces] of Object.entries(a.faces)) {
           const mesh = this.meshMap.get(meshId);
-          if (!mesh) continue;
+          if (!mesh || this.parts?.meshVisible(meshId) === false) continue;
           const coords = [];
           if (a.coverage === "source-v2") {
             // Both halves of one mark: the faces a stroke took whole are drawn
@@ -582,7 +584,7 @@ export class MarksMethods {
     const byMesh = new Map();
     for (const patch of this.expandWholeFaces(a)) {
       const mesh = this.meshMap.get(patch.meshId);
-      if (!mesh) continue;
+      if (!mesh || this.parts?.meshVisible(patch.meshId) === false) continue;
       const carriers = [];
       const sourceFace =
         patch.sourceFaceIndex ??

@@ -351,6 +351,14 @@ mark, then say what to change."
   marked and measured. Section is a viewing aid only, is never sent to the
   Agent, and resets when you load another model or version.
 
+- Parts lists the model’s assemblies and parts. Hover to highlight, click to
+  select, or double-click to fit a part. In View, click a surface to select its
+  part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or
+  Esc exits); Shift+T makes it transparent so you can mark behind it. Hidden
+  parts and their marks disappear. These viewing choices reset when you load a
+  model or version and are never sent to the Agent. On a phone, open Parts from
+  the toolbar.
+
 <!-- reviewer-help:end -->
 
 ## Reading marks
