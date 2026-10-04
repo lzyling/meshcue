@@ -242,7 +242,10 @@ export function installAnnotationsPanel(review) {
           t("marks.frameOne", { name: review.markName(a) }),
         );
         focus.addEventListener("click", () => review.viewer.focusAnnotation(a));
-        row.append(eye, select, focus);
+        const actions = document.createElement("div");
+        actions.className = "annotation-actions";
+        actions.append(focus);
+        row.append(eye, select, actions);
         if (a.type === "pin") {
           const move = document.createElement("button");
           move.className = "quiet-dark annotation-action edit-action";
@@ -257,9 +260,9 @@ export function installAnnotationsPanel(review) {
             review.setMode("relocate");
             review.toast(t("marks.moveHint", { label: a.label }));
           });
-          row.append(move);
+          actions.append(move);
         }
-        row.append(remove);
+        actions.append(remove);
         list.append(row);
       }
       review.renderNote();

@@ -137,3 +137,59 @@ test("Bug 2: phone empty guidance and selected mark actions fit beside the note"
     "Keep this note visible",
   );
 });
+
+for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
+  for (const theme of ["light", "dark"]) {
+    test(`Bug 3: mark names, notes and actions do not overlap (${locale}, ${theme})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await page.addInitScript(
+        ({ locale, theme }) => {
+          localStorage.setItem("meshcue-locale", locale);
+          localStorage.setItem("meshcue-theme", theme);
+        },
+        { locale, theme },
+      );
+      await open(page);
+      await addPin(page);
+      await page
+        .locator("#mark-note-text")
+        .fill("Keep the highlighted mounting surface");
+      await page.locator("#mark-note-text").blur();
+      for (const [width, height] of [
+        [1024, 768],
+        [1440, 900],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await screenshot(page, `bug3-${locale}-${theme}-${width}`);
+        const layout = await page
+          .locator(".annotation-row.selected")
+          .evaluate((row) => {
+            const text = row.querySelector(
+              ".annotation-select > span:last-child",
+            );
+            const rect = text.getBoundingClientRect();
+            const badge = row
+              .querySelector(".annotation-badge")
+              .getBoundingClientRect();
+            const separate = [
+              ...row.querySelectorAll(".annotation-action, .delete-annotation"),
+            ].every((button) => {
+              const r = button.getBoundingClientRect();
+              return [rect, badge].every(
+                (b) =>
+                  r.left >= b.right ||
+                  r.right <= b.left ||
+                  r.top >= b.bottom ||
+                  r.bottom <= b.top,
+              );
+            });
+            return { width: rect.width, separate };
+          });
+        expect.soft(layout.width).toBeGreaterThanOrEqual(75);
+        expect.soft(layout.separate).toBe(true);
+      }
+    });
+  }
+}

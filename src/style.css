@@ -2154,3 +2154,28 @@ dialog .muted {
     padding: 12px 10px;
   }
 }
+
+/* === FIX lane: mark text and actions occupy separate rows in every locale === */
+.annotations-panel:not(.collapsed) {
+  min-width: 176px;
+}
+.annotation-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+.annotation-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-left: 24px;
+}
+.annotation-select {
+  min-width: 0;
+}
+.annotation-select strong {
+  overflow-wrap: anywhere;
+}
+.annotation-actions .annotation-action {
+  margin-left: 0;
+}
