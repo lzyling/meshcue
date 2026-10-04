@@ -113,7 +113,6 @@ export class DisplayModesMethods {
           m.depthWrite = false;
         }
         if (this.displayStyle === "xray") {
-          m.transparent = true;
           m.opacity = 0.24;
           m.depthWrite = false;
           // Transparent model surfaces must draw before opaque mark overlays.

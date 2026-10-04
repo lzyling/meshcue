@@ -72,6 +72,11 @@ export function performanceReport(snapshot, labels) {
   return [
     labels.title,
     `${labels.userAgent}: ${snapshot.userAgent}`,
+    `${labels.fps}: ${snapshot.idle ? labels.idle : value(snapshot.fps)}`,
+    `${labels.average}: ${snapshot.idle ? labels.idle : value(snapshot.averageMs)}`,
+    `${labels.worst}: ${snapshot.idle ? labels.idle : value(snapshot.worstMs)}`,
+    `${labels.gpu}: ${snapshot.gpuAvailable === false ? labels.unavailable : snapshot.idle ? labels.idle : value(snapshot.gpuMs)}`,
+    `${labels.target}: ${PERF_TARGET} FPS — ${snapshot.idle ? labels.idle : labels[snapshot.verdict] || labels.unavailable}`,
     `${labels.renderer}: ${snapshot.renderer}`,
     `${labels.software}: ${yes(snapshot.software)}`,
     `${labels.style}: ${snapshot.style}`,
@@ -82,10 +87,5 @@ export function performanceReport(snapshot, labels) {
     `${labels.geometries}: ${snapshot.geometries}`,
     `${labels.textures}: ${snapshot.textures}`,
     `${labels.section}: ${yes(snapshot.section)}`,
-    `${labels.fps}: ${snapshot.idle ? labels.idle : value(snapshot.fps)}`,
-    `${labels.average}: ${snapshot.idle ? labels.idle : value(snapshot.averageMs)}`,
-    `${labels.worst}: ${snapshot.idle ? labels.idle : value(snapshot.worstMs)}`,
-    `${labels.gpu}: ${snapshot.gpuAvailable === false ? labels.unavailable : snapshot.idle ? labels.idle : value(snapshot.gpuMs)}`,
-    `${labels.target}: ${PERF_TARGET} FPS — ${snapshot.idle ? labels.idle : labels[snapshot.verdict] || labels.unavailable}`,
   ].join("\n");
 }
