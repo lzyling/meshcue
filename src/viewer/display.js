@@ -74,6 +74,11 @@ export class DisplayMethods {
     if (this.grid) this.grid.position.y = y;
   }
   setNeutral(neutral) {
+    if (this.displayStyle) {
+      this.neutral = neutral;
+      this.applyDisplayStyle();
+      return;
+    }
     this.restoreSectionSides();
     for (const mesh of this.meshes) {
       if (neutral && !mesh.userData.originalMaterial) {

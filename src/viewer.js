@@ -16,6 +16,7 @@ import { brepTopology } from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
 import { CameraMethods } from "./viewer/camera.js";
+import { DisplayModesMethods } from "./viewer/display-modes.js";
 import { DisplayMethods } from "./viewer/display.js";
 import { SectionViewMethods } from "./viewer/section-view.js";
 import { PickingMethods } from "./viewer/picking.js";
@@ -216,6 +217,7 @@ export class ModelViewer {
       passive: false,
       capture: true,
     });
+    this.initializeDisplayModes();
     this.renderer.setAnimationLoop(() => this.render());
   }
   resize() {
@@ -605,6 +607,15 @@ Object.defineProperties(
   Object.fromEntries(
     Object.entries(
       Object.getOwnPropertyDescriptors(EditingMethods.prototype),
+    ).filter(([name]) => name !== "constructor"),
+  ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.fromEntries(
+    Object.entries(
+      Object.getOwnPropertyDescriptors(DisplayModesMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
 );
