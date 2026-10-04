@@ -48,10 +48,38 @@ async function publish(page, kind) {
     externalGltf(path.join(dir, "external"));
     file = path.join(dir, "external/bracket.gltf");
   } else fs.writeFileSync(file, bracketGltf(kind));
-  ctl("publish", file, "--name", "Bracket", "--version", kind);
+  const published = ctl(
+    "publish",
+    file,
+    "--name",
+    "Bracket",
+    "--version",
+    kind,
+  );
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator('[data-mode="label"]')).toBeEnabled();
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().modelFilename))
+    .toBe(published.model.filename);
+  // Model readiness precedes the state poll that populates the tab strip.
+  // Wait for that layout and its ResizeObserver before comparing canvases.
+  if (kind !== "external")
+    await expect(page.locator("#version-tabs")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const viewer = document.querySelector("#viewer");
+        const canvas = viewer.querySelector("canvas");
+        return (
+          Math.abs(
+            canvas.getBoundingClientRect().height -
+              viewer.getBoundingClientRect().height,
+          ) < 1
+        );
+      }),
+    )
+    .toBe(true);
   await page.locator('[data-view="0,0,1"]').press("Enter");
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().viewer.meshes))
@@ -128,10 +156,14 @@ for (const kind of ["draco", "meshopt", "quantized"]) {
       }
       return route.continue();
     });
-    // Seed both tabs before either screenshot, keeping the canvas size fixed.
-    const seeded = path.join(dir, `${kind}.glb`);
-    fs.writeFileSync(seeded, bracketGltf(kind));
-    ctl("publish", seeded, "--name", "Bracket", "--version", kind);
+    // Seed an unrelated version so both compared files are new latest tabs,
+    // with the same tab-strip layout and no earlier-version overlay.
+    const seeded = path.join(dir, "seed.glb");
+    fs.writeFileSync(
+      seeded,
+      bracketGltf(kind === "quantized" ? "draco" : "quantized"),
+    );
+    ctl("publish", seeded, "--name", "Bracket", "--version", "seed");
     await publish(page, "plain");
     const plain = await screenshot(page, `${kind}-plain`);
     const plainPin = await pin(page);
