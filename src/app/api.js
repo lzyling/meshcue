@@ -225,7 +225,8 @@ export function installApi(review) {
   // keeps saying it, with the host's own reason rather than a generic apology.
   function updateOutbox(incoming) {
     const stuck = (incoming.submissions || []).filter(
-      (item) => item.status !== "accepted" && (item.attempts || 0) >= 2,
+      (item) =>
+        item.status !== "accepted" && !item.readAt && (item.attempts || 0) >= 2,
     );
     review.$("#outbox-banner").hidden = !stuck.length;
     if (!stuck.length) return;

@@ -116,6 +116,11 @@ export class ReviewStore {
       );
     }
     this.migrateToSchema2();
+    // Older builds recorded readAt without retiring the waiting batch. Repair
+    // those receipts too, so reopening cannot restart delivery for read marks.
+    for (const item of this.state.submissions)
+      if (item.readAt && item.status !== "read")
+        this.submissionStatus(item.id, "read");
     this.save();
   }
   // Schema 1 held one draft, one lock, one echo and one queued model, so every
@@ -748,6 +753,15 @@ export class ReviewStore {
     const s = this.state.submissions.find((x) => x.id === id);
     if (!s) throw new ReviewError("No such submission.", 404);
     Object.assign(s, { status }, extra);
+    // A read is stronger evidence than an in-flight send's eventual result.
+    // Keep it terminal even if that send fails after the Agent has collected it.
+    if (s.readAt) {
+      s.status = "read";
+      s.error = null;
+      s.lastError = null;
+      s.stalledAt = null;
+      s.nextAttemptAt = null;
+    }
     this.markSubmitted(s);
     atomicJson(path.join(this.dir, "submissions", `${s.id}.json`), s);
     this.save();
@@ -763,7 +777,7 @@ export class ReviewStore {
         404,
       );
     // Explicit local Agent read acknowledgment, never inferred from chat.send.
-    return this.submissionStatus(id, submission.status, {
+    return this.submissionStatus(id, "read", {
       readAt: submission.readAt || Date.now(),
     });
   }

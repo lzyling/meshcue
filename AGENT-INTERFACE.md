@@ -115,7 +115,8 @@ Two capabilities, each of which a host may simply lack.
   status is `waiting`: handed over, waiting to be collected. It is not a failed
   delivery, it counts as no attempt, and it never becomes `stalled`.
   ⚠️ Do not wait for a message here, and do not report `waiting` to the reviewer
-  as a fault. Call `read` when they say they are done.
+  as a fault. Call `read` when they say they are done; its receipt changes the
+  batch status to `read` and removes it from the outbox.
 - **`observe: false`** — can push but cannot read the conversation back, so
   delivery is confirmed by **your own `read` receipt** rather than by MeshCue
   inferring it. That is the more honest of the two anyway.
@@ -529,6 +530,10 @@ does not mean read.
 - `deliveredAt` is written only when the batch is actually found in the
   originating conversation, and only on a host that can be read back.
 - `readAt` comes exclusively from your own `read`. Nothing infers it.
+- `status: "read"` is an additive terminal status: the Agent has collected this
+  batch, so it is confirmed, leaves `outbox.pending`, and is no longer retried.
+  Repeated reads keep the first `readAt`; a late delivery result cannot undo it.
+  Reading does not invent `acceptedAt` or `deliveredAt` for a host notification.
 - An unconfirmed send keeps its submission id and retries under the same
   idempotency key.
 
