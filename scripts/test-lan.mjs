@@ -31,15 +31,6 @@ const run = (label, command, args, env) => {
   process.stdout.write(`\n── ${label} ──\n`);
   execFileSync(command, args, { cwd: repo, stdio: "inherit", env });
 };
-// The browser leg serves a prebuilt bundle. Without this it runs whatever the
-// last `test:browser` left behind, so a change to the shared client/server
-// contract passes here while the pair that would actually ship is broken.
-run("build web bundle", process.execPath, [
-  path.join(repo, "node_modules/vite/bin/vite.js"),
-  "build",
-  "--outDir",
-  "tmp/refinement-dist",
-]);
 // A real listener on a real interface, exercising admission and authorization.
 run(
   `real LAN listener on ${host}`,
@@ -53,11 +44,10 @@ run(
   "insecure browser origin",
   process.execPath,
   [
-    path.join(repo, "node_modules/@playwright/test/cli.js"),
-    "test",
+    "scripts/test-browser.mjs",
     "tests/browser/review.spec.js",
     "-g",
     "LAN HTTP",
   ],
-  { ...process.env, REVIEW_BROWSER_ORIGIN: "http://review.test:43174" },
+  { ...process.env, REVIEW_BROWSER_ORIGIN: "http://review.test" },
 );

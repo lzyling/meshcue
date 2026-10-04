@@ -1,3 +1,4 @@
+import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -8,9 +9,9 @@ import { fetchLoadedModel, loadedModelDisposition } from "./loaded-model.mjs";
 import { trackGpuTextures, gpuTextureSnapshot } from "./gpu-textures.mjs";
 import { withEmbeddedTexture } from "../fixtures/textured-glb.mjs";
 
-const repo = process.cwd(),
-  url = "http://127.0.0.1:43174";
-const browserUrl = process.env.REVIEW_BROWSER_ORIGIN || url;
+const repo = process.cwd();
+let url;
+let browserUrl;
 let child, dir, env;
 async function request(method, route, body) {
   const res = await fetch(`${url}/api/${route}`, {
@@ -113,10 +114,11 @@ test.beforeEach(async () => {
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: "43174",
+    PORT: "0",
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
-    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
+    REVIEW_DIST_DIR:
+      process.env.REVIEW_TEST_DIST || path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_UPDATE_CHECK: "off",
@@ -129,6 +131,8 @@ test.beforeEach(async () => {
     env,
     stdio: ["ignore", log, log],
   });
+  url = await browserServerUrl(child, dir);
+  browserUrl = browserOrigin(url);
   for (let i = 0; i < 80; i++) {
     try {
       const res = await fetch(`${url}/api/health`);
@@ -165,7 +169,7 @@ test("actual double click creates a surface pin; refresh restores it and geometr
   expect(after.owned).toBe(true);
   await page.screenshot({
     path: path.resolve(
-      "tmp/screenshots/2026-09-09-3d-review-v02-pin-tested.png",
+      path.join(dir, "2026-09-09-3d-review-v02-pin-tested.png"),
     ),
     fullPage: true,
   });
@@ -211,7 +215,7 @@ test("a fill produces real face sets; undo, redo, delete and refresh retain the 
   ).toEqual(painted);
   await page.screenshot({
     path: path.resolve(
-      "tmp/screenshots/2026-09-09-3d-review-v02-brush-tested.png",
+      path.join(dir, "2026-09-09-3d-review-v02-brush-tested.png"),
     ),
     fullPage: true,
   });
@@ -282,7 +286,7 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   expect(state.data.submissions[0].versionId).toBe(original);
   await page.screenshot({
     path: path.resolve(
-      "tmp/screenshots/2026-09-09-3d-review-v02-figurine-tested.png",
+      path.join(dir, "2026-09-09-3d-review-v02-figurine-tested.png"),
     ),
     fullPage: true,
   });
@@ -510,7 +514,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
   await expect(page.locator("#fill-range")).toBeVisible();
   await page.screenshot({
     path: path.resolve(
-      "tmp/screenshots/2026-09-09-3d-review-v02-compact-tested.png",
+      path.join(dir, "2026-09-09-3d-review-v02-compact-tested.png"),
     ),
     fullPage: true,
   });
@@ -643,7 +647,10 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     });
     await page.screenshot({
       path: path.resolve(
-        `tmp/screenshots/2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
+        path.join(
+          dir,
+          `2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
+        ),
       ),
       fullPage: true,
     });
@@ -1637,7 +1644,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   expect((await capture()).equals(clean)).toBe(false);
   await page.screenshot({
     path: path.resolve(
-      "tmp/screenshots/2026-09-09-3d-review-v03-colored-annotations.png",
+      path.join(dir, "2026-09-09-3d-review-v03-colored-annotations.png"),
     ),
   });
   await page.locator("#toggle-marks").click();

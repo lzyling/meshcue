@@ -1,3 +1,4 @@
+import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -11,8 +12,7 @@ import { writePlate, writeInwardPlate } from "./echo-models.mjs";
 const repo = process.cwd();
 // Standalone red/green runs can use an isolated build and port without
 // touching another worktree's source, build, server or Playwright results.
-const port = process.env.ECHO_TEST_PORT || "43174";
-const url = `http://127.0.0.1:${port}`;
+let url;
 let child, dir, env;
 
 const ctl = (...args) =>
@@ -32,12 +32,14 @@ test.beforeEach(async () => {
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: port,
+    PORT: "0",
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
     REVIEW_DIST_DIR: path.resolve(
       repo,
-      process.env.ECHO_TEST_DIST || "tmp/refinement-dist",
+      process.env.ECHO_TEST_DIST ||
+        process.env.REVIEW_TEST_DIST ||
+        "tmp/refinement-dist",
     ),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
@@ -51,6 +53,7 @@ test.beforeEach(async () => {
     env,
     stdio: ["ignore", log, log],
   });
+  url = await browserServerUrl(child, dir);
   fs.closeSync(log);
   await expect
     .poll(async () => {

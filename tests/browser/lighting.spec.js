@@ -1,11 +1,12 @@
+import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 
-const repo = process.cwd(),
-  url = "http://127.0.0.1:43174";
+const repo = process.cwd();
+let url;
 let child, dir, env;
 
 function publish(file, version) {
@@ -35,10 +36,11 @@ test.beforeEach(async () => {
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: "43174",
+    PORT: "0",
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
-    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
+    REVIEW_DIST_DIR:
+      process.env.REVIEW_TEST_DIST || path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_UPDATE_CHECK: "off",
@@ -51,6 +53,7 @@ test.beforeEach(async () => {
     env,
     stdio: ["ignore", log, log],
   });
+  url = await browserServerUrl(child, dir);
   for (let i = 0; i < 80; i++) {
     try {
       if ((await fetch(`${url}/api/health`)).ok) break;
