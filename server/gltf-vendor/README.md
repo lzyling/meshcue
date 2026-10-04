@@ -2,10 +2,10 @@
 
 `draco_decoder.cjs` is the glTF JavaScript decoder copied from
 `three@0.186.1/examples/jsm/libs/draco/gltf/draco_decoder.js` (512,465 bytes).
-It is Apache-2.0 licensed; see `LICENSE.draco.txt`. The filename marks the upstream CommonJS export. One `__dirname` reference
-is guarded for ESM bundles (this self-contained JS build reads no decoder files).
-The Apache license is prepended as a legal comment so it travels with both the
-raw browser asset and esbuild legal notices.
+It is Apache-2.0 licensed; see `LICENSE.draco.txt`. The filename marks the
+upstream CommonJS export. The implementation is unchanged; an Apache license comment is prepended so the raw browser asset
+also carries the license. Integration packaging copies this decoder to
+`vendor/` once; it is loaded as CommonJS outside the ESM host bundles.
 The browser receives the same bytes through Vite's local asset URL.
 
 Meshopt is imported from Three's `meshopt_decoder.module.js` by both the server

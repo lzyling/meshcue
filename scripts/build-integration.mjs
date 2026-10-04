@@ -129,6 +129,12 @@ execFileSync(
    plugin has no node_modules at all. */
 const occtDist = path.join(repo, "node_modules/occt-import-js/dist");
 fs.mkdirSync(path.join(out, "vendor"), { recursive: true });
+// Keep one server decoder alongside the other offline runtime assets.
+for (const name of ["draco_decoder.cjs", "LICENSE.draco.txt"])
+  fs.copyFileSync(
+    path.join(repo, "server/gltf-vendor", name),
+    path.join(out, "vendor", name),
+  );
 for (const [name, as] of [
   ["occt-import-js.js", "occt-import-js.js"],
   ["occt-import-js.wasm", "occt-import-js.wasm"],

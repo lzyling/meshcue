@@ -138,7 +138,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
         bin = buffer.subarray(offset + 8, offset + 8 + size);
       offset += 8 + size;
     }
-    const viewBytes = compressionViews(doc, bin);
+    const { viewBytes, primitiveCounts } = compressionViews(doc, bin);
     let texturePixels = 0;
     let textureBytes = 0;
     for (const image of doc.images || []) {
@@ -218,6 +218,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
         if (![4, 5, 6].includes(mode))
           throw new ReviewError("Only triangle meshes are accepted.", 400);
         const count =
+          primitiveCounts.get(prim) ??
           doc.accessors?.[prim.indices ?? prim.attributes?.POSITION]?.count;
         if (
           !Number.isInteger(count) ||

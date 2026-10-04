@@ -1,6 +1,21 @@
-import createDraco from "./gltf-vendor/draco_decoder.cjs";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { ReviewError } from "./store.mjs";
+
+// Source/npm resolves beside this module; integration bundles run from the
+// package root, runtime/, mcp/ or scripts/. Ship one replaceable CJS decoder
+// in vendor/ instead of inlining a copy into every host entry point.
+const decoderFile = [
+  "./gltf-vendor/draco_decoder.cjs",
+  "../vendor/draco_decoder.cjs",
+  "./vendor/draco_decoder.cjs",
+]
+  .map((relative) => new URL(relative, import.meta.url))
+  .find((file) => fs.existsSync(file));
+if (!decoderFile) throw new Error("The packaged Draco decoder is missing.");
+const createDraco = createRequire(import.meta.url)(fileURLToPath(decoderFile));
 
 // The synchronous precheck contract predates compression. Initialize once at
 // module loading, then use the same decoder builds as GLTFLoader. No subprocess,
@@ -17,6 +32,7 @@ const invalid = (message) => {
 
 export function compressionViews(doc, bin) {
   const cache = new Map();
+  const primitiveCounts = new Map();
   const buffers = (doc.buffers || []).map((buffer, i) => {
     if (buffer.uri?.startsWith("data:")) {
       const comma = buffer.uri.indexOf(",");
@@ -129,12 +145,11 @@ export function compressionViews(doc, bin) {
         // Draco always draws its decoded triangle list, even if a forged accessor
         // claims fewer faces. Refuse disagreement instead of budgeting the lie.
         if (
-          (prim.mode ?? 4) !== 4 ||
+          prim.indices !== undefined &&
           doc.accessors?.[prim.indices]?.count !== geometry.num_faces() * 3
         )
-          invalid(
-            "Draco face count or primitive mode disagrees with its accessor.",
-          );
+          invalid("Draco face count disagrees with its accessor.");
+        primitiveCounts.set(prim, geometry.num_faces() * 3);
         for (const [semantic, id] of Object.entries(ext.attributes || {})) {
           const accessor = doc.accessors?.[prim.attributes?.[semantic]];
           const attribute = decoder.GetAttributeByUniqueId(geometry, id);
@@ -154,5 +169,5 @@ export function compressionViews(doc, bin) {
         draco.destroy(decoder);
       }
     }
-  return viewBytes;
+  return { viewBytes, primitiveCounts };
 }
