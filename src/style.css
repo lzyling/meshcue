@@ -2117,3 +2117,19 @@ dialog .muted {
     top: calc(var(--orient-reach) + 255px);
   }
 }
+
+/* === FIX lane: phone Section controls clear the complete navigation widget === */
+@media (max-width: 760px) {
+  .section-options {
+    max-width: calc(100% - var(--orient-reach) - 90px);
+    padding: 8px;
+  }
+  /* The triad normally sits left of the cube, exactly where the expanded cut
+     controls need to wrap. Keep it beneath the cube while those are open. */
+  .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
+    right: 0;
+    top: 220px;
+    width: 60px;
+    height: 60px;
+  }
+}
