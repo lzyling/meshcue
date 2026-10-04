@@ -7,11 +7,11 @@ export default {
   "section.flip": "Seite umkehren",
   "section.off": "Aus / Zurücksetzen",
   "section.hint":
-    "Bernstein zeigt Rückseiten, keine Fläche auf der Schnittebene.",
+    "Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden.",
   "help.p12":
-    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Bernsteinfarbene Rückseiten lassen geschlossene Körper gefüllt erscheinen; sie liegen hinter der Ebene und können weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
   "help.p12.named":
-    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Bernsteinfarbene Rückseiten lassen geschlossene Körper gefüllt erscheinen; sie liegen hinter der Ebene und können weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
 
   "agent.withTool": "{name} ({tool})",
 

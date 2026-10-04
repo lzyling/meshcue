@@ -209,14 +209,15 @@ export class ModelViewer {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
+      stencil: true,
       powerPreference: "high-performance",
     });
     this.renderer.localClippingEnabled = true;
     this.section = null;
     this.sectionClips = [];
     this.sectionSides = new Map();
-    this.sectionFill = new THREE.Group();
-    this.scene.add(this.sectionFill);
+    this.sectionCapGroup = new THREE.Group();
+    this.scene.add(this.sectionCapGroup);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     /* ACES is built for film, and its shoulder is doing the wrong job here: it
@@ -407,8 +408,8 @@ export class ModelViewer {
     const token = (name) =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     this.sectionColor = token("--section-fill") || "#bd801a";
-    if (this.sectionFillMaterial)
-      this.sectionFillMaterial.color.set(this.sectionColor);
+    if (this.sectionCapMaterial)
+      this.sectionCapMaterial.color.set(this.sectionColor);
     const backdrop = new THREE.Color(token("--canvas-b") || "#e9ede8");
     this.scene.background = backdrop;
     this.scene.fog = new THREE.Fog(backdrop, 10, 35);
@@ -626,9 +627,14 @@ export class ModelViewer {
   clearModel() {
     this.setSection(null);
     this.sectionBounds = null;
-    this.sectionFill?.clear();
-    this.sectionFillMaterial?.dispose();
-    this.sectionFillMaterial = null;
+    this.sectionCapGroup?.clear();
+    this.sectionCap?.geometry.dispose();
+    this.sectionCap = null;
+    for (const material of this.sectionStencilMaterials || [])
+      material.dispose();
+    this.sectionStencilMaterials = [];
+    this.sectionCapMaterial?.dispose();
+    this.sectionCapMaterial = null;
     this.onSection?.();
     this.setNeutral(false);
     this.setAnnotations([]);
@@ -880,23 +886,75 @@ export class ModelViewer {
       plane.constant += 1e-6;
       if (this.sectionClips?.length) this.sectionClips[0].copy(plane);
       else this.sectionClips = [plane];
-      if (!this.sectionFillMaterial) {
-        this.sectionFillMaterial = new THREE.MeshBasicMaterial({
-          color: this.sectionColor || "#bd801a",
-          side: THREE.BackSide,
-          toneMapped: false,
+      if (!this.sectionCapMaterial) {
+        // All source meshes contribute to ONE winding counter. Clearing per
+        // mesh would fill cavity shells exported as separate STEP faces, and
+        // would expose the shared faces of touching or overlapping solids.
+        this.sectionStencilMaterials = [
+          [THREE.BackSide, THREE.IncrementWrapStencilOp],
+          [THREE.FrontSide, THREE.DecrementWrapStencilOp],
+        ].map(([side, operation], pass) => {
+          const material = new THREE.MeshBasicMaterial({
+            side,
+            colorWrite: false,
+            depthWrite: false,
+            depthTest: false,
+            stencilWrite: true,
+            stencilFunc: THREE.AlwaysStencilFunc,
+            stencilFail: operation,
+            stencilZFail: operation,
+            stencilZPass: operation,
+          });
+          for (const mesh of this.meshes) {
+            // The model owns this geometry; only the draw siblings and their
+            // materials belong to the section, so disposal never frees it twice.
+            const counter = new THREE.Mesh(mesh.geometry, material);
+            counter.matrixAutoUpdate = false;
+            counter.matrix.copy(mesh.matrixWorld);
+            counter.renderOrder = -3 + pass;
+            this.sectionCapGroup.add(counter);
+          }
+          return material;
         });
-        // Geometry belongs to the source mesh. These draw-only siblings share
-        // it and are cleared without disposal before the model is released.
-        for (const mesh of this.meshes) {
-          const fill = new THREE.Mesh(mesh.geometry, this.sectionFillMaterial);
-          fill.matrixAutoUpdate = false;
-          fill.matrix.copy(mesh.matrixWorld);
-          this.sectionFill.add(fill);
-        }
+        this.sectionCapMaterial = new THREE.MeshBasicMaterial({
+          color: this.sectionColor || "#bd801a",
+          side: THREE.DoubleSide,
+          toneMapped: false,
+          fog: false,
+          stencilWrite: true,
+          stencilRef: 0,
+          stencilFunc: THREE.NotEqualStencilFunc,
+          stencilFail: THREE.KeepStencilOp,
+          stencilZFail: THREE.KeepStencilOp,
+          stencilZPass: THREE.KeepStencilOp,
+        });
+        const size =
+          this.sectionBounds
+            .getSize(new V())
+            .multiply(this.root.scale)
+            .length() * 1.01;
+        this.sectionCap = new THREE.Mesh(
+          new THREE.PlaneGeometry(size, size),
+          this.sectionCapMaterial,
+        );
+        // Count first, then draw the model and cap before overlays. Drawing
+        // the cap last at equal depth prevents coplanar source faces from
+        // repainting it; nearer retained surfaces still win the depth test.
+        this.sectionCap.renderOrder = 1;
+        // Clear the whole counter even where the quad failed its depth test.
+        // The renderer also keeps its default autoClearStencil=true, so a
+        // culled/disabled cap cannot leak stencil into a later frame.
+        this.sectionCap.onAfterRender = (renderer) => renderer.clearStencil();
+        this.sectionCapGroup.add(this.sectionCap);
       }
+      const cut = sectionPlane(this.section, this.root.matrixWorld);
+      const center = this.sectionBounds
+        .getCenter(new V())
+        .applyMatrix4(this.root.matrixWorld);
+      cut.projectPoint(center, this.sectionCap.position);
+      this.sectionCap.quaternion.setFromUnitVectors(new V(0, 0, 1), cut.normal);
     } else this.sectionClips = [];
-    if (this.sectionFill) this.sectionFill.visible = !!this.section;
+    if (this.sectionCapGroup) this.sectionCapGroup.visible = !!this.section;
     if (!!previous !== !!this.section) this.applySectionMaterials();
     this.occlusionValid = false;
     this.clearOverlay(this.previewOverlay);
@@ -940,7 +998,8 @@ export class ModelViewer {
         }
       }
     }
-    if (this.sectionFillMaterial) this.clipMaterial(this.sectionFillMaterial);
+    for (const material of this.sectionStencilMaterials || [])
+      this.clipMaterial(material);
     for (const cache of [
       this.markMaterials,
       this.lineMaterials,
@@ -974,6 +1033,31 @@ export class ModelViewer {
   sectionContains(world) {
     return retainedPoint(world, this.sectionClips?.[0]);
   }
+  sectionOccludes(world) {
+    if (!this.section) return false;
+    // A visible face can have a corner or edge projected behind the cap.
+    // Test the snap target itself, and restore the pointer ray so subsequent
+    // hover/fill work still refers to the reviewer's original screen point.
+    const previous = this.ray.ray.clone();
+    try {
+      this.ray.set(
+        this.camera.position,
+        world.clone().sub(this.camera.position).normalize(),
+      );
+      const hit = sectionIntersection(
+        this.sectionHits(),
+        this.sectionClips[0],
+        this.ray.ray.direction,
+        this.ray.ray.origin,
+      );
+      return (
+        !!hit?.sectionCap &&
+        hit.distance < this.camera.position.distanceTo(world) - 1e-6
+      );
+    } finally {
+      this.ray.ray.copy(previous);
+    }
+  }
   rayAt(x, y) {
     // Input can arrive before the next render after orbit/home changes.
     this.camera.updateMatrixWorld();
@@ -989,6 +1073,7 @@ export class ModelViewer {
       this.sectionHits(),
       this.sectionClips?.[0],
       this.ray.ray.direction,
+      this.ray.ray.origin,
     );
   }
   triangle(mesh, index) {
@@ -1323,6 +1408,8 @@ export class ModelViewer {
           const hit = sectionIntersection(
             this.sectionHits(),
             this.sectionClips?.[0],
+            this.ray.ray.direction,
+            this.ray.ray.origin,
           );
           pin.unoccluded =
             !hit ||
@@ -1982,7 +2069,7 @@ export class ModelViewer {
     for (const corner of mesh.userData.fillTopology.vertices[face] || []) {
       const at = new V().fromArray(corner);
       const world = mesh.localToWorld(at.clone());
-      if (!this.sectionContains(world)) continue;
+      if (!this.sectionContains(world) || this.sectionOccludes(world)) continue;
       const [sx, sy] = this.toScreen(world);
       const d = Math.hypot(sx - x, sy - y);
       if (d < best) {
@@ -2014,10 +2101,28 @@ export class ModelViewer {
         this.sectionClips?.[0],
       );
       if (!visible) continue;
-      const d = segmentDistance(
-        [x, y],
-        ...visible.map((p) => this.toScreen(p)),
-      );
+      const ends = visible.map((p) => this.toScreen(p));
+      const d = segmentDistance([x, y], ...ends);
+      if (this.section && d < best) {
+        const [a, b] = ends;
+        const dx = b[0] - a[0],
+          dy = b[1] - a[1];
+        const length = dx * dx + dy * dy;
+        const t = length
+          ? Math.max(
+              0,
+              Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / length),
+            )
+          : 0;
+        // Interpolate after projection: perspective makes the screen midpoint
+        // differ from the world midpoint. This is the actual snap target.
+        const target = visible[0]
+          .clone()
+          .project(this.camera)
+          .lerp(visible[1].clone().project(this.camera), t)
+          .unproject(this.camera);
+        if (this.sectionOccludes(target)) continue;
+      }
       if (d < best) {
         best = d;
         side = s;
@@ -2346,7 +2451,7 @@ export class ModelViewer {
             offset: this.section.offset,
           }
         : null,
-      sectionColor: this.sectionFillMaterial?.color.getHexString() || null,
+      sectionColor: this.sectionCapMaterial?.color.getHexString() || null,
       versionId: this.model?.id,
       meshes: this.meshes.length,
       annotationsVisible: this.annotationsVisible,

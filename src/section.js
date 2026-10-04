@@ -18,20 +18,59 @@ export function sectionRange(bounds, axis) {
 export const retainedPoint = (point, plane) =>
   !plane || plane.distanceToPoint(point) >= -1e-8;
 
-// Keep the nearest retained intersection even when it is a back face. Walking
-// past it would let a click pass through the amber fill and mark another part
-// that the reviewer cannot see. Occlusion uses that same hit as a blocker.
-export function sectionIntersection(hits, plane) {
-  return hits.find((hit) => retainedPoint(hit.point, plane)) || null;
+// Picking must use the same aggregate winding as the GPU, not the side of
+// the first retained hit: a front face inside another solid is behind the
+// cap, while the opposite winding of an inner shell cancels a cavity hole.
+// The synthetic hit is only an occluder; it never names a markable source face.
+export function sectionIntersection(hits, plane, direction, origin) {
+  if (!plane) return hits[0] || null;
+  let winding = 0,
+    surface = null;
+  const crossings = new Map();
+  for (const hit of hits) {
+    if (!retainedPoint(hit.point, plane)) continue;
+    const normal = hit.face.normal
+      .clone()
+      .applyNormalMatrix(new Matrix3().getNormalMatrix(hit.object.matrixWorld));
+    const facing = normal.dot(direction);
+    if (Math.abs(facing) < 1e-10) continue;
+    if (!surface && facing < 0) surface = hit;
+    // A ray on a tessellation diagonal can hit both triangles. Count that
+    // crossing once per mesh, but preserve independent overlapping shells.
+    const distance = hit.point.distanceTo(origin);
+    const previous = crossings.get(hit.object);
+    const sign = facing < 0 ? -1 : 1;
+    if (
+      !previous ||
+      Math.abs(previous.distance - distance) > 1e-8 ||
+      previous.sign !== sign
+    ) {
+      winding += sign;
+      crossings.set(hit.object, { distance, sign });
+    }
+  }
+  const denominator = plane.normal.dot(direction);
+  const distance = -plane.distanceToPoint(origin) / denominator;
+  // Eight-bit wrapping deliberately matches Increment/DecrementWrap on the
+  // renderer's stencil buffer, including its finite overlap limit.
+  if (
+    Math.abs(denominator) > 1e-10 &&
+    distance >= 0 &&
+    winding % 256 !== 0 &&
+    (!surface || distance < surface.point.distanceTo(origin) - 1e-8)
+  ) {
+    return {
+      sectionCap: true,
+      distance,
+      point: origin.clone().addScaledVector(direction, distance),
+    };
+  }
+  return surface;
 }
 
-export function sectionPick(hits, plane, direction) {
-  const hit = sectionIntersection(hits, plane);
-  if (!hit || !plane) return hit;
-  const normal = hit.face.normal
-    .clone()
-    .applyNormalMatrix(new Matrix3().getNormalMatrix(hit.object.matrixWorld));
-  return normal.dot(direction) < 0 ? hit : null;
+export function sectionPick(hits, plane, direction, origin) {
+  const hit = sectionIntersection(hits, plane, direction, origin);
+  return hit?.sectionCap ? null : hit;
 }
 
 // Only the screen target is shortened: an edge measurement still names the
