@@ -254,9 +254,11 @@ with agentName and, when the host knows it, your tool's name after it ("Send
 to Ada (OpenClaw)"), or your tool's name alone when you gave none. "Look,
 mark, then say what to change."
 
-- Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to
-  pan — the same on a mouse as on a trackpad. The left button is never the
-  camera's, so you can mark without putting a tool down.
+- Right-drag to orbit, wheel or pinch to zoom toward the pointer, middle-drag
+  or Shift+wheel to pan — on a mouse or trackpad. In the Orbit tool, left-drag
+  also rotates; Shift+left-drag or Shift+right-drag pans. Marking tools keep the
+  left button for marks. On a touchscreen, one finger rotates and two fingers
+  pinch or pan; touch taps do not place marks.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
@@ -320,6 +322,17 @@ mark, then say what to change."
   cannot be marked or measured. Remaining front-facing surfaces can still be
   marked and measured. Section is a viewing aid only, is never sent to the
   Agent, and resets when you load another model or version.
+
+- Navigation: double-click a surface in Orbit to set the rotation centre, or
+  empty space to fit all. F fits visible geometry in the current direction; Home
+  returns to the fitted isometric view. Projection switches between perspective
+  and orthographic and remembers your choice. Shift+1–7 selects Front, Back,
+  Left, Right, Top, Bottom and Isometric. Arrows rotate 15°, Ctrl+arrows 5°,
+  Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z zooms in. N
+  looks straight at the face under the pointer; N again reverses the side. Drag
+  the view cube to rotate, or use its arrows for 90° steps. Shift+/ lists all
+  shortcuts. View changes animate briefly unless reduced motion is preferred;
+  any navigation input interrupts them.
 
 <!-- reviewer-help:end -->
 
@@ -402,6 +415,14 @@ from any `note` they wrote on a mark.
   marks, with `space: "model"`. It is what "the top edge" or "the left of this"
   meant on their screen. A mark made before 1.4.0 has no `view`; the batch's
   `camera` is the nearest thing, and it is in the preview's frame.
+- An orthographic mark additionally records `view.projection: "orthographic"`
+  and `view.visibleHeight`, the visible vertical span in model units. Its
+  horizontal span is `visibleHeight * aspect`; `position`, `target` and `up`
+  keep the same meaning. When `projection` is absent the view is perspective,
+  as in existing marks. `fov` remains present for compatibility and a later
+  perspective switch; it does not set the orthographic scale. The saved batch
+  `camera` can carry these same optional fields, with `visibleHeight` in preview
+  units like its `position` and `target`.
 - **A mark of `type: "measure"` is a dimension the reviewer read off this
   version and kept.** `kind: "points"` is the distance between two points; a
   click within a few pixels of a triangle corner is taken at the corner.

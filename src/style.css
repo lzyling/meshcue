@@ -1792,3 +1792,46 @@ dialog .muted {
 [data-toolbar-slot] {
   display: contents;
 }
+
+/* === Lane N: CAD navigation === */
+.navigation-pivot {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e9e78;
+  border: 1px solid white;
+  box-shadow: 0 0 0 1px #14202a;
+  pointer-events: none;
+  z-index: 3;
+}
+.orient-stage { position: relative; touch-action: none; }
+.navigation-arrow {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  font-size: 22px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.navigation-arrow-left { left: -5px; top: calc(50% - 11px); }
+.navigation-arrow-right { right: -5px; top: calc(50% - 11px); }
+.navigation-arrow-up { top: -3px; left: calc(50% - 11px); }
+.navigation-arrow-down { bottom: -3px; left: calc(50% - 11px); }
+.navigation-projection { font-size: 11px; padding: 4px 7px; }
+.navigation-triad { position: absolute; right: 100%; top: 25px; width: 75px; height: 75px; pointer-events: none; }
+.navigation-triad line { stroke-width: 2; }
+.navigation-triad text { stroke: none; font-size: 12px; font-weight: 700; text-anchor: middle; }
+#navigation-shortcuts { max-height: 80vh; overflow: auto; }
+#navigation-shortcuts dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 24px; }
+#navigation-shortcuts dt { font-family: monospace; }
+#navigation-shortcuts dd { margin: 0; }
+
+.viewer-top { padding-right: calc(var(--orient-reach) + 85px); }

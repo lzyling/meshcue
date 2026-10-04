@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "投影",
+  "navigation.perspective": "透视",
+  "navigation.orthographic": "正交",
+  "navigation.fit": "适合全部",
+  "navigation.iso": "等轴测",
+  "navigation.zoomIn": "放大",
+  "navigation.zoomOut": "缩小",
+  "navigation.normal": "正视表面",
+  "navigation.noFace": "指针下没有表面",
+  "navigation.shortcuts": "键盘快捷键",
+  "navigation.axes": "模型文件坐标轴",
+  "navigation.rotateLeft": "向左旋转",
+  "navigation.rotateRight": "向右旋转",
+  "navigation.rotateUp": "向上旋转",
+  "navigation.rotateDown": "向下旋转",
+  "navigation.panLeft": "向左平移",
+  "navigation.panRight": "向右平移",
+  "navigation.panUp": "向上平移",
+  "navigation.panDown": "向下平移",
+  "help.p13":
+    "导航：在旋转工具中双击表面可设置旋转中心，双击空白处可适合全部。F 沿当前方向适合可见几何体；主页按钮回到适合窗口的等轴测视图。投影可切换透视与正交，并记住选择。Shift+1–7 依次选择前、后、左、右、上、下、等轴测。方向键旋转 15°，Ctrl+方向键 5°，Shift+方向键 90°；Ctrl+Shift+方向键平移。Z 缩小，Shift+Z 放大。N 正视指针下的表面，再按 N 从另一侧看。拖动视图立方体旋转，箭头每次转 90°。Shift+/ 列出全部快捷键。视图切换有短暂动画；偏好减少动态效果时立即切换，导航输入可中断动画。",
+};

@@ -137,7 +137,7 @@ export default {
   "tool.newRegion": "Neue Fläche",
   "tool.newRegionHint": "Die nächste Füllung beginnt eine eigene Farbfläche.",
   "hint.orbit":
-    "Rechts ziehen dreht · zwei Finger oder Mitte verschiebt · Rad zoomt",
+    "Links/rechts ziehen: drehen · Umschalt+Ziehen oder Mitteltaste: verschieben · Rad/Aufziehen: zoomen",
   "hint.fill":
     "Zum Vorschauen schweben · klicken zum Füllen · die rechte Taste dreht weiterhin",
   "hint.relocate":
