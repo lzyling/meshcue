@@ -83,6 +83,21 @@ test("navigation arrow turns use exact angles and stay finite at the poles", () 
   assert.ok(top.y > 0.999);
   const adjacent = rotateDirection(top, 0, -90);
   assert.ok(adjacent.z > 0.999);
+  assert.ok(rotateDirection(top, 90, 0).x > 0.999);
+  for (const start of [
+    new THREE.Vector3(1, 1, 1),
+    new THREE.Vector3(0, 1, 0),
+  ]) {
+    for (const degrees of [5, 15, 90]) {
+      near(
+        THREE.MathUtils.radToDeg(
+          start.angleTo(rotateDirection(start, degrees, 0)),
+        ),
+        degrees,
+        0.01,
+      );
+    }
+  }
 });
 
 test("navigation easing has stationary ends and animation cancellation preserves the current view", () => {
