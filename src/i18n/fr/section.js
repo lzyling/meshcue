@@ -1,5 +1,5 @@
 export default {
-  "section.title": "Coupe",
+  "section.title": "Vue en coupe",
   "section.axis": "Axe du modèle",
   "section.offset": "Décalage",
   "section.flip": "Inverser le côté",

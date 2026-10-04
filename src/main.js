@@ -1,5 +1,6 @@
 import "./style.css";
 import { bindParts } from "./app/parts.js";
+import { bindDisplay } from "./app/display.js";
 import {
   installAnnotationsPanel,
   initializeAnnotations,
@@ -64,6 +65,7 @@ bindParts(review);
 bindSection(review);
 bindMeasure(review);
 bindSettings(review);
+bindDisplay(review);
 bindOrientation(review);
 bindNavigation(review);
 bindAnnotationEditing(review);

@@ -83,3 +83,108 @@ test("part visibility changes allow an immediate label on the newly exposed surf
   await viewer.clickEdit({ clientX: 20, clientY: 20 });
   assert.deepEqual(viewer.placed, { meshId: "behind" });
 });
+
+function displayAssembly() {
+  const data = assembly();
+  const viewer = Object.assign(Object.create(ModelViewer.prototype), data, {
+    meshes: [data.parent, data.child],
+    meshMap: new Map([
+      ["parent", data.parent],
+      ["child", data.child],
+    ]),
+    displayStyle: "edges",
+    displayEdges: [],
+    previewOverlay: new THREE.Group(),
+    restoreSectionSides() {},
+    applySectionMaterials() {},
+    updateDisplayEdgeColor() {},
+    clearMeasure() {},
+    clearOverlay() {},
+    highlightPart() {},
+  });
+  for (const mesh of viewer.meshes) {
+    const geometry = new THREE.BufferGeometry().setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(6), 3),
+    );
+    const edge = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial(),
+    );
+    edge.userData = { feature: geometry, wire: geometry };
+    mesh.add(edge);
+    viewer.displayEdges.push(edge);
+  }
+  viewer.parts.onChange((kind) => viewer.updateParts(kind));
+  viewer.applyDisplayStyle();
+  return viewer;
+}
+
+test("display styles keep a hidden parent surface and its edges hidden while drawing a visible child", () => {
+  const viewer = displayAssembly();
+  const parent = viewer.parts.partOfMesh("parent");
+  const child = viewer.parts.partOfMesh("child");
+  viewer.parts.setVisible(parent, false);
+  viewer.parts.setVisible(child, true);
+  for (const style of ["edges", "hidden", "wireframe", "xray", "shaded"]) {
+    viewer.setDisplayStyle(style);
+    assert.equal(viewer.parent.visible, true);
+    assert.equal(viewer.parent.material.visible, false);
+    assert.equal(viewer.child.material.visible, true);
+    assert.equal(viewer.displayEdges[0].visible, false);
+    assert.equal(
+      viewer.displayEdges[1].visible,
+      ["edges", "hidden", "wireframe"].includes(style),
+    );
+    viewer.setNeutral(true);
+    assert.equal(viewer.parent.material.visible, false);
+    viewer.setNeutral(false);
+  }
+  viewer.parts.showAll();
+  viewer.setDisplayStyle("edges");
+  assert.ok(viewer.displayEdges.every((edge) => edge.visible));
+  assert.ok(viewer.meshes.every((mesh) => mesh.material.visible));
+});
+
+test("part transparency composes with X-ray and restores source alpha through every display and plain-view toggle", () => {
+  const viewer = displayAssembly();
+  const id = viewer.parts.partOfMesh("child");
+  const original = viewer.child.userData.displayOriginal;
+  original.opacity = 0.7;
+  original.transparent = true;
+  original.alphaTest = 0.5;
+  for (const style of ["edges", "hidden", "wireframe", "xray", "shaded"]) {
+    viewer.setDisplayStyle(style);
+    viewer.parts.setTransparent(id, true);
+    for (const neutral of [true, false]) {
+      viewer.setNeutral(neutral);
+      const material = viewer.child.material;
+      assert.ok(
+        Math.abs(
+          material.opacity - 0.7 * 0.18 * (style === "xray" ? 0.24 : 1),
+        ) < 1e-12,
+      );
+      assert.equal(material.alphaTest, 0);
+      assert.equal(material.depthWrite, false);
+      assert.equal(viewer.parts.meshPickable("child"), false);
+      if (style === "xray") {
+        const shader = {
+          fragmentShader:
+            "#include <color_fragment>\n#include <opaque_fragment>",
+        };
+        material.onBeforeCompile(shader);
+        assert.match(shader.fragmentShader, /displayAlpha = diffuseColor.a/);
+        assert.match(shader.fragmentShader, /gl_FragColor.a = displayAlpha/);
+      }
+    }
+    viewer.parts.setTransparent(id, false);
+    viewer.setDisplayStyle("shaded");
+    assert.equal(viewer.child.material.opacity, 0.7);
+    assert.equal(viewer.child.material.alphaTest, 0.5);
+    assert.equal(viewer.child.material.transparent, true);
+    assert.equal(viewer.parts.meshPickable("child"), true);
+    assert.equal(original.opacity, 0.7);
+  }
+  viewer.restoreDisplayMaterials();
+  assert.equal(viewer.child.material, original);
+});

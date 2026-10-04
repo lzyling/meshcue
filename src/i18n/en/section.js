@@ -1,5 +1,5 @@
 export default {
-  "section.title": "Section",
+  "section.title": "Section view",
   "section.axis": "Model axis",
   "section.offset": "Offset",
   "section.flip": "Flip side",

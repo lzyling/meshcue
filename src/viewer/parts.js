@@ -80,7 +80,16 @@ export class PartsMethods {
       if (!!mesh.userData.partTransparent !== this.parts.meshTransparent(id))
         changed = true;
     }
-    if (changed) {
+    if (this.displayStyle) {
+      // Display styles own the temporary material copies. Rebuild those from
+      // source materials plus part state, so a style/plain-view toggle neither
+      // loses transparency nor captures a temporary opacity as the original.
+      for (const mesh of this.meshes)
+        mesh.userData.partTransparent = this.parts.meshTransparent(
+          mesh.userData.reviewId,
+        );
+      this.applyDisplayStyle();
+    } else if (changed) {
       // Plain view clones the current material. Restore it first so both the
       // original and the new plain copy inherit the same opacity, and switching
       // either viewing aid off returns exactly the source material's settings.

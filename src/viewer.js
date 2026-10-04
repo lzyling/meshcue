@@ -18,6 +18,7 @@ import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
 import { PartsMethods } from "./viewer/parts.js";
 import { NavigationMethods } from "./viewer/navigation.js";
 import { CameraMethods } from "./viewer/camera.js";
+import { DisplayModesMethods } from "./viewer/display-modes.js";
 import { DisplayMethods } from "./viewer/display.js";
 import { SectionViewMethods } from "./viewer/section-view.js";
 import { PickingMethods } from "./viewer/picking.js";
@@ -220,6 +221,7 @@ export class ModelViewer {
       capture: true,
     });
     this.initializeParts();
+    this.initializeDisplayModes();
     this.renderer.setAnimationLoop(() => this.render());
   }
   resize() {
@@ -645,6 +647,15 @@ Object.defineProperties(
   Object.fromEntries(
     Object.entries(
       Object.getOwnPropertyDescriptors(NavigationMethods.prototype),
+    ).filter(([name]) => name !== "constructor"),
+  ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.fromEntries(
+    Object.entries(
+      Object.getOwnPropertyDescriptors(DisplayModesMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
 );

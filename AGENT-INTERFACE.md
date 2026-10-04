@@ -347,10 +347,10 @@ mark, then say what to change."
   cannot be told automatically, the panel says so and gives you a sentence to
   paste into its conversation.
 
-- Section: cut along the model’s X, Y or Z axis, set the offset in model
+- Section view: cut along the model’s X, Y or Z axis, set the offset in model
   units, or flip the removed side. The amber cut face is a viewing aid and
   cannot be marked or measured. Remaining front-facing surfaces can still be
-  marked and measured. Section is a viewing aid only, is never sent to the
+  marked and measured. Section view is a viewing aid only, is never sent to the
   Agent, and resets when you load another model or version.
 
 - Navigation: double-click a surface in Orbit to set the rotation centre, or
@@ -363,6 +363,14 @@ mark, then say what to change."
   the view cube to rotate, or use its arrows for 90° steps. Shift+/ lists all
   shortcuts. View changes animate briefly unless reduced motion is preferred;
   any navigation input interrupts them.
+
+- Display styles change only how you see the model: shaded with edges (the
+  default), shaded, wireframe, hidden line, or translucent (X-ray). The choice
+  is remembered, and plain-colour view works with every style. Marks, measuring
+  and Section view keep working. Performance is off by default; turn it on to
+  see interaction FPS and frame times against the 30 FPS target, render counts
+  and GPU details. Idle means the view is still. Copy report copies device and
+  rendering statistics only, without model content or file names.
 
 - Parts lists the model’s assemblies and parts. Hover to highlight, click to
   select, or double-click to fit a part. In View, click a surface to select its

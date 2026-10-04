@@ -1,5 +1,5 @@
 export default {
-  "section.title": "Schnitt",
+  "section.title": "Schnittansicht",
   "section.axis": "Modellachse",
   "section.offset": "Versatz",
   "section.flip": "Seite umkehren",

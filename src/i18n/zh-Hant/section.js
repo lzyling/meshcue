@@ -1,5 +1,5 @@
 export default {
-  "section.title": "剖切",
+  "section.title": "剖面檢視",
   "section.axis": "模型軸",
   "section.offset": "偏移",
   "section.flip": "翻轉方向",
