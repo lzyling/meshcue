@@ -83,6 +83,17 @@ test("STEP hierarchy preserves base 15d03b0 mesh buffers, materials and b-rep fa
       assert.equal(j.nodes[root.children[0]].children.length, 3);
     }
   }
+  const unnamed = await convertStep(
+    Buffer.from(
+      fs
+        .readFileSync("tests/fixtures/grouped-colours.step", "utf8")
+        .replaceAll("'COMPOUND'", "''"),
+    ),
+  );
+  const unnamedTree = (await load(unnamed.glb, "step")).parts.list();
+  assert.equal(unnamedTree[0].name, "Part 1");
+  assert.equal(unnamedTree[1].name, "part");
+  assert.equal(unnamedTree[1].parentId, unnamedTree[0].id);
 });
 
 test("STEP assembly loading keeps every mesh id, matrix and review face identical to flat base output", async () => {

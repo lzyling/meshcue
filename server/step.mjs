@@ -184,7 +184,7 @@ function toGlb(meshes, generator, root, sourceMeshes) {
     meshes.map((mesh, i) => [sourceMeshes.indexOf(mesh), i]),
   );
   const used = new Set();
-  const branch = (part) => {
+  const branch = (part, sceneRoot = false) => {
     const children = (part.meshes || []).flatMap((index) => {
       const mesh = indices.get(index);
       if (mesh === undefined || used.has(mesh)) return [];
@@ -193,7 +193,9 @@ function toGlb(meshes, generator, root, sourceMeshes) {
     });
     for (const child of part.children || []) children.push(...branch(child));
     if (!children.length) return [];
-    if (!part.name) return children;
+    // Only OCCT's synthetic scene root is omitted. An unnamed assembly inside
+    // the file still owns its subtree and receives the viewer's stable fallback.
+    if (!part.name && sceneRoot) return children;
     if (
       children.length === 1 &&
       nodes[children[0]].mesh !== undefined &&
@@ -201,10 +203,10 @@ function toGlb(meshes, generator, root, sourceMeshes) {
     )
       return children;
     const index = nodes.length;
-    nodes.push({ name: readable(part.name), children });
+    nodes.push({ name: part.name ? readable(part.name) : undefined, children });
     return [index];
   };
-  const roots = root ? branch(root) : [];
+  const roots = root ? branch(root, true) : [];
   for (let i = 0; i < meshes.length; i++) if (!used.has(i)) roots.push(i);
 
   const json = {
