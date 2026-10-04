@@ -13,10 +13,15 @@ import {
 } from "../server/budget.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const main = fs.readFileSync(path.join(repo, "src/main.js"), "utf8");
+// The same guard now reads the feature modules that own the page budgets.
+const main = fs
+  .readdirSync(path.join(repo, "src/app"))
+  .filter((file) => file.endsWith(".js"))
+  .map((file) => fs.readFileSync(path.join(repo, "src/app", file), "utf8"))
+  .join("\n");
 const constant = (name) => {
   const found = main.match(new RegExp(`${name} = ([0-9_]+)`));
-  assert.ok(found, `${name} is no longer declared in src/main.js`);
+  assert.ok(found, `${name} is no longer declared in src/app`);
   return Number(found[1].replace(/_/g, ""));
 };
 
