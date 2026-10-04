@@ -1,3 +1,4 @@
+import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 /* The badge is the only part of this feature a reviewer ever sees, and the
    request behind it is the only one this service makes to the internet. Both
    are checked here against a stand-in upstream on loopback: a suite that
@@ -14,8 +15,8 @@ import http from "node:http";
 import path from "node:path";
 import { once } from "node:events";
 
-const repo = process.cwd(),
-  url = "http://127.0.0.1:43176";
+const repo = process.cwd();
+let url;
 let child, upstream, dir, env, asked;
 
 async function start({ tag, notes, fail = false } = {}) {
@@ -41,10 +42,11 @@ async function start({ tag, notes, fail = false } = {}) {
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: "43176",
+    PORT: "0",
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
-    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
+    REVIEW_DIST_DIR:
+      process.env.REVIEW_TEST_DIST || path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-update-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_UPDATE_CHECK: "on",
@@ -58,6 +60,7 @@ async function start({ tag, notes, fail = false } = {}) {
     env,
     stdio: ["ignore", out, out],
   });
+  url = await browserServerUrl(child, dir);
   for (let i = 0; i < 80; i++) {
     try {
       if ((await fetch(`${url}/api/health`)).ok) break;

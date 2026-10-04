@@ -1,3 +1,4 @@
+import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 /* What the reviewer is shown after pressing the button: how many marks went,
  * that the Agent read them and when, that its understanding arrived — and,
  * where the Agent cannot be woken, what to do about it, with the sentence to
@@ -10,8 +11,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { once } from "node:events";
 
-const repo = process.cwd(),
-  url = "http://127.0.0.1:43174";
+const repo = process.cwd();
+let url;
 let child, dir, env;
 
 async function start(extra = {}) {
@@ -23,10 +24,11 @@ async function start(extra = {}) {
   fs.chmodSync(path.join(bin, "openclaw"), 0o755);
   env = {
     ...process.env,
-    PORT: "43174",
+    PORT: "0",
     REVIEW_DATA_DIR: dir,
     REVIEW_MEDIA_DIR: path.join(dir, "models"),
-    REVIEW_DIST_DIR: path.join(repo, "tmp/refinement-dist"),
+    REVIEW_DIST_DIR:
+      process.env.REVIEW_TEST_DIST || path.join(repo, "tmp/refinement-dist"),
     REVIEW_SESSION_KEY: "test-only-review-session",
     REVIEW_ALLOWED_HOSTS: "review.test",
     REVIEW_UPDATE_CHECK: "off",
@@ -40,6 +42,7 @@ async function start(extra = {}) {
     env,
     stdio: ["ignore", log, log],
   });
+  url = await browserServerUrl(child, dir);
   for (let i = 0; i < 80; i++) {
     try {
       if ((await fetch(`${url}/api/health`)).ok) break;
@@ -173,7 +176,7 @@ test("where nothing can push to the Agent, the page says so and hands over the s
   const sentence = `我在 MeshCue 交了 1 个标记，请用 meshcue read 读取：submissionId ${receipt.id}`;
   await expect(page.locator("#receipt-line")).toHaveText(sentence);
   await page.screenshot({
-    path: path.join(repo, "tmp/screenshots/2026-09-29-receipt-zh-wide.png"),
+    path: path.join(dir, "2026-09-29-receipt-zh-wide.png"),
   });
   await page.locator("#receipt-copy").click();
   await expect(page.locator("#receipt-copy")).toHaveText("已复制");
@@ -234,7 +237,7 @@ test("the sentence copies without the clipboard API, and fits a narrow host pane
   });
   expect(inside).toEqual([true, true, true]);
   await page.screenshot({
-    path: path.join(repo, "tmp/screenshots/2026-09-29-receipt-zh-narrow.png"),
+    path: path.join(dir, "2026-09-29-receipt-zh-narrow.png"),
   });
   await page.locator("#receipt-copy").click();
   await expect(page.locator("#receipt-copy")).toHaveText("已复制");

@@ -36,7 +36,7 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "sync:docs": "node scripts/sync-reviewer-help.mjs",
     "test": "npm run check:i18n && node --test tests/*.test.mjs",
-    "test:browser": "npm run check:i18n && vite build --outDir tmp/refinement-dist && playwright test",
+    "test:browser": "node scripts/test-browser.mjs",
     "test:lan": "node scripts/test-lan.mjs",
     "test:package": "node tests/package-smoke.mjs",
     "samples": "node scripts/generate-samples.mjs",

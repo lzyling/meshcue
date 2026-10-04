@@ -1786,3 +1786,9 @@ dialog .muted {
   flex-basis: 100%;
   color: var(--ink-muted);
 }
+
+/* Slots give features an insertion point without adding boxes to the toolbar's
+   existing flex layout. The buttons keep their original spacing and sizing. */
+[data-toolbar-slot] {
+  display: contents;
+}

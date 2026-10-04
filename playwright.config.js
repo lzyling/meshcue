@@ -2,6 +2,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
   workers: 1,
+  outputDir: process.env.MESHCUE_BROWSER_RUN
+    ? `${process.env.MESHCUE_BROWSER_RUN}/results`
+    : "test-results",
   timeout: 60000,
   expect: { timeout: 12000 },
   // Identical test code went green on one commit and red on the next, with only
