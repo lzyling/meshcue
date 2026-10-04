@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { planarFaces } from "../planar-fill.js";
 import {
   easeNavigation,
   fitFrame,
@@ -161,7 +162,10 @@ export class NavigationMethods {
       const rect = this.container.getBoundingClientRect();
       this.pivotDot.style.transform = `translate(${x - rect.left}px, ${y - rect.top}px)`;
     }
-    if (this.mode !== "orbit") this.navigationHover = false;
+    if (this.mode !== "orbit") {
+      this.navigationHover = false;
+      this.navigationHoverTarget = null;
+    }
     if (
       this.mode !== "orbit" ||
       !this.enabled ||
@@ -173,19 +177,36 @@ export class NavigationMethods {
     }
     if (!this.navigationHoverDirty) return;
     this.navigationHoverDirty = false;
-    // previewFill performs exactly one section-aware raycast, then uses the
-    // bucket's connected-face definition. It never hits a synthetic cap.
+    // Share the bucket's connected-face definition, but the measurement
+    // hover's plain green tint: stripes would imply a mark had been placed.
+    // Picking occurs once per dirty frame and uses the section-aware ray.
+    const hit = this.rayAt(...this.navigationPointer);
+    if (!hit) return this.clearNavigationHover();
+    const mesh = hit.object;
+    const seed = mesh.geometry.userData.sourceFaces[hit.faceIndex];
     this.previewOverlay.visible = true;
-    this.previewFill(...this.navigationPointer);
-    for (const overlay of this.previewOverlay.children)
-      overlay.material = this.markMaterial("#2e9e78", true);
+    if (
+      this.navigationHoverTarget?.mesh === mesh &&
+      this.navigationHoverTarget.seed === seed
+    )
+      return;
+    this.clearNavigationHover();
+    const faces = planarFaces(
+      mesh.userData.fillTopology,
+      seed,
+      this.fillTolerance,
+    );
+    this.addFaces(this.previewOverlay, mesh, faces, true);
+    this.navigationHoverTarget = { mesh, seed };
+    this.navigationHoverFaces = faces.length;
     this.navigationHover = true;
   }
 
   clearNavigationHover() {
     if (!this.navigationHover) return;
     this.clearOverlay(this.previewOverlay);
-    this.fillTarget = null;
+    this.navigationHoverTarget = null;
+    this.navigationHoverFaces = 0;
     this.navigationHover = false;
   }
 

@@ -12,7 +12,7 @@ export function bindNavigation(review) {
     visibleHeight: viewer.navigationHeight(),
     animating: !!viewer.navigationAnimation,
     damping: viewer.controls.enableDamping,
-    hoverFaces: viewer.navigationHover ? viewer.fillPatches?.length || 0 : 0,
+    hoverFaces: viewer.navigationHover ? viewer.navigationHoverFaces || 0 : 0,
     bounds: boxCorners(viewer.visibleNavigationBounds()).map((point) =>
       point.project(viewer.camera).toArray(),
     ),

@@ -723,10 +723,8 @@ export class MarksMethods {
   animateEcho() {
     const core = this.lineMaterials.get("echo-core");
     if (!core || !this.agentOverlay.children.length) return;
-    const distance = this.camera.position.distanceTo(this.controls.target);
     const worldPerPixel =
-      (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) /
-      Math.max(1, this.container.clientHeight);
+      this.navigationHeight() / Math.max(1, this.container.clientHeight);
     core.dashScale = 1 / worldPerPixel;
     const still = this.reduceMotion.matches;
     const now = performance.now();
