@@ -5,7 +5,7 @@ import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError, atomicJson } from "./store.mjs";
 import { convertStepDetached, STEP_FORMATS } from "./step.mjs";
 import { packGltf } from "./gltf-pack.mjs";
-import { compressionViews } from "./gltf-compression.mjs";
+import { compressionViews, prepareCompression } from "./gltf-compression.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -347,6 +347,7 @@ export async function importModel(
     buffer = packGltf(buffer, actual, workspace, MAX_BYTES);
     format = "glb";
   }
+  await prepareCompression(buffer, format);
   const hash = sha256(buffer);
   const step = STEP_FORMATS.includes(format);
   const { derived, ...metadata } = inspectModel(buffer, format, {

@@ -1,4 +1,8 @@
-import test from "node:test";
+import test, { before } from "node:test";
+import { initializeCompression } from "../server/gltf-compression.mjs";
+
+// Production callers prepare compressed files at their async entry point.
+before(() => initializeCompression());
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

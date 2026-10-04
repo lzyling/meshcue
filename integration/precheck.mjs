@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { prepareCompression } from "../server/gltf-compression.mjs";
 import { packGltf } from "../server/gltf-pack.mjs";
 import path from "node:path";
 import {
@@ -112,7 +113,8 @@ export function precheckModel(ctx, file, { derived } = {}) {
   };
 }
 
-/* What every entry point awaits before measuring, and the reason none of them
+/* Prepares compressed GLBs as well as STEP meshes before synchronous inspection.
+   What every entry point awaits before measuring, and the reason none of them
    loads a CAD kernel any more.
 
    It decides nothing. A bad path, a directory, a file over the size limit, a
@@ -122,15 +124,19 @@ export function precheckModel(ctx, file, { derived } = {}) {
    cost two places that can disagree about the same file. The one thing it must
    not do is tessellate something the size check is about to reject anyway. */
 export async function stepMeshFor(ctx, file) {
-  let source;
+  let source, format;
   try {
-    const { allowed } = workspaceContext(ctx);
+    const { allowed, workspace } = workspaceContext(ctx);
     const actual = scopedPath(allowed, file);
-    const format = path.extname(actual).slice(1).toLowerCase();
-    if (!STEP_FORMATS.includes(format)) return undefined;
+    format = path.extname(actual).slice(1).toLowerCase();
+    if (![...STEP_FORMATS, "glb", "gltf"].includes(format)) return undefined;
     const stat = fs.statSync(actual);
     if (!stat.isFile() || stat.size > MAX_BYTES) return undefined;
     source = fs.readFileSync(actual);
+    if (format === "gltf") {
+      source = packGltf(source, actual, workspace, MAX_BYTES);
+      format = "glb";
+    }
   } catch {
     return undefined;
   }
@@ -139,5 +145,9 @@ export async function stepMeshFor(ctx, file) {
      cannot run is not one of those, and swallowing it here would report a
      broken installation as a puzzling refusal about the model. That is exactly
      what a wider catch did to the first package built from this change. */
+  if (format === "glb") {
+    await prepareCompression(source, format);
+    return undefined;
+  }
   return convertStepDetached(source);
 }
