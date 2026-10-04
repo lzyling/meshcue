@@ -8,15 +8,13 @@ const POLE_OFFSET = 1e-4;
 export class CameraMethods {
   setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
+    this.controls.enableDamping = false;
+    this.controls.zoomToCursor = true;
     this.controls.minDistance = 0.15;
     this.controls.maxDistance = 18;
-    /* The left button belongs to marking, in every mode. It used to be shared
-       with the camera, which is why painting meant either holding Option to
-       steal a rotation or switching tools to turn the model and switching back.
-       Rotation moves to the right button, panning to the middle one. */
+    // View mode lends the left button to the camera; marking keeps it.
     this.controls.mouseButtons = {
-      LEFT: null,
+      LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.PAN,
       RIGHT: THREE.MOUSE.ROTATE,
     };
@@ -33,30 +31,44 @@ export class CameraMethods {
      So the wheel means one thing on every device: zoom, which is what a wheel
      is for and what a two-finger glide does on every other page. Pan is Shift
      plus the same gesture, and stays on the middle button for anyone holding a
-     mouse. Pinch keeps zooming for free — the browser reports it as a ctrl-held
-     wheel, which OrbitControls already dollies.
+     mouse. Trackpad pinch arrives as a ctrl-held wheel and uses the same
+     surface-anchored zoom as a physical wheel.
 
      Handled in the capture phase so OrbitControls, which would otherwise dolly
-     on every wheel event, never sees the ones that mean something else here. */
+     on every wheel event, never applies a second zoom after our cursor fit. */
   wheel(e) {
-    if (!this.enabled || !e.shiftKey) return;
+    if (!this.enabled) return;
     e.preventDefault();
     e.stopPropagation();
     /* Shift+wheel is the browser's horizontal-scroll convention, so a device
        with one axis has it delivered in `deltaX` on some platforms and `deltaY`
        on others. A pan is two-dimensional either way: move by whatever axes
        arrive and it follows the gesture on both. */
-    this.panBy(e.deltaX, e.deltaY);
+    if (e.shiftKey) this.panBy(e.deltaX, e.deltaY);
+    else
+      this.zoomNavigation(
+        Math.exp(
+          Math.max(
+            -2,
+            Math.min(
+              2,
+              e.deltaY *
+                (e.deltaMode === 1 ? 0.016 : 0.001) *
+                (e.ctrlKey ? 4 : 1),
+            ),
+          ),
+        ),
+        e.clientX,
+        e.clientY,
+      );
     this.render();
   }
   /* The same arithmetic OrbitControls uses for its own panning: screen pixels
      scaled by how much world the camera covers at the distance it is orbiting. */
   panBy(dx, dy) {
     const height = this.renderer.domElement.clientHeight || 1;
-    const distance = this.camera.position.distanceTo(this.controls.target);
-    const perPixel =
-      (2 * distance * Math.tan(((this.camera.fov / 2) * Math.PI) / 180)) /
-      height;
+    this.cancelNavigation();
+    const perPixel = this.navigationHeight() / height;
     const right = new V().setFromMatrixColumn(this.camera.matrix, 0),
       up = new V().setFromMatrixColumn(this.camera.matrix, 1);
     const shift = right
@@ -70,6 +82,9 @@ export class CameraMethods {
     return {
       position: this.camera.position.toArray(),
       target: this.controls.target.toArray(),
+      ...(this.camera.isOrthographicCamera
+        ? { projection: "orthographic", visibleHeight: this.navigationHeight() }
+        : {}),
     };
   }
   // Which way the top of the screen points in the world. `camera.up` is only
@@ -109,10 +124,22 @@ export class CameraMethods {
       up,
       fov: Number(this.camera.fov.toPrecision(6)),
       aspect: Number(this.camera.aspect.toPrecision(6)),
+      ...(this.camera.isOrthographicCamera
+        ? {
+            projection: "orthographic",
+            visibleHeight: round(this.navigationHeight() / this.root.scale.x),
+          }
+        : {}),
     };
   }
   restoreCamera(data) {
     if (!data) return;
+    this.cancelNavigation();
+    if (data.projection === "orthographic")
+      this.setProjection("orthographic", false);
+    if (this.camera.isOrthographicCamera && data.visibleHeight > 0)
+      this.camera.zoom =
+        (this.camera.top - this.camera.bottom) / data.visibleHeight;
     this.camera.position.fromArray(data.position);
     this.controls.target.fromArray(data.target);
     this.controls.update();
@@ -123,12 +150,8 @@ export class CameraMethods {
     const damping = this.controls.enableDamping;
     this.controls.enableDamping = false;
     this.controls.update();
-    this.camera.position.set(4, 2.8, 5);
-    this.controls.target.set(0, 0, 0);
-    // Nothing moves the up vector any more (see `viewFrom`); kept so that
-    // nothing that ever does can outlive a trip home.
     this.camera.up.set(0, 1, 0);
-    this.controls.update();
+    this.fitAll({ direction: new V(4, 2.8, 5) });
     this.controls.enableDamping = damping;
   }
   /* Where the camera sits relative to what it is looking at, as the two angles
@@ -159,7 +182,7 @@ export class CameraMethods {
     this.controls.enableDamping = false;
     this.controls.update();
     const target = this.controls.target;
-    const distance = Math.max(this.camera.position.distanceTo(target), 0.2);
+    const distance = this.camera.position.distanceTo(target);
     /* Straight down or straight up leaves the up vector parallel to the view,
        where it no longer says which way is up. This used to lay the up vector
        along the floor instead, and OrbitControls reads it once, when it is
@@ -169,13 +192,12 @@ export class CameraMethods {
        on the +Z side draws the same picture -- -Z at the top of the screen
        from above, +Z from below -- and the orbit never changes axis. */
     const vertical = Math.abs(y) > 0.9 && !x && !z;
-    this.camera.position
+    const position = new V()
       .set(x, y, vertical ? Math.abs(y) * Math.tan(POLE_OFFSET) : z)
       .normalize()
       .multiplyScalar(distance)
       .add(target);
-    this.camera.lookAt(target);
-    this.controls.update();
+    this.animateNavigation(position, target.clone());
     this.controls.enableDamping = damping;
   }
 }

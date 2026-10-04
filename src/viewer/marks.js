@@ -325,13 +325,7 @@ export class MarksMethods {
       else if (moved) {
         pin.unoccluded = false;
         if (inView) {
-          this.ray.set(
-            this.camera.position,
-            this.scratch.direction
-              .copy(world)
-              .sub(this.camera.position)
-              .normalize(),
-          );
+          this.navigationRayTo(world);
           const hit = sectionIntersection(
             this.sectionHits(),
             this.sectionClips?.[0],
@@ -340,7 +334,7 @@ export class MarksMethods {
           );
           pin.unoccluded =
             !hit ||
-            hit.distance >= this.camera.position.distanceTo(world) - 0.015;
+            hit.distance >= this.ray.ray.origin.distanceTo(world) - 0.015;
         }
       }
       pin.el.hidden =

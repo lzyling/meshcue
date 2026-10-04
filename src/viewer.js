@@ -15,6 +15,7 @@ import { sourceVertexNormals } from "./outline.js";
 import { brepTopology } from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
+import { NavigationMethods } from "./viewer/navigation.js";
 import { CameraMethods } from "./viewer/camera.js";
 import { DisplayMethods } from "./viewer/display.js";
 import { SectionViewMethods } from "./viewer/section-view.js";
@@ -197,6 +198,7 @@ export class ModelViewer {
     this.enabled = false;
     this.loadingEpoch = 0;
     this.pendingFrame = null;
+    this.setupNavigation();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     const canvas = this.renderer.domElement;
@@ -607,4 +609,9 @@ Object.defineProperties(
       Object.getOwnPropertyDescriptors(EditingMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.fromEntries(Object.entries(Object.getOwnPropertyDescriptors(NavigationMethods.prototype)).filter(([name]) => name !== "constructor")),
 );
