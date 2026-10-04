@@ -10,4 +10,5 @@ The browser receives the same bytes through Vite's local asset URL.
 
 Meshopt is imported from Three's `meshopt_decoder.module.js` by both the server
 and viewer. That module includes its WASM and MIT notice; it needs no remote
-resource. No page security policy is changed.
+resource. Its full license is copied into the package as `LICENSE.meshopt.txt`.
+No page security policy is changed.
