@@ -13,7 +13,10 @@ disableTypes(
 
 export const MAX_BYTES = 80 * 1024 * 1024;
 export const MAX_TRIANGLES = 600000;
-export const MAX_TEXTURE_PIXELS = 33554432;
+export const MAX_TEXTURE_BYTES = 384 * 1024 * 1024;
+// Keep the pixel ceiling available to existing 1.x callers, expressed in the
+// same RGBA8-with-mipmaps estimate that now enforces the budget.
+export const MAX_TEXTURE_PIXELS = MAX_TEXTURE_BYTES / ((4 * 4) / 3);
 // There was a second threshold here, at half the cap, where the review
 // tessellation runs out of subdivision budget. It existed for the brush, whose
 // strokes were stored against the refined triangles. The brush was shelved in
@@ -131,6 +134,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
       offset += 8 + size;
     }
     let texturePixels = 0;
+    let textureBytes = 0;
     for (const image of doc.images || []) {
       let bytes;
       if (image.uri?.startsWith("data:")) {
@@ -179,15 +183,16 @@ export function inspectModel(buffer, format, { derived } = {}) {
         );
       }
       texturePixels += dimensions.width * dimensions.height;
+      textureBytes += (dimensions.width * dimensions.height * 4 * 4) / 3;
       if (
         dimensions.width > 8192 ||
         dimensions.height > 8192 ||
-        texturePixels > MAX_TEXTURE_PIXELS
+        textureBytes > MAX_TEXTURE_BYTES
       )
         throw limitError(
-          `Texture decoding exceeds the limit: 8192×8192 per image and ${MAX_TEXTURE_PIXELS} pixels in total, against ${texturePixels} here. Reduce the textures — 4K or below is a good target.`,
+          `Texture decoding exceeds the limit: 8192×8192 per image and ${MAX_TEXTURE_BYTES / 1048576} MiB estimated GPU memory (RGBA8 plus mipmaps), against ${(textureBytes / 1048576).toFixed(1)} MiB here. Reduce the textures.`,
           "TEXTURE_LIMIT",
-          { texturePixels },
+          { texturePixels, textureBytes },
         );
     }
     if (
@@ -201,25 +206,52 @@ export function inspectModel(buffer, format, { derived } = {}) {
         "ANIMATED_MODEL",
       );
     let triangles = 0;
+    let skippedPrimitives = 0;
     for (const node of doc.nodes || []) {
       if (node.mesh === undefined) continue;
       for (const prim of doc.meshes?.[node.mesh]?.primitives || []) {
-        if (prim.mode !== undefined && prim.mode !== 4)
+        const mode = prim.mode === undefined ? 4 : prim.mode;
+        if ([0, 1, 2, 3].includes(mode)) {
+          skippedPrimitives++;
+          continue;
+        }
+        if (![4, 5, 6].includes(mode))
           throw new ReviewError("Only triangle meshes are accepted.", 400);
         const count =
           doc.accessors?.[prim.indices ?? prim.attributes?.POSITION]?.count;
-        if (!Number.isFinite(count) || count < 3 || count % 3 !== 0)
+        if (
+          !Number.isInteger(count) ||
+          count < 0 ||
+          (mode === 4 && (count < 3 || count % 3 !== 0))
+        )
           throw new ReviewError("The model triangle data is incomplete.", 400);
-        triangles += count / 3;
+        triangles += mode === 4 ? count / 3 : Math.max(0, count - 2);
       }
     }
-    if (!triangles || triangles > MAX_TRIANGLES)
-      throw limitError(
+    const notices = skippedPrimitives
+      ? [
+          {
+            code: "SKIPPED_PRIMITIVES",
+            message: `Skipped ${skippedPrimitives} point/line primitives; only triangle surfaces are shown and counted.`,
+          },
+        ]
+      : undefined;
+    if (!triangles || triangles > MAX_TRIANGLES) {
+      const error = limitError(
         `The limit is ${MAX_TRIANGLES} triangles; this model has ${triangles}. Simplify below ${MAX_TRIANGLES} and publish again.`,
         "MODEL_LIMIT",
         { triangles },
       );
-    return { triangles, format, texturePixels };
+      if (notices) error.notices = notices;
+      throw error;
+    }
+    return {
+      triangles,
+      format,
+      texturePixels,
+      textureBytes,
+      ...(notices ? { notices } : {}),
+    };
   }
   if (format === "stl") {
     let triangles =

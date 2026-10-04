@@ -159,7 +159,36 @@ Mention a conspicuous number; never delete one yourself.
 | -------------- | ------------------------------------ | ----------------------------------------------- |
 | Triangles      | **600,000**                          | refused, `MODEL_LIMIT`, with the measured count |
 | File size      | **80 MB**                            | refused, `MODEL_LIMIT`, with the measured size  |
-| Texture pixels | 8192×8192 each, **33,554,432** total | refused, `TEXTURE_LIMIT`                        |
+| Textures | 8192×8192 each, **384 MiB** estimated GPU memory | refused, `TEXTURE_LIMIT`, with the estimate in MiB |
+
+Texture memory is estimated per embedded image as `width * height * 4 * 4 / 3`
+(RGBA8 plus its mip chain), summed over the GLB's images as before. Four 4K
+images or one 8K image use about 341.3 MiB and fit; five 4K images use about
+426.7 MiB and are refused. `precheck.limits.maxTextureBytes` reports this
+budget and a successful GLB precheck adds `textureBytes`. The existing
+`texturePixels` measurement and numeric `limits.maxTexturePixels` remain;
+the latter now gives the equivalent pixel ceiling for this estimate.
+
+GLB triangle lists (mode 4 or omitted), strips (5) and fans (6) are accepted.
+Strips and fans count as `max(0, index-or-vertex-count - 2)` triangles, in the
+same face order GLTFLoader draws and the page uses for marks. Points and lines
+(modes 0–3) are skipped before drawing or fitting the model. Other modes are
+still refused, and a model with no remaining triangles is refused with
+`MODEL_LIMIT`.
+
+When primitives are skipped, `precheck`, publish and `open` add an optional
+`notices` array (absent when there is nothing to report), for example:
+
+```json
+{"notices":[{"code":"SKIPPED_PRIMITIVES","message":"Skipped 4 point/line primitives; only triangle surfaces are shown and counted."}]}
+```
+
+Tell the reviewer about this notice: construction geometry is excluded from
+both the view and the count. The count in the notice is primitive occurrences
+on mesh nodes, not vertices. A zero-triangle or over-triangle-limit precheck
+also includes the notice when applicable. Reopening a published model keeps
+its notice; publishing without activating reports the newly published model's
+notice.
 
 These are the only limits. Nothing degrades quietly under them: a mark names a
 source face, and the review mesh's own tessellation never enters the answer.

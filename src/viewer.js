@@ -1,3 +1,4 @@
+import { removeNonTrianglePrimitives } from "./glb-primitives.js";
 import { modelDigest } from "./browser-crypto.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -672,6 +673,7 @@ export class ModelViewer {
     if (shown.format === "glb") {
       const gltf = await new GLTFLoader().parseAsync(data, "");
       object = gltf.scene;
+      removeNonTrianglePrimitives(object);
       if (declaresNoMaterials(data)) {
         const grey = reviewGrey();
         object.traverse((o) => {
@@ -718,7 +720,7 @@ export class ModelViewer {
     });
     const faces = source.map(
       (o) =>
-        (o.geometry.index?.count || o.geometry.attributes.position.count) / 3,
+        (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3,
     );
     for (const o of source)
       if (
@@ -804,7 +806,7 @@ export class ModelViewer {
       id: o.userData.reviewId,
       name: o.name || o.userData.reviewId,
       triangles:
-        (o.geometry.index?.count || o.geometry.attributes.position.count) / 3,
+        (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3,
       sourceTriangles: o.geometry.userData.sourceTriangles,
       surfaceAlgorithm: SURFACE_ALGORITHM,
       matrixWorld: o.matrixWorld.toArray(),

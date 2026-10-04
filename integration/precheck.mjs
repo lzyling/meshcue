@@ -5,6 +5,7 @@ import {
   MAX_BYTES,
   MAX_TRIANGLES,
   MAX_TEXTURE_PIXELS,
+  MAX_TEXTURE_BYTES,
 } from "../server/models.mjs";
 import { convertStepDetached, STEP_FORMATS } from "../server/step.mjs";
 import { workspaceContext, scopedPath, fail } from "./context.mjs";
@@ -44,6 +45,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
     maxTriangles: MAX_TRIANGLES,
     maxBytes: MAX_BYTES,
     maxTexturePixels: MAX_TEXTURE_PIXELS,
+    maxTextureBytes: MAX_TEXTURE_BYTES,
   };
   const base = {
     ok: true,
@@ -74,6 +76,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
       triangles: over,
       verdict: "reject",
       reason: error.message,
+      ...(error.notices ? { notices: error.notices } : {}),
       // The ratio comes from the measured count, so a caller decimates once and
       // publishes, instead of guessing and republishing until one happens to fit.
       simplify: over
@@ -86,8 +89,14 @@ export function precheckModel(ctx, file, { derived } = {}) {
           : null,
     };
   }
-  const { triangles, texturePixels = 0 } = metadata;
-  const result = { ...base, triangles, texturePixels };
+  const { triangles, texturePixels = 0, textureBytes, notices } = metadata;
+  const result = {
+    ...base,
+    triangles,
+    texturePixels,
+    ...(textureBytes !== undefined ? { textureBytes } : {}),
+    ...(notices ? { notices } : {}),
+  };
   return {
     ...result,
     verdict: "ok",

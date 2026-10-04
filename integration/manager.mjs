@@ -814,6 +814,9 @@ export class InstanceManager {
           active: state.active,
           versions: state.versions,
           publication: published?.status || "unchanged",
+          ...((published ? published.notices : state.active?.notices)
+            ? { notices: published ? published.notices : state.active.notices }
+            : {}),
           // What the page calls you; null means its own word for an agent.
           agentName: state.agentName ?? null,
           // The tool the page writes after that name, when the two differ.
