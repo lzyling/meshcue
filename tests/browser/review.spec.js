@@ -717,7 +717,7 @@ test("review page has no conversation copy, history polling or second message in
   expect(fs.existsSync(path.join(dir, "fake-gateway.json"))).toBe(false);
 });
 
-test("the looking tool places nothing, and the right button is what rotates", async ({
+test("the looking tool places nothing while either left or right drag rotates", async ({
   page,
 }) => {
   await ready(page);
@@ -727,9 +727,8 @@ test("the looking tool places nothing, and the right button is what rotates", as
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(0);
-  // The left button used to rotate as well as mark, which is why painting had
-  // to borrow Option or change tools to turn the model. It is the marker's now
-  // and nothing else, so dragging it moves no camera.
+  // View mode now lends the otherwise unused left button to the camera.
+  // Marking tools keep their left button, covered separately below.
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   await page.mouse.move(p.x + 45, p.y + 20, { steps: 6 });
@@ -737,7 +736,7 @@ test("the looking tool places nothing, and the right button is what rotates", as
   await page.waitForTimeout(350);
   const dragged = await page.evaluate(() => window.__reviewDiagnostics());
   expect(dragged.annotationCount).toBe(0);
-  expect(dragged.camera).toEqual(before);
+  expect(dragged.camera).not.toEqual(before);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down({ button: "right" });
   await page.mouse.move(p.x + 45, p.y + 20, { steps: 6 });
@@ -745,10 +744,13 @@ test("the looking tool places nothing, and the right button is what rotates", as
   await page.waitForTimeout(350);
   const moved = await page.evaluate(() => window.__reviewDiagnostics());
   expect(moved.annotationCount).toBe(0);
-  expect(moved.camera).not.toEqual(before);
+  expect(moved.camera).not.toEqual(dragged.camera);
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   /* Everything above happened in the looking tool, which is why none of it
      made a mark: turning the model can no longer produce one by accident.
      Placing is a tool you choose, and then one click is enough. */

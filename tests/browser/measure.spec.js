@@ -110,6 +110,11 @@ async function open(page, units, file = writePlate()) {
 // Where a point of the plate is on the screen, from the camera the page holds.
 // A GLB is not stood up: its (x, y, z) is the preview's 0.15 × (x, y, z).
 async function screenOf(page, [x, y, z], format) {
+  // Cube changes now animate. Sample screen coordinates only once the camera
+  // has arrived, so the following click still tests the intended source face.
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   const d = await page.evaluate(() => window.__reviewDiagnostics());
   const box = await page.locator("#viewer").boundingBox();
   const camera = new THREE.PerspectiveCamera(
