@@ -6,11 +6,12 @@ export default {
   "section.offset": "Offset",
   "section.flip": "Flip side",
   "section.off": "Off / reset",
-  "section.hint": "Amber shows back faces, not a surface at the cut.",
+  "section.hint":
+    "Amber marks the cut face: a viewing aid that cannot be marked or measured.",
   "help.p12":
-    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Amber back faces help closed solids look filled; they are behind the plane and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
+    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
   "help.p12.named":
-    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Amber back faces help closed solids look filled; they are behind the plane and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
+    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
 
   "agent.withTool": "{name} ({tool})",
 

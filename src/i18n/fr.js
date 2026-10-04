@@ -7,11 +7,11 @@ export default {
   "section.flip": "Inverser le côté",
   "section.off": "Désactiver / réinitialiser",
   "section.hint":
-    "L’ambre montre les faces arrière, pas une surface sur le plan de coupe.",
+    "La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée.",
   "help.p12":
-    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces arrière ambrées donnent aux solides fermés un aspect rempli ; elles sont derrière le plan et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
   "help.p12.named":
-    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces arrière ambrées donnent aux solides fermés un aspect rempli ; elles sont derrière le plan et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
 
   "agent.withTool": "{name} ({tool})",
 

@@ -70,24 +70,36 @@ const hit = (z, normal = new V(0, 0, 1), matrixWorld = identity) => ({
 });
 const plane = sectionPlane({ axis: "z", offset: 0 }, identity);
 const direction = new V(0, 0, -1);
+const origin = new V(0, 0, 5);
 test("section picking discards removed hits and accepts exposed front faces", () => {
-  const hits = [hit(3), hit(-1), hit(-3)];
-  assert.equal(sectionPick(hits, plane, direction), hits[1]);
-  assert.equal(sectionPick(hits, null, direction), hits[0]);
-  assert.equal(sectionPick([hit(3)], plane, direction), null);
+  const hits = [hit(3), hit(-1), hit(-3, new V(0, 0, -1))];
+  assert.equal(sectionPick(hits, plane, direction, origin), hits[1]);
+  assert.equal(sectionPick(hits, null, direction, origin), hits[0]);
+  assert.equal(sectionPick([hit(3)], plane, direction, origin), null);
 });
 test("section fill blocks marking and occludes geometry behind it", () => {
-  const hits = [hit(3), hit(-1, new V(0, 0, -1)), hit(-3)];
-  assert.equal(sectionPick(hits, plane, direction), null);
-  assert.equal(sectionIntersection(hits, plane), hits[1]);
-  assert.equal(sectionPick([], plane, direction), null);
+  const hits = [
+    hit(3),
+    hit(-1, new V(0, 0, -1)),
+    hit(-3),
+    hit(-4, new V(0, 0, -1)),
+  ];
+  assert.equal(sectionPick(hits, plane, direction, origin), null);
+  const cap = sectionIntersection(hits, plane, direction, origin);
+  assert.equal(cap.sectionCap, true);
+  assert.equal(cap.distance, 5);
+  assert.deepEqual(cap.point.toArray(), [0, 0, 0]);
+  assert.equal(sectionPick([], plane, direction, origin), null);
 });
 test("section picking transforms face normals into the ray's world frame", () => {
   const turn = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
   const face = hit(-1, new V(0, -1, 0), turn);
-  assert.equal(sectionPick([face], plane, direction), face);
+  assert.equal(
+    sectionPick([face, hit(-3, new V(0, 0, -1))], plane, direction, origin),
+    face,
+  );
   face.face.normal.negate();
-  assert.equal(sectionPick([face], plane, direction), null);
+  assert.equal(sectionPick([face], plane, direction, origin), null);
 });
 test("measurement corner snapping cannot jump onto the removed side", () => {
   const mesh = new THREE.Mesh(new THREE.BufferGeometry());
@@ -175,4 +187,63 @@ test("section restores shared and array material sides and clips cached overlays
   front.dispose();
   back.dispose();
   line.dispose();
+});
+
+test("aggregate cap blocks a retained front face inside an overlapping solid", () => {
+  const hits = [
+    hit(3),
+    hit(-1),
+    hit(-2, new V(0, 0, -1)),
+    hit(-4, new V(0, 0, -1)),
+  ];
+  assert.equal(sectionPick(hits, plane, direction, origin), null);
+  assert.equal(sectionIntersection(hits, plane, direction, origin).distance, 5);
+});
+
+test("aggregate cap cancels a cavity exported as separate face meshes", () => {
+  const hits = [hit(-1), hit(-4, new V(0, 0, -1))];
+  assert.equal(sectionPick(hits, plane, direction, origin), hits[0]);
+  assert.equal(sectionIntersection(hits, plane, direction, origin), hits[0]);
+});
+
+test("retained surfaces nearer than the cap win from the retained side", () => {
+  const from = new V(0, 0, -5),
+    toward = new V(0, 0, 1);
+  const hits = [hit(-4, new V(0, 0, -1)), hit(4)];
+  assert.equal(sectionPick(hits, plane, toward, from), hits[0]);
+});
+
+test("tessellation diagonals count once while touching shell crossings cancel", () => {
+  const front = hit(-1),
+    back = hit(-1, new V(0, 0, -1));
+  const exit = hit(-4, new V(0, 0, -1));
+  assert.equal(
+    sectionPick([front, back, exit], plane, direction, origin),
+    null,
+  );
+  // Duplicate triangles in one mesh must not turn a cavity into a filled cap.
+  const duplicate = { ...front, face: { normal: front.face.normal.clone() } };
+  assert.equal(
+    sectionPick([front, duplicate, exit], plane, direction, origin),
+    front,
+  );
+});
+
+test("cap occlusion rejects hidden snap targets and restores the pointer ray", () => {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2));
+  mesh.updateMatrixWorld();
+  const ray = new THREE.Raycaster(new V(2, 3, 4), new V(1, 0, 0));
+  const previous = ray.ray.clone();
+  const viewer = Object.assign(Object.create(ModelViewer.prototype), {
+    section: {},
+    sectionClips: [plane],
+    meshes: [mesh],
+    ray,
+    camera: { position: origin },
+  });
+  assert.equal(viewer.sectionOccludes(new V(0, 0, -1)), true);
+  assert.equal(viewer.sectionOccludes(new V(0, 0, 1)), false);
+  assert.deepEqual(ray.ray, previous);
+  mesh.geometry.dispose();
+  mesh.material.dispose();
 });
