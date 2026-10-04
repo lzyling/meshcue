@@ -41,7 +41,14 @@ test("registered shortcuts respect typing and modal focus and retain undo, redo 
     // The section number input is hidden until its viewing aid is enabled.
     if (selector === "#section-offset")
       await page.locator("#section-toggle").click();
+    /* Focus only lands on what is shown. The note box appears once the new
+       mark is selected, and on a slower runner that can come after the click
+       returns: focusing it early left focus on a toolbar button, where Ctrl+Z
+       rightly undoes, and the test blamed the shortcut. Wait for the field,
+       and prove it holds focus, before pressing the key. */
+    await expect(page.locator(selector)).toBeVisible();
     await page.locator(selector).focus();
+    await expect(page.locator(selector)).toBeFocused();
     await kit.key("Control+z");
     expect(await count()).toBe(1);
   }
