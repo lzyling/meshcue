@@ -1810,6 +1810,10 @@ dialog .muted {
 .orient-stage {
   position: relative;
   touch-action: none;
+  /* Reserve the cube's complete projected reach before placing the arrows;
+     otherwise a visible corner can lose every clickable pixel to an arrow. */
+  width: calc(var(--orient-reach) + 48px);
+  height: calc(var(--orient-reach) + 48px);
 }
 .navigation-arrow {
   position: absolute;
@@ -1825,19 +1829,19 @@ dialog .muted {
   cursor: pointer;
 }
 .navigation-arrow-left {
-  left: -5px;
+  left: 0;
   top: calc(50% - 11px);
 }
 .navigation-arrow-right {
-  right: -5px;
+  right: 0;
   top: calc(50% - 11px);
 }
 .navigation-arrow-up {
-  top: -3px;
+  top: 0;
   left: calc(50% - 11px);
 }
 .navigation-arrow-down {
-  bottom: -3px;
+  bottom: 0;
   left: calc(50% - 11px);
 }
 .navigation-projection {
@@ -1868,7 +1872,9 @@ dialog .muted {
 #navigation-shortcuts dl {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 8px 24px;
+  gap: 5px 24px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 #navigation-shortcuts dt {
   font-family: monospace;
@@ -1878,5 +1884,5 @@ dialog .muted {
 }
 
 .viewer-top {
-  padding-right: calc(var(--orient-reach) + 85px);
+  padding-right: calc(var(--orient-reach) + 133px);
 }

@@ -4,6 +4,12 @@ import { t } from "../i18n/index.js";
 
 export function bindNavigation(review) {
   const viewer = review.viewer;
+  // Cursor zoom consumes the wheel before it bubbles to the document. Keep
+  // trusted navigation activity on the same renewal path as other input.
+  viewer.renderer.domElement.addEventListener("wheel", review.noteActivity, {
+    capture: true,
+    passive: true,
+  });
   // Read-only inspection follows the existing review diagnostics convention.
   window.__navigationDiagnostics = () => ({
     projection: viewer.camera.isOrthographicCamera
@@ -135,6 +141,12 @@ export function bindNavigation(review) {
           (Array.isArray(command.shortcuts)
             ? command.shortcuts.join(" / ")
             : command.shortcuts);
+        key.textContent = key.textContent
+          .replaceAll("Mod+", "Ctrl/⌘+")
+          .replaceAll("ArrowLeft", "←")
+          .replaceAll("ArrowRight", "→")
+          .replaceAll("ArrowUp", "↑")
+          .replaceAll("ArrowDown", "↓");
         label.textContent = t(command.labelKey);
         list.append(key, label);
       }

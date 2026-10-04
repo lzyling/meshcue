@@ -134,6 +134,10 @@ test("navigation orthographic choice persists and saved marks retain model-space
   await page.mouse.move(10, 10);
   await page.screenshot({ path: `${evidence}/perspective-front.png` });
   await page.locator("#navigation-projection").click();
+  await expect(page.locator("#navigation-projection")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.screenshot({ path: `${evidence}/orthographic-front.png` });
   const location = await project(page, [0.4, 0.2, 1.2]);
   await page.locator('[data-mode="label"]').click();
@@ -226,7 +230,7 @@ test("navigation shortcuts respect typing and modal dialogs, and shortcut sheet 
   await page.evaluate(() => document.activeElement.blur());
   await page.keyboard.press("Shift+/");
   await expect(page.locator("#navigation-shortcuts")).toBeVisible();
-  await expect(page.locator("#navigation-shortcuts")).toContainText("Mod+Z");
+  await expect(page.locator("#navigation-shortcuts")).toContainText("Ctrl/⌘+Z");
   await expect(page.locator("#navigation-shortcuts")).toContainText("Shift+7");
   await page.keyboard.press("Shift+1");
   expect((await state(page)).camera).toEqual(before);
