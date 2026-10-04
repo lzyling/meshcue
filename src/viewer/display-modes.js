@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { edgeInput } from "./edges.js";
+import { edgeInputAsync } from "./edges.js";
 import { REVIEW_GREY } from "./shared.js";
 const PLAIN_DIFFUSE = new THREE.Color(REVIEW_GREY)
   .toArray()
@@ -194,7 +194,11 @@ export class DisplayModesMethods {
           // a worker. The ready model and controls remain available throughout.
           await new Promise((resolve) => setTimeout(resolve, 0));
           if (generation !== this.displayGeneration) return;
-          const input = edgeInput(mesh.userData.fillTopology);
+          const input = await edgeInputAsync(
+            mesh.userData.fillTopology,
+            () => generation !== this.displayGeneration,
+          );
+          if (!input || generation !== this.displayGeneration) return;
           result = await new Promise((resolve, reject) => {
             const worker = new Worker(
               new URL("./edges-worker.js", import.meta.url),

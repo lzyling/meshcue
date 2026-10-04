@@ -82,13 +82,41 @@ export function extractEdges(
   };
 }
 
-export function edgeInput(topology) {
-  const positions = new Float32Array(topology.vertices.length * 9);
-  const normals = new Float32Array(topology.vertices.length * 3);
-  topology.vertices.forEach((points, i) => {
-    points.forEach((p, j) => positions.set(p, i * 9 + j * 3));
+function allocateInput(topology) {
+  return {
+    positions: new Float32Array(topology.vertices.length * 9),
+    normals: new Float32Array(topology.vertices.length * 3),
+    faceIds: topology.brep?.of.slice(),
+  };
+}
+function packInput(topology, input, first, end) {
+  for (let i = first; i < end; i++) {
+    const points = topology.vertices[i];
+    for (let j = 0; j < 3; j++) input.positions.set(points[j], i * 9 + j * 3);
     const n = topology.normals[i];
-    normals.set([n.x, n.y, n.z], i * 3);
-  });
-  return { positions, normals, faceIds: topology.brep?.of.slice() };
+    input.normals.set([n.x, n.y, n.z], i * 3);
+  }
+}
+export function edgeInput(topology) {
+  const input = allocateInput(topology);
+  packInput(topology, input, 0, topology.vertices.length);
+  return input;
+}
+export async function edgeInputAsync(topology, cancelled) {
+  const input = allocateInput(topology);
+  // A worker cannot consume the existing nested topology without cloning it.
+  // Pack transferable arrays in short turns instead: a 600k-face model must
+  // not freeze the newly ready camera just to prepare its background work.
+  for (let first = 0; first < topology.vertices.length; first += 4096) {
+    if (cancelled()) return null;
+    packInput(
+      topology,
+      input,
+      first,
+      Math.min(first + 4096, topology.vertices.length),
+    );
+    if (first + 4096 < topology.vertices.length)
+      await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return input;
 }

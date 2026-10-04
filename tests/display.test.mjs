@@ -6,7 +6,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { buildFillTopology } from "../src/planar-fill.js";
 import { brepTopology, isFeatureEdge } from "../src/measure.js";
 import { convertStepDetached } from "../server/step.mjs";
-import { extractEdges, edgeInput } from "../src/viewer/edges.js";
+import {
+  extractEdges,
+  edgeInput,
+  edgeInputAsync,
+} from "../src/viewer/edges.js";
 import { DisplayModesMethods } from "../src/viewer/display-modes.js";
 const topology = (geometry) => buildFillTopology(geometry, new THREE.Matrix4());
 const count = (array) => array.length / 6;
@@ -72,13 +76,16 @@ test("display STEP uses face identity even for coplanar boundaries and curved te
   assert.equal(count(extractEdges(input).feature), 4);
 });
 
-test("display ignores degenerate triangles rather than inventing edges", () => {
+test("display ignores degenerate triangles and cancels pending source packing", async () => {
   const result = extractEdges({
     positions: new Float32Array(9),
     normals: new Float32Array(3),
   });
   assert.equal(result.feature.length, 0);
   assert.equal(result.wire.length, 0);
+  const topo = topology(new THREE.BoxGeometry());
+  assert.equal(await edgeInputAsync(topo, () => true), null);
+  assert.deepEqual(await edgeInputAsync(topo, () => false), edgeInput(topo));
 });
 
 test("display STEP plate output agrees with B-rep measuring boundaries", async () => {
