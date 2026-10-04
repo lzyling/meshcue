@@ -231,7 +231,7 @@ test("section controls clip in model units, flip, hide pins and reset without ed
   await expect(page.locator("#annotation-count")).toHaveText("2");
 });
 
-test("amber back faces reject labels, bucket and measurement while exposed cavity faces accept them", async ({
+test("amber cut faces reject labels, bucket and measurement while exposed cavity faces accept them", async ({
   page,
 }) => {
   await open(page);
@@ -466,3 +466,147 @@ test("section clips region paint, echo and wide measurement lines as well as the
     (Object.hasOwn(v, "section") || Object.values(v).some(hasSection));
   expect(hasSection(submission)).toBe(false);
 });
+
+// Boxes along the viewing ray deliberately put a retained front face against
+// (touching) or inside (overlapping) another solid. A back-face paint pass
+// either fights that face or lets its colour and its pick through the cut.
+async function joinedBoxes(kind) {
+  await hollowBox(); // Installs the exporter FileReader shim.
+  const group = new THREE.Group();
+  const add = (size, center, color) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(...size),
+      new THREE.MeshStandardMaterial({ color }),
+    );
+    mesh.position.set(...center);
+    group.add(mesh);
+  };
+  if (kind === "touching") {
+    add([14, 15, 5], [-3, 0, 1.5], 0x2356aa);
+    add([14, 15, 3], [-3, 0, -2.5], 0x33cc77);
+  } else {
+    add([14, 15, 8], [-3, 0, 0], 0x2356aa);
+    add([10, 11, 2], [-3, 0, -2], 0x33cc77);
+  }
+  // An isolated retained surface must remain pickable next to the cap.
+  add([2, 4, 2], [9, 0, -2], 0xcc3355);
+  const bytes = await new GLTFExporter().parseAsync(group, { binary: true });
+  const file = path.join(dir, `${kind}.glb`);
+  fs.writeFileSync(file, Buffer.from(bytes));
+  return file;
+}
+
+async function cutPixels(page, corners) {
+  const polygon = [];
+  const box = await page.locator("#viewer canvas").boundingBox();
+  for (const corner of corners) {
+    const p = await screen(page, corner);
+    polygon.push([p.x - box.x, p.y - box.y]);
+  }
+  const shot = await page.locator("#viewer canvas").screenshot();
+  const color = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--section-fill")
+      .trim(),
+  );
+  return page.evaluate(
+    async ({ b64, polygon, color }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
+      const rgb = color.match(/[a-f0-9]{2}/gi).map((c) => parseInt(c, 16));
+      let total = 0,
+        nonAmber = 0;
+      for (let y = 0; y < img.height; y++)
+        for (let x = 0; x < img.width; x++) {
+          let inside = false;
+          for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const [ax, ay] = polygon[i],
+              [bx, by] = polygon[j];
+            if (
+              ay > y !== by > y &&
+              x < ((bx - ax) * (y - ay)) / (by - ay) + ax
+            )
+              inside = !inside;
+          }
+          if (!inside) continue;
+          total++;
+          const at = (y * img.width + x) * 4;
+          if (rgb.some((v, c) => Math.abs(pixels[at + c] - v) > 3)) nonAmber++;
+        }
+      return { total, nonAmber, fraction: nonAmber / total };
+    },
+    { b64: shot.toString("base64"), polygon, color },
+  );
+}
+
+for (const kind of ["touching", "overlapping", "per-face hollow"])
+  test(`global section cap is opaque and pick-safe: ${kind}`, async ({
+    page,
+  }) => {
+    await open(
+      page,
+      kind === "per-face hollow" ? await hollowBox() : await joinedBoxes(kind),
+    );
+    await front(page);
+    await section(page);
+    const hollow = kind === "per-face hollow";
+    const corners = hollow
+      ? [
+          [-9, -3, 0],
+          [-7, -3, 0],
+          [-7, 3, 0],
+          [-9, 3, 0],
+        ]
+      : [
+          [-8, -4, 0],
+          [1, -4, 0],
+          [1, 4, 0],
+          [-8, 4, 0],
+        ];
+    // The oblique shell view distinguishes a plane-depth cap from an amber
+    // back wall, even when both happen to look flat from straight ahead.
+    if (hollow) await page.locator('[data-view="1,0,1"]').press("Enter");
+    for (const theme of ["light", "dark"]) {
+      await page.locator("#theme-choice").selectOption(theme);
+      const pixels = await cutPixels(page, corners);
+      fs.mkdirSync("tmp/lane-c-evidence", { recursive: true });
+      fs.writeFileSync(
+        `tmp/lane-c-evidence/${kind}-${theme}-pixels.json`,
+        JSON.stringify(pixels),
+      );
+      expect(pixels.total).toBeGreaterThan(200);
+      expect(pixels.fraction).toBeLessThan(0.01);
+    }
+    await front(page);
+    await page.locator('[data-mode="label"]').click();
+    await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
+    expect((await diagnostics(page)).annotationCount).toBe(0);
+    await page.locator('[data-mode="measure"]').click();
+    await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
+    expect((await diagnostics(page)).measuring?.picks || 0).toBe(0);
+    await page.locator('[data-mode="fill"]').click();
+    await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
+    expect((await diagnostics(page)).annotationCount).toBe(0);
+    if (hollow) {
+      const cavity = await cutPixels(page, [
+        [-3, -2, 0],
+        [3, -2, 0],
+        [3, 2, 0],
+        [-3, 2, 0],
+      ]);
+      expect(cavity.fraction).toBeGreaterThan(0.99);
+    }
+    await page.locator('[data-mode="label"]').click();
+    await clickAt(page, hollow ? [0, 0, -3] : [9, 0, -1]);
+    await expect(page.locator("#annotation-count")).toHaveText("1");
+    expect((await diagnostics(page)).annotations[0].position[2]).toBeCloseTo(
+      hollow ? -3 : 1,
+    );
+  });
