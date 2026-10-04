@@ -122,6 +122,11 @@ export class DisplayModesMethods {
           m.blending = THREE.CustomBlending;
           m.blendSrc = THREE.SrcAlphaFactor;
           m.blendDst = THREE.OneMinusSrcAlphaFactor;
+          // Match normal blending's alpha equation as well as its RGB one.
+          // Squaring source alpha would make the canvas compositor brighten
+          // translucent surfaces when it unpremultiplies the framebuffer.
+          m.blendSrcAlpha = THREE.OneFactor;
+          m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
           m.forceSinglePass = true;
           if ("transmission" in m) m.transmission = 0;
         }

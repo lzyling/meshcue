@@ -147,6 +147,8 @@ test("display styles preserve source materials and do not change surface picking
     assert.ok(hits.length);
     if (style === "xray") {
       assert.equal(mesh.material.blending, THREE.CustomBlending);
+      assert.equal(mesh.material.blendSrcAlpha, THREE.OneFactor);
+      assert.equal(mesh.material.blendDstAlpha, THREE.OneMinusSrcAlphaFactor);
       assert.equal(mesh.material.depthWrite, false);
     }
   }
