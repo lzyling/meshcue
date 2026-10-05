@@ -403,6 +403,101 @@ export function planesMeasure(first, second) {
   return { quantity: "angle", value: angle, points: [a, b] };
 }
 
+/* The smart tool's second click, between any two of a corner, a straight edge
+   and a flat face. Every comparison follows the rule `planesMeasure` set for
+   two faces: a distance is taken square to the line or plane of the thing it
+   is measured to, not to that thing's outline -- the height of a corner above
+   a face is the same wherever on the face's plane it lands -- and objects that
+   are not parallel within `PARALLEL_DEG` give the angle between them, 0 to 90
+   degrees, instead.
+
+   A distance keeps as the existing `"points"` mark: its two points are the
+   two ends of the line it was read along, which is exactly what that shape
+   says, and the service checks the number against them. An angle between two
+   edges, or between an edge and a face, has no shape in the 1.x contract
+   (`"planes"` carries face normals, and an edge has none), so it is shown and
+   marked `keepable: false` rather than stored as something it is not. */
+const unit = ([a, b]) => b.clone().sub(a).normalize();
+const middle = ([a, b]) => a.clone().add(b).multiplyScalar(0.5);
+const apart = (a, b) => ({
+  quantity: "length",
+  value: a.distanceTo(b),
+  points: [a.clone(), b.clone()],
+});
+export function pointLineMeasure(point, ends) {
+  const along = unit(ends);
+  const foot = ends[0]
+    .clone()
+    .addScaledVector(along, point.clone().sub(ends[0]).dot(along));
+  return apart(point, foot);
+}
+export const pointPlaneMeasure = (point, plane) =>
+  apart(point, ontoPlane(point, plane));
+export function edgesMeasure(first, second) {
+  const angle =
+    Math.acos(clampUnit(Math.abs(unit(first).dot(unit(second))))) / RAD;
+  if (angle <= PARALLEL_DEG) {
+    const r = pointLineMeasure(middle(second), first);
+    return { ...r, points: r.points.reverse() };
+  }
+  return {
+    quantity: "angle",
+    value: angle,
+    points: [middle(first), middle(second)],
+    keepable: false,
+  };
+}
+export function edgePlaneMeasure(ends, plane) {
+  const angle =
+    Math.asin(clampUnit(Math.abs(unit(ends).dot(plane.normal)))) / RAD;
+  const mid = middle(ends);
+  if (angle <= PARALLEL_DEG) return pointPlaneMeasure(mid, plane);
+  return {
+    quantity: "angle",
+    value: angle,
+    points: [mid, ontoPlane(mid, plane)],
+    keepable: false,
+  };
+}
+/* Which comparison two smart picks make, as `{ kind, result }` -- `kind` is
+   the mark it keeps as, or null when it cannot be kept -- or `{ refused }`
+   with the reason the page gives. A curved edge or face, a circle among them,
+   is refused: the distance to a curve is not one these formulas give, and a
+   wrong number is worse than none. */
+const RANK = { point: 0, edge: 1, face: 2 };
+export function smartCompare(first, second) {
+  const usable = (p) =>
+    p.type === "point" ||
+    (p.type === "edge" && !p.curved && p.ends[0].distanceTo(p.ends[1]) > 0) ||
+    (p.type === "face" && !p.plane.curved);
+  if (!usable(first) || !usable(second)) return { refused: "unsupported" };
+  const swap = RANK[first.type] > RANK[second.type];
+  const [a, b] = swap ? [second, first] : [first, second];
+  let result;
+  if (a.type === "point")
+    result =
+      b.type === "point"
+        ? apart(a.point, b.point)
+        : b.type === "edge"
+          ? pointLineMeasure(a.point, b.ends)
+          : pointPlaneMeasure(a.point, b.plane);
+  else if (a.type === "face")
+    return { kind: "planes", result: planesMeasure(a, b) };
+  else if (b.type === "edge") {
+    const span = rounding([...a.ends, ...b.ends]);
+    const near = (p, q) => p.distanceTo(q) <= span;
+    if (
+      (near(a.ends[0], b.ends[0]) && near(a.ends[1], b.ends[1])) ||
+      (near(a.ends[0], b.ends[1]) && near(a.ends[1], b.ends[0]))
+    )
+      return { refused: "sameEdge" };
+    result = edgesMeasure(a.ends, b.ends);
+  } else result = edgePlaneMeasure(a.ends, b.plane);
+  // Each saved point stays with the pick in the same position.
+  if (swap) result.points.reverse();
+  return { kind: result.keepable === false ? null : "points", result };
+}
+
 /* The circle through three points on the rim of a hole or a shaft: its centre,
    the normal of the plane it lies in, and its diameter. Nothing when the
    points are in a line, or so nearly that the circle is far bigger than they

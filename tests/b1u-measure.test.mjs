@@ -112,7 +112,9 @@ test("smart measurement compares its second object and starts over on the third"
   assert.equal(viewer.measuring.result, null);
   viewer.smartMeasureClick(point(6));
   assert.equal(viewer.measuring.result.value, 5);
-  viewer.smartMeasureClick({ type: "edge", length: 8 });
+  // A curved edge: corners, straight edges and flat faces now pair in any
+  // combination, and a curve is what remains unsupported.
+  viewer.smartMeasureClick({ type: "edge", length: 8, curved: true });
   assert.equal(viewer.measuring.result.value, 8);
   viewer.smartMeasureClick(point(2));
   assert.equal(viewer.measuring.result, null);

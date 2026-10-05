@@ -1,8 +1,13 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { selectSetting, showParts } from "./b1u-shell-helpers.mjs";
+import {
+  clickControl,
+  selectSetting,
+  showParts,
+} from "./b1u-shell-helpers.mjs";
 import fs from "node:fs";
+import * as THREE from "three";
 
 /* Follow-ups from the b1u integration review (2026-10-06). Each test pins one
    of the five points so a later change cannot quietly bring it back. */
@@ -158,4 +163,118 @@ test("turning the part tree off brings every hidden or see-through part back", a
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
   ).toHaveCount(0);
+});
+
+/* The STEP plate is 20 × 15 × 8 mm, centred, top at z = 4, rounded upright
+   corners of radius 2 and a 5 mm hole through the middle; the page draws its
+   (x, y, z) at 0.15 × (x, z, -y). */
+async function screenOf(page, [x, y, z]) {
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
+  const d = await page.evaluate(() => window.__reviewDiagnostics());
+  const box = await page.locator("#viewer").boundingBox();
+  const camera = new THREE.PerspectiveCamera(
+    38,
+    box.width / box.height,
+    0.01,
+    100,
+  );
+  camera.up.fromArray(d.screenUp);
+  camera.position.fromArray(d.camera.position);
+  camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
+  camera.updateMatrixWorld();
+  const p = new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y).project(camera);
+  return {
+    x: box.x + ((p.x + 1) / 2) * box.width,
+    y: box.y + ((1 - p.y) / 2) * box.height,
+  };
+}
+// A few pixels from `at` towards `inward`: onto an edge or corner, from the
+// side of the face it bounds.
+async function nudge(page, at, inward, px) {
+  const [a, b] = [await screenOf(page, at), await screenOf(page, inward)];
+  const d = Math.hypot(b.x - a.x, b.y - a.y);
+  return { x: a.x + ((b.x - a.x) / d) * px, y: a.y + ((b.y - a.y) / d) * px };
+}
+const measureAt = async (page, at) => {
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.click(at.x, at.y);
+};
+const objects = (page) =>
+  page.evaluate(() => window.__reviewDiagnostics().measuring?.objects);
+const TOP = [5, 3, 4];
+
+test("smart measure pairs corners, straight edges and flat faces truthfully", async ({
+  page,
+}) => {
+  await open(page, "tests/fixtures/plate.step");
+  await clickControl(page, '[data-mode="measure"]');
+  const reading = page.locator("#measure-reading"),
+    keep = page.locator("#keep-measure");
+
+  // Corner to face: the corner where the front edge meets its rounded end,
+  // then the bottom face, 8 mm below it.
+  await measureAt(page, await nudge(page, [8, -7.5, 4], TOP, 4));
+  expect(await objects(page)).toEqual(["point"]);
+  await page.locator('.orient-face[data-view="0,-1,0"]').dispatchEvent("click");
+  await measureAt(page, await screenOf(page, [5, 3, -4]));
+  expect(await objects(page)).toEqual(["point", "face"]);
+  await expect(reading).toHaveText("8.00 mm");
+  await expect(keep).toBeEnabled();
+  await keep.click();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
+  const kept = await page.evaluate(
+    () => window.__reviewDiagnostics().annotations[0],
+  );
+  expect(kept.kind).toBe("points");
+  expect(kept.value).toBe(8);
+  await expect
+    .poll(() => page.evaluate(() => window.__reviewDiagnostics().dirty))
+    .toBe(false);
+
+  // Two parallel straight edges: front and back of the top face, 15 apart.
+  await page.locator("#home-view").click();
+  await measureAt(page, await nudge(page, [0, -7.5, 4], TOP, 3));
+  await expect(reading).toHaveText("16.00 mm");
+  await measureAt(page, await nudge(page, [0, 7.5, 4], TOP, 3));
+  expect(await objects(page)).toEqual(["edge", "edge"]);
+  await expect(reading).toHaveText("15.00 mm");
+  await expect(keep).toBeEnabled();
+  await page.screenshot({ path: `${evidence}/measure-edge-edge.png` });
+
+  // Square edges give an angle, shown but not kept.
+  await measureAt(page, await nudge(page, [0, -7.5, 4], TOP, 3));
+  await measureAt(page, await nudge(page, [-10, 0, 4], TOP, 3));
+  expect(await objects(page)).toEqual(["edge", "edge"]);
+  await expect(reading).toHaveText("90.00° · Cannot keep");
+  await expect(keep).toBeDisabled();
+
+  // An edge lying along the front face's normal: an angle again.
+  await measureAt(page, await nudge(page, [-10, 0, 4], TOP, 3));
+  await measureAt(page, await screenOf(page, [0, -7.5, 0]));
+  expect(await objects(page)).toEqual(["edge", "face"]);
+  await expect(reading).toHaveText("90.00° · Cannot keep");
+
+  // An edge against the bottom face it is parallel to: their gap.
+  await measureAt(page, await nudge(page, [0, -7.5, 4], TOP, 3));
+  await page.locator('.orient-face[data-view="0,-1,0"]').dispatchEvent("click");
+  await measureAt(page, await screenOf(page, [5, 3, -4]));
+  expect(await objects(page)).toEqual(["edge", "face"]);
+  await expect(reading).toHaveText("8.00 mm");
+  await expect(keep).toBeEnabled();
+
+  // A curved face is still refused, never given a number.
+  await page.locator("#home-view").click();
+  await measureAt(page, await nudge(page, [0, -7.5, 4], TOP, 3));
+  await page.locator('[data-view="0,1,1"]').dispatchEvent("click");
+  await measureAt(page, await screenOf(page, [0, 2.49, 1]));
+  await expect(page.locator("#toast")).toHaveText(
+    "This pair cannot be compared. Use corners, straight edges or flat faces.",
+  );
+  await expect(keep).toBeDisabled();
 });

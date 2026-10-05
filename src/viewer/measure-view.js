@@ -9,6 +9,7 @@ import {
   cylinderAt,
   planeAt,
   planesMeasure,
+  smartCompare,
 } from "../measure.js";
 import { t } from "../i18n/index.js";
 import { V, midpoint, measureAnchor } from "./shared.js";
@@ -226,23 +227,16 @@ export class MeasureViewMethods {
       const own = this.smartOwn(pick);
       m.result = own.result;
       m.savedKind = own.kind;
-    } else if (first.type === "point" && pick.type === "point") {
-      const points = m.picks.map((p) => p.point);
-      m.savedKind = "points";
-      m.result = {
-        quantity: "length",
-        value: points[0].distanceTo(points[1]),
-        points,
-      };
-    } else if (
-      first.type === "face" &&
-      pick.type === "face" &&
-      !first.plane.curved &&
-      !pick.plane.curved
-    ) {
-      m.savedKind = "planes";
-      m.result = planesMeasure(first, pick);
-    } else this.onMeasureRefused?.("unsupported");
+    } else {
+      // Corners, straight edges and flat faces in any pairing; see
+      // `smartCompare` for what is measured and what can be kept.
+      const pair = smartCompare(first, pick);
+      if (pair.refused) this.onMeasureRefused?.(pair.refused);
+      else {
+        m.savedKind = pair.kind;
+        m.result = pair.result;
+      }
+    }
     this.drawMeasure();
   }
   hoverSmartMeasure(hit, x, y) {
@@ -434,6 +428,12 @@ export class MeasureViewMethods {
         if (p.type === "face")
           this.addFaces(this.measureFaces, p.mesh, p.plane.faces);
         if (p.type === "point") anchor("measure-dot", p.point);
+        // A compared edge stays lit: the reading's own line runs between the
+        // two objects, not along either of them.
+        if (p.type === "edge" && m.picks.length > 1)
+          this.measureLines.add(
+            this.modelLine(p.points, this.lineMaterial("selected"), 8),
+          );
       }
     if (m?.kind === "planes")
       for (const p of m.picks)
