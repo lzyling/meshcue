@@ -2117,3 +2117,95 @@ dialog .muted {
     top: calc(var(--orient-reach) + 255px);
   }
 }
+
+/* === FIX lane: phone Section controls clear the complete navigation widget === */
+@media (max-width: 760px) {
+  .section-options {
+    max-width: calc(100% - var(--orient-reach) - 90px);
+    padding: 8px;
+  }
+  /* The triad normally sits left of the cube, exactly where the expanded cut
+     controls need to wrap. Keep it beneath the cube while those are open. */
+  .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
+    right: 0;
+    top: 220px;
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* === FIX lane: phone marks retain a readable list beside their note === */
+@media (max-width: 760px) {
+  /* A capped panel spent its whole height on the heading, note and send area,
+     leaving the list only a few pixels. Let those siblings take their natural
+     height and reserve a scrollable card-sized viewport for the marks. */
+  .annotations-panel,
+  .annotations-panel:has(#mark-note:not([hidden])),
+  .annotations-panel:has(#receipt-nudge:not([hidden])),
+  .annotations-panel:has(#mark-note:not([hidden])):has(#receipt-nudge:not([hidden])) {
+    max-height: none;
+  }
+  #annotations-list {
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 100px;
+  }
+  .annotation-empty {
+    padding: 12px 10px;
+  }
+}
+
+/* === FIX lane: mark text and actions occupy separate rows in every locale === */
+.annotations-panel:not(.collapsed) {
+  min-width: 176px;
+}
+.annotation-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+.annotation-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-left: 24px;
+}
+.annotation-select {
+  min-width: 0;
+}
+.annotation-select strong {
+  overflow-wrap: anywhere;
+}
+.annotation-actions .annotation-action {
+  margin-left: 0;
+}
+
+/* === Follow-up lane: publication notices === */
+#publication-notices {
+  flex: none;
+  color: var(--ink-muted);
+  background: var(--surface-sunken);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.publication-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+}
+.publication-notice[hidden] {
+  display: none;
+}
+.publication-notice span {
+  flex: 1;
+  min-width: 0;
+}
+.publication-notice button {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+}

@@ -1,4 +1,5 @@
 import "./style.css";
+import { bindPublicationNotices } from "./app/publication-notices.js";
 import { bindParts } from "./app/parts.js";
 import { bindDisplay } from "./app/display.js";
 import {
@@ -58,6 +59,7 @@ registerToolbarCommands(review);
 mountShell(review);
 mountToolbar(review);
 initializeState(review);
+bindPublicationNotices(review);
 initializeDraftCache(review);
 initializeAnnotations(review);
 createViewer(review);

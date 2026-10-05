@@ -9,6 +9,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function startReview(
   t,
   {
+    dataRoot,
     protectedAccess = false,
     origin,
     host = "127.0.0.1",
@@ -24,7 +25,9 @@ export async function startReview(
 ) {
   const repo = process.cwd();
   fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
-  const dir = fs.mkdtempSync(path.join(repo, "tmp", "http-review-"));
+  const dir = fs.mkdtempSync(
+    path.join(dataRoot || path.join(repo, "tmp"), "http-review-"),
+  );
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
   fs.copyFileSync(

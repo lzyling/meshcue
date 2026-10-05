@@ -99,13 +99,62 @@ triangles in the file to decimate: the ones that were counted are ours.
 
 Node.js 22 or newer, and a browser with WebGL.
 
-From a clone, for development:
+To open the sample in a browser on this computer, start in a directory where
+you want the clone and run these commands. The CLI owner `sample-review` is
+an explicit local session name; keep it the same for later calls.
 
 ```sh
+git clone https://github.com/lzyling/meshcue.git meshcue
+cd meshcue
 npm ci
-npm run samples      # generate the parametric sample models
-npm test             # 382 unit and integration tests
-npm run test:browser # 138 real-Chromium tests, isolated port and data
+npm run samples
+node cli/meshcue.mjs inspect
+node cli/meshcue.mjs precheck --file tmp/samples/parametric-bracket.glb
+node cli/meshcue.mjs open --owner sample-review --project projects/sample --file tmp/samples/parametric-bracket.glb --name "Sample bracket" --version v1 --agent-name "Sample CLI" --host 127.0.0.1 --client-address 127.0.0.1
+```
+
+`npm ci` also builds the browser assets through the package's `prepare` script;
+no separate development server is needed. After `precheck` reports
+`verdict: "ok"`, `open` starts the review and prints JSON. Copy its `url`
+(such as `http://127.0.0.1:49152/`) into a WebGL browser on this computer.
+Wait for the bracket to appear and the Label tool to become available; you can
+then rotate it, add marks and press **Send to Sample CLI**. Both the listener
+and browser admission are explicitly local in this example. For another device,
+follow [SECURITY.md](SECURITY.md) rather than copying this loopback URL.
+
+The CLI cannot receive a pushed notification. After submitting, use the batch
+id in the page's handoff sentence with the documented `--submission` flag:
+
+```sh
+node cli/meshcue.mjs status --owner sample-review --project projects/sample
+node cli/meshcue.mjs read --owner sample-review --project projects/sample --submission BATCH_ID
+```
+
+Replace `BATCH_ID` with that actual id. When finished with the sample, close
+every review tab and let its 30-second presence expire before stopping the
+server (saved models and marks remain, including unsubmitted drafts):
+
+```sh
+sleep 31
+node cli/meshcue.mjs stop --owner sample-review --project projects/sample
+```
+
+If `stop` reports `REVIEW_BUSY`, the server is still running: a review tab may
+still be open or its presence has not expired. Close the tabs and wait before
+retrying.
+
+For an offline local checkout, the clone source can be an existing local
+repository path in place of the GitHub URL, and `meshcue` can be any new target
+directory (use that same directory in `cd`). With dependencies already in the
+npm cache, use `npm ci --offline --no-audit --no-fund` in place of `npm ci`.
+Set `export REVIEW_UPDATE_CHECK=off` before the CLI commands to disable the
+optional release update check when working offline.
+
+For development, run the suites after `npm run samples`:
+
+```sh
+npm test             # 396 unit and integration tests
+npm run test:browser # 164 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever
@@ -113,11 +162,12 @@ fast-forwarded from `dev` with the tag going on straight afterwards.
 [CONTRIBUTING.md](CONTRIBUTING.md) has the whole of it, which is short.
 
 `npm run samples` writes to `tmp/samples` inside the clone, which is where the
-suites publish from. A server started from a clone publishes models from the
-clone itself and keeps its copies under `runtime/models`; to review files that
-live elsewhere, point `REVIEW_WORKSPACE` at the folder that holds them. Cases
-that need models this repository does not ship — the LAN case and one
-heavy-texture case — skip themselves and say why.
+suites publish from. The CLI uses the working directory as its workspace unless
+`--workspace <directory>` is supplied; model paths resolve inside that workspace.
+The sample review keeps its state under `projects/meshcue-state` and immutable
+model copies under `media/3d/meshcue`. Cases that need models this repository
+does not ship — the LAN case and one heavy-texture case — skip themselves and
+say why.
 
 For an OpenClaw install, build and install the extension from that clone:
 
@@ -170,8 +220,13 @@ under any of those names is not this project**, whatever it claims. This
 repository, pinned to a tag, is the only way in — the install commands above use
 npm as the package manager, not as the source.
 
-The workbench listens on the loopback address by default. LAN mode binds one
-verified private IPv4 and always requires authorization — see
+CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
+CLI `--host lan` or MCP `host: "lan"`, or give an explicit verified private
+IPv4 address. The OpenClaw plugin defaults to automatic private LAN selection
+with admission required. Existing configured reviews keep their stored host;
+these defaults do not move a running or saved review to another address.
+
+LAN mode binds one verified private IPv4 and always requires authorization — see
 [SECURITY.md](SECURITY.md) for the trust model, how a browser is admitted, and
 how long that lasts.
 

@@ -5,7 +5,7 @@ import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError, atomicJson } from "./store.mjs";
 import { convertStepDetached, STEP_FORMATS } from "./step.mjs";
 import { packGltf } from "./gltf-pack.mjs";
-import { compressionViews } from "./gltf-compression.mjs";
+import { compressionViews, prepareCompression } from "./gltf-compression.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -39,7 +39,9 @@ function limitError(message, code, measured) {
 }
 
 export function inspectModel(buffer, format, { derived } = {}) {
-  if (!buffer.length || buffer.length > MAX_BYTES)
+  if (!buffer.length)
+    throw new ReviewError("The model file is empty; it contains no model.", 400, "MODEL_FORMAT");
+  if (buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
       "MODEL_LIMIT",
@@ -251,7 +253,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
       format,
       texturePixels,
       textureBytes,
-      ...(notices ? { notices } : {}),
+      ...(notices ? { notices, skippedPrimitives } : {}),
     };
   }
   if (format === "stl") {
@@ -347,6 +349,7 @@ export async function importModel(
     buffer = packGltf(buffer, actual, workspace, MAX_BYTES);
     format = "glb";
   }
+  await prepareCompression(buffer, format);
   const hash = sha256(buffer);
   const step = STEP_FORMATS.includes(format);
   const { derived, ...metadata } = inspectModel(buffer, format, {

@@ -35,23 +35,27 @@ export function instanceCookieName(instance) {
 
 // Darwin AF_UNIX names have a short byte limit. Managed instances keep their
 // persistent state in the project but put only the ephemeral socket in a
-// private, per-uid OS temporary directory. Legacy instances keep their path.
+// private, per-uid OS temporary directory. Keep working short legacy paths so
+// existing clients still reach them; a long legacy path could never listen.
 export function agentSocketPath(runtime, instance = null) {
-  if (!instance) return path.join(runtime, "agent.sock");
+  const legacy = path.join(runtime, "agent.sock");
+  if (!instance && Buffer.byteLength(legacy) < 104) return legacy;
   const key = crypto
     .createHash("sha256")
     .update(fs.realpathSync(runtime))
     .digest("hex")
     .slice(0, 24);
-  return path.join(
-    os.tmpdir(),
+  const relative = path.join(
     `meshcue-${process.getuid?.() ?? "user"}`,
     `${key}.sock`,
   );
+  const socket = path.join(os.tmpdir(), relative);
+  // TMPDIR can itself point inside a deep checkout. On Unix, /tmp gives the
+  // same private per-user directory a bounded pathname even in that case.
+  return Buffer.byteLength(socket) < 104 ? socket : path.join("/tmp", relative);
 }
 
-export function prepareSocketDirectory(socketPath, instance) {
-  if (!instance) return;
+export function prepareSocketDirectory(socketPath, _instance) {
   const directory = path.dirname(socketPath);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const st = fs.lstatSync(directory);

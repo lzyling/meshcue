@@ -68,7 +68,7 @@ export default {
   "feedback.submit.named": "{agent}へ送る",
   "feedback.submitting": "送信中…",
   "feedback.submitted":
-    "印を保存しました。送信状況は実際の受領確認に従います。モデルはロックしたままです。",
+    "印を保存しました。送信状況は実際の受領確認に従います。このバージョンへのマーキングは続けられます。",
 
   "receipt.next": "エージェントの理解はモデルの右下に表示されます",
   "receipt.next.named": "{agent}の理解はモデルの右下に表示されます",

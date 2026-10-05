@@ -116,6 +116,11 @@ export class ReviewStore {
       );
     }
     this.migrateToSchema2();
+    // Older builds recorded readAt without retiring the waiting batch. Repair
+    // those receipts too, so reopening cannot restart delivery for read marks.
+    for (const item of this.state.submissions)
+      if (item.readAt && item.status !== "read")
+        this.submissionStatus(item.id, "read");
     this.save();
   }
   // Schema 1 held one draft, one lock, one echo and one queued model, so every
@@ -384,6 +389,9 @@ export class ReviewStore {
       reviewId: s.reviewId,
       legacyDraftCache: s.legacyDraftReviewId === s.reviewId,
       active: s.active,
+      ...(s.sameContentReuse?.reviewId === s.reviewId
+        ? { sameContentReuse: s.sameContentReuse }
+        : {}),
       viewing,
       // The complete record for the version being looked at, which is not
       // always the one the Agent is showing. The page loads this one.
@@ -632,7 +640,9 @@ export class ReviewStore {
         "ORIGIN_BUSY",
       );
     if (!foreign) this.assertVersion(versionId);
-    if (this.state.active?.id !== versionId) {
+    const hadReuseNotice = !!this.state.sameContentReuse;
+    delete this.state.sameContentReuse;
+    if (this.state.active?.id !== versionId || hadReuseNotice) {
       this.applyActive(versionId);
       this.save();
     }
@@ -652,9 +662,28 @@ export class ReviewStore {
           "ORIGIN_BUSY",
         );
       if (activate) this.activate(model.id);
+      const label = known.label || known.version || known.name;
+      // Reuse is a publication event, not a property of these bytes. A fresh
+      // event id lets an open page explain repeated publication of the active
+      // SHA without replaying it on ordinary version switches or reloads.
+      if (activate) {
+        s.sameContentReuse = {
+          id: crypto.randomUUID(),
+          reviewId: s.reviewId,
+          versionId: known.id,
+          label,
+        };
+        this.save();
+      }
       return {
         status: s.active?.id === model.id ? "active" : "published",
         model: known,
+        notices: [
+          {
+            code: "SAME_CONTENT_REUSED",
+            message: `Content identical to ${label}; ${activate ? `${label} reopened` : `${label} reused; displayed version not changed`}. Requested version/label were not applied.`,
+          },
+        ],
       };
     }
     const mine = isDeepStrictEqual(origin, s.reviewOrigin);
@@ -667,7 +696,10 @@ export class ReviewStore {
     // Another conversation may always publish here, but taking over the screen
     // would rebind the project and reset this review's draft. That one waits.
     const blocked = !mine && this.busyReason();
-    if (activate && !blocked) this.applyActive(model.id);
+    if (activate && !blocked) {
+      delete s.sameContentReuse;
+      this.applyActive(model.id);
+    }
     this.save();
     if (blocked)
       return {
@@ -748,6 +780,15 @@ export class ReviewStore {
     const s = this.state.submissions.find((x) => x.id === id);
     if (!s) throw new ReviewError("No such submission.", 404);
     Object.assign(s, { status }, extra);
+    // A read is stronger evidence than an in-flight send's eventual result.
+    // Keep it terminal even if that send fails after the Agent has collected it.
+    if (s.readAt) {
+      s.status = "read";
+      s.error = null;
+      s.lastError = null;
+      s.stalledAt = null;
+      s.nextAttemptAt = null;
+    }
     this.markSubmitted(s);
     atomicJson(path.join(this.dir, "submissions", `${s.id}.json`), s);
     this.save();
@@ -763,7 +804,7 @@ export class ReviewStore {
         404,
       );
     // Explicit local Agent read acknowledgment, never inferred from chat.send.
-    return this.submissionStatus(id, submission.status, {
+    return this.submissionStatus(id, "read", {
       readAt: submission.readAt || Date.now(),
     });
   }

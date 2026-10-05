@@ -4,24 +4,55 @@ import { fileURLToPath } from "node:url";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { ReviewError } from "./store.mjs";
 
-// Source/npm resolves beside this module; integration bundles run from the
-// package root, runtime/, mcp/ or scripts/. Ship one replaceable CJS decoder
-// in vendor/ instead of inlining a copy into every host entry point.
-const decoderFile = [
-  "./gltf-vendor/draco_decoder.cjs",
-  "../vendor/draco_decoder.cjs",
-  "./vendor/draco_decoder.cjs",
-]
-  .map((relative) => new URL(relative, import.meta.url))
-  .find((file) => fs.existsSync(file));
-if (!decoderFile) throw new Error("The packaged Draco decoder is missing.");
-const createDraco = createRequire(import.meta.url)(fileURLToPath(decoderFile));
+// Host loaders evaluate the plugin as a script. Decoder startup must happen
+// only when a compressed model is inspected, never while importing the plugin.
+let draco;
+let ready;
+export function initializeCompression() {
+  return (ready ||= (async () => {
+    const decoderFile = [
+      "./gltf-vendor/draco_decoder.cjs",
+      "../vendor/draco_decoder.cjs",
+      "./vendor/draco_decoder.cjs",
+    ]
+      .map((relative) => new URL(relative, import.meta.url))
+      .find((file) => fs.existsSync(file));
+    if (!decoderFile) throw new Error("The packaged Draco decoder is missing.");
+    const createDraco = createRequire(import.meta.url)(
+      fileURLToPath(decoderFile),
+    );
+    draco = await createDraco();
+    await MeshoptDecoder.ready;
+  })());
+}
 
-// The synchronous precheck contract predates compression. Initialize once at
-// module loading, then use the same decoder builds as GLTFLoader. No subprocess,
-// URL, or model-controlled code participates in decoding.
-const draco = await createDraco();
-await MeshoptDecoder.ready;
+// Keep the synchronous validator's refusal semantics. Async entry points call
+// this preparation step first; malformed headers are left for that validator.
+export async function prepareCompression(buffer, format) {
+  if (
+    format !== "glb" ||
+    buffer.length < 20 ||
+    buffer.toString("ascii", 0, 4) !== "glTF"
+  )
+    return;
+  let doc;
+  try {
+    doc = JSON.parse(buffer.toString("utf8", 20, 20 + buffer.readUInt32LE(12)));
+  } catch {
+    return;
+  }
+  if (
+    (doc.bufferViews || []).some(
+      (view) => view.extensions?.EXT_meshopt_compression,
+    ) ||
+    (doc.meshes || []).some((mesh) =>
+      mesh.primitives?.some(
+        (prim) => prim.extensions?.KHR_draco_mesh_compression,
+      ),
+    )
+  )
+    await initializeCompression();
+}
 const invalid = (message) => {
   throw new ReviewError(
     `Invalid compressed GLB: ${message}`,

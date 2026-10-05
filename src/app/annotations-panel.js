@@ -242,7 +242,10 @@ export function installAnnotationsPanel(review) {
           t("marks.frameOne", { name: review.markName(a) }),
         );
         focus.addEventListener("click", () => review.viewer.focusAnnotation(a));
-        row.append(eye, select, focus);
+        const actions = document.createElement("div");
+        actions.className = "annotation-actions";
+        actions.append(focus);
+        row.append(eye, select, actions);
         if (a.type === "pin") {
           const move = document.createElement("button");
           move.className = "quiet-dark annotation-action edit-action";
@@ -257,13 +260,27 @@ export function installAnnotationsPanel(review) {
             review.setMode("relocate");
             review.toast(t("marks.moveHint", { label: a.label }));
           });
-          row.append(move);
+          actions.append(move);
         }
-        row.append(remove);
+        actions.append(remove);
         list.append(row);
       }
       review.renderNote();
+      review.revealSelectedMark();
     });
+  }
+
+  function revealSelectedMark() {
+    const list = review.$("#annotations-list");
+    const row = list.querySelector(".selected");
+    if (!row || list.hidden) return;
+    // Scroll only the list: scrollIntoView can move the whole phone page and
+    // hide the note field we have just made room for. Read after note layout.
+    const seat = row.getBoundingClientRect(),
+      rail = list.getBoundingClientRect();
+    if (seat.top < rail.top) list.scrollTop -= rail.top - seat.top;
+    else if (seat.bottom > rail.bottom)
+      list.scrollTop += seat.bottom - rail.bottom;
   }
 
   function renderNote() {
@@ -327,6 +344,7 @@ export function installAnnotationsPanel(review) {
     formatMeasure,
     onPaint,
     renderAnnotations,
+    revealSelectedMark,
     renderNote,
     commitNote,
   });
@@ -521,6 +539,7 @@ export function bindAnnotationsPanel(review) {
     // Handing the marks over is done while looking at them, so it folds with
     // them; a send button left standing in the gap gives most of the width back.
     review.$(".panel-actions").hidden = collapsed;
+    if (!collapsed) review.revealSelectedMark();
     // A plus beside a list of marks reads as "add a mark", which is a thing this
     // page can actually do — just not here. The control moves a panel sideways,
     // so it points the way the panel will go.

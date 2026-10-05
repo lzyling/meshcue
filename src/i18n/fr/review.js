@@ -72,7 +72,7 @@ export default {
   "feedback.submit.named": "Envoyer à {agent}",
   "feedback.submitting": "Envoi…",
   "feedback.submitted":
-    "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Le modèle reste verrouillé.",
+    "Marques enregistrées ; l'état d'envoi suit l'accusé de réception réel. Vous pouvez continuer à annoter cette version.",
 
   "receipt.next":
     "Ce que l'Agent a compris s'affichera en bas à droite du modèle",
