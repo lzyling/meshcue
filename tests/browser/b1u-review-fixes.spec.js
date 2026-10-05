@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { selectSetting } from "./b1u-shell-helpers.mjs";
+import { selectSetting, showParts } from "./b1u-shell-helpers.mjs";
 import fs from "node:fs";
 
 /* Follow-ups from the b1u integration review (2026-10-06). Each test pins one
@@ -123,3 +123,39 @@ for (const [name, viewport] of [
       await page.screenshot({ path: `${evidence}/settings-${name}.png` });
     });
   });
+
+test("turning the part tree off brings every hidden or see-through part back", async ({
+  page,
+}) => {
+  await open(page, "tests/fixtures/grouped-colours.step");
+  await showParts(page);
+  const rows = page.locator('[role="treeitem"]');
+  await expect(rows.first()).toBeVisible();
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(2);
+  await rows
+    .nth(count - 1)
+    .locator(".parts-name")
+    .click();
+  await page.keyboard.press("Y");
+  await rows
+    .nth(count - 2)
+    .locator(".parts-name")
+    .click();
+  await page.keyboard.press("Shift+T");
+  await expect(page.locator(".part-hidden")).not.toHaveCount(0);
+  await expect(page.locator(".part-transparent")).not.toHaveCount(0);
+  await page.locator("#settings-button").click();
+  await page.locator("#setting-parts").uncheck();
+  await page.locator("#close-settings").click();
+  // With the tree off, its keys must not be able to hide anything again.
+  await page.locator("#viewer canvas").focus();
+  for (const key of ["Y", "Shift+I", "Shift+T"]) await page.keyboard.press(key);
+  await page.screenshot({ path: `${evidence}/parts-off-restored.png` });
+  await showParts(page);
+  await expect(rows.first()).toBeVisible();
+  await expect(page.locator(".part-hidden, .part-transparent")).toHaveCount(0);
+  await expect(
+    page.locator('[role="treeitem"][aria-selected="true"]'),
+  ).toHaveCount(0);
+});

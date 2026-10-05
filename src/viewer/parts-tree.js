@@ -129,6 +129,17 @@ export function createParts(onChange = () => {}) {
       isolated = null;
       emit();
     },
+    /* Everything back to how the file drew it, as one change: what the page
+       does when the reviewer turns the part tree off, because the tree is the
+       only place hiding and see-through can be seen and undone, and a part
+       left invisible with no visible way back reads as a missing part. */
+    restoreAll() {
+      hidden.clear();
+      transparent.clear();
+      isolated = null;
+      selected = null;
+      emit();
+    },
     reset(next) {
       tree = next || { entries: [], objects: new Map(), meshParts: new Map() };
       byId = new Map(tree.entries.map((p) => [p.id, p]));
