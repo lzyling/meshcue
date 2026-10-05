@@ -274,7 +274,7 @@ test("navigation reduced motion is instant, input cancels animation, and release
   expect((await state(page)).navigation.damping).toBe(false);
 });
 
-test("navigation left drag preserves marking modes and touch taps never place marks", async ({
+test("navigation left drag preserves marking modes and Orbit touch taps place no marks", async ({
   page,
 }) => {
   const box = await open(page);
@@ -292,7 +292,7 @@ test("navigation left drag preserves marking modes and touch taps never place ma
     expectCameraUnchanged((await state(page)).camera, before);
     expect((await state(page)).annotationCount).toBe(0);
   }
-  await page.locator('[data-mode="label"]').click();
+  await page.locator('[data-mode="orbit"]').click();
   const session = await page.context().newCDPSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",

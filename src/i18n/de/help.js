@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",
   "help.p1":
-    "Mit Maus und Trackpad: rechts ziehen zum Drehen, Mausrad oder Aufziehen zum Zoomen zum Zeiger, Mitteltaste oder Umschalt+Scrollen zum Verschieben. Im Drehwerkzeug dreht auch linkes Ziehen; Umschalt+linkes oder rechtes Ziehen verschiebt. Markierungswerkzeuge behalten die linke Taste. Auf Touchscreens dreht ein Finger, zwei Finger zoomen oder verschieben; Antippen setzt keine Markierung.",
+    "Mit Maus und Trackpad: rechts ziehen zum Drehen, Mausrad oder Aufziehen zum Zoomen zum Zeiger, Mitteltaste oder Umschalt+Scrollen zum Verschieben. Im Drehwerkzeug dreht auch linkes Ziehen; Umschalt+linkes oder rechtes Ziehen verschiebt. Markierungswerkzeuge behalten die linke Taste. Auf Touchscreens dreht Ziehen mit einem Finger, zwei Finger zoomen oder verschieben; diese Gesten setzen keine Markierungen. Antippen setzt im Drehwerkzeug nichts; mit Beschriftung, Farbeimer oder Messen tippen Sie auf die Fläche, um das gewählte Werkzeug zu verwenden.",
   "help.p2":
     "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":

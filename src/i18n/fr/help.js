@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",
   "help.p1":
-    "Souris ou pavé tactile : glisser avec le bouton droit pour tourner, molette ou pincement pour zoomer vers le pointeur, bouton central ou Maj+défilement pour déplacer. Dans l’outil Rotation, glisser avec le bouton gauche tourne aussi ; Maj+glisser avec le bouton gauche ou droit déplace. Les outils de marquage gardent le bouton gauche. Sur écran tactile, un doigt tourne, deux doigts pincent ou déplacent ; un toucher ne place aucune marque.",
+    "Souris ou pavé tactile : glisser avec le bouton droit pour tourner, molette ou pincement pour zoomer vers le pointeur, bouton central ou Maj+défilement pour déplacer. Dans l’outil Rotation, glisser avec le bouton gauche tourne aussi ; Maj+glisser avec le bouton gauche ou droit déplace. Les outils de marquage gardent le bouton gauche. Sur écran tactile, glisser un doigt fait tourner, deux doigts pincent ou déplacent ; ces gestes ne créent aucune marque. Un toucher ne place rien dans Rotation ; avec Étiquette, Pot de peinture ou Mesurer, touchez la surface pour utiliser cet outil.",
   "help.p2":
     "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
