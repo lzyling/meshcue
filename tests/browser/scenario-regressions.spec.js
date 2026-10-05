@@ -1,9 +1,10 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
+import { scenarioKit } from "../scenarios/kit.mjs";
 
 const evidence = "tmp/b1-fix/evidence";
-let environment;
+let environment, kit;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics?.());
 async function open(page) {
@@ -12,7 +13,8 @@ async function open(page) {
     fixture: "tmp/samples/parametric-bracket.glb",
     dist: process.env.REVIEW_TEST_DIST,
   });
-  await page.goto(environment.url);
+  kit = scenarioKit(page, environment);
+  await kit.open(environment.url);
   await expect(page.locator("#loading")).toBeHidden();
   await expect
     .poll(async () => (await diag(page)).viewer.meshes)
@@ -103,11 +105,8 @@ for (const locale of ["en", "zh-Hant", "de"]) {
 async function addPin(page) {
   await page.locator('[data-mode="label"]').click();
   const count = (await diag(page)).annotationCount;
-  const box = await page.locator("#viewer canvas").boundingBox();
-  await page.mouse.click(
-    box.x + box.width * (0.43 + count * 0.02),
-    box.y + box.height * 0.6,
-  );
+  // Project a solid point on the plate, independent of panel-aware framing.
+  await kit.clickModelPoint([-0.35 + count * 0.05, 0, 0.2]);
   await expect(page.locator("#annotation-count")).toHaveText(String(count + 1));
 }
 

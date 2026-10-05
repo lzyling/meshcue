@@ -224,7 +224,7 @@ export function installDraft(review) {
     review.savedSeq = 0;
     review.pendingWrite = null;
     review.recoveryBlocked = false;
-    review.viewer.restoreCamera(draft?.camera);
+    review.viewer.restoreCamera(draft?.camera, { fit: true });
     let cached;
     try {
       cached = JSON.parse(localStorage.getItem(review.draftKey()));
@@ -278,7 +278,7 @@ export function installDraft(review) {
           .filter((a) => a.type === "pin")
           .map((a) => letterNumber(a.label)),
       );
-      review.viewer.restoreCamera(cached.camera);
+      review.viewer.restoreCamera(cached.camera, { fit: true });
       review.editSeq = cached.editSeq || 1;
       review.savedSeq = cached.savedSeq || 0;
       review.pendingWrite = cached.pendingWrite || null;

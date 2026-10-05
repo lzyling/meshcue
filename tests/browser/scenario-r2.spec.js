@@ -1,8 +1,10 @@
 import { test, expect } from "./fixtures.mjs";
+import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { devices } from "@playwright/test";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import * as THREE from "three";
 import fs from "node:fs";
+import { primitiveGlb } from "../fixtures/primitive-glb.mjs";
 
 const evidence = "tmp/b1-scenario-r2/evidence";
 let environment;
@@ -12,7 +14,7 @@ const settled = (page) =>
   expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
-async function open(page) {
+async function open(page, fixture = "tmp/b1-scenario-r2/box.stl") {
   fs.mkdirSync(evidence, { recursive: true });
   const positions = new THREE.BoxGeometry(20, 16, 10).toNonIndexed().attributes
     .position;
@@ -25,7 +27,7 @@ async function open(page) {
   }
   fs.writeFileSync("tmp/b1-scenario-r2/box.stl", stl + "endsolid regression\n");
   environment = await startScenario({
-    fixture: "tmp/b1-scenario-r2/box.stl",
+    fixture,
     dist: process.env.REVIEW_TEST_DIST,
   });
   await page.goto(environment.url);
@@ -255,5 +257,127 @@ test("R2 bug 5: phone palettes leave every toolbar icon tappable", async ({
     await expect(page.locator('[data-mode="measure"]')).toHaveClass(/active/);
   } finally {
     await context.close();
+  }
+});
+
+async function expectFramed(page) {
+  await settled(page);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const canvas = document
+          .querySelector("#viewer canvas")
+          .getBoundingClientRect();
+        const toolbar = document
+          .querySelector(".toolbar")
+          .getBoundingClientRect();
+        return window.__navigationDiagnostics().bounds.every(([x, y]) => {
+          const px = canvas.left + ((x + 1) * canvas.width) / 2;
+          const py = canvas.top + ((1 - y) * canvas.height) / 2;
+          return (
+            px >= canvas.left &&
+            px <= canvas.right &&
+            py >= canvas.top + 30 &&
+            py < toolbar.top - 4
+          );
+        });
+      }),
+    )
+    .toBe(true);
+}
+for (const projection of ["perspective", "orthographic"]) {
+  test(`R2 bug 6: initial, fit, home and restored views clear overlays (${projection})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.addInitScript(
+      (p) => localStorage.setItem("meshcue-projection", p),
+      projection,
+    );
+    await open(page);
+    await screenshot(page, `bug6-initial-${projection}`);
+    await expectFramed(page);
+    await page.locator("#parts-close").click();
+    await page.keyboard.press("F");
+    await expectFramed(page);
+    await page.locator('[data-mode="label"]').click();
+    const r = await page.locator("#viewer canvas").boundingBox();
+    await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
+    await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
+    const markView = (await diag(page)).annotations[0].view;
+    await page.locator('[data-mode="orbit"]').click();
+    await page.keyboard.press("F");
+    await expectFramed(page);
+    await page.locator("#submit-feedback").click();
+    await expect(page.locator("#feedback-line")).toContainText("Marks sent");
+    await page.reload();
+    await expect(page.locator("#loading")).toBeHidden();
+    await expect(page.locator("#parts-panel")).toBeVisible();
+    await expectFramed(page);
+    expect((await diag(page)).annotations[0].view).toEqual(markView);
+    await screenshot(page, `bug6-restored-${projection}`);
+    await page.keyboard.press("Home");
+    await expectFramed(page);
+    // A deliberate zoom must survive subsequent panel changes.
+    const canvas = await page.locator("#viewer canvas").boundingBox();
+    await page.mouse.move(
+      canvas.x + canvas.width / 2,
+      canvas.y + canvas.height * 0.45,
+    );
+    await page.mouse.wheel(0, -100);
+    const moved = (await diag(page)).camera;
+    await page.locator("#parts-close").click();
+    await expect.poll(async () => (await diag(page)).camera).toEqual(moved);
+  });
+}
+
+test("R2 bug 6: GLB triangle stays above toolbar when Parts opens after load", async ({
+  page,
+}) => {
+  fs.mkdirSync(evidence, { recursive: true });
+  fs.writeFileSync("tmp/b1-scenario-r2/triangle.glb", primitiveGlb());
+  await page.setViewportSize({ width: 1000, height: 768 });
+  await open(page, "tmp/b1-scenario-r2/triangle.glb");
+  await expectFramed(page);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(page.locator("#parts-panel")).toBeVisible();
+  await expectFramed(page);
+  await page.keyboard.press("F");
+  await expectFramed(page);
+  await screenshot(page, "bug6-triangle");
+});
+
+test("R2 bug 6: keyboard pan, zoom and Frame prevent later automatic refitting", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await open(page);
+  for (const action of ["Control+Shift+ArrowRight", "Z", "Frame"]) {
+    await page.reload();
+    await expect(page.locator("#loading")).toBeHidden();
+    await settled(page);
+    await expect(page.locator("#parts-panel")).toBeVisible();
+    const before = (await diag(page)).camera;
+    if (action === "Frame") {
+      await page.locator('[data-mode="label"]').click();
+      const r = await page.locator("#viewer canvas").boundingBox();
+      await page.mouse.click(r.x + r.width / 2 + 40, r.y + r.height * 0.4);
+      await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
+      await page
+        .locator(".annotation-row.selected .annotation-action")
+        .first()
+        .click();
+    } else await page.keyboard.press(action);
+    await expect
+      .poll(async () => (await diag(page)).camera)
+      .not.toEqual(before);
+    const moved = (await diag(page)).camera;
+    await page.locator("#parts-close").click();
+    await page.waitForFunction(() => {
+      const viewer = document.querySelector("#viewer"),
+        canvas = viewer.querySelector("canvas");
+      return Math.abs(viewer.clientWidth - canvas.clientWidth) < 1;
+    });
+    expectCameraUnchanged((await diag(page)).camera, moved);
   }
 });

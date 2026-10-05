@@ -1,5 +1,6 @@
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
+import { scenarioKit } from "../scenarios/kit.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -215,18 +216,16 @@ test("display section clips edges and preserves the opaque cap in every style", 
 test("display X-ray keeps surface labels visible and selectable and bucket picking intact", async ({
   page,
 }) => {
+  const kit = scenarioKit(page, { run: evidence });
   await open(page);
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   await style(page, "xray");
   await page.locator('[data-mode="label"]').click();
-  const box = await page.locator("#viewer canvas").boundingBox();
-  for (const [x, y] of [
-    [0.5, 0.5],
-    [0.5, 0.65],
-    [0.4, 0.55],
-  ]) {
-    if ((await diagnostics(page)).annotationCount) break;
-    await page.mouse.click(box.x + box.width * x, box.y + box.height * y);
-  }
+  // Use a real surface point after fitting; repeated guessed clicks can queue
+  // multiple marks before the asynchronous edit has returned its first one.
+  await kit.clickModelPoint([-0.35, 0, 0.2]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await expect(page.locator(".model-pin")).toBeVisible();
   await page.locator(".model-pin").click();
@@ -234,7 +233,7 @@ test("display X-ray keeps surface labels visible and selectable and bucket picki
   const mark = (await diagnostics(page)).annotations[0];
   expect(mark.position.every(Number.isFinite)).toBe(true);
   await page.locator('[data-mode="fill"]').click();
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.6);
+  await kit.clickModelPoint([0.35, 0, 0.2]);
   await expect
     .poll(async () => (await diagnostics(page)).viewer.fillFaces)
     .toBeGreaterThan(0);

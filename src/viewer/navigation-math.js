@@ -30,6 +30,7 @@ export function fitFrame(
   aspect,
   fov = 38,
   orthographic = false,
+  area = { left: 0, right: 1, top: 0, bottom: 1 },
 ) {
   const target = box.getCenter(new THREE.Vector3());
   const back = direction.clone().normalize();
@@ -41,17 +42,37 @@ export function fitFrame(
   right.normalize();
   const up = new THREE.Vector3().crossVectors(back, right);
   const tan = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+  const halfWidth = area.right - area.left,
+    halfHeight = area.bottom - area.top,
+    centerX = area.left + area.right - 1,
+    centerY = 1 - area.top - area.bottom;
   let distance = 0,
     height = 0;
   for (const corner of boxCorners(box)) {
     const p = corner.sub(target);
-    const half =
-      Math.max(Math.abs(p.dot(up)), Math.abs(p.dot(right)) / aspect) * 1.08;
-    height = Math.max(height, half * 2);
-    distance = Math.max(distance, half / tan + p.dot(back));
+    const x = p.dot(right) * 1.08,
+      y = p.dot(up) * 1.08,
+      z = p.dot(back);
+    height = Math.max(
+      height,
+      (2 * Math.abs(y)) / halfHeight,
+      (2 * Math.abs(x)) / (aspect * halfWidth),
+    );
+    // The shifted screen centre changes perspective depth at every corner.
+    // Solve each side's inequality rather than fitting then merely panning:
+    // panning alone would clip the near corners of a deep assembly.
+    distance = Math.max(
+      distance,
+      z + Math.abs(x / (tan * aspect) + centerX * z) / halfWidth,
+      z + Math.abs(y / tan + centerY * z) / halfHeight,
+    );
   }
   if (orthographic)
     distance = Math.max(distance, perspectiveDistance(height, fov));
+  const span = orthographic ? height : visibleHeight(distance, fov);
+  target
+    .addScaledVector(right, (-centerX * span * aspect) / 2)
+    .addScaledVector(up, (-centerY * span) / 2);
   return {
     target,
     position: target.clone().addScaledVector(back, distance),
