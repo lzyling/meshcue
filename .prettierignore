@@ -1,0 +1,3 @@
+# Vendored third-party builds: keep byte-identical to upstream.
+server/gltf-vendor/draco_decoder.cjs
+tests/fixtures/gltf-meshopt-encoder.js
