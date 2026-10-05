@@ -312,3 +312,22 @@ test.describe("phone hint", () => {
     await expect.poll(seen).toBe("true");
   });
 });
+
+test("Fit to window and Home use different icons", async ({ page }) => {
+  await open(page);
+  await page.locator("#view-menu-button").click();
+  const icon = (command) =>
+    page
+      .locator(`#view-menu [data-command="${command}"] use`)
+      .getAttribute("href");
+  const fit = await icon("navigation-fit"),
+    home = await icon("home");
+  expect(home).toBe("#mc-home");
+  expect(fit).not.toBe(home);
+  // The icon it names is drawn from the bundle's own sprite, not left blank.
+  const drawn = await page
+    .locator('#view-menu [data-command="navigation-fit"] use')
+    .evaluate((use) => use.getBBox().width);
+  expect(drawn).toBeGreaterThan(10);
+  await page.screenshot({ path: `${evidence}/view-menu-icons.png` });
+});
