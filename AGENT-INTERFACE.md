@@ -3,8 +3,9 @@
 What an agent can ask MeshCue to do, and what it must not conclude from the
 answers. This is a project interface, not a system capability: it grants no
 permission the host has not already given, every path resolves inside the
-workspace, and the workbench binds loopback unless a verified private address is
-configured. See [SECURITY.md](SECURITY.md) for the network and trust model.
+workspace. CLI/MCP default to loopback; the OpenClaw plugin defaults to
+automatic private LAN selection with admission. See [SECURITY.md](SECURITY.md)
+for the network and trust model.
 
 ## Three ways in, one implementation
 
@@ -107,6 +108,12 @@ a new active publication clears the event; ordinary tab switching does not
 create one. It is not stored as a permanent model notice.
 
 ## CLI flags and tool fields
+
+CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
+CLI `--host lan` or MCP `host: "lan"`, or give an explicit verified private
+IPv4 address. The OpenClaw plugin defaults to automatic private LAN selection
+with admission required. Existing configured reviews keep their stored host;
+these defaults do not move a running or saved review to another address.
 
 Run `meshcue help` (or `meshcue --help`) for the accepted flags and their tool
 field names. Help is a top-level action: `meshcue open --help` is not supported.

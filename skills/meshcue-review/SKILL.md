@@ -62,6 +62,12 @@ animation, instancing and lights remain outside supported review formats.
 
 ## 4. Publishing a draft and delivering the URL
 
+CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
+CLI `--host lan` or MCP `host: "lan"`, or give an explicit verified private
+IPv4 address. The OpenClaw plugin defaults to automatic private LAN selection
+with admission required. Existing configured reviews keep their stored host;
+these defaults do not move a running or saved review to another address.
+
 Call `meshcue` with `action: "open"`, giving the workspace-relative `project`,
 the actual `file`, the model `name`, a recognisable `version` and `units`; use
 `label` for a short tab caption. Source, recipient and topic come from the host

@@ -153,7 +153,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 388 unit and integration tests
+npm test             # 392 unit and integration tests
 npm run test:browser # 164 real-Chromium tests, isolated port and data
 ```
 
@@ -220,8 +220,13 @@ under any of those names is not this project**, whatever it claims. This
 repository, pinned to a tag, is the only way in — the install commands above use
 npm as the package manager, not as the source.
 
-The workbench listens on the loopback address by default. LAN mode binds one
-verified private IPv4 and always requires authorization — see
+CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
+CLI `--host lan` or MCP `host: "lan"`, or give an explicit verified private
+IPv4 address. The OpenClaw plugin defaults to automatic private LAN selection
+with admission required. Existing configured reviews keep their stored host;
+these defaults do not move a running or saved review to another address.
+
+LAN mode binds one verified private IPv4 and always requires authorization — see
 [SECURITY.md](SECURITY.md) for the trust model, how a browser is admitted, and
 how long that lasts.
 
