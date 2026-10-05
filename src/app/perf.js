@@ -91,7 +91,23 @@ export function bindPerformance(review) {
         box = panel.getBoundingClientRect();
       const limit =
         review.$(".toolbar").getBoundingClientRect().top - bounds.top - 8;
-      panel.style.maxHeight = `${Math.max(44, limit - 8)}px`;
+      let ceiling = 8;
+      if (!panel.style.left) {
+        // Before the reviewer drags it, keep the report below the corner
+        // controls it shares horizontal space with. A phone cannot fit the
+        // full report beside Section; scrolling preserves both sets of controls.
+        for (const selector of [".orient", "#section-options"]) {
+          const control = review.$(selector);
+          if (control.hidden) continue;
+          const rect = control.getBoundingClientRect();
+          if (rect.left < box.right && rect.right > box.left)
+            ceiling = Math.max(ceiling, rect.bottom - bounds.top + 8);
+        }
+      }
+      const bottom = panel.style.left
+        ? limit
+        : Math.min(limit, box.bottom - bounds.top);
+      panel.style.maxHeight = `${Math.max(44, bottom - ceiling)}px`;
       if (!panel.style.left) return;
       panel.style.left = `${Math.max(8, Math.min(parseFloat(panel.style.left), bounds.width - box.width - 8))}px`;
       panel.style.top = `${Math.max(8, Math.min(parseFloat(panel.style.top), limit - box.height))}px`;
@@ -136,6 +152,8 @@ export function bindPerformance(review) {
     observer.observe(shell);
     observer.observe(panel);
     observer.observe(review.$(".toolbar"));
+    observer.observe(review.$(".orient"));
+    observer.observe(review.$("#section-options"));
     clamp();
     const gl = viewer.renderer.getContext();
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
