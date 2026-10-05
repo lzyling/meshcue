@@ -28,9 +28,18 @@ export class NavigationMethods {
         this.navigationPointer = null;
         this.clearNavigationHover();
         this.controls.mouseButtons.LEFT =
-          this.mode === "orbit" ? THREE.MOUSE.ROTATE : null;
+          // Shift has always meant pan. Keep LEFT as ROTATE for that
+          // modifier because OrbitControls swaps ROTATE and PAN on Shift.
+          e.shiftKey || this.mode === "orbit"
+            ? THREE.MOUSE.ROTATE
+            : this.mode === "pan"
+              ? THREE.MOUSE.PAN
+              : null;
+        this.controls.touches.ONE =
+          this.mode === "pan" ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
+        if (this.mode === "pan") canvas.style.cursor = "grabbing";
         this.navigationRotating =
-          e.pointerType === "touch" ||
+          (e.pointerType === "touch" && this.mode !== "pan") ||
           (!e.shiftKey &&
             (e.button === 2 || (e.button === 0 && this.mode === "orbit")));
       },
@@ -38,7 +47,10 @@ export class NavigationMethods {
     );
     const release = (e) => {
       this.navigationPointers.delete(e.pointerId);
-      if (!this.navigationPointers.size) this.navigationRotating = false;
+      if (!this.navigationPointers.size) {
+        this.navigationRotating = false;
+        if (this.mode === "pan") canvas.style.cursor = "grab";
+      }
     };
     window.addEventListener("pointerup", release);
     window.addEventListener("pointercancel", release);
@@ -176,12 +188,12 @@ export class NavigationMethods {
       const rect = this.container.getBoundingClientRect();
       this.pivotDot.style.transform = `translate(${x - rect.left}px, ${y - rect.top}px)`;
     }
-    if (this.mode !== "orbit") {
+    if (!["orbit", "pan"].includes(this.mode)) {
       this.navigationHover = false;
       this.navigationHoverTarget = null;
     }
     if (
-      this.mode !== "orbit" ||
+      !["orbit", "pan"].includes(this.mode) ||
       !this.enabled ||
       this.navigationPointers.size ||
       !this.navigationPointer

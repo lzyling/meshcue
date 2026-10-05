@@ -2239,3 +2239,11 @@ dialog .muted {
 .tool-options {
   bottom: var(--tool-options-bottom, 92px);
 }
+
+/* === Lane owner-decisions: Pan tool === */
+/* Let drags begin over an existing label or reading as well as bare canvas.
+   The list remains available for deliberate annotation editing. */
+.pan-tool .model-pin,
+.pan-tool .measure-label {
+  pointer-events: none;
+}

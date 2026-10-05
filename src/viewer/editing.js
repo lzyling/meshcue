@@ -8,7 +8,8 @@ export class EditingMethods {
     if (
       this.navigationPointers.size > 1 ||
       e.button !== 0 ||
-      this.mode === "orbit" ||
+      ["orbit", "pan"].includes(this.mode) ||
+      e.shiftKey ||
       !this.enabled ||
       this.editPending ||
       this.pinPending

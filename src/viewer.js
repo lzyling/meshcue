@@ -246,8 +246,10 @@ export class ModelViewer {
     // Rotation no longer competes with the mode: it is on a button that marking
     // never uses, so the camera stays available while marking.
     this.controls.enableRotate = true;
-    this.renderer.domElement.style.cursor =
-      mode === "orbit" ? "grab" : "crosshair";
+    this.renderer.domElement.style.cursor = ["orbit", "pan"].includes(mode)
+      ? "grab"
+      : "crosshair";
+    this.container.classList.toggle("pan-tool", mode === "pan");
   }
   // Every source triangle in the loaded model: the most a round could possibly
   // claim, and since `source-v2` the only ceiling on claiming that is honest.

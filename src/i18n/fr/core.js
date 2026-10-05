@@ -136,7 +136,7 @@ export default {
   "tool.newRegionHint":
     "Le prochain remplissage formera sa propre zone de couleur.",
   "hint.orbit":
-    "Glisser à gauche/droite : tourner · Maj+glisser ou bouton central : déplacer · Molette/pincement : zoomer",
+    "Glisser à gauche/droite : tourner · Déplacer (H) ou Maj+défilement/glisser : déplacer · Molette/pincement : zoomer",
   "hint.fill":
     "Survoler pour prévisualiser · cliquer pour remplir · le bouton droit pivote toujours",
   "hint.relocate": "Cliquez une surface pour déplacer le repère · Échap annule",

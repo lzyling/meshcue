@@ -384,7 +384,10 @@ mark, then say what to change."
   left button for marks. On a touchscreen, drag one finger to rotate and use two
   fingers to pinch or pan; these gestures never mark. A tap places nothing in
   Orbit; with Label, Paint bucket or Measure selected, tap the surface to use
-  that tool.
+  that tool. For trackpad-only panning, select Pan (H) and click-drag. Pan also
+  moves the view with one finger on touchscreens; clicks and taps do not select
+  or place marks. Shift+two-finger scroll/drag or middle-drag also pans in every
+  tool.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
