@@ -334,6 +334,15 @@ for (const projection of ["perspective", "orthographic"]) {
       canvas.y + canvas.height * 0.45,
     );
     await page.mouse.wheel(0, -100);
+    // Settle the wheel and pointer-leave render before measuring the sidebar
+    // change alone. Keep the exact camera equality assertion below.
+    await page.mouse.move(5, 5);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     const moved = (await diag(page)).camera;
     await page.locator("#sidebar-marks").click();
     await expect.poll(async () => (await diag(page)).camera).toEqual(moved);
