@@ -5,5 +5,5 @@ export default {
   "section.flip": "Inverser le côté",
   "section.off": "Désactiver / réinitialiser",
   "section.hint":
-    "La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée.",
+    "Coupes hachurées, colorées par pièce : à voir, sans marquage ni mesure.",
 };

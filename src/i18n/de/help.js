@@ -1,8 +1,8 @@
 export default {
   "help.p12":
-    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Schnittflächen sind schraffiert und nach Bauteil eingefärbt; sie dienen nur der Ansicht und können weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
   "help.p12.named":
-    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Schnittflächen sind schraffiert und nach Bauteil eingefärbt; sie dienen nur der Ansicht und können weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
 
   "help.open": "Anleitung",
   "help.eyebrow": "SCHNELLSTART",

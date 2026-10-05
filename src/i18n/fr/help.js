@@ -1,8 +1,8 @@
 export default {
   "help.p12":
-    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces de coupe sont hachurées et colorées par pièce ; elles sont une aide visuelle et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
   "help.p12.named":
-    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. Les faces de coupe sont hachurées et colorées par pièce ; elles sont une aide visuelle et ne peuvent être ni marquées ni mesurées. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
 
   "help.open": "Mode d'emploi",
   "help.eyebrow": "DÉMARRAGE RAPIDE",

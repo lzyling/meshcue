@@ -84,6 +84,26 @@ test("section cap quads are bounded per part instead of repainting the whole ass
   assert.equal(viewer.sectionCapGroup.children.length, 0);
 });
 
+test("section hints and both help variants describe part hatching in every locale", async () => {
+  for (const [locale, word] of [
+    ["en", "hatched"],
+    ["de", "schraffiert"],
+    ["fr", "hachur"],
+    ["ja", "ハッチング"],
+    ["zh-Hans", "剖面线"],
+    ["zh-Hant", "剖面線"],
+  ]) {
+    const hint = (await import(`../src/i18n/${locale}/section.js`)).default;
+    const help = (await import(`../src/i18n/${locale}/help.js`)).default;
+    for (const value of [
+      hint["section.hint"],
+      help["help.p12"],
+      help["help.p12.named"],
+    ])
+      assert.ok(value.toLowerCase().includes(word), `${locale}: ${value}`);
+  }
+});
+
 test("large sections share at most ten palette counters without splitting a part's meshes", () => {
   const groups = Array.from({ length: 50 }, (_, i) => ({
     id: `part-${i}`,
