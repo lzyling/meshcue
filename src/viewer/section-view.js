@@ -116,7 +116,29 @@ export class SectionViewMethods {
         stencilZFail: THREE.KeepStencilOp,
         stencilZPass: THREE.KeepStencilOp,
       });
+      const pixelRatio = { value: this.renderer.getPixelRatio() };
+      const direction = index % 2 ? -1 : 1;
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.sectionPixelRatio = pixelRatio;
+        shader.fragmentShader =
+          `uniform float sectionPixelRatio;\n${shader.fragmentShader}`.replace(
+            "#include <color_fragment>",
+            `#include <color_fragment>
+          float hatchAt = (gl_FragCoord.x + ${direction.toFixed(1)} * gl_FragCoord.y)
+            / (1.41421356237 * sectionPixelRatio);
+          float hatchDistance = abs(mod(hatchAt + 4.0, 8.0) - 4.0);
+          float hatchEdge = 0.5 * fwidth(hatchAt);
+          float hatch = smoothstep(0.65 - hatchEdge, 0.65 + hatchEdge, hatchDistance);
+          diffuseColor.rgb *= mix(0.42, 1.0, hatch);`,
+          );
+      };
+      material.customProgramCacheKey = () => `section-hatch-${direction}`;
       const cap = new THREE.Mesh(geometry, material);
+      // The renderer caps DPR on dense displays; use its actual drawing-buffer
+      // ratio, not window.devicePixelRatio, to keep eight CSS pixels everywhere.
+      cap.onBeforeRender = (renderer) => {
+        pixelRatio.value = renderer.getPixelRatio();
+      };
       cap.userData.sectionPart = part;
       cap.renderOrder = order + 2 / (groups.length * 3);
       // Clear even where depth rejected the cap. A hidden or ghosted part has
