@@ -1,11 +1,6 @@
 import { DISPLAY_LABELS } from "./display-labels.js";
 import { t } from "../i18n/index.js";
-import {
-  FrameWindow,
-  PERF_IDLE_MS,
-  performanceReport,
-  softwareRenderer,
-} from "../perf.js";
+import { FrameWindow, performanceReport, softwareRenderer } from "../perf.js";
 import { gpuTimer } from "../viewer/perf-gpu.js";
 
 export function bindPerformance(review) {
@@ -93,10 +88,9 @@ export function bindPerformance(review) {
         : t("perf.unavailable");
       const timer = gpuTimer(gl);
       const window = new FrameWindow();
-      let activeUntil = 0,
-        paintedAt = -Infinity;
+      let paintedAt = -Infinity;
       const active = () => {
-        activeUntil = performance.now() + PERF_IDLE_MS;
+        window.activity(performance.now());
       };
       viewer.controls.addEventListener("change", active);
       const canvas = viewer.renderer.domElement;
@@ -124,7 +118,7 @@ export function bindPerformance(review) {
       const sample = () => {
         const now = performance.now();
         sampledFrames++;
-        const frame = window.sample(now, now < activeUntil);
+        const frame = window.sample(now);
         const info = viewer.renderer.info;
         snapshot = {
           ...frame,

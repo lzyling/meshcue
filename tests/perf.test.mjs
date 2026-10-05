@@ -139,3 +139,32 @@ test("GPU timer polls asynchronously, discards disjoint results and frees querie
   assert.equal(deleted, 2);
   timer.dispose();
 });
+
+test("performance keeps slow input frames active after the idle deadline", () => {
+  const window = new FrameWindow();
+  for (const start of [0, 450, 900]) {
+    window.activity(start);
+    assert.equal(window.sample(start + 400).idle, false);
+  }
+  assert.equal(window.snapshot().averageMs, 450);
+  assert.equal(window.snapshot().verdict, "bad");
+  assert.equal(window.sample(1750).idle, true);
+});
+
+test("performance consumes activity once and idles 300 ms after the last input", () => {
+  const window = new FrameWindow();
+  assert.equal(window.sample(0).idle, true);
+  window.activity(10);
+  window.activity(20);
+  assert.equal(window.sample(30).idle, false);
+  assert.equal(window.sample(319).idle, false);
+  assert.equal(window.sample(320).idle, true);
+  assert.equal(window.sample(340).fps, null);
+  window.activity(1000);
+  assert.equal(window.sample(1400).idle, false);
+  assert.equal(window.sample(1800).idle, true);
+  window.activity(2000);
+  assert.equal(window.sample(2010).fps, null);
+  window.activity(2020);
+  assert.equal(window.sample(2030).fps, 50);
+});

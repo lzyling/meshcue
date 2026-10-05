@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.mjs";
+import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import * as THREE from "three";
@@ -226,14 +227,14 @@ test("navigation shortcuts respect typing and modal dialogs, and shortcut sheet 
   const before = (await state(page)).camera;
   await page.keyboard.press("Shift+1");
   await page.keyboard.press("f");
-  expect((await state(page)).camera).toEqual(before);
+  expectCameraUnchanged((await state(page)).camera, before);
   await page.evaluate(() => document.activeElement.blur());
   await page.keyboard.press("Shift+/");
   await expect(page.locator("#navigation-shortcuts")).toBeVisible();
   await expect(page.locator("#navigation-shortcuts")).toContainText("Ctrl/⌘+Z");
   await expect(page.locator("#navigation-shortcuts")).toContainText("Shift+7");
   await page.keyboard.press("Shift+1");
-  expect((await state(page)).camera).toEqual(before);
+  expectCameraUnchanged((await state(page)).camera, before);
   await page.screenshot({ path: `${evidence}/shortcuts.png` });
   await page.keyboard.press("Escape");
   await expect(page.locator("#navigation-shortcuts")).toBeHidden();
@@ -259,8 +260,8 @@ test("navigation reduced motion is instant, input cancels animation, and release
   );
   await page.mouse.up();
   // Let the released pointer and its final render settle before taking the
-  // exact no-drift snapshot; OrbitControls normalizes spherical coordinates
-  // on that frame and can change the last floating-point bit.
+  // no-drift snapshot; compare with the same round-off tolerance used for
+  // other stationary views because normalization also runs on later frames.
   await page.evaluate(
     () =>
       new Promise((resolve) =>
@@ -269,7 +270,7 @@ test("navigation reduced motion is instant, input cancels animation, and release
   );
   const after = (await state(page)).camera;
   await page.waitForTimeout(400);
-  expect((await state(page)).camera).toEqual(after);
+  expectCameraUnchanged((await state(page)).camera, after);
   expect((await state(page)).navigation.damping).toBe(false);
 });
 
@@ -288,7 +289,7 @@ test("navigation left drag preserves marking modes and touch taps never place ma
       { steps: 4 },
     );
     await page.mouse.up();
-    expect((await state(page)).camera).toEqual(before);
+    expectCameraUnchanged((await state(page)).camera, before);
     expect((await state(page)).annotationCount).toBe(0);
   }
   await page.locator('[data-mode="label"]').click();

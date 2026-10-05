@@ -22,8 +22,19 @@ export class FrameWindow {
   constructor() {
     this.samples = [];
     this.last = null;
+    this.activeUntil = 0;
+    this.pendingActivity = false;
   }
-  sample(now, active) {
+  activity(now) {
+    this.activeUntil = now + PERF_IDLE_MS;
+    this.pendingActivity = true;
+  }
+  sample(now, active = this.pendingActivity || now < this.activeUntil) {
+    // Sampling happens after rendering, which can itself exceed the idle grace
+    // period on software renderers. Consume input once at the next sample so
+    // slow interaction frames still count; do not extend the deadline from the
+    // frame's end, or a stationary render loop could keep claiming activity.
+    this.pendingActivity = false;
     if (!active) {
       this.samples = [];
       this.last = null;

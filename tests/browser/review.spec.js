@@ -1,5 +1,6 @@
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
+import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -782,9 +783,10 @@ test("the looking tool places nothing while either left or right drag rotates", 
   // Placing a label must not move the camera under the reviewer afterwards.
   const saved = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.waitForTimeout(150);
-  expect(
+  expectCameraUnchanged(
     await page.evaluate(() => window.__reviewDiagnostics().camera),
-  ).toEqual(saved);
+    saved,
+  );
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(3);
@@ -1322,9 +1324,10 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(before.annotations);
-  expect(
+  expectCameraUnchanged(
     await page.evaluate(() => window.__reviewDiagnostics().camera),
-  ).toEqual(before.camera);
+    before.camera,
+  );
   await page.locator("#toggle-marks").click();
   expect(
     await page.evaluate(
@@ -1651,9 +1654,10 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   });
   await page.locator("#toggle-marks").click();
   const hidden = await capture();
-  expect(
+  expectCameraUnchanged(
     await page.evaluate(() => window.__reviewDiagnostics().camera),
-  ).toEqual(cleanCamera);
+    cleanCamera,
+  );
   expect(hidden.equals(clean)).toBe(true);
   await page.locator("#neutral-view").click();
   const neutral = await colors(await capture());
