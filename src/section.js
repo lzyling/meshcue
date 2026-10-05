@@ -85,3 +85,31 @@ export function sectionSegment(a, b, plane) {
   const at = a.clone().lerp(b, da / (da - db));
   return da < 0 ? [at, b] : [a, at];
 }
+
+// The part tree owns identity, including multiple glTF material primitives on
+// one node. Legacy exports can instead make every open face a separate node:
+// those fragments must keep their shared counter or an inward cavity shell
+// becomes a filled part. Original topology (before review subdivision creates
+// T-junctions) lets us detect these fragments without welding geometry again.
+export function sectionPartGroups(meshes, parts) {
+  const owners = new Map();
+  for (const mesh of meshes) {
+    const id = parts?.partOfMesh(mesh.userData.reviewId) || "model";
+    if (!owners.has(id)) owners.set(id, { id, meshes: [] });
+    owners.get(id).meshes.push(mesh);
+  }
+  const groups = [],
+    fragments = [];
+  for (const group of owners.values()) {
+    // Multiple primitives already belong to one part and must never be split.
+    const topology = group.meshes[0].userData.fillTopology;
+    if (
+      group.meshes.length === 1 &&
+      topology?.adjacency.some((a) => a.size < 3)
+    )
+      fragments.push(...group.meshes);
+    else groups.push(group);
+  }
+  if (fragments.length) groups.push({ id: "open-shells", meshes: fragments });
+  return groups;
+}

@@ -3,6 +3,7 @@ import {
   sectionRange,
   retainedPoint,
   sectionIntersection,
+  sectionPartGroups,
 } from "../section.js";
 import * as THREE from "three";
 import { V } from "./shared.js";
@@ -39,73 +40,16 @@ export class SectionViewMethods {
       if (this.sectionClips?.length) this.sectionClips[0].copy(plane);
       else this.sectionClips = [plane];
       if (!this.sectionCapMaterial) {
-        // All source meshes contribute to ONE winding counter. Clearing per
-        // mesh would fill cavity shells exported as separate STEP faces, and
-        // would expose the shared faces of touching or overlapping solids.
-        this.sectionStencilMaterials = [
-          [THREE.BackSide, THREE.IncrementWrapStencilOp],
-          [THREE.FrontSide, THREE.DecrementWrapStencilOp],
-        ].map(([side, operation], pass) => {
-          const material = new THREE.MeshBasicMaterial({
-            side,
-            colorWrite: false,
-            depthWrite: false,
-            depthTest: false,
-            stencilWrite: true,
-            stencilFunc: THREE.AlwaysStencilFunc,
-            stencilFail: operation,
-            stencilZFail: operation,
-            stencilZPass: operation,
-          });
-          for (const mesh of this.meshes) {
-            // The model owns this geometry; only the draw siblings and their
-            // materials belong to the section, so disposal never frees it twice.
-            const counter = new THREE.Mesh(mesh.geometry, material);
-            counter.userData.partMeshId = mesh.userData.reviewId;
-            counter.matrixAutoUpdate = false;
-            counter.matrix.copy(mesh.matrixWorld);
-            counter.renderOrder = -3 + pass;
-            this.sectionCapGroup.add(counter);
-          }
-          return material;
-        });
-        this.sectionCapMaterial = new THREE.MeshBasicMaterial({
-          color: this.sectionColor || "#bd801a",
-          side: THREE.DoubleSide,
-          toneMapped: false,
-          fog: false,
-          stencilWrite: true,
-          stencilRef: 0,
-          stencilFunc: THREE.NotEqualStencilFunc,
-          stencilFail: THREE.KeepStencilOp,
-          stencilZFail: THREE.KeepStencilOp,
-          stencilZPass: THREE.KeepStencilOp,
-        });
-        const size =
-          this.sectionBounds
-            .getSize(new V())
-            .multiply(this.root.scale)
-            .length() * 1.01;
-        this.sectionCap = new THREE.Mesh(
-          new THREE.PlaneGeometry(size, size),
-          this.sectionCapMaterial,
-        );
-        // Count first, then draw the model and cap before overlays. Drawing
-        // the cap last at equal depth prevents coplanar source faces from
-        // repainting it; nearer retained surfaces still win the depth test.
-        this.sectionCap.renderOrder = 1;
-        // Clear the whole counter even where the quad failed its depth test.
-        // The renderer also keeps its default autoClearStencil=true, so a
-        // culled/disabled cap cannot leak stencil into a later frame.
-        this.sectionCap.onAfterRender = (renderer) => renderer.clearStencil();
-        this.sectionCapGroup.add(this.sectionCap);
+        this.buildSectionCaps();
       }
       const cut = sectionPlane(this.section, this.root.matrixWorld);
       const center = this.sectionBounds
         .getCenter(new V())
         .applyMatrix4(this.root.matrixWorld);
-      cut.projectPoint(center, this.sectionCap.position);
-      this.sectionCap.quaternion.setFromUnitVectors(new V(0, 0, 1), cut.normal);
+      for (const cap of this.sectionCaps) {
+        cut.projectPoint(center, cap.position);
+        cap.quaternion.setFromUnitVectors(new V(0, 0, 1), cut.normal);
+      }
     } else this.sectionClips = [];
     if (this.sectionCapGroup) this.sectionCapGroup.visible = !!this.section;
     if (!!previous !== !!this.section) this.applySectionMaterials();
@@ -120,6 +64,78 @@ export class SectionViewMethods {
     this.syncPartCaps?.();
     this.highlightPart?.(this.partHover || this.parts?.selected());
     this.onSection?.();
+  }
+  buildSectionCaps() {
+    this.sectionStencilMaterials = [
+      [THREE.BackSide, THREE.IncrementWrapStencilOp],
+      [THREE.FrontSide, THREE.DecrementWrapStencilOp],
+    ].map(
+      ([side, operation]) =>
+        new THREE.MeshBasicMaterial({
+          side,
+          colorWrite: false,
+          depthWrite: false,
+          depthTest: false,
+          stencilWrite: true,
+          stencilFunc: THREE.AlwaysStencilFunc,
+          stencilFail: operation,
+          stencilZFail: operation,
+          stencilZPass: operation,
+        }),
+    );
+    const groups = sectionPartGroups(this.meshes, this.parts);
+    const size =
+      this.sectionBounds.getSize(new V()).multiply(this.root.scale).length() *
+      1.01;
+    const geometry = new THREE.PlaneGeometry(size, size);
+    this.sectionCaps = groups.map((part, index) => {
+      // Draw source surfaces first, then each complete count/cap/clear sequence,
+      // all before overlays at order 2. Depth keeps retained exterior surfaces
+      // in front and prevents touching/overlapping solids exposing shared faces.
+      const order = 1 + index / groups.length;
+      this.sectionStencilMaterials.forEach((material, pass) => {
+        for (const mesh of part.meshes) {
+          const counter = new THREE.Mesh(mesh.geometry, material);
+          counter.userData.partMeshId = mesh.userData.reviewId;
+          counter.matrixAutoUpdate = false;
+          counter.matrix.copy(mesh.matrixWorld);
+          counter.renderOrder = order + pass / (groups.length * 3);
+          this.sectionCapGroup.add(counter);
+        }
+      });
+      const material = new THREE.MeshBasicMaterial({
+        color: this.sectionColor || "#bd801a",
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        fog: false,
+        stencilWrite: true,
+        stencilRef: 0,
+        stencilFunc: THREE.NotEqualStencilFunc,
+        stencilFail: THREE.KeepStencilOp,
+        stencilZFail: THREE.KeepStencilOp,
+        stencilZPass: THREE.KeepStencilOp,
+      });
+      const cap = new THREE.Mesh(geometry, material);
+      cap.userData.sectionPart = part;
+      cap.renderOrder = order + 2 / (groups.length * 3);
+      // Clear even where depth rejected the cap. A hidden or ghosted part has
+      // no counting meshes, so it produces no cap and cannot leak old stencil.
+      cap.onAfterRender = (renderer) => renderer.clearStencil();
+      this.sectionCapGroup.add(cap);
+      return cap;
+    });
+    this.sectionCap = this.sectionCaps[0];
+    this.sectionCapMaterial = this.sectionCap?.material;
+  }
+  disposeSectionCaps() {
+    this.sectionCapGroup?.clear();
+    this.sectionCap?.geometry.dispose();
+    for (const cap of this.sectionCaps || []) cap.material.dispose();
+    for (const material of this.sectionStencilMaterials || [])
+      material.dispose();
+    this.sectionCaps = [];
+    this.sectionStencilMaterials = [];
+    this.sectionCap = this.sectionCapMaterial = null;
   }
   clipMaterial(material) {
     const clips = this.sectionClips || [];

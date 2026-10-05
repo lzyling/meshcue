@@ -262,14 +262,7 @@ export class ModelViewer {
   clearModel() {
     this.setSection(null);
     this.sectionBounds = null;
-    this.sectionCapGroup?.clear();
-    this.sectionCap?.geometry.dispose();
-    this.sectionCap = null;
-    for (const material of this.sectionStencilMaterials || [])
-      material.dispose();
-    this.sectionStencilMaterials = [];
-    this.sectionCapMaterial?.dispose();
-    this.sectionCapMaterial = null;
+    this.disposeSectionCaps();
     this.onSection?.();
     this.setNeutral(false);
     this.setAnnotations([]);
