@@ -243,6 +243,12 @@ test("display X-ray keeps surface labels visible and selectable and bucket picki
 test("performance is idle when still, updates on orbit, copies a private report and costs nothing per frame when off", async ({
   page,
 }) => {
+  if (process.env.MESHCUE_CI_CPU_RATE) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", {
+      rate: Number(process.env.MESHCUE_CI_CPU_RATE),
+    });
+  }
   await open(page);
   await expect(page.locator("#perf-panel")).toHaveCount(0);
   expect((await diagnostics(page)).viewer.performance.sampledFrames).toBe(0);
@@ -257,11 +263,23 @@ test("performance is idle when still, updates on orbit, copies a private report 
   const box = await page.locator("#viewer canvas").boundingBox();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.down({ button: "right" });
-  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.6, {
-    steps: 50,
-  });
+  // Capture a rendered sample while input is still arriving. By the time a
+  // slow driver's mouse.up round trip returns, the 300 ms idle deadline can
+  // legitimately have expired; a later one-shot read cannot describe the drag.
+  const [sample] = await Promise.all([
+    page.waitForFunction(() => {
+      const snapshot = window.__reviewDiagnostics().viewer.performance.snapshot;
+      return !snapshot.idle && snapshot.fps > 0 ? snapshot : false;
+    }),
+    page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.6, {
+      steps: 50,
+    }),
+  ]);
+  if (process.env.MESHCUE_CI_INPUT_GAP_MS)
+    await page.waitForTimeout(Number(process.env.MESHCUE_CI_INPUT_GAP_MS));
   await page.mouse.up({ button: "right" });
-  const active = (await diagnostics(page)).viewer.performance.snapshot;
+  const active = await sample.jsonValue();
+  await sample.dispose();
   expect(active.idle).toBe(false);
   expect(active.fps).toBeGreaterThan(0);
   expect(active.software).toBe(true);
