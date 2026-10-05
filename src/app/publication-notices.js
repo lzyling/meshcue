@@ -21,6 +21,12 @@ export function bindPublicationNotices(review) {
   dismiss.setAttribute("aria-label", t("common.close"));
   reuse.append(text, dismiss);
   container.append(reuse);
+  const skipped = document.createElement("div");
+  skipped.id = "skipped-notice";
+  skipped.className = "publication-notice";
+  skipped.hidden = true;
+  skipped.setAttribute("role", "status");
+  container.append(skipped);
   let shown = null;
   let observed = null;
   dismiss.addEventListener("click", () => {
@@ -50,6 +56,15 @@ export function bindPublicationNotices(review) {
       !shown || !review.initialDraftRestored || review.accessBlocked;
     if (shown)
       text.textContent = t("notice.sameContent", { label: shown.label });
-    container.hidden = reuse.hidden;
+    // Unlike reuse, skipped geometry belongs to the immutable version record.
+    // Read its numeric count rather than parsing the agent's English notice,
+    // so old records without that optional field keep their original behavior.
+    const model = review.state?.model || review.state?.active;
+    const count = model?.id === review.loadedId ? model.skippedPrimitives : 0;
+    skipped.hidden =
+      !(count > 0) || !review.initialDraftRestored || review.accessBlocked;
+    if (!skipped.hidden)
+      skipped.textContent = t("notice.skippedPrimitives", { count });
+    container.hidden = reuse.hidden && skipped.hidden;
   };
 }

@@ -253,7 +253,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
       format,
       texturePixels,
       textureBytes,
-      ...(notices ? { notices } : {}),
+      ...(notices ? { notices, skippedPrimitives } : {}),
     };
   }
   if (format === "stl") {

@@ -284,8 +284,16 @@ When primitives are skipped, `precheck`, publish and `open` add an optional
 {"notices":[{"code":"SKIPPED_PRIMITIVES","message":"Skipped 4 point/line primitives; only triangle surfaces are shown and counted."}]}
 ```
 
-Tell the reviewer about this notice: construction geometry is excluded from
-both the view and the count. The count in the notice is primitive occurrences
+The published model record additionally carries optional numeric
+`skippedPrimitives`, counting skipped primitive occurrences. It is persisted
+with that version and returned as part of the model in publish/open and review
+state. The page displays a localized notice whenever that version is viewed,
+including after reload and after switching back. Old records without the field
+still load and show no notice. This is independent of the transient
+`SAME_CONTENT_REUSED` notice; both can appear on a reused mixed model.
+
+Tell the reviewer about this notice too: construction geometry is excluded from
+both the view and the triangle count. The count in the notice is primitive occurrences
 on mesh nodes, not vertices. A zero-triangle or over-triangle-limit precheck
 also includes the notice when applicable. Reopening a published model keeps
 its notice; publishing without activating reports the newly published model's
