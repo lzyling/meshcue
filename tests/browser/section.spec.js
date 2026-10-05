@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  selectSetting,
+  revealControl,
+} from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -164,7 +169,7 @@ async function clickAt(page, point) {
   await page.mouse.click(p.x, p.y);
 }
 async function section(page, axis = "z") {
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption(axis);
 }
 async function offset(page, value) {
@@ -222,10 +227,11 @@ test("section controls clip in model units, flip, hide pins and reset without ed
 }) => {
   await open(page);
   await front(page);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await clickAt(page, [8, 0, 4]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   const before = await diagnostics(page);
+  await revealControl(page, "#section-toggle");
   await page.locator("#section-toggle").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#section-options")).toBeVisible();
@@ -245,7 +251,7 @@ test("section controls clip in model units, flip, hide pins and reset without ed
   expect((await diagnostics(page)).annotationCount).toBe(1);
   expect((await diagnostics(page)).annotations).toEqual(before.annotations);
   await page.locator("#section-off").click();
-  await expect(page.locator("#section-toggle")).toBeFocused();
+  await expect(page.locator('[data-menu="inspect"] .split-main')).toBeFocused();
   await clickAt(page, [-8, 2, 4]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await section(page, "x");
@@ -267,14 +273,14 @@ test("hatched cut faces reject labels, bucket and measurement while exposed cavi
   await front(page);
   await section(page);
   expect(await capPixels(page)).toBeGreaterThan(500);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await clickAt(page, [8, 0, -4]);
   expect((await diagnostics(page)).annotationCount).toBe(0);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await clickAt(page, [8, 0, -4]);
   expect((await diagnostics(page)).viewer.fillFaces).toBe(0);
   expect((await diagnostics(page)).annotationCount).toBe(0);
-  await page.locator('[data-mode="measure"]').click();
+  await clickControl(page, '[data-mode="measure"]');
   // Keep the cut-face regression on its original arbitrary-point tool.
   await page.locator("#measure-advanced summary").click();
   await page.locator('[data-measure="points"]').click();
@@ -283,13 +289,13 @@ test("hatched cut faces reject labels, bucket and measurement while exposed cavi
   await clickAt(page, [-2, 0, -3]);
   await clickAt(page, [2, 0, -3]);
   await expect(page.locator("#measure-reading")).toHaveText("4.00 mm");
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await clickAt(page, [0, 0, -3]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   const mark = (await diagnostics(page)).annotations[0];
   expect(mark.position[2]).toBeCloseTo(-3);
   expect(mark.view.section).toBeUndefined();
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await clickAt(page, [0, 2, -3]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await offset(page, 4);
@@ -329,7 +335,7 @@ for (const format of ["glb", "step"])
       page,
       format === "step" ? "tests/fixtures/plate.step" : undefined,
     );
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     // A visible pin on the outside disappears when the Z half facing home is cut.
     const canvas = await page.locator("#viewer canvas").boundingBox();
     await page.mouse.click(
@@ -338,7 +344,7 @@ for (const format of ["glb", "step"])
     );
     await expect(page.locator("#annotation-count")).toHaveText("1");
     for (const theme of ["light", "dark"]) {
-      await page.locator("#theme-choice").selectOption(theme);
+      await selectSetting(page, "#theme-choice", theme);
       await page.screenshot({
         path: path.join(evidence, `${format}-${theme}-off.png`),
       });
@@ -412,10 +418,10 @@ test("section clips region paint, echo and wide measurement lines as well as the
 }) => {
   await open(page);
   await front(page);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await clickAt(page, [0, 0, 4]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
-  await page.locator('[data-mode="measure"]').click();
+  await clickControl(page, '[data-mode="measure"]');
   await page.locator("#measure-advanced summary").click();
   await page.locator('[data-measure="points"]').click();
   await clickAt(page, [-8, -6, 4]);
@@ -423,7 +429,7 @@ test("section clips region paint, echo and wide measurement lines as well as the
   await expect(page.locator("#measure-reading")).toHaveText("16.00 mm");
   await page.locator("#keep-measure").click();
   await expect(page.locator("#annotation-count")).toHaveText("2");
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   await page.locator("#submit-feedback").click();
   const stateFile = path.join(dir, "state.json");
   await expect
@@ -451,7 +457,7 @@ test("section clips region paint, echo and wide measurement lines as well as the
   await expect(page.locator(".measure-label")).toBeHidden();
   await page.mouse.move(5, 5);
   const shown = await page.locator("#viewer canvas").screenshot();
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   const hidden = await page.locator("#viewer canvas").screenshot();
   fs.writeFileSync(path.join(evidence, "overlays-shown.png"), shown);
   fs.writeFileSync(path.join(evidence, "overlays-hidden.png"), hidden);
@@ -491,7 +497,7 @@ test("section clips region paint, echo and wide measurement lines as well as the
   );
   expect(difference.left).toBeGreaterThan(100);
   expect(difference.right).toBe(0);
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   await page.locator("#section-off").click();
   await expect(page.locator(".measure-label")).toBeVisible();
   const hasSection = (v) =>
@@ -625,7 +631,7 @@ for (const kind of ["touching", "overlapping", "per-face hollow"])
     // back wall, even when both happen to look flat from straight ahead.
     if (hollow) await page.locator('[data-view="1,0,1"]').press("Enter");
     for (const theme of ["light", "dark"]) {
-      await page.locator("#theme-choice").selectOption(theme);
+      await selectSetting(page, "#theme-choice", theme);
       const pixels = await cutPixels(page, corners);
       fs.mkdirSync(path.join(dir, "lane-c-evidence"), { recursive: true });
       fs.writeFileSync(
@@ -636,13 +642,13 @@ for (const kind of ["touching", "overlapping", "per-face hollow"])
       expect(pixels.fraction).toBeLessThan(0.01);
     }
     await front(page);
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
     expect((await diagnostics(page)).annotationCount).toBe(0);
-    await page.locator('[data-mode="measure"]').click();
+    await clickControl(page, '[data-mode="measure"]');
     await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
     expect((await diagnostics(page)).measuring?.picks || 0).toBe(0);
-    await page.locator('[data-mode="fill"]').click();
+    await clickControl(page, '[data-mode="fill"]');
     await clickAt(page, hollow ? [-8, 0, 0] : [-3, 0, 0]);
     expect((await diagnostics(page)).annotationCount).toBe(0);
     if (hollow) {
@@ -654,7 +660,7 @@ for (const kind of ["touching", "overlapping", "per-face hollow"])
       ]);
       expect(cavity.fraction).toBeGreaterThan(0.99);
     }
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     await clickAt(page, hollow ? [0, 0, -3] : [9, 0, -1]);
     await expect(page.locator("#annotation-count")).toHaveText("1");
     expect((await diagnostics(page)).annotations[0].position[2]).toBeCloseTo(

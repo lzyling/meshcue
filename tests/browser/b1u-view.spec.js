@@ -1,3 +1,4 @@
+import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
@@ -76,7 +77,7 @@ test("STEP fill paints one whole B-rep face, hides spread and survives reload", 
 }) => {
   await open(page);
   const p = (await probes(page)).find((p) => p.range[0] === 218);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await expect(page.locator("#fill-control")).toBeHidden();
   await page.mouse.click(p.x, p.y);
   await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
@@ -97,6 +98,7 @@ test("View click selects a face and part without making a mark, empty space and 
   page,
 }) => {
   await open(page);
+  await showParts(page);
   const p = (await probes(page)).find((p) => p.range[0] === 218);
   await page.mouse.click(p.x, p.y);
   expect((await nav(page)).selection).toEqual({ meshId: p.meshId, faces: 20 });
@@ -240,7 +242,7 @@ test("old STEP fills keep their saved triangle subset instead of expanding to a 
     await route.continue({ postData: JSON.stringify(body) });
   });
   const p = (await probes(page)).find((p) => p.range[0] === 218);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await page.mouse.click(p.x, p.y);
   await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
   await expect.poll(async () => (await diag(page)).dirty).toBe(false);
@@ -273,7 +275,7 @@ test("STL hover and fill retain planar regions and the spread slider", async ({
   expect(p.range).toBeUndefined();
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await nav(page)).hoverFaces).toBe(2);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await expect(page.locator("#fill-control")).toBeVisible();
   await page.mouse.click(p.x, p.y);
   await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
@@ -316,7 +318,7 @@ test("fixed mouse mapping remains available in every tool and help describes Vie
     if (shift) await page.keyboard.up("Shift");
   };
   for (const mode of ["orbit", "label", "fill", "measure", "pan"]) {
-    await page.locator(`[data-mode="${mode}"]`).click();
+    await clickControl(page, `[data-mode="${mode}"]`);
     let before = (await diag(page)).camera;
     await drag("right");
     expect(offset((await diag(page)).camera)).not.toEqual(offset(before));

@@ -37,6 +37,13 @@ export function createCommandRegistry() {
     register(command) {
       if (!command.id || !command.labelKey || typeof command.run !== "function")
         throw new TypeError("A command needs id, labelKey and run()");
+      if (command.menu && !["view", "mark", "inspect"].includes(command.menu))
+        throw new TypeError(`Unknown command menu: ${command.menu}`);
+      if (
+        command.menuOrder !== undefined &&
+        !Number.isFinite(command.menuOrder)
+      )
+        throw new TypeError("menuOrder must be finite");
       if (commands.has(command.id))
         throw new Error(`Duplicate command: ${command.id}`);
       const keys = (
@@ -55,6 +62,10 @@ export function createCommandRegistry() {
     },
     get: (id) => commands.get(id),
     list: () => [...commands.values()],
+    menu: (name) =>
+      [...commands.values()]
+        .filter((entry) => entry.menu === name)
+        .sort((a, b) => (a.menuOrder || 0) - (b.menuOrder || 0)),
     onRegister(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

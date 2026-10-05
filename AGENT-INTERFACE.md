@@ -479,18 +479,19 @@ mark, then say what to change."
 - Display styles change only how you see the model: shaded with edges (the
   default), shaded, wireframe, hidden line, or translucent (X-ray). The choice
   is remembered, and plain-colour view works with every style. Marks, measuring
-  and Section view keep working. Performance is off by default; turn it on to
-  see interaction FPS and frame times against the 30 FPS target, render counts
-  and GPU details. Idle means the view is still. Copy report copies device and
-  rendering statistics only, without model content or file names.
+  and Section view keep working. Performance is off by default; enable it in
+  Settings and expand its FPS window to see interaction FPS and frame times
+  against the 30 FPS target, render counts and GPU details. Idle means the view
+  is still. Copy report copies device and rendering statistics only, without
+  model content or file names.
 
 - Parts lists the model’s assemblies and parts. Hover to highlight, click to
   select, or double-click to fit a part. In View, click a surface to select its
   part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or
   Esc exits); Shift+T makes it transparent so you can mark behind it. Hidden
   parts and their marks disappear. These viewing choices reset when you load a
-  model or version and are never sent to the Agent. On a phone, open Parts from
-  the toolbar.
+  model or version and are never sent to the Agent. Enable Part tree in
+  Settings, then open the Parts sidebar tab or use the View menu.
 
 <!-- reviewer-help:end -->
 

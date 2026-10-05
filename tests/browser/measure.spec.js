@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -104,7 +105,7 @@ async function open(page, units, file = writePlate()) {
   );
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: "Measure tool", exact: true }).click();
+  await clickControl(page, '[data-mode="measure"]');
   await expect(page.locator("#measure-options")).toBeVisible();
   // These regressions exercise the original explicit kinds, now in Advanced.
   await page.locator("#measure-advanced summary").click();
@@ -207,7 +208,7 @@ test("measuring reads between corners, along an edge and between faces, and keep
   expect(after.dirty).toBe(false);
   await expect(page.locator("#undo")).toBeDisabled();
   // Another tool puts it away.
-  await page.getByRole("button", { name: "Orbit tool", exact: true }).click();
+  await clickControl(page, '[data-mode="orbit"]');
   expect((await diagnostics(page)).measuring).toBe(null);
 });
 

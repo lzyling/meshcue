@@ -87,7 +87,12 @@ export function bindNavigation(review) {
       { shortcutLabel: `Shift+${i + 1}` },
     ),
   );
-  register("fit", "navigation.fit", "F", () => viewer.fitAll());
+  register("fit", "navigation.fit", "F", () => viewer.fitAll(), {
+    menu: "view",
+    menuOrder: 25,
+    menuSection: "camera",
+    icon: "home",
+  });
   register("zoom-out", "navigation.zoomOut", "Z", () =>
     viewer.zoomNavigation(1.2),
   );
@@ -126,28 +131,30 @@ export function bindNavigation(review) {
         viewer.camera.isOrthographicCamera ? "perspective" : "orthographic",
       ),
     {
-      group: "display",
+      menu: "view",
+      menuOrder: 30,
+      menuSection: "camera",
+      checked: () => !!viewer.camera.isOrthographicCamera,
       captionKey: "navigation.projection",
       icon: "plain",
       attributes: { id: "navigation-projection", "aria-pressed": "false" },
     },
   );
-  const projection = document.createElement("button");
-  projection.className = "quiet-dark navigation-projection";
-  projection.dataset.command = "navigation-projection";
-  review.$(".orient").append(projection);
   viewer.onProjection = (ortho) => {
+    const command = review.commands.get("navigation-projection");
+    command.captionKey = ortho
+      ? "navigation.orthographic"
+      : "navigation.perspective";
     for (const button of document.querySelectorAll(
       '[data-command="navigation-projection"]',
     )) {
       button.setAttribute("aria-pressed", String(ortho));
+      button.querySelector("span").textContent = t(command.captionKey);
       button.title = t(
         ortho ? "navigation.perspective" : "navigation.orthographic",
       );
     }
-    projection.textContent = t(
-      ortho ? "navigation.orthographic" : "navigation.perspective",
-    );
+    review.refreshCommands();
   };
   viewer.onProjection(!!viewer.camera.isOrthographicCamera);
 

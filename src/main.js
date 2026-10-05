@@ -1,3 +1,5 @@
+import { bindHints } from "./app/hints.js";
+import { bindSidebar } from "./app/sidebar.js";
 import "./style.css";
 import { bindOverlayLayout } from "./app/overlay-layout.js";
 import { bindPublicationNotices } from "./app/publication-notices.js";
@@ -26,7 +28,7 @@ import { bindNavigation } from "./app/navigation.js";
 import { bindOrientation } from "./app/orientation.js";
 import { installReceipt, bindReceipt, bindSubmission } from "./app/receipt.js";
 import { bindSection } from "./app/section.js";
-import { bindSettings } from "./app/settings.js";
+import { bindSettings, installSettings } from "./app/settings.js";
 import { installShell, mountShell, bindHelp } from "./app/shell.js";
 import { initializeState } from "./app/state.js";
 import {
@@ -46,6 +48,7 @@ import { createViewer } from "./app/viewer.js";
 // Install callable seams first, then initialize in the original order: callbacks
 // can refer to later features without introducing module evaluation cycles.
 const review = {};
+installSettings(review);
 installShell(review);
 installApi(review);
 installDraft(review);
@@ -64,6 +67,7 @@ bindPublicationNotices(review);
 initializeDraftCache(review);
 initializeAnnotations(review);
 createViewer(review);
+bindSidebar(review);
 bindParts(review);
 bindSection(review);
 bindMeasure(review);
@@ -74,6 +78,7 @@ bindNavigation(review);
 bindOverlayLayout(review);
 bindAnnotationEditing(review);
 bindToolbarOptions(review);
+bindHints(review);
 bindEcho(review);
 bindVersionScrolling(review);
 bindAnnotationsPanel(review);

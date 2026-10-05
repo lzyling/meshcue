@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
@@ -75,7 +76,7 @@ for (const locale of ["en", "zh-Hant", "de"]) {
           .soft(await unobscured(button), await button.getAttribute("id"))
           .toBe(true);
       }
-      await page.locator("#section-toggle").tap();
+      await clickControl(page, "#section-toggle", "tap");
       await screenshot(page, `bug1-${locale}-section`);
       expect
         .soft(await unobscured(page.locator(".navigation-arrow-left")))
@@ -91,10 +92,10 @@ for (const locale of ["en", "zh-Hant", "de"]) {
         .toBe(true);
       await page.locator(".navigation-arrow-left").tap({ timeout: 3000 });
       await page.locator("#section-off").tap();
-      await page.locator("#display-toggle").tap();
+      await clickControl(page, "#display-toggle", "tap");
       await expect(page.locator("#display-menu")).toBeVisible();
-      await page.locator("#display-toggle").tap();
-      await page.locator('[data-command="parts-panel"]').tap();
+      await clickControl(page, "#display-toggle", "tap");
+      await clickControl(page, '[data-command="parts-panel"]', "tap");
       await expect(page.locator("#parts-panel")).toBeVisible();
     } finally {
       await context.close();
@@ -103,7 +104,7 @@ for (const locale of ["en", "zh-Hant", "de"]) {
 }
 
 async function addPin(page) {
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const count = (await diag(page)).annotationCount;
   // Project a solid point on the plate, independent of panel-aware framing.
   await kit.clickModelPoint([-0.35 + count * 0.05, 0, 0.2]);

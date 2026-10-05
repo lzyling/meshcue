@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { browserServerUrl } from "../helpers/browser-server.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -80,6 +81,10 @@ async function publish(page, kind) {
       }),
     )
     .toBe(true);
+  // First-use hints are intentionally absent on subsequent loads. Dismiss the
+  // initial one so the format comparison measures the same visible UI state.
+  if (await page.locator("#dismiss-tool-hint").isVisible())
+    await page.locator("#dismiss-tool-hint").click();
   await page.locator('[data-view="0,0,1"]').press("Enter");
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().viewer.meshes))
@@ -93,7 +98,7 @@ async function screenshot(page, name) {
   return shot.toString("base64");
 }
 async function pin(page) {
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.42);
   await expect(page.locator("#annotation-count")).toHaveText("1");

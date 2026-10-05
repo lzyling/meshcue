@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  selectSetting,
+  showParts,
+} from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -163,7 +168,7 @@ async function clickAt(page, point) {
   await page.mouse.click(p.x, p.y);
 }
 async function section(page, axis = "z") {
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption(axis);
 }
 async function offset(page, value) {
@@ -242,9 +247,10 @@ test("two part caps have distinct hues and hiding or ghosting removes only that 
   expect(left[0] - left[1]).toBeGreaterThan(25);
   expect(right[1] - right[0]).toBeGreaterThan(25);
   for (const theme of ["light", "dark"]) {
-    await page.locator("#theme-choice").selectOption(theme);
+    await selectSetting(page, "#theme-choice", theme);
     await page.screenshot({ path: path.join(evidence, `caps-${theme}.png`) });
   }
+  await showParts(page);
   const row = page.locator(".parts-row").filter({
     has: page.getByRole("button", { name: "Solid 1", exact: true }),
   });
@@ -300,7 +306,7 @@ for (const dpr of [1, 2])
         await page.mouse.wheel(0, -180);
         await page.waitForTimeout(600);
       }
-      await page.locator("#neutral-view").click();
+      await clickControl(page, "#neutral-view");
       const left = average(await scan(page, [-9, 0, 0], [-3, 0, 0])),
         right = average(await scan(page, [3, 0, 0], [9, 0, 0]));
       expect(Math.hypot(...left.map((v, i) => v - right[i]))).toBeGreaterThan(
@@ -330,7 +336,7 @@ test("section frame times on the largest multipart sample and fifty solids", asy
     await expect
       .poll(async () => (await diagnostics(page)).viewer.display.pending)
       .toBe(false);
-    await page.locator("#perf-toggle").click();
+    await clickControl(page, "#perf-toggle");
     const sample = () =>
       page.evaluate(async () => {
         const times = [];
@@ -361,7 +367,7 @@ test("section frame times on the largest multipart sample and fifty solids", asy
     await page.screenshot({
       path: path.join(evidence, `performance-${results.length}.png`),
     });
-    await page.locator("#perf-toggle").click();
+    await clickControl(page, "#perf-toggle");
   }
   fs.writeFileSync(
     path.join(evidence, "frame-times.json"),
@@ -427,7 +433,7 @@ for (const format of ["glb", "stl"])
       Math.max(...p.map((c) => c[0])) - Math.min(...p.map((c) => c[0]));
     expect(variation(wall)).toBeGreaterThan(25);
     expect(variation(hole)).toBeLessThan(5);
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     await clickAt(page, [-8, 0, 0]);
     expect((await diagnostics(page)).annotationCount).toBe(0);
     await clickAt(page, [0, 0, -3]);

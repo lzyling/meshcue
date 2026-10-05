@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  selectSetting,
+  revealControl,
+} from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
@@ -74,7 +79,7 @@ async function open(page, file = "tmp/samples/parametric-bracket.glb") {
 }
 const diagnostics = (page) => page.evaluate(() => window.__reviewDiagnostics());
 async function style(page, name) {
-  await page.locator("#display-toggle").click();
+  await clickControl(page, "#display-toggle");
   await page.locator(`[data-style="${name}"]`).click();
   await expect
     .poll(async () => (await diagnostics(page)).viewer.display.style)
@@ -122,7 +127,7 @@ for (const model of ["bracket", "plate"])
         page,
         model === "plate" ? "tests/fixtures/plate.step" : undefined,
       );
-      await page.locator("#theme-choice").selectOption(theme);
+      await selectSetting(page, "#theme-choice", theme);
       const shots = {};
       for (const name of ["edges", "shaded", "wireframe", "hidden", "xray"]) {
         await style(page, name);
@@ -135,10 +140,10 @@ for (const model of ["bracket", "plate"])
         await page.screenshot({
           path: path.join(evidence, `${model}-${theme}-${name}.png`),
         });
-        await page.locator("#neutral-view").click();
+        await clickControl(page, "#neutral-view");
         expect((await diagnostics(page)).viewer.neutral).toBe(true);
         expect((await diagnostics(page)).viewer.display.style).toBe(name);
-        await page.locator("#neutral-view").click();
+        await clickControl(page, "#neutral-view");
       }
       for (const name of ["edges", "wireframe", "hidden", "xray"])
         expect(
@@ -152,16 +157,17 @@ test("display menu is keyboard reachable, persists and reuses version edge cache
 }) => {
   await open(page);
   expect((await diagnostics(page)).viewer.display.style).toBe("edges");
-  await page.locator("#display-toggle").click();
+  await clickControl(page, "#display-toggle");
   await expect(page.locator("#display-menu")).toBeVisible();
-  await page.locator("#display-toggle").click();
+  await clickControl(page, "#display-toggle");
   await expect(page.locator("#display-menu")).toBeHidden();
+  await revealControl(page, "#display-toggle");
   await page.locator("#display-toggle").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-style="edges"]')).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await expect(page.locator("#display-toggle")).toBeFocused();
+  await expect(page.locator('[data-menu="view"] .split-main')).toBeFocused();
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   expect((await diagnostics(page)).viewer.display.style).toBe("shaded");
@@ -183,7 +189,7 @@ test("display section clips edges and preserves the opaque cap in every style", 
   page,
 }) => {
   await open(page, "tests/fixtures/plate.step");
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption("z");
   for (const name of ["edges", "wireframe", "hidden", "xray", "shaded"]) {
     await style(page, name);
@@ -227,7 +233,7 @@ test("display X-ray keeps surface labels visible and selectable and bucket picki
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
   await style(page, "xray");
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   // Use a real surface point after fitting; repeated guessed clicks can queue
   // multiple marks before the asynchronous edit has returned its first one.
   await kit.clickModelPoint([-0.35, 0, 0.2]);
@@ -237,7 +243,7 @@ test("display X-ray keeps surface labels visible and selectable and bucket picki
   await expect(page.locator("#mark-note")).toBeVisible();
   const mark = (await diagnostics(page)).annotations[0];
   expect(mark.position.every(Number.isFinite)).toBe(true);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await kit.clickModelPoint([0.35, 0, 0.2]);
   await expect
     .poll(async () => (await diagnostics(page)).viewer.fillFaces)
@@ -257,8 +263,11 @@ test("performance is idle when still, updates on orbit, copies a private report 
   await open(page);
   await expect(page.locator("#perf-panel")).toHaveCount(0);
   expect((await diagnostics(page)).viewer.performance.sampledFrames).toBe(0);
-  await page.locator("#perf-toggle").focus();
-  await page.keyboard.press("Enter");
+  await page.locator("#settings-button").click();
+  await page.locator("#setting-performance").focus();
+  await page.keyboard.press("Space");
+  await page.locator("#close-settings").click();
+  await page.locator("#perf-summary").click();
   await expect(page.locator("#perf-panel")).toBeVisible();
   await expect
     .poll(
@@ -299,10 +308,10 @@ test("performance is idle when still, updates on orbit, copies a private report 
   expect(report).not.toMatch(/bracket|\.glb|mesh-0/);
   fs.writeFileSync(path.join(evidence, "performance-report.txt"), report);
   for (const theme of ["light", "dark"]) {
-    await page.locator("#theme-choice").selectOption(theme);
+    await selectSetting(page, "#theme-choice", theme);
     for (const section of [false, true]) {
       if (!!(await diagnostics(page)).viewer.section !== section)
-        await page.locator("#section-toggle").click();
+        await clickControl(page, "#section-toggle");
       await expect(page.locator("#perf-panel pre")).toContainText(
         `Section view: ${section ? "On" : "Off"}`,
       );
@@ -319,7 +328,7 @@ test("performance is idle when still, updates on orbit, copies a private report 
       async () => (await diagnostics(page)).viewer.performance.snapshot.idle,
     )
     .toBe(true);
-  await page.locator("#perf-toggle").click();
+  await clickControl(page, "#perf-toggle");
   await expect(page.locator("#perf-panel")).toHaveCount(0);
   const off = (await diagnostics(page)).viewer.performance.sampledFrames;
   await page.mouse.move(box.x + 20, box.y + 20, { steps: 20 });
@@ -348,7 +357,7 @@ test("performance ON versus OFF frame-time evidence at identical canvas size", a
   const runs = [];
   for (const enabled of [false, true, false, true]) {
     if ((await diagnostics(page)).viewer.performance.enabled !== enabled)
-      await page.locator("#perf-toggle").click();
+      await clickControl(page, "#perf-toggle");
     const frames = await page.evaluate(async () => {
       const spans = [],
         canvas = document.querySelector("#viewer canvas");

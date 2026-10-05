@@ -2285,3 +2285,385 @@ dialog .muted {
     min-height: 44px;
   }
 }
+
+/* === b1u Lane S: a single toolbar row and viewport-mounted menus === */
+.toolbar {
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  gap: 2px;
+  bottom: 12px;
+  z-index: 6;
+}
+.toolbar .split-tool {
+  display: flex;
+  min-width: 0;
+}
+.toolbar .tool,
+.split-arrow {
+  height: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+}
+.toolbar .split-main {
+  width: 68px;
+  min-width: 44px;
+  padding: 2px 4px;
+}
+.toolbar .split-main span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0;
+}
+.split-arrow {
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 6px 6px 0;
+}
+.split-arrow[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+.shell-menu,
+#display-menu {
+  position: fixed;
+  bottom: auto;
+  right: auto;
+  width: max-content;
+  min-width: 210px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  z-index: 30;
+}
+.shell-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.shell-menu button .icon {
+  width: 18px;
+  height: 18px;
+}
+.shell-menu button[aria-checked="true"]::after {
+  content: "✓";
+  margin-left: auto;
+}
+.shell-menu button:focus-visible,
+#display-menu button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.shell-menu .menu-separator {
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.shell-menu [hidden] {
+  display: none;
+}
+@media (max-width: 760px) {
+  .toolbar {
+    flex-wrap: nowrap !important;
+  }
+  .toolbar .split-main {
+    width: 44px;
+  }
+  .toolbar .tool.small {
+    min-width: 44px;
+  }
+}
+#settings-dialog {
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+#settings-dialog .setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+#settings-dialog select {
+  flex: 1;
+  min-height: 44px;
+}
+.header-right button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.setting-switch input {
+  width: 20px;
+  height: 20px;
+}
+#settings-features > button,
+#settings-features summary {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+#settings-features dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  font-size: 12px;
+}
+#settings-features dd {
+  margin: 0;
+}
+.orient[hidden] {
+  display: none;
+}
+/* Both tabs share the original mark column. A hidden part tree must never
+   create a second column or change the phone's canvas sizing. */
+.annotations-panel {
+  overflow: hidden;
+}
+.annotations-heading {
+  padding: 4px;
+  gap: 2px;
+}
+.sidebar-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-tabs button {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px;
+  min-width: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: 11px;
+}
+.sidebar-tabs button[aria-selected="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.sidebar-tabs .icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.sidebar-tabs [hidden] {
+  display: none;
+}
+#toggle-annotations {
+  min-width: 28px;
+  min-height: 44px;
+}
+.annotations-panel #parts-panel {
+  width: 100%;
+  flex: 1;
+  order: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+}
+.annotations-panel #parts-panel .parts-heading {
+  display: none;
+}
+.review-body:has(#parts-panel:not([hidden])) {
+  flex-wrap: nowrap;
+}
+.annotations-panel.collapsed {
+  width: 44px;
+  min-width: 44px;
+}
+.annotations-panel.collapsed .annotations-heading,
+.annotations-panel.collapsed .sidebar-tabs {
+  flex-direction: column;
+}
+.annotations-panel.collapsed .sidebar-tabs button {
+  width: 36px;
+  position: relative;
+  justify-content: center;
+}
+.annotations-panel.collapsed .sidebar-caption {
+  display: none;
+}
+.annotations-panel.collapsed #annotation-count {
+  position: absolute;
+  right: 0;
+  top: 1px;
+  font-size: 9px;
+}
+.annotations-panel.collapsed .panel-actions {
+  padding: 2px;
+  margin-top: auto;
+}
+.annotations-panel.collapsed #submit-feedback {
+  width: 38px;
+  min-height: 44px;
+  padding: 6px;
+}
+.annotations-panel.collapsed #feedback-status,
+.annotations-panel.collapsed #receipt-nudge {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 760px) {
+  .annotations-panel.collapsed {
+    width: auto;
+  }
+  .annotations-panel.collapsed .annotations-heading,
+  .annotations-panel.collapsed .sidebar-tabs {
+    flex-direction: row;
+  }
+  .annotations-panel.collapsed {
+    flex-direction: row;
+    align-items: center;
+  }
+  .annotations-panel.collapsed .annotations-heading {
+    flex: 1;
+  }
+  .annotations-panel.collapsed .panel-actions {
+    margin: 0;
+  }
+  .annotations-panel #parts-panel {
+    flex: 0 0 170px;
+    height: 170px;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-height: 330px;
+  }
+}
+/* The optional report floats within the canvas without changing its camera or
+   stealing the toolbar's hit targets. Opening a menu temporarily clears it. */
+#perf-panel {
+  top: auto;
+  left: auto;
+  right: 8px;
+  bottom: calc(var(--tool-options-bottom, 68px) + 8px);
+  width: 230px;
+  max-width: calc(100% - 16px);
+  padding: 4px;
+}
+#perf-panel:has(#perf-details[hidden]) {
+  width: max-content;
+}
+#perf-summary {
+  min-height: 44px;
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 8px;
+  cursor: move;
+  touch-action: none;
+}
+#perf-details {
+  padding: 4px 8px 8px;
+}
+#perf-details[hidden] {
+  display: none;
+}
+.performance-open #viewer {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.menu-open #perf-panel,
+body:has(#display-menu:not([hidden])) #perf-panel {
+  visibility: hidden;
+}
+.tool-hint-box {
+  position: absolute;
+  left: 12px;
+  max-width: min(540px, calc(100% - 260px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  font-size: 11px;
+  z-index: 4;
+}
+.tool-hint-box button {
+  min-width: 32px;
+  min-height: 32px;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.menu-open .tool-hint-box,
+body:has(#display-menu:not([hidden])) .tool-hint-box {
+  visibility: hidden;
+}
+.viewer-bottom {
+  bottom: 70px;
+}
+.viewer-shell {
+  /* The metadata row moved above the toolbar; its echo must clear it too. */
+  --bottom-row-reach: 110px;
+}
+@media (max-width: 760px) {
+  .viewer-shell {
+    min-height: 390px;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-height: 390px;
+  }
+}
+@media (max-width: 760px) {
+  /* Eight independently tappable faces need 352px before chrome. Use the
+     full phone canvas width rather than shrinking any target below 44px. */
+  .toolbar {
+    gap: 0;
+    padding: 2px;
+    max-width: calc(100% - 4px);
+  }
+}
+
+.annotations-panel.collapsed .submit-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.shell-menu button:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+.shell-menu button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tool-hint-box {
+  pointer-events: none;
+}
+.tool-hint-box button {
+  pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+  .tool-hint-box {
+    max-width: calc(100% - 24px);
+  }
+}

@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -179,9 +180,7 @@ async function goHome(page, { dark = false } = {}) {
   await page.emulateMedia({ colorScheme: dark ? "dark" : "light" });
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Label tool", exact: true }),
-  ).toBeEnabled();
+  await expect(page.locator('[data-mode="label"]')).toBeEnabled();
   await page.waitForTimeout(1200);
 }
 
@@ -313,7 +312,7 @@ test("plain view leaves an already unpainted model alone", async ({ page }) => {
   publish("no-material-bracket.glb", "plain");
   await goHome(page);
   const before = await centreStats(page);
-  await page.locator("#neutral-view").click();
+  await clickControl(page, "#neutral-view");
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().viewer.neutral),

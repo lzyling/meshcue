@@ -1,0 +1,14 @@
+export default {
+  "shell.view": "表示",
+  "shell.mark": "マーク",
+  "shell.inspect": "検査",
+  "shell.settings": "設定",
+  "shell.parts": "部品ツリー",
+  "shell.performance": "パフォーマンス診断",
+  "shell.cube": "ビューキューブ",
+  "shell.hints": "ツールヒントを再表示",
+  "shell.shortcuts": "キーボードショートカット",
+  "shell.dismissHint": "ツールヒントを閉じる",
+  "shell.perfDetails": "パフォーマンス詳細を表示",
+  "shell.perfDrag": "パフォーマンスウィンドウをドラッグ",
+};

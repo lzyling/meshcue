@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  showParts,
+  revealControl,
+} from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { devices } from "@playwright/test";
 import { startScenario } from "../../scripts/scenario-env.mjs";
@@ -59,7 +64,7 @@ test("Pan: primary drag translates without rotation or marks, H selects it, and 
   await page.mouse.up({ button: "right" });
   expect(offset((await diag(page)).camera)).not.toEqual(offset(pan));
   for (const mode of ["orbit", "pan", "label", "fill", "measure"]) {
-    await page.locator(`[data-mode="${mode}"]`).click();
+    await clickControl(page, `[data-mode="${mode}"]`);
     for (const button of ["left", "middle"]) {
       const before = (await diag(page)).camera;
       if (button === "left") await page.keyboard.down("Shift");
@@ -95,7 +100,7 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
       await open(page);
       await page.locator("#toggle-annotations").tap();
       await shot(page, `pan-${device.split(" ")[0]}`);
-      await page.locator('[data-mode="pan"]').tap();
+      await clickControl(page, '[data-mode="pan"]', "tap");
       const r = await page.locator("#viewer canvas").boundingBox(),
         x = r.x + r.width * 0.45,
         y = r.y + r.height * 0.4;
@@ -153,9 +158,12 @@ for (const locale of ["de", "fr"])
         { locale, theme },
       );
       await open(page);
+      await showParts(page);
       await expect(page.locator("#parts-panel")).toBeVisible();
       await shot(page, `pan-layout-${locale}-${theme}`);
+      await revealControl(page, '[data-mode="pan"]');
       await expect(page.locator('[data-mode="pan"]')).toBeVisible();
+      await page.keyboard.press("Escape");
       const reachable = async () =>
         page.locator(".toolbar button:visible").evaluateAll((buttons) =>
           buttons.every((b) => {
@@ -176,7 +184,7 @@ for (const locale of ["de", "fr"])
         );
       expect(await reachable()).toBe(true);
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.locator('[data-mode="fill"]').click();
+      await clickControl(page, '[data-mode="fill"]');
       await shot(page, `pan-palette-${locale}-${theme}`);
       expect(await reachable()).toBe(true);
       const toolbar = await page.locator(".toolbar").boundingBox(),
@@ -215,7 +223,7 @@ test("Pan: hovering matches Orbit and existing pins cannot be selected or moved"
     .toBe(faces);
   await page.mouse.click(point.x, point.y);
   expect((await diag(page)).annotationCount).toBe(0);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(point.x, point.y);
   await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
   await expect.poll(async () => (await diag(page)).dirty).toBe(false);

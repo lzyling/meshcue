@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
@@ -79,7 +80,7 @@ test("navigation wheel and trackpad pinch keep the surface point within three pi
   await front(page);
   for (const projection of ["perspective", "orthographic"]) {
     if (projection === "orthographic")
-      await page.locator("#navigation-projection").click();
+      await clickControl(page, "#navigation-projection");
     for (const pinch of [false, true]) {
       const world = [0.45, 0.2, 1.2],
         before = await project(page, world);
@@ -133,14 +134,14 @@ test("navigation orthographic choice persists and saved marks retain model-space
   await front(page);
   await page.mouse.move(10, 10);
   await page.screenshot({ path: `${evidence}/perspective-front.png` });
-  await page.locator("#navigation-projection").click();
+  await clickControl(page, "#navigation-projection");
   await expect(page.locator("#navigation-projection")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   await page.screenshot({ path: `${evidence}/orthographic-front.png` });
   const location = await project(page, [0.4, 0.2, 1.2]);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(location.x, location.y);
   await expect.poll(async () => (await state(page)).annotationCount).toBe(1);
   await expect.poll(async () => (await state(page)).dirty).toBe(false);
@@ -156,7 +157,7 @@ test("navigation orthographic choice persists and saved marks retain model-space
     .toBe("orthographic");
   expect((await state(page)).annotations[0].view).toEqual(mark.view);
   // A later display choice must win over the projection saved with this draft.
-  await page.locator("#navigation-projection").click();
+  await clickControl(page, "#navigation-projection");
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await expect
@@ -221,7 +222,7 @@ test("navigation shortcuts respect typing and modal dialogs, and shortcut sheet 
   page,
 }) => {
   await open(page);
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-offset").focus();
   const before = (await state(page)).camera;
   await page.keyboard.press("Shift+1");
@@ -278,7 +279,7 @@ test("navigation left drag preserves marking modes and Orbit touch taps place no
 }) => {
   const box = await open(page);
   for (const mode of ["label", "fill", "measure"]) {
-    await page.locator(`[data-mode="${mode}"]`).click();
+    await clickControl(page, `[data-mode="${mode}"]`);
     const before = (await state(page)).camera;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -291,7 +292,7 @@ test("navigation left drag preserves marking modes and Orbit touch taps place no
     expectCameraUnchanged((await state(page)).camera, before);
     expect((await state(page)).annotationCount).toBe(0);
   }
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   const session = await page.context().newCDPSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",
@@ -328,8 +329,8 @@ test("navigation orthographic measuring and section caps use parallel picking ra
 }) => {
   await open(page);
   await front(page);
-  await page.locator("#navigation-projection").click();
-  await page.locator('[data-mode="measure"]').click();
+  await clickControl(page, "#navigation-projection");
+  await clickControl(page, '[data-mode="measure"]');
   // This ray regression measures arbitrary points, using the explicit kind.
   await page.locator("#measure-advanced summary").click();
   await page.locator('[data-measure="points"]').click();
@@ -344,16 +345,16 @@ test("navigation orthographic measuring and section caps use parallel picking ra
   await expect(page.locator("#measure-reading")).toContainText("8");
   await page.locator("#keep-measure").click();
   await expect.poll(async () => (await state(page)).annotationCount).toBe(1);
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption("y");
   await page.locator("#section-flip").click();
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   const cap = await project(page, [0, 0, 0]);
   await page.mouse.move(cap.x, cap.y);
   await expect
     .poll(async () => (await state(page)).navigation.hoverFaces)
     .toBe(0);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(cap.x, cap.y);
   await page.waitForTimeout(150);
   expect((await state(page)).annotationCount).toBe(1);

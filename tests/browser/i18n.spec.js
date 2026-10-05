@@ -80,20 +80,20 @@ test.afterEach(async () => {
    catalogue for that reader uses for the brush — one word is enough to tell
    catalogues apart, and it is one a reader would notice was wrong. */
 const READERS = [
-  { locale: "en-US", languages: ["en-US", "en"], lang: "en", bucket: "Bucket" },
+  { locale: "en-US", languages: ["en-US", "en"], lang: "en", bucket: "Fill" },
   {
     locale: "zh-CN",
     languages: ["zh-CN", "zh"],
     lang: "zh-Hans",
-    bucket: "油漆桶",
+    bucket: "填充",
   },
   {
     locale: "zh-TW",
     languages: ["zh-TW", "zh"],
     lang: "zh-Hant",
-    bucket: "油漆桶",
+    bucket: "填色",
   },
-  { locale: "zh-HK", languages: ["zh-HK"], lang: "zh-Hant", bucket: "油漆桶" },
+  { locale: "zh-HK", languages: ["zh-HK"], lang: "zh-Hant", bucket: "填色" },
   { locale: "de-DE", languages: ["de-DE", "de"], lang: "de", bucket: "Füllen" },
   {
     locale: "fr-FR",
@@ -108,7 +108,7 @@ const READERS = [
     bucket: "塗りつぶし",
   },
   // Nobody has a catalogue for Icelandic, and the source language is the answer.
-  { locale: "is-IS", languages: ["is-IS", "is"], lang: "en", bucket: "Bucket" },
+  { locale: "is-IS", languages: ["is-IS", "is"], lang: "en", bucket: "Fill" },
   // A reader whose first choice we cannot serve but whose second we can.
   {
     locale: "pt-BR",
@@ -135,7 +135,7 @@ for (const reader of READERS) {
     // The document says which language it is in, so hyphenation, font choice
     // and a screen reader's pronunciation all follow the words on the page.
     await expect(page.locator("html")).toHaveAttribute("lang", reader.lang);
-    await expect(page.locator('.toolbar [data-mode="fill"] span')).toHaveText(
+    await expect(page.locator('[data-mode="fill"] span')).toHaveText(
       reader.bucket,
     );
 
@@ -177,6 +177,7 @@ for (const reader of READERS) {
     );
     expect(overflowing, "text wider than the space drawn for it").toEqual([]);
 
+    await page.locator("#settings-button").click();
     /* Each chooser says what it chooses with a mark instead of a word, so the
        name it is announced by has to be on the control itself — an icon a
        screen reader is told to ignore says nothing at all. */
@@ -207,6 +208,7 @@ for (const reader of READERS) {
       }),
     );
     expect(new Set(sizes).size, `mismatched choosers: ${sizes}`).toBe(1);
+    await page.locator("#close-settings").click();
     const toolbar = await page.locator(".toolbar").boundingBox();
     const shell = await page.locator(".viewer-shell").boundingBox();
     expect(toolbar.width).toBeLessThan(shell.width);

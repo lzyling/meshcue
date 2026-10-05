@@ -1,0 +1,14 @@
+export default {
+  "shell.view": "Ansicht",
+  "shell.mark": "Markieren",
+  "shell.inspect": "Prüfen",
+  "shell.settings": "Einstellungen",
+  "shell.parts": "Bauteilbaum",
+  "shell.performance": "Leistungsdiagnose",
+  "shell.cube": "Ansichtswürfel",
+  "shell.hints": "Werkzeughinweise erneut anzeigen",
+  "shell.shortcuts": "Tastenkürzel",
+  "shell.dismissHint": "Werkzeughinweis schließen",
+  "shell.perfDetails": "Leistungsdetails anzeigen",
+  "shell.perfDrag": "Leistungsfenster verschieben",
+};

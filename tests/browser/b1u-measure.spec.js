@@ -1,3 +1,4 @@
+import { clickControl, selectSetting } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -103,7 +104,7 @@ async function open(page, units, file = writePlate()) {
   );
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: "Measure tool", exact: true }).click();
+  await clickControl(page, '[data-mode="measure"]');
   await expect(page.locator("#measure-options")).toBeVisible();
 }
 // Where a point of the plate is on the screen, from the camera the page holds.
@@ -189,7 +190,7 @@ test("smart STEP rim and wall each give the known 5 mm diameter", async ({
   expect((await diagnostics(page)).measuring.objects).toEqual(["edge"]);
   await expect(reading(page)).toHaveText("⌀5.00 mm");
   for (const theme of ["light", "dark"]) {
-    await page.locator("#theme-choice").selectOption(theme);
+    await selectSetting(page, "#theme-choice", theme);
     await page.screenshot({ path: `tmp/b1u-m/evidence/rim-${theme}.png` });
   }
   await page.keyboard.press("Escape");
@@ -237,7 +238,7 @@ test("Advanced is closed by default, remembered, and returns to Smart", async ({
   }
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: "Measure tool", exact: true }).click();
+  await clickControl(page, '[data-mode="measure"]');
   await expect(page.locator("#measure-advanced")).toHaveAttribute("open", "");
   await page.locator('[data-measure="smart"]').click();
   await expect(page.locator('[data-measure="smart"]')).toHaveAttribute(
@@ -247,7 +248,7 @@ test("Advanced is closed by default, remembered, and returns to Smart", async ({
   await page.locator("#measure-advanced summary").click();
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await page.getByRole("button", { name: "Measure tool", exact: true }).click();
+  await clickControl(page, '[data-mode="measure"]');
   await expect(page.locator('[data-measure="points"]')).toBeHidden();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("#measure-advanced summary").click();

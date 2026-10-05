@@ -1,0 +1,14 @@
+export default {
+  "shell.view": "查看",
+  "shell.mark": "标记",
+  "shell.inspect": "检查",
+  "shell.settings": "设置",
+  "shell.parts": "零件树",
+  "shell.performance": "性能诊断",
+  "shell.cube": "视图立方体",
+  "shell.hints": "重新显示工具提示",
+  "shell.shortcuts": "键盘快捷键",
+  "shell.dismissHint": "关闭工具提示",
+  "shell.perfDetails": "显示性能详情",
+  "shell.perfDrag": "拖动性能窗口",
+};

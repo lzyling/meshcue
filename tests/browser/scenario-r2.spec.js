@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  showParts,
+  revealControl,
+} from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { devices } from "@playwright/test";
@@ -64,6 +69,7 @@ async function unobscured(locator) {
   });
 }
 async function chooseTouchTool(page, mode) {
+  await revealControl(page, `[data-mode="${mode}"]`);
   const button = page.locator(`[data-mode="${mode}"]`);
   const r = await button.boundingBox();
   // The caption remains reachable before the separate palette-overlap fix.
@@ -165,7 +171,7 @@ for (const [width, height] of [
   }) => {
     await page.setViewportSize({ width, height });
     await open(page);
-    await page.locator("#section-toggle").click();
+    await clickControl(page, "#section-toggle");
     await screenshot(page, `bug2-section-${width}`);
     const arrow = page.locator(".navigation-arrow-left");
     expect(await unobscured(arrow)).toBe(true);
@@ -180,9 +186,9 @@ test("R2 bug 3: Display choices win over measurement options", async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
-  await page.locator('[data-mode="measure"]').click();
+  await clickControl(page, '[data-mode="measure"]');
   for (const style of ["hidden", "xray"]) {
-    await page.locator("#display-toggle").click();
+    await clickControl(page, "#display-toggle");
     await screenshot(page, `bug3-display-${style}`);
     const choice = page.locator(`[data-style="${style}"]`);
     expect(await unobscured(choice)).toBe(true);
@@ -204,6 +210,7 @@ for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
         { locale, theme },
       );
       await open(page);
+      await showParts(page);
       await expect(page.locator("#parts-panel")).toBeVisible();
       await screenshot(page, `bug4-toolbar-${locale}-${theme}`);
       for (const button of await page
@@ -257,6 +264,7 @@ test("R2 bug 5: phone palettes leave every toolbar icon tappable", async ({
       for (const button of await page.locator(".toolbar button:visible").all())
         expect.soft(await unobscured(button)).toBe(true);
     }
+    await revealControl(page, '[data-mode="measure"]');
     const measure = page.locator('[data-mode="measure"] svg').first();
     await measure.tap({ timeout: 3000 });
     await expect(page.locator('[data-mode="measure"]')).toHaveClass(/active/);
@@ -302,21 +310,22 @@ for (const projection of ["perspective", "orthographic"]) {
     await open(page);
     await screenshot(page, `bug6-initial-${projection}`);
     await expectFramed(page);
-    await page.locator("#parts-close").click();
+    await page.locator("#sidebar-marks").click();
     await page.keyboard.press("F");
     await expectFramed(page);
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     const r = await page.locator("#viewer canvas").boundingBox();
     await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
     await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
     const markView = (await diag(page)).annotations[0].view;
-    await page.locator('[data-mode="orbit"]').click();
+    await clickControl(page, '[data-mode="orbit"]');
     await page.keyboard.press("F");
     await expectFramed(page);
     await page.locator("#submit-feedback").click();
     await expect(page.locator("#feedback-line")).toContainText("Marks sent");
     await page.reload();
     await expect(page.locator("#loading")).toBeHidden();
+    await showParts(page);
     await expect(page.locator("#parts-panel")).toBeVisible();
     await expectFramed(page);
     expect((await diag(page)).annotations[0].view).toEqual(markView);
@@ -330,8 +339,17 @@ for (const projection of ["perspective", "orthographic"]) {
       canvas.y + canvas.height * 0.45,
     );
     await page.mouse.wheel(0, -100);
+    // Settle the wheel and pointer-leave render before measuring the sidebar
+    // change alone. Keep the exact camera equality assertion below.
+    await page.mouse.move(5, 5);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     const moved = (await diag(page)).camera;
-    await page.locator("#parts-close").click();
+    await page.locator("#sidebar-marks").click();
     await expect.poll(async () => (await diag(page)).camera).toEqual(moved);
   });
 }
@@ -345,6 +363,7 @@ test("R2 bug 6: GLB triangle stays above toolbar when Parts opens after load", a
   await open(page, "tmp/b1-scenario-r2/triangle.glb");
   await expectFramed(page);
   await page.setViewportSize({ width: 1024, height: 768 });
+  await showParts(page);
   await expect(page.locator("#parts-panel")).toBeVisible();
   await expectFramed(page);
   await page.keyboard.press("F");
@@ -370,7 +389,7 @@ for (const [locale, message] of Object.entries(lostConnection)) {
       locale,
     );
     await open(page);
-    await page.locator('[data-mode="label"]').click();
+    await clickControl(page, '[data-mode="label"]');
     const r = await page.locator("#viewer canvas").boundingBox();
     await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
     await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
@@ -408,7 +427,7 @@ test("R2 bug 8: denied storage never claims the offline draft is saved", async (
   context,
 }) => {
   await open(page);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const r = await page.locator("#viewer canvas").boundingBox();
   await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
   const note = page.locator("#mark-note-text");
@@ -437,13 +456,15 @@ test("R2 bug 6: keyboard pan, zoom and Frame prevent later automatic refitting",
     await page.reload();
     await expect(page.locator("#loading")).toBeHidden();
     await settled(page);
+    await showParts(page);
     await expect(page.locator("#parts-panel")).toBeVisible();
     const before = (await diag(page)).camera;
     if (action === "Frame") {
-      await page.locator('[data-mode="label"]').click();
+      await clickControl(page, '[data-mode="label"]');
       const r = await page.locator("#viewer canvas").boundingBox();
       await page.mouse.click(r.x + r.width / 2 + 40, r.y + r.height * 0.4);
       await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
+      await page.locator("#sidebar-marks").click();
       await page
         .locator(".annotation-row.selected .annotation-action")
         .first()
@@ -453,7 +474,7 @@ test("R2 bug 6: keyboard pan, zoom and Frame prevent later automatic refitting",
       .poll(async () => (await diag(page)).camera)
       .not.toEqual(before);
     const moved = (await diag(page)).camera;
-    await page.locator("#parts-close").click();
+    await page.locator("#toggle-annotations").click();
     await page.waitForFunction(() => {
       const viewer = document.querySelector("#viewer"),
         canvas = viewer.querySelector("canvas");
@@ -475,7 +496,7 @@ test("R2 bug 8: Send recovers when a new version arrives during an outage", asyn
   }
   await open(page);
   const original = (await diag(page)).versionId;
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const r = await page.locator("#viewer canvas").boundingBox();
   await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
   const note = page.locator("#mark-note-text");

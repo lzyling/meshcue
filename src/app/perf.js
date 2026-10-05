@@ -49,119 +49,196 @@ export function bindPerformance(review) {
   review.commands.register({
     id: "performance",
     labelKey: "perf.title",
-    captionKey: "perf.title",
-    icon: "measure",
-    group: "display",
-    attributes: { id: "perf-toggle", "aria-pressed": "false" },
-    run() {
-      const button = review.$("#perf-toggle");
-      if (stop) {
-        stop();
-        stop = null;
-        button.setAttribute("aria-pressed", "false");
+    run: () =>
+      review.settings.set("performance", !review.settings.get("performance")),
+  });
+  const toggle = (enabled) => {
+    if (!!stop === enabled) return;
+    if (stop) {
+      stop();
+      stop = null;
+      return;
+    }
+    const panel = document.createElement("section");
+    panel.id = "perf-panel";
+    panel.setAttribute("aria-label", labels.title);
+    const heading = document.createElement("button");
+    heading.id = "perf-summary";
+    heading.title = t("shell.perfDrag");
+    heading.setAttribute("aria-label", t("shell.perfDetails"));
+    heading.setAttribute("aria-expanded", "false");
+    const output = document.createElement("pre");
+    const copy = document.createElement("button");
+    copy.id = "perf-copy";
+    copy.textContent = t("perf.copy");
+    copy.addEventListener("click", async () => {
+      const copied = await review.copyText(performanceReport(snapshot, labels));
+      review.toast(t(copied ? "perf.copied" : "perf.copyFailed"));
+    });
+    const details = document.createElement("div");
+    details.id = "perf-details";
+    details.hidden = true;
+    heading.setAttribute("aria-controls", details.id);
+    details.append(output, copy);
+    panel.append(heading, details);
+    const shell = review.$(".viewer-shell");
+    shell.append(panel);
+    shell.classList.add("performance-open");
+    let drag = null,
+      dragged = false;
+    const clamp = () => {
+      const bounds = shell.getBoundingClientRect(),
+        box = panel.getBoundingClientRect();
+      const limit =
+        review.$(".toolbar").getBoundingClientRect().top - bounds.top - 8;
+      let ceiling = 8;
+      if (!panel.style.left) {
+        // Before the reviewer drags it, keep the report below the corner
+        // controls it shares horizontal space with. A phone cannot fit the
+        // full report beside Section; scrolling preserves both sets of controls.
+        for (const selector of [".orient", "#section-options"]) {
+          const control = review.$(selector);
+          if (control.hidden) continue;
+          const rect = control.getBoundingClientRect();
+          if (rect.left < box.right && rect.right > box.left)
+            ceiling = Math.max(ceiling, rect.bottom - bounds.top + 8);
+        }
+      }
+      const bottom = panel.style.left
+        ? limit
+        : Math.min(limit, box.bottom - bounds.top);
+      panel.style.maxHeight = `${Math.max(44, bottom - ceiling)}px`;
+      if (!panel.style.left) return;
+      panel.style.left = `${Math.max(8, Math.min(parseFloat(panel.style.left), bounds.width - box.width - 8))}px`;
+      panel.style.top = `${Math.max(8, Math.min(parseFloat(panel.style.top), limit - box.height))}px`;
+    };
+    heading.onclick = () => {
+      if (dragged) {
+        dragged = false;
         return;
       }
-      const panel = document.createElement("section");
-      panel.id = "perf-panel";
-      panel.setAttribute("aria-label", labels.title);
-      const heading = document.createElement("strong");
-      heading.textContent = labels.title;
-      const output = document.createElement("pre");
-      const copy = document.createElement("button");
-      copy.id = "perf-copy";
-      copy.textContent = t("perf.copy");
-      copy.addEventListener("click", async () => {
-        const copied = await review.copyText(
-          performanceReport(snapshot, labels),
-        );
-        review.toast(t(copied ? "perf.copied" : "perf.copyFailed"));
-      });
-      panel.append(heading, output, copy);
-      const shell = review.$(".viewer-shell");
-      shell.append(panel);
-      shell.classList.add("performance-open");
-      button.setAttribute("aria-pressed", "true");
-      const gl = viewer.renderer.getContext();
-      const debug = gl.getExtension("WEBGL_debug_renderer_info");
-      const renderer = debug
-        ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
-        : t("perf.unavailable");
-      const timer = gpuTimer(gl);
-      const window = new FrameWindow();
-      let paintedAt = -Infinity;
-      const active = () => {
-        window.activity(performance.now());
+      details.hidden = !details.hidden;
+      heading.setAttribute("aria-expanded", String(!details.hidden));
+      clamp();
+    };
+    heading.onpointerdown = (event) => {
+      if (event.button !== 0) return;
+      const box = panel.getBoundingClientRect(),
+        bounds = shell.getBoundingClientRect();
+      drag = {
+        x: event.clientX,
+        y: event.clientY,
+        left: box.left - bounds.left,
+        top: box.top - bounds.top,
       };
-      viewer.controls.addEventListener("change", active);
-      const canvas = viewer.renderer.domElement;
-      const events = ["pointerdown", "pointermove", "wheel"];
-      for (const name of events)
-        canvas.addEventListener(name, active, { passive: true });
-      const onInput = (event) => {
-        if (event.target.closest("#section-options, #display-menu")) active();
+      dragged = false;
+      heading.setPointerCapture(event.pointerId);
+    };
+    heading.onpointermove = (event) => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x,
+        dy = event.clientY - drag.y;
+      if (Math.hypot(dx, dy) < 4 && !dragged) return;
+      dragged = true;
+      panel.style.right = panel.style.bottom = "auto";
+      panel.style.left = `${drag.left + dx}px`;
+      panel.style.top = `${drag.top + dy}px`;
+      clamp();
+    };
+    heading.onpointerup = heading.onpointercancel = () => {
+      drag = null;
+    };
+    const observer = new ResizeObserver(clamp);
+    observer.observe(shell);
+    observer.observe(panel);
+    observer.observe(review.$(".toolbar"));
+    observer.observe(review.$(".orient"));
+    observer.observe(review.$("#section-options"));
+    clamp();
+    const gl = viewer.renderer.getContext();
+    const debug = gl.getExtension("WEBGL_debug_renderer_info");
+    const renderer = debug
+      ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
+      : t("perf.unavailable");
+    const timer = gpuTimer(gl);
+    const window = new FrameWindow();
+    let paintedAt = -Infinity;
+    const active = () => {
+      window.activity(performance.now());
+    };
+    viewer.controls.addEventListener("change", active);
+    const canvas = viewer.renderer.domElement;
+    const events = ["pointerdown", "pointermove", "wheel"];
+    for (const name of events)
+      canvas.addEventListener(name, active, { passive: true });
+    const onInput = (event) => {
+      if (event.target.closest("#section-options, #display-menu")) active();
+    };
+    document.addEventListener("input", onInput);
+    document.addEventListener("click", onInput);
+    // Hooks occur after rendering. Scene callbacks bracket GPU work, but are
+    // installed ONLY while enabled and restored on removal; OFF has neither
+    // a frame hook, a timer query, nor an activity listener to run each frame.
+    const before = viewer.scene.onBeforeRender,
+      after = viewer.scene.onAfterRender;
+    viewer.scene.onBeforeRender = function (...args) {
+      before.apply(this, args);
+      timer.begin();
+    };
+    viewer.scene.onAfterRender = function (...args) {
+      timer.end();
+      after.apply(this, args);
+    };
+    const sample = () => {
+      const now = performance.now();
+      sampledFrames++;
+      const frame = window.sample(now);
+      const info = viewer.renderer.info;
+      snapshot = {
+        ...frame,
+        userAgent: navigator.userAgent,
+        renderer,
+        software: softwareRenderer(renderer),
+        style: t(DISPLAY_LABELS[viewer.displayStyle]),
+        width: canvas.width,
+        height: canvas.height,
+        pixelRatio: viewer.renderer.getPixelRatio(),
+        triangles: info.render.triangles,
+        calls: info.render.calls,
+        geometries: info.memory.geometries,
+        textures: info.memory.textures,
+        section: !!viewer.section,
+        gpuMs: timer.available ? timer.milliseconds : null,
+        gpuAvailable: timer.available,
       };
-      document.addEventListener("input", onInput);
-      document.addEventListener("click", onInput);
-      // Hooks occur after rendering. Scene callbacks bracket GPU work, but are
-      // installed ONLY while enabled and restored on removal; OFF has neither
-      // a frame hook, a timer query, nor an activity listener to run each frame.
-      const before = viewer.scene.onBeforeRender,
-        after = viewer.scene.onAfterRender;
-      viewer.scene.onBeforeRender = function (...args) {
-        before.apply(this, args);
-        timer.begin();
-      };
-      viewer.scene.onAfterRender = function (...args) {
-        timer.end();
-        after.apply(this, args);
-      };
-      const sample = () => {
-        const now = performance.now();
-        sampledFrames++;
-        const frame = window.sample(now);
-        const info = viewer.renderer.info;
-        snapshot = {
-          ...frame,
-          userAgent: navigator.userAgent,
-          renderer,
-          software: softwareRenderer(renderer),
-          style: t(DISPLAY_LABELS[viewer.displayStyle]),
-          width: canvas.width,
-          height: canvas.height,
-          pixelRatio: viewer.renderer.getPixelRatio(),
-          triangles: info.render.triangles,
-          calls: info.render.calls,
-          geometries: info.memory.geometries,
-          textures: info.memory.textures,
-          section: !!viewer.section,
-          gpuMs: timer.available ? timer.milliseconds : null,
-          gpuAvailable: timer.available,
-        };
-        if (now - paintedAt < 200) return;
-        paintedAt = now;
-        panel.dataset.verdict = frame.verdict || "idle";
-        // The clipboard includes user agent; on screen it needlessly takes
-        // several lines of scarce space, so leave it to the report.
-        output.textContent = performanceReport(snapshot, labels)
-          .split("\n")
-          .slice(2)
-          .join("\n");
-      };
-      const unsubscribe = viewer.addFrameHook(sample);
-      sample();
-      stop = () => {
-        unsubscribe();
-        viewer.controls.removeEventListener("change", active);
-        for (const name of events) canvas.removeEventListener(name, active);
-        document.removeEventListener("input", onInput);
-        document.removeEventListener("click", onInput);
-        viewer.scene.onBeforeRender = before;
-        viewer.scene.onAfterRender = after;
-        timer.dispose();
-        panel.remove();
-        shell.classList.remove("performance-open");
-        snapshot = null;
-      };
-    },
-  });
+      if (now - paintedAt < 200) return;
+      paintedAt = now;
+      panel.dataset.verdict = frame.verdict || "idle";
+      heading.textContent = `${labels.fps}: ${frame.idle ? labels.idle : frame.fps === null ? labels.unavailable : Math.round(frame.fps)}`;
+      // The clipboard includes user agent; on screen it needlessly takes
+      // several lines of scarce space, so leave it to the report.
+      output.textContent = performanceReport(snapshot, labels)
+        .split("\n")
+        .slice(2)
+        .join("\n");
+    };
+    const unsubscribe = viewer.addFrameHook(sample);
+    sample();
+    stop = () => {
+      unsubscribe();
+      observer.disconnect();
+      viewer.controls.removeEventListener("change", active);
+      for (const name of events) canvas.removeEventListener(name, active);
+      document.removeEventListener("input", onInput);
+      document.removeEventListener("click", onInput);
+      viewer.scene.onBeforeRender = before;
+      viewer.scene.onAfterRender = after;
+      timer.dispose();
+      panel.remove();
+      shell.classList.remove("performance-open");
+      snapshot = null;
+    };
+  };
+  review.settings.on("performance", toggle);
+  toggle(review.settings.get("performance"));
 }

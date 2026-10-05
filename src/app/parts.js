@@ -1,8 +1,7 @@
 export function bindParts(review) {
   const { viewer, commands } = review;
   const panel = review.$("#parts-panel");
-  const narrow = matchMedia("(max-width: 1000px)");
-  let open = !narrow.matches,
+  let open = false,
     entries = [],
     byId = new Map(),
     rows = [],
@@ -15,14 +14,13 @@ export function bindParts(review) {
     isolate: "parts.isolate",
     transparent: "parts.transparent",
   };
-  panel.innerHTML = `<div class="parts-heading"><strong>${review.T("parts.title")}</strong><button class="quiet icon-only" id="parts-close" aria-label="${review.T("parts.close")}">${review.icon("close")}</button></div>
+  panel.innerHTML = `<div class="parts-heading"><strong>${review.T("parts.title")}</strong></div>
     <div class="parts-actions">${["hide", "showAll", "isolate", "transparent"].map((key) => `<button class="quiet" data-command="parts-${key}" title="${review.T(labels[key])}">${review.T(labels[key])}</button>`).join("")}</div>
     <div id="parts-tree" role="tree" aria-label="${review.T("parts.title")}" tabindex="0"><div class="parts-rows"></div></div>`;
   const tree = panel.querySelector("#parts-tree"),
     content = tree.firstElementChild;
   const toggleOpen = (value) => {
     open = value;
-    panel.hidden = !open;
     review
       .$('[data-command="parts-panel"]')
       .setAttribute("aria-expanded", String(open));
@@ -36,13 +34,22 @@ export function bindParts(review) {
     id: "parts-panel",
     labelKey: "parts.title",
     captionKey: "parts.title",
+    closeLabelKey: "parts.close",
     icon: "orbit",
-    group: "display",
+    menu: "view",
+    menuOrder: 70,
+    menuSection: "parts",
+    visible: () => review.settings.get("parts"),
+    checked: () => open,
     attributes: {
       "aria-controls": "parts-panel",
       "aria-expanded": String(open),
     },
-    run: () => toggleOpen(!open),
+    run: () => {
+      review.settings.set("parts", true);
+      review.settings.set("sidebarCollapsed", false);
+      review.sidebar.select(open ? "marks" : "parts");
+    },
   });
   const selected = () => viewer.parts.selected();
   for (const [id, shortcuts, run] of [
@@ -85,10 +92,6 @@ export function bindParts(review) {
   escape.run = () => {
     viewer.parts.isolate(null);
     previousRun();
-  };
-  panel.querySelector("#parts-close").onclick = () => {
-    toggleOpen(false);
-    review.$('[data-command="parts-panel"]').focus();
   };
   function flatten() {
     rows = [];
@@ -214,6 +217,6 @@ export function bindParts(review) {
     review.refreshCommands();
   });
   new ResizeObserver(render).observe(tree);
-  narrow.addEventListener("change", () => toggleOpen(!narrow.matches));
-  toggleOpen(open);
+  review.sidebar.on(toggleOpen);
+  toggleOpen(!panel.hidden);
 }

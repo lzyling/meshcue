@@ -1,3 +1,4 @@
+import { mountMenus } from "./menus.js";
 import { latestVersion, viewingBehindLatest } from "../versions.js";
 import { registerPanTool } from "./pan-tool.js";
 import { reusedVersionIsCurrent } from "./reuse-version.js";
@@ -34,6 +35,9 @@ export function installToolbar(review) {
       review.disconnected ||
       !can.canEdit ||
       (!can.canSubmit && !review.annotations.length);
+    review.$("#submit-feedback").title = review
+      .$("#submit-feedback")
+      .textContent.trim();
     review.refreshCommands();
     // Read-only rather than disabled: a note that cannot be changed right now
     // can still be read, scrolled and copied.
@@ -74,6 +78,7 @@ export function installToolbar(review) {
     document
       .querySelectorAll("[data-mode]")
       .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
+    review.refreshMenus?.();
     updateFillControl();
     // Looking makes nothing, so there is nothing for a colour to apply to; and
     // a measurement is a number, not a colour.
@@ -98,6 +103,7 @@ export function installToolbar(review) {
       pan: t("hint.pan"),
       measure: t(review.MEASURE_HINTS[review.viewer.measureKind]),
     }[next];
+    review.showToolHint?.(next);
   }
 
   function updatePalette() {
@@ -185,7 +191,9 @@ export function registerToolbarCommands(review) {
       titleKey,
       captionKey,
       icon,
-      group: "tools",
+      menu: mode === "orbit" ? "view" : mode === "measure" ? "inspect" : "mark",
+      menuOrder: 0,
+      menuSection: "tools",
       attributes: {
         "data-mode": mode,
         class: `tool${mode === "orbit" ? " active" : ""}`,
@@ -204,7 +212,9 @@ export function registerToolbarCommands(review) {
     labelKey: "section.title",
     captionKey: "section.title",
     icon: "section",
-    group: "tools",
+    menu: "inspect",
+    menuOrder: 10,
+    checked: () => !!review.viewer?.section,
     attributes: {
       id: "section-toggle",
       class: "tool",
@@ -240,7 +250,10 @@ export function registerToolbarCommands(review) {
     titleKey: "marks.hide",
     captionKey: "tool.marks",
     icon: "eye",
-    group: "display",
+    menu: "view",
+    menuOrder: 60,
+    menuSection: "display",
+    checked: () => !!review.viewer?.annotationsVisible,
     attributes: { id: "toggle-marks", class: "tool", "aria-pressed": "false" },
     run: () => {
       review.viewer.setVisible(!review.viewer.annotationsVisible);
@@ -253,7 +266,10 @@ export function registerToolbarCommands(review) {
     titleKey: "view.plain",
     captionKey: "tool.plain",
     icon: "plain",
-    group: "display",
+    menu: "view",
+    menuOrder: 50,
+    menuSection: "display",
+    checked: () => !!review.viewer?.neutral,
     attributes: { id: "neutral-view", class: "tool", "aria-pressed": "false" },
     run: () => {
       review.viewer.setNeutral(!review.viewer.neutral);
@@ -268,6 +284,9 @@ export function registerToolbarCommands(review) {
   });
   review.commands.register({
     id: "home",
+    menu: "view",
+    menuOrder: 20,
+    menuSection: "camera",
     labelKey: "cube.homeLabel",
     icon: "home",
     run: () => review.viewer.home(),
@@ -291,9 +310,11 @@ export function mountToolbar(review) {
       const command = review.commands.get(button.dataset.command);
       if (command) button.disabled = !command.enabled("button");
     }
+    review.refreshMenus?.();
   };
+  mountMenus(review);
   const mount = (command) => {
-    if (!command.group) return;
+    if (!command.group || command.menu) return;
     const slot = document.querySelector(
       `[data-toolbar-slot="${command.group}"]`,
     );
@@ -318,7 +339,12 @@ export function mountToolbar(review) {
     review.refreshCommands();
   });
   document.addEventListener("click", (event) => {
+    if (event.target.closest?.("#section-off"))
+      review.$('[data-menu="inspect"] .split-main').focus();
     const button = event.target.closest?.("[data-command]");
-    if (button && !button.disabled) review.commands.run(button.dataset.command);
+    if (button && !button.disabled) {
+      review.commands.run(button.dataset.command);
+      review.refreshCommands();
+    }
   });
 }
