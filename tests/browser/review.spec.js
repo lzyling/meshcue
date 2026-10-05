@@ -1725,6 +1725,15 @@ test("a cube face reframes from a named side without changing the framing", asyn
 }) => {
   publish();
   await ready(page);
+  // Model readiness precedes the overlay ResizeObserver's initial fit. Take
+  // the baseline after that layout frame, so this compares the cube action
+  // with the settled framing rather than with the provisional loading fit.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
   const before = await page.evaluate(() => window.__reviewDiagnostics().camera);
   const spun = await page.locator("#orient-cube").getAttribute("style");
   await page.locator('.orient-face[data-view="1,0,0"]').click();
@@ -1741,7 +1750,11 @@ test("a cube face reframes from a named side without changing the framing", asyn
   expect(after.position[0]).toBeGreaterThan(after.target[0]);
   expect(Math.abs(after.position[2] - after.target[2])).toBeLessThan(0.01);
   // The side changed; what is being looked at, and how closely, did not.
-  expect(after.target).toEqual(before.target);
+  // Camera interpolation can round an unchanged target in its last bits.
+  // Match the eight-decimal camera tolerance used by the restore regression.
+  after.target.forEach((value, i) =>
+    expect(value).toBeCloseTo(before.target[i], 8),
+  );
   const span = (c) => Math.hypot(...c.position.map((v, i) => v - c.target[i]));
   expect(Math.abs(span(after) - span(before))).toBeLessThan(0.01);
   // The compass followed rather than sat still. Polled, because the camera
