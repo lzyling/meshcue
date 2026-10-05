@@ -115,6 +115,15 @@ close button, and remembers consumption across reloads. Ordinary activation or
 a new active publication clears the event; ordinary tab switching does not
 create one. It is not stored as a permanent model notice.
 
+The event can also include optional `latestVersionId`: the newest content
+version when that reuse opened. While it still matches the newest version,
+the page does not call that delivered version "earlier" or offer the latest
+version instead, including after refresh or dismissing the reuse notice.
+Publishing different content (also with `activate: false`) restores the normal
+latest-version comparison. Deliberate manual tab browsing also restores it;
+a later activating reuse starts a fresh exception. Events saved by older
+runtimes without this optional field retain the normal comparison.
+
 ## CLI flags and tool fields
 
 CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with

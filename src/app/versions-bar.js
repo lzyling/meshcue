@@ -1,3 +1,4 @@
+import { rememberManualReuseChoice } from "./reuse-version.js";
 import { latestVersion } from "../versions.js";
 import { t } from "../i18n/index.js";
 export function installVersionsBar(review) {
@@ -137,6 +138,7 @@ export function installVersionsBar(review) {
       review.submitting
     )
       return;
+    rememberManualReuseChoice(review);
     // Clicking a tab is asking again on purpose, which is allowed to fail again.
     review.refusedLoad = null;
     // Switching costs a full re-tessellation, and the guard above silently drops

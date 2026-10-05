@@ -1,5 +1,6 @@
 import { latestVersion, viewingBehindLatest } from "../versions.js";
 import { registerPanTool } from "./pan-tool.js";
+import { reusedVersionIsCurrent } from "./reuse-version.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
   function updateButtons() {
@@ -7,7 +8,9 @@ export function installToolbar(review) {
     // only adds what the server cannot know: whether this tab has finished saving.
     const can = review.state?.capabilities || {};
     const latest = latestVersion(review.state?.versions),
-      behind = viewingBehindLatest(review.state?.versions, review.viewingId);
+      behind =
+        viewingBehindLatest(review.state?.versions, review.viewingId) &&
+        !reusedVersionIsCurrent(review, latest);
     const ready =
         !!review.loadedId &&
         review.viewer.enabled &&
