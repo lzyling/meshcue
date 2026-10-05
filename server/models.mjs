@@ -265,11 +265,15 @@ export function inspectModel(buffer, format, { derived } = {}) {
       buffer.length >= 84 && 84 + buffer.readUInt32LE(80) * 50 === buffer.length
         ? buffer.readUInt32LE(80)
         : (buffer.toString("utf8").match(/facet\s+normal/gi) || []).length;
-    if (!triangles || triangles > MAX_TRIANGLES)
+    if (!triangles)
+      throw new ReviewError(
+        "The STL could not be recognised.",
+        400,
+        "MODEL_FORMAT",
+      );
+    if (triangles > MAX_TRIANGLES)
       throw limitError(
-        triangles
-          ? `The limit is ${MAX_TRIANGLES} triangles; this STL has ${triangles}. Simplify below ${MAX_TRIANGLES} and publish again.`
-          : "The STL could not be recognised.",
+        `The limit is ${MAX_TRIANGLES} triangles; this STL has ${triangles}. Simplify below ${MAX_TRIANGLES} and publish again.`,
         "MODEL_LIMIT",
         { triangles },
       );
