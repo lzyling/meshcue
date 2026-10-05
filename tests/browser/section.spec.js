@@ -171,33 +171,50 @@ async function offset(page, value) {
   await page.locator("#section-offset").fill(String(value));
   await page.locator("#section-offset").press("Enter");
 }
-async function amberPixels(page) {
+async function capPixels(page) {
   const shot = await page.locator("#viewer canvas").screenshot();
-  return page.evaluate(async (b64) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${b64}`;
-    await img.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let count = 0;
-    for (
-      let i = Math.ceil(canvas.height * 0.2) * canvas.width * 4;
-      i < Math.floor(canvas.height * 0.8) * canvas.width * 4;
-      i += 4
-    )
-      if (
-        data[i] > 150 &&
-        data[i + 1] > 85 &&
-        data[i + 1] < data[i] * 0.88 &&
-        data[i + 2] < data[i + 1] * 0.65
+  return page.evaluate(
+    async ({ b64, color }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const rgb = color.match(/[a-f0-9]{2}/gi).map((c) => parseInt(c, 16));
+      let count = 0;
+      for (
+        let i = Math.ceil(canvas.height * 0.2) * canvas.width * 4;
+        i < Math.floor(canvas.height * 0.8) * canvas.width * 4;
+        i += 4
       )
-        count++;
-    return count;
-  }, shot.toString("base64"));
+        if ([0, 1, 2].every((c) => Math.abs(data[i + c] - rgb[c]) <= 3)) {
+          // Source surfaces now share the cap hue. Require nearby hatch ink too,
+          // otherwise a lit grey edge can coincidentally equal the fill colour.
+          const stripes = [];
+          let previous = false;
+          for (let dx = -12; dx <= 12; dx++) {
+            const at = i + dx * 4;
+            const ink = [0, 1, 2].every(
+              (c) =>
+                data[at + c] < rgb[c] * 0.8 && data[at + c] > rgb[c] * 0.55,
+            );
+            if (ink && !previous) stripes.push(dx);
+            previous = ink;
+          }
+          const pitch = (stripes.at(-1) - stripes[0]) / (stripes.length - 1);
+          if (stripes.length >= 2 && pitch >= 10 && pitch <= 12.5) count++;
+        }
+      return count;
+    },
+    {
+      b64: shot.toString("base64"),
+      color: (await diagnostics(page)).viewer.sectionColor,
+    },
+  );
 }
 
 test("section controls clip in model units, flip, hide pins and reset without editing the draft", async ({
@@ -243,13 +260,13 @@ test("section controls clip in model units, flip, hide pins and reset without ed
   await expect(page.locator("#annotation-count")).toHaveText("2");
 });
 
-test("amber cut faces reject labels, bucket and measurement while exposed cavity faces accept them", async ({
+test("hatched cut faces reject labels, bucket and measurement while exposed cavity faces accept them", async ({
   page,
 }) => {
   await open(page);
   await front(page);
   await section(page);
-  expect(await amberPixels(page)).toBeGreaterThan(500);
+  expect(await capPixels(page)).toBeGreaterThan(500);
   await page.locator('[data-mode="label"]').click();
   await clickAt(page, [8, 0, -4]);
   expect((await diagnostics(page)).annotationCount).toBe(0);
@@ -276,9 +293,9 @@ test("amber cut faces reject labels, bucket and measurement while exposed cavity
   await clickAt(page, [0, 2, -3]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await offset(page, 4);
-  expect(await amberPixels(page)).toBe(0);
+  expect(await capPixels(page)).toBe(0);
   await page.locator("#section-off").click();
-  expect(await amberPixels(page)).toBe(0);
+  expect(await capPixels(page)).toBe(0);
 });
 
 test("section follows STEP source axes and resets when a new version loads", async ({
@@ -289,7 +306,7 @@ test("section follows STEP source axes and resets when a new version loads", asy
   const step = (await diagnostics(page)).viewer.section;
   expect(step.max - step.min).toBeCloseTo(8);
   expect(step.offset).toBeCloseTo((step.min + step.max) / 2);
-  expect(await amberPixels(page)).toBeGreaterThan(100);
+  expect(await capPixels(page)).toBeGreaterThan(100);
   ctl("publish", await hollowBox(), "--version", "next");
   await expect
     .poll(async () => (await diagnostics(page)).viewer.section)
@@ -327,7 +344,7 @@ for (const format of ["glb", "step"])
       });
       await section(page, "z");
       await expect(page.locator(".model-pin")).toBeHidden();
-      expect(await amberPixels(page)).toBeGreaterThan(100);
+      expect(await capPixels(page)).toBeGreaterThan(100);
       await page.screenshot({
         path: path.join(evidence, `${format}-${theme}-on-hidden-pin.png`),
       });
@@ -521,11 +538,7 @@ async function cutPixels(page, corners) {
     polygon.push([p.x - box.x, p.y - box.y]);
   }
   const shot = await page.locator("#viewer canvas").screenshot();
-  const color = await page.evaluate(() =>
-    getComputedStyle(document.documentElement)
-      .getPropertyValue("--section-fill")
-      .trim(),
-  );
+  const color = (await diagnostics(page)).viewer.sectionColor;
   return page.evaluate(
     async ({ b64, polygon, color }) => {
       const img = new Image();
@@ -538,8 +551,11 @@ async function cutPixels(page, corners) {
       ctx.drawImage(img, 0, 0);
       const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
       const rgb = color.match(/[a-f0-9]{2}/gi).map((c) => parseInt(c, 16));
+      const linear = (v) =>
+        v <= 10.31475 ? v / 3294.6 : ((v / 255 + 0.055) / 1.055) ** 2.4;
+      const base = rgb.map(linear);
       let total = 0,
-        nonAmber = 0;
+        nonCap = 0;
       for (let y = 0; y < img.height; y++)
         for (let x = 0; x < img.width; x++) {
           let inside = false;
@@ -555,9 +571,27 @@ async function cutPixels(page, corners) {
           if (!inside) continue;
           total++;
           const at = (y * img.width + x) * 4;
-          if (rgb.some((v, c) => Math.abs(pixels[at + c] - v) > 3)) nonAmber++;
+          // Hatching varies only brightness in linear RGB: require the cap's
+          // exact hue and its specified ink-to-fill range, including AA edges.
+          const ratios = base.map((v, c) => linear(pixels[at + c]) / v);
+          // A same-colour cavity back wall can fall inside the ink-to-fill
+          // brightness range. Require actual nearby hatch modulation as well.
+          let low = Infinity,
+            high = 0;
+          for (let dx = -12; dx <= 12; dx++) {
+            const value = linear(pixels[at + dx * 4]) / base[0];
+            low = Math.min(low, value);
+            high = Math.max(high, value);
+          }
+          if (
+            high - low < 0.4 ||
+            Math.min(...ratios) < 0.39 ||
+            Math.max(...ratios) > 1.04 ||
+            Math.max(...ratios) - Math.min(...ratios) > 0.06
+          )
+            nonCap++;
         }
-      return { total, nonAmber, fraction: nonAmber / total };
+      return { total, nonCap, fraction: nonCap / total };
     },
     { b64: shot.toString("base64"), polygon, color },
   );
@@ -587,7 +621,7 @@ for (const kind of ["touching", "overlapping", "per-face hollow"])
           [1, 4, 0],
           [-8, 4, 0],
         ];
-    // The oblique shell view distinguishes a plane-depth cap from an amber
+    // The oblique shell view distinguishes a plane-depth cap from a flat-coloured
     // back wall, even when both happen to look flat from straight ahead.
     if (hollow) await page.locator('[data-view="1,0,1"]').press("Enter");
     for (const theme of ["light", "dark"]) {

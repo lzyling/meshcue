@@ -4,5 +4,5 @@ export default {
   "section.offset": "偏移",
   "section.flip": "翻轉方向",
   "section.off": "關閉 / 重設",
-  "section.hint": "琥珀色剖切面僅用於輔助檢視，不能標註或測量。",
+  "section.hint": "剖切面按零件著色並帶剖面線，僅供檢視，不能標註或測量。",
 };

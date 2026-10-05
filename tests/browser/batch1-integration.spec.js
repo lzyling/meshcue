@@ -69,35 +69,50 @@ async function fixture() {
   );
   return file;
 }
-async function amber(page) {
-  const shot = await page.locator("#viewer canvas").screenshot();
-  return page.evaluate(async (base64) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${base64}`;
-    await img.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const bytes = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let count = 0;
-    // A locator screenshot includes HTML controls above the canvas. Exclude
-    // the amber section slider and toolbar; count the central model/cap area.
-    for (
-      let i = Math.ceil(canvas.height * 0.2) * canvas.width * 4;
-      i < Math.floor(canvas.height * 0.8) * canvas.width * 4;
-      i += 4
-    )
-      if (
-        bytes[i] > 150 &&
-        bytes[i + 1] > 85 &&
-        bytes[i + 1] < bytes[i] * 0.88 &&
-        bytes[i + 2] < bytes[i + 1] * 0.65
+async function capPixels(page) {
+  const image = await page.locator("#viewer canvas").screenshot();
+  return page.evaluate(
+    async ({ base64, color }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${base64}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const bytes = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const rgb = color.match(/[a-f0-9]{2}/gi).map((c) => parseInt(c, 16));
+      let count = 0;
+      for (
+        let i = Math.ceil(canvas.height * 0.2) * canvas.width * 4;
+        i < Math.floor(canvas.height * 0.8) * canvas.width * 4;
+        i += 4
       )
-        count++;
-    return count;
-  }, shot.toString("base64"));
+        if ([0, 1, 2].every((c) => Math.abs(bytes[i + c] - rgb[c]) <= 3)) {
+          // Source surfaces now share the cap hue. Require nearby hatch ink too,
+          // otherwise a lit grey edge can coincidentally equal the fill colour.
+          const stripes = [];
+          let previous = false;
+          for (let dx = -12; dx <= 12; dx++) {
+            const at = i + dx * 4;
+            const ink = [0, 1, 2].every(
+              (c) =>
+                bytes[at + c] < rgb[c] * 0.8 && bytes[at + c] > rgb[c] * 0.55,
+            );
+            if (ink && !previous) stripes.push(dx);
+            previous = ink;
+          }
+          const pitch = (stripes.at(-1) - stripes[0]) / (stripes.length - 1);
+          if (stripes.length >= 2 && pitch >= 10 && pitch <= 12.5) count++;
+        }
+      return count;
+    },
+    {
+      base64: image.toString("base64"),
+      color: (await diag(page)).viewer.sectionColor,
+    },
+  );
 }
 
 test("integrated part double-click and Fit all share visible framing in both projections, and X-ray preserves picking behind transparent parts", async ({
@@ -160,7 +175,7 @@ test("orthographic display styles retain section caps and performance readout wh
     await expect(page.locator("#perf-panel pre")).toContainText(
       "Section view: On",
     );
-    const pixels = await amber(page);
+    const pixels = await capPixels(page);
     expect(pixels).toBeGreaterThan(100);
     const state = (await diag(page)).viewer;
     expect(state.display.clipped).toBe(true);
@@ -180,7 +195,7 @@ test("orthographic display styles retain section caps and performance readout wh
   await page.keyboard.press("y");
   await page.mouse.move(5, 5);
   expect((await diag(page)).viewer.display.segments).toBe(0);
-  expect(await amber(page)).toBeLessThan(10);
+  expect(await capPixels(page)).toBeLessThan(10);
   await page.screenshot({
     path: `${evidence}/orthographic-hidden-section.png`,
   });

@@ -197,6 +197,11 @@ test("display section clips edges and preserves the opaque cap in every style", 
   // compare styles away from the cut boundary: there must be feature pixels
   // on retained surfaces and none anywhere in the removed half.
   await page.locator('[data-view="0,0,1"]').press("Enter");
+  // A screen-space hatch makes even a small camera movement visible. Compare
+  // styles only after the cube's transition has reached the same front view.
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   await page.locator("#section-axis").selectOption("x");
   await page.locator("#section-offset").fill("0");
   await page.locator("#section-offset").press("Enter");

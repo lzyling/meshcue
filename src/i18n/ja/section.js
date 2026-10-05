@@ -4,5 +4,6 @@ export default {
   "section.offset": "オフセット",
   "section.flip": "側を反転",
   "section.off": "オフ / リセット",
-  "section.hint": "琥珀色の切断面は表示補助で、マークや計測はできません。",
+  "section.hint":
+    "部品ごとの色とハッチングで切断面を表示します。マークや計測はできません。",
 };

@@ -5,5 +5,5 @@ export default {
   "section.flip": "Flip side",
   "section.off": "Off / reset",
   "section.hint":
-    "Amber marks the cut face: a viewing aid that cannot be marked or measured.",
+    "Hatched cut faces use part colours; no marks or measurements.",
 };
