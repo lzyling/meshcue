@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.mjs";
+import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -195,7 +196,7 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   await expect(page.locator("#echo-panel")).toBeVisible();
   const echoed = await page.evaluate(() => window.__reviewDiagnostics());
   expect(echoed.annotations).toEqual(before.annotations);
-  expect(echoed.camera).toEqual(before.camera);
+  expectCameraUnchanged(echoed.camera, before.camera);
   const v1bytes = await fetchLoadedModel(page);
   expect(sha(v1bytes)).toBe(initial.active.sha256);
 
