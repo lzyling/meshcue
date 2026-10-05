@@ -21,6 +21,9 @@ export function bindParts(review) {
     content = tree.firstElementChild;
   const toggleOpen = (value) => {
     open = value;
+    review
+      .$('[data-command="parts-panel"]')
+      .setAttribute("aria-expanded", String(open));
     viewer.hoverPart(null);
     if (open) {
       reveal(selected());

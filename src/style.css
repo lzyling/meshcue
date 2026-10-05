@@ -2557,7 +2557,7 @@ body:has(#display-menu:not([hidden])) #perf-panel {
 .tool-hint-box {
   position: absolute;
   left: 12px;
-  max-width: min(540px, calc(100% - 24px));
+  max-width: min(540px, calc(100% - 260px));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2618,4 +2618,10 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 }
 .tool-hint-box button {
   pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+  .tool-hint-box {
+    max-width: calc(100% - 24px);
+  }
 }

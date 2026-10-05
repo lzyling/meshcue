@@ -149,6 +149,7 @@ export function mountMenus(review) {
         ? "menuitemradio"
         : "menuitem";
     button.tabIndex = -1;
+    button.title = t(command.titleKey || command.labelKey);
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
       `<span>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
@@ -176,11 +177,10 @@ export function mountMenus(review) {
             "aria-checked",
             String(command.attributes["data-mode"] === review.mode),
           );
-        button.title = t(
-          command.checked?.() && command.closeLabelKey
-            ? command.closeLabelKey
-            : command.labelKey,
-        );
+        if (command.closeLabelKey)
+          button.title = t(
+            command.checked?.() ? command.closeLabelKey : command.labelKey,
+          );
         button.classList.toggle(
           "menu-separator",
           !button.hidden &&
@@ -198,11 +198,17 @@ export function mountMenus(review) {
         state.selected = defaults[name];
         command = review.commands.get(state.selected);
       }
-      state.main.innerHTML =
-        (command.icon ? review.icon(command.icon) : "") +
-        `<span>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
-      state.main.title = t(command.labelKey);
-      state.main.setAttribute("aria-label", t(command.labelKey));
+      const item = [...state.menu.children].find(
+        (button) => button.dataset.command === command.id,
+      );
+      // Toggle owners update their menu icon/caption in place. Mirror that
+      // displayed state so the remembered face never shows yesterday's icon.
+      state.main.innerHTML = item.innerHTML;
+      state.main.title = item?.title || t(command.labelKey);
+      state.main.setAttribute(
+        "aria-label",
+        item?.getAttribute("aria-label") || t(command.labelKey),
+      );
       state.main.disabled = !command.enabled("button");
       state.main.classList.toggle(
         "active",
