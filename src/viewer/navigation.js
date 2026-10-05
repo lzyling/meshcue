@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { planarFaces } from "../planar-fill.js";
+import { faceRegion } from "../face-region.js";
 import {
   easeNavigation,
   fitFrame,
@@ -217,7 +217,7 @@ export class NavigationMethods {
     )
       return;
     this.clearNavigationHover();
-    const faces = planarFaces(
+    const faces = faceRegion(
       mesh.userData.fillTopology,
       seed,
       this.fillTolerance,

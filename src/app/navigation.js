@@ -11,7 +11,24 @@ export function bindNavigation(review) {
     passive: true,
   });
   // Read-only inspection follows the existing review diagnostics convention.
-  window.__navigationDiagnostics = () => ({
+  window.__navigationDiagnostics = (x, y) => ({
+    pick:
+      Number.isFinite(x) && Number.isFinite(y)
+        ? (() => {
+            const hit = viewer.rayAt(x, y);
+            if (!hit) return null;
+            const mesh = hit.object;
+            const seed = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+            const brep = mesh.userData.fillTopology.brep;
+            const range = brep?.ranges[brep.of[seed]];
+            return {
+              meshId: mesh.userData.reviewId,
+              seed,
+              range,
+              point: hit.point.toArray(),
+            };
+          })()
+        : null,
     projection: viewer.camera.isOrthographicCamera
       ? "orthographic"
       : "perspective",
