@@ -70,3 +70,26 @@ test("STEP hover follows whole planar and rounded B-rep faces", async ({
       .toBe(p.range[1] - p.range[0] + 1);
   }
 });
+
+test("STEP fill paints one whole B-rep face, hides spread and survives reload", async ({
+  page,
+}) => {
+  await open(page);
+  const p = (await probes(page)).find((p) => p.range[0] === 218);
+  await page.locator('[data-mode="fill"]').click();
+  await expect(page.locator("#fill-control")).toBeHidden();
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
+  await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+  const marks = (await diag(page)).annotations;
+  const faces = marks[0].faces[p.meshId];
+  expect(faces).toHaveLength(p.range[1] - p.range[0] + 1);
+  expect(faces.toSorted((a, b) => a - b)).toEqual(
+    Array.from({ length: 20 }, (_, i) => 218 + i),
+  );
+  await shot(page, "fill-fillet");
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  expect((await diag(page)).annotations).toEqual(marks);
+});
+

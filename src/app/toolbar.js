@@ -3,7 +3,16 @@ import { registerPanTool } from "./pan-tool.js";
 import { reusedVersionIsCurrent } from "./reuse-version.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
+  function updateFillControl() {
+    review.$("#fill-control").hidden =
+      review.mode !== "fill" ||
+      (["step", "stp"].includes(review.viewer.model?.format) &&
+        review.viewer.meshes.length > 0 &&
+        review.viewer.meshes.every((mesh) => mesh.userData.fillTopology?.brep));
+  }
+
   function updateButtons() {
+    updateFillControl();
     // The server decides what is permitted and says why when it is not. The page
     // only adds what the server cannot know: whether this tab has finished saving.
     const can = review.state?.capabilities || {};
@@ -65,7 +74,7 @@ export function installToolbar(review) {
     document
       .querySelectorAll("[data-mode]")
       .forEach((b) => b.classList.toggle("active", b.dataset.mode === next));
-    review.$("#fill-control").hidden = next !== "fill";
+    updateFillControl();
     // Looking makes nothing, so there is nothing for a colour to apply to; and
     // a measurement is a number, not a colour.
     review.$(".palette").hidden = [
