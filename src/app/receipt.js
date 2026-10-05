@@ -169,6 +169,7 @@ export function bindSubmission(review) {
         // The language any line written back to the reviewer is in.
         locale: currentLocale(),
       });
+      review.offlineDraftPending = false;
       review.state.draft = {
         ...review.state.draft,
         submittedRevision: review.revision,

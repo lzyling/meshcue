@@ -174,6 +174,7 @@ export function installVersionsBar(review) {
     if (!model) return;
     review.viewingId = fullState.viewing || model.id;
     review.loadedId = model.id;
+    review.offlineDraftPending = false;
     review.loadedFilename = model.filename;
     review.loadedReviewId = fullState.reviewId;
     review.sweepDraftCache();

@@ -462,6 +462,12 @@ test("R2 bug 8: Send recovers when a new version arrives during an outage", asyn
   page,
   context,
 }) => {
+  if (process.env.MESHCUE_CI_CPU_RATE) {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", {
+      rate: Number(process.env.MESHCUE_CI_CPU_RATE),
+    });
+  }
   await open(page);
   const original = (await diag(page)).versionId;
   await page.locator('[data-mode="label"]').click();
@@ -482,7 +488,20 @@ test("R2 bug 8: Send recovers when a new version arrives during an outage", asyn
     name: "Next version",
     version: "v2",
   });
+  // Hold polling until the offline draft has saved. This is the ordering a
+  // slow renderer can reach naturally when a save finishes before its poll.
+  let releasePoll;
+  const pollGate = new Promise((resolve) => (releasePoll = resolve));
+  await page.route("**/api/state?**", async (route) => {
+    await pollGate;
+    await route.continue();
+  });
   await context.setOffline(false);
+  await note.fill("Keep this on the earlier versio");
+  await note.fill("Keep this on the earlier version");
+  await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+  releasePoll();
+  await expect.poll(async () => (await diag(page)).versions.length).toBe(2);
   await expect(page.locator("#submit-feedback")).toBeEnabled();
   expect((await diag(page)).versionId).toBe(original);
   await page.locator("#submit-feedback").click();
@@ -493,4 +512,8 @@ test("R2 bug 8: Send recovers when a new version arrives during an outage", asyn
         ?.note;
     })
     .toBe("Keep this on the earlier version");
+  // A successful Send releases the outage hold; normal following resumes.
+  await expect
+    .poll(async () => (await diag(page)).versionId)
+    .not.toBe(original);
 });
