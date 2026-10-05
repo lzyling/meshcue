@@ -2211,3 +2211,10 @@ dialog .muted {
   min-height: 32px;
   padding: 0;
 }
+
+/* === Scenario R2: keep review controls reachable === */
+.section-options {
+  /* The cube's arrows extend beyond its original square. Reserve the whole
+     widget at desktop widths too, even when Parts narrows the canvas. */
+  max-width: min(520px, calc(100% - var(--orient-reach) - 90px));
+}

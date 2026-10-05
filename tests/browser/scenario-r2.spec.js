@@ -148,3 +148,23 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
     }
   });
 }
+
+for (const [width, height] of [
+  [1440, 900],
+  [1024, 768],
+]) {
+  test(`R2 bug 2: Section leaves cube arrows clickable (${width})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await open(page);
+    await page.locator("#section-toggle").click();
+    await screenshot(page, `bug2-section-${width}`);
+    const arrow = page.locator(".navigation-arrow-left");
+    expect(await unobscured(arrow)).toBe(true);
+    const before = (await diag(page)).camera;
+    await arrow.click({ timeout: 3000 });
+    await settled(page);
+    expect((await diag(page)).camera).not.toEqual(before);
+  });
+}
