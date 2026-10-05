@@ -672,6 +672,10 @@ export class ReviewStore {
           reviewId: s.reviewId,
           versionId: known.id,
           label,
+          // Reopening older bytes is the newest delivery decision until new
+          // content arrives, including a passive publication. Record that
+          // boundary without changing the notice event's existing lifetime.
+          latestVersionId: this.inBindingOrder().at(-1)?.id,
         };
         this.save();
       }

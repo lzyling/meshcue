@@ -1,4 +1,6 @@
 import { latestVersion, viewingBehindLatest } from "../versions.js";
+import { registerPanTool } from "./pan-tool.js";
+import { reusedVersionIsCurrent } from "./reuse-version.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
   function updateButtons() {
@@ -6,7 +8,9 @@ export function installToolbar(review) {
     // only adds what the server cannot know: whether this tab has finished saving.
     const can = review.state?.capabilities || {};
     const latest = latestVersion(review.state?.versions),
-      behind = viewingBehindLatest(review.state?.versions, review.viewingId);
+      behind =
+        viewingBehindLatest(review.state?.versions, review.viewingId) &&
+        !reusedVersionIsCurrent(review, latest);
     const ready =
         !!review.loadedId &&
         review.viewer.enabled &&
@@ -64,9 +68,12 @@ export function installToolbar(review) {
     review.$("#fill-control").hidden = next !== "fill";
     // Looking makes nothing, so there is nothing for a colour to apply to; and
     // a measurement is a number, not a colour.
-    review.$(".palette").hidden = ["orbit", "relocate", "measure"].includes(
-      next,
-    );
+    review.$(".palette").hidden = [
+      "orbit",
+      "pan",
+      "relocate",
+      "measure",
+    ].includes(next);
     review.$("#new-region").hidden = next !== "fill";
     review.$("#measure-options").hidden = next !== "measure";
     // Once every option inside it is gone the frame is all that is left, and an
@@ -79,6 +86,7 @@ export function installToolbar(review) {
       relocate: t("hint.relocate"),
       label: t("hint.label"),
       orbit: t("hint.orbit"),
+      pan: t("hint.pan"),
       measure: t(review.MEASURE_HINTS[review.viewer.measureKind]),
     }[next];
   }
@@ -161,7 +169,7 @@ export function registerToolbarCommands(review) {
       "tool.measure",
       "measure",
     ],
-  ])
+  ]) {
     review.commands.register({
       id: `mode-${mode}`,
       labelKey,
@@ -180,6 +188,8 @@ export function registerToolbarCommands(review) {
           : idle() && !!review.state?.capabilities?.canEdit,
       run: () => review.setMode(mode),
     });
+    if (mode === "orbit") registerPanTool(review, ready);
+  }
   review.commands.register({
     id: "section",
     labelKey: "section.title",
