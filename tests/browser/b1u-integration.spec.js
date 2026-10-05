@@ -120,6 +120,25 @@ for (const [name, viewport] of [
           await page.locator("#section-options").boundingBox(),
         ),
       ).toBe(true);
+      const hint = page.locator(".tool-hint-box");
+      if (name === "iphone13") {
+        // The two option panels leave too little room for a first-use hint.
+        // It must return when Section closes, without asking to reset hints.
+        await expect(hint).toBeHidden();
+        await page.locator("#section-off").click();
+        await expect(hint).toBeVisible();
+        await expect(hint).toContainText("Click an edge, hole or face");
+        await clickControl(page, "#section-toggle");
+        await expect(hint).toBeHidden();
+      } else {
+        await expect(hint).toBeVisible();
+        expect(
+          noOverlap(
+            await hint.boundingBox(),
+            await page.locator("#section-options").boundingBox(),
+          ),
+        ).toBe(true);
+      }
       await page.screenshot({
         path: `${evidence}/${name}-smart-advanced-section.png`,
       });
