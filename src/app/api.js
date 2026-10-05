@@ -104,9 +104,16 @@ export function installApi(review) {
       review.accessBlocked = false;
       const recovered = review.accessRecoveryNeeded;
       review.accessRecoveryNeeded = false;
-      // Follow whatever the Agent puts on screen, unless the reviewer pinned an
-      // earlier tab. Their own choice outranks the Agent's; an unsynced draft
-      // outranks both, because reloading the viewer would discard it.
+      review.restoreVersionChoice(incoming);
+      // A pinned tab survives polls and reloads, until the agent activates a
+      // different model. Unsaved edits still defer that switch below.
+      if (
+        review.state?.active?.id &&
+        (incoming.active?.id !== review.state.active.id ||
+          (incoming.sameContentReuse?.id &&
+            incoming.sameContentReuse.id !== review.state.sameContentReuse?.id))
+      )
+        review.followActive = true;
       const wanted = review.followActive
         ? incoming.active?.id
         : review.viewingId;
@@ -220,7 +227,8 @@ export function installApi(review) {
   // keeps saying it, with the host's own reason rather than a generic apology.
   function updateOutbox(incoming) {
     const stuck = (incoming.submissions || []).filter(
-      (item) => item.status !== "accepted" && (item.attempts || 0) >= 2,
+      (item) =>
+        item.status !== "accepted" && !item.readAt && (item.attempts || 0) >= 2,
     );
     review.$("#outbox-banner").hidden = !stuck.length;
     if (!stuck.length) return;

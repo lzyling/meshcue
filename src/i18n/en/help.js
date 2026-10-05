@@ -1,14 +1,14 @@
 export default {
   "help.p12":
-    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
+    "Section view: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
   "help.p12.named":
-    "Section: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
+    "Section view: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. The amber cut face is a viewing aid and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
 
   "help.open": "How to use",
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
   "help.p1":
-    "Right-drag to orbit, wheel or pinch to zoom, middle-drag or Shift+wheel to pan — the same on a mouse as on a trackpad. The left button is never the camera's, so you can mark without putting a tool down.",
+    "Right-drag to orbit, wheel or pinch to zoom toward the pointer, middle-drag or Shift+wheel to pan — on a mouse or trackpad. In the Orbit tool, left-drag also rotates; Shift+left-drag or Shift+right-drag pans. Marking tools keep the left button for marks. On a touchscreen, one finger rotates and two fingers pinch or pan; touch taps do not place marks.",
   "help.p2":
     "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":
@@ -32,7 +32,7 @@ export default {
   "help.p8.named":
     "“Send to {agent}” sends this batch; {agent} replies with a new version and you carry on marking that one. Nothing has to be closed off, and drafts save themselves.",
   "help.p9":
-    "GLB, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Animation, skeletons and compressed GLB are not supported yet. This is a review tool; it does not sculpt the model.",
+    "GLB, glTF, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is tessellated once when it arrives and your marks land on that mesh; downloading still gives you the STEP itself. An STL carries no colour, so it is always drawn grey; colours come with STEP and GLB. Draco and Meshopt compression are supported; animation and skeletons are not supported yet. This is a review tool; it does not sculpt the model.",
   "help.p10":
     "Measure: pick the Measure tool, then Point to point (corners snap), Edge length, Two faces — parallel faces give the distance between them, any others the angle — or 3-point circle, three clicks on the rim of a hole or shaft for its diameter. On a STEP a face is the file's own face, whole, and an edge is where two of them meet. Millimetres show two decimals; a model with no unit shows the bare number. A measurement is gone at the next one unless you press “Keep”, which makes it a mark you can write a note on, undo, delete and send.",
   "help.p11":

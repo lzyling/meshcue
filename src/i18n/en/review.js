@@ -68,7 +68,7 @@ export default {
   "feedback.submit.named": "Send to {agent}",
   "feedback.submitting": "Submitting…",
   "feedback.submitted":
-    "Marks saved; the submission status updates from the actual receipt. The model stays locked.",
+    "Marks saved; the submission status updates from the actual receipt. You can keep marking this version.",
 
   "receipt.next":
     "What the Agent understood will appear at the bottom right of the model",

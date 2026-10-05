@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "投影",
+  "navigation.perspective": "透視投影",
+  "navigation.orthographic": "平行投影",
+  "navigation.fit": "全体を表示",
+  "navigation.iso": "等角投影",
+  "navigation.zoomIn": "拡大",
+  "navigation.zoomOut": "縮小",
+  "navigation.normal": "面に垂直に見る",
+  "navigation.noFace": "ポインターの下に面がありません",
+  "navigation.shortcuts": "キーボードショートカット",
+  "navigation.axes": "モデルファイルの座標軸",
+  "navigation.rotateLeft": "左に回転",
+  "navigation.rotateRight": "右に回転",
+  "navigation.rotateUp": "上に回転",
+  "navigation.rotateDown": "下に回転",
+  "navigation.panLeft": "左に移動",
+  "navigation.panRight": "右に移動",
+  "navigation.panUp": "上に移動",
+  "navigation.panDown": "下に移動",
+  "help.p13":
+    "ナビゲーション：回転ツールで面をダブルクリックすると回転中心を設定し、空白をダブルクリックすると全体を表示します。F は現在の方向で可視形状を収め、ホームは等角投影の方向で全体を表示します。透視投影と平行投影を切り替えられ、選択は保存されます。Shift+1〜7 は前、後、左、右、上、下、等角。矢印は15°、Ctrl+矢印は5°、Shift+矢印は90°回転、Ctrl+Shift+矢印は移動します。Z は縮小、Shift+Z は拡大。N はポインター下の面に垂直に向き、もう一度押すと反対側から見ます。ビューキューブをドラッグして回転、矢印で90°ずつ回転します。Shift+/ は全ショートカットを表示します。ビュー変更は短くアニメーションし、動きを減らす設定では即座に切り替わります。操作でアニメーションを中断できます。",
+};

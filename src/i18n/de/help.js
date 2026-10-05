@@ -1,14 +1,14 @@
 export default {
   "help.p12":
-    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an den Agent gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
   "help.p12.named":
-    "Schnitt: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Der Schnitt dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
+    "Schnittansicht: Entlang der X-, Y- oder Z-Achse des Modells schneiden, den Versatz in Modelleinheiten einstellen oder die entfernte Seite umkehren. Die bernsteinfarbene Schnittfläche dient nur der Ansicht und kann weder markiert noch gemessen werden. Verbleibende Vorderseiten lassen sich weiter markieren und messen. Die Schnittansicht dient nur der Ansicht, wird nie an {agent} gesendet und beim Laden eines anderen Modells oder einer anderen Version zurückgesetzt.",
 
   "help.open": "Anleitung",
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",
   "help.p1":
-    "Mit rechts ziehen dreht, Rad oder Pinch zoomt, mittlere Taste oder Umschalt+Rad verschiebt — auf Maus und Trackpad gleich. Die linke Taste gehört nie der Kamera — markieren, ohne das Werkzeug zu wechseln.",
+    "Mit Maus und Trackpad: rechts ziehen zum Drehen, Mausrad oder Aufziehen zum Zoomen zum Zeiger, Mitteltaste oder Umschalt+Scrollen zum Verschieben. Im Drehwerkzeug dreht auch linkes Ziehen; Umschalt+linkes oder rechtes Ziehen verschiebt. Markierungswerkzeuge behalten die linke Taste. Auf Touchscreens dreht ein Finger, zwei Finger zoomen oder verschieben; Antippen setzt keine Markierung.",
   "help.p2":
     "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":
@@ -32,7 +32,7 @@ export default {
   "help.p8.named":
     "„An {agent}“ sendet diesen Stapel; {agent} antwortet mit einer neuen Version, auf der Sie weiter markieren. Es muss nichts abgeschlossen werden, und Entwürfe speichern sich selbst.",
   "help.p9":
-    "GLB, STL und STEP, bis 80 MB und 600.000 Dreiecke. Ein STEP wird beim Eintreffen einmal trianguliert, und Ihre Markierungen liegen auf diesem Netz; heruntergeladen wird weiterhin das STEP selbst. Ein STL trägt keine Farbe und wird daher immer grau gezeigt; Farben kommen mit STEP und GLB. Animation, Skelette und komprimiertes GLB werden noch nicht unterstützt. Dies ist ein Prüfwerkzeug; es modelliert nicht.",
+    "GLB, glTF, STL und STEP, bis 80 MB und 600.000 Dreiecke. Ein STEP wird beim Eintreffen einmal trianguliert, und Ihre Markierungen liegen auf diesem Netz; heruntergeladen wird weiterhin das STEP selbst. Ein STL trägt keine Farbe und wird daher immer grau gezeigt; Farben kommen mit STEP und GLB. Draco- und Meshopt-Kompression werden unterstützt; Animation und Skelette noch nicht. Dies ist ein Prüfwerkzeug; es modelliert nicht.",
   "help.p10":
     "Messen: Wählen Sie das Messwerkzeug, dann „Punkt zu Punkt“ (Ecken rasten ein), „Kantenlänge“, „Zwei Flächen“ – parallele Flächen ergeben ihren Abstand, alle anderen den Winkel – oder „3-Punkt-Kreis“: Drei Klicks auf den Rand einer Bohrung oder Welle ergeben ihren Durchmesser. Bei einem STEP ist eine Fläche die der Datei selbst, als Ganzes, und eine Kante die Stelle, an der zwei davon zusammentreffen. Millimeter erscheinen mit zwei Nachkommastellen; ein Modell ohne Einheit zeigt nur die Zahl. Eine Messung verschwindet bei der nächsten, außer Sie drücken „Behalten“: Dann wird sie eine Markierung, die Sie beschriften, rückgängig machen, löschen und senden können.",
   "help.p11":

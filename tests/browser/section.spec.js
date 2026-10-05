@@ -134,6 +134,11 @@ async function front(page) {
   await page.locator('[data-view="0,0,1"]').press("Enter");
 }
 async function screen(page, point, format = "glb") {
+  // Project every pixel-check polygon from one settled view, rather than
+  // sampling different camera positions during the cube's 300 ms animation.
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   const d = await diagnostics(page);
   const box = await page.locator("#viewer").boundingBox();
   const camera = new THREE.PerspectiveCamera(

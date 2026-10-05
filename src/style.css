@@ -1792,3 +1792,420 @@ dialog .muted {
 [data-toolbar-slot] {
   display: contents;
 }
+
+/* === Lane P: parts tree and phone sheet === */
+#parts-panel {
+  width: 224px;
+  flex: 0 0 224px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  overflow: hidden;
+}
+#parts-panel[hidden] {
+  display: none;
+}
+.parts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+.parts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.parts-actions button {
+  font-size: 10px;
+  padding: 5px;
+}
+.parts-actions [aria-pressed="true"] {
+  background: var(--line);
+}
+#parts-tree {
+  flex: 1;
+  min-height: 68px;
+  overflow: auto;
+  position: relative;
+}
+.parts-rows {
+  position: relative;
+}
+.parts-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+.parts-row:hover,
+.parts-row[aria-selected="true"] {
+  background: var(--line);
+}
+.parts-row[aria-selected="true"] {
+  box-shadow: inset 3px 0 #bd801a;
+}
+.parts-row .parts-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 6px 3px;
+}
+.parts-row .icon-only {
+  flex: 0 0 25px;
+  min-width: 25px;
+  padding: 4px;
+}
+.parts-row.part-hidden .parts-name {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.parts-row.part-transparent .parts-name {
+  font-style: italic;
+}
+@media (max-width: 1000px) {
+  .review-body:has(#parts-panel:not([hidden])) {
+    flex-wrap: wrap;
+  }
+  #parts-panel {
+    order: 3;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 190px;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-width: 0;
+  }
+}
+@media (max-width: 760px) {
+  /* The extra display button must stay reachable without scrolling the clipped
+     viewer shell, which would shift the canvas out from under the model. */
+  .toolbar:has([data-command="parts-panel"]) {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: max-content;
+  }
+  #parts-panel {
+    flex: 0 0 170px;
+    height: 170px;
+    order: 3;
+  }
+  .review-body:has(#parts-panel:not([hidden])) {
+    flex-wrap: nowrap;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-height: 220px;
+  }
+}
+
+/* === Lane N: CAD navigation === */
+.navigation-pivot {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e9e78;
+  border: 1px solid white;
+  box-shadow: 0 0 0 1px #14202a;
+  pointer-events: none;
+  z-index: 3;
+}
+.orient-stage {
+  position: relative;
+  touch-action: none;
+  /* Reserve the cube's complete projected reach before placing the arrows;
+     otherwise a visible corner can lose every clickable pixel to an arrow. */
+  width: calc(var(--orient-reach) + 48px);
+  height: calc(var(--orient-reach) + 48px);
+}
+.navigation-arrow {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  font-size: 22px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.navigation-arrow-left {
+  left: 0;
+  top: calc(50% - 11px);
+}
+.navigation-arrow-right {
+  right: 0;
+  top: calc(50% - 11px);
+}
+.navigation-arrow-up {
+  top: 0;
+  left: calc(50% - 11px);
+}
+.navigation-arrow-down {
+  bottom: 0;
+  left: calc(50% - 11px);
+}
+.navigation-projection {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+.navigation-triad {
+  position: absolute;
+  right: 100%;
+  top: 25px;
+  width: 75px;
+  height: 75px;
+  pointer-events: none;
+}
+.navigation-triad line {
+  stroke-width: 2;
+}
+.navigation-triad text {
+  stroke: none;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+#navigation-shortcuts {
+  max-height: 80vh;
+  overflow: auto;
+}
+#navigation-shortcuts dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 24px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#navigation-shortcuts dt {
+  font-family: monospace;
+}
+#navigation-shortcuts dd {
+  margin: 0;
+}
+
+.viewer-top {
+  padding-right: calc(var(--orient-reach) + 133px);
+}
+
+/* === Lane D: display styles and opt-in performance display === */
+.display-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  min-width: 210px;
+  padding: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  z-index: 10;
+}
+.display-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+}
+.display-menu button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+#perf-panel {
+  position: absolute;
+  top: 170px;
+  right: 8px;
+  width: 230px;
+  max-height: calc(100% - 290px);
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 11px;
+  z-index: 4;
+}
+#perf-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.5;
+}
+#perf-panel[data-verdict="normal"] {
+  border-color: var(--accent);
+}
+#perf-panel[data-verdict="normal"] pre::first-line {
+  color: var(--accent);
+}
+#perf-panel[data-verdict="warning"] {
+  border-color: var(--warn);
+}
+#perf-panel[data-verdict="warning"] pre::first-line {
+  color: var(--warn);
+}
+#perf-panel[data-verdict="bad"] {
+  border-color: var(--danger);
+}
+#perf-panel[data-verdict="bad"] pre::first-line {
+  color: var(--danger);
+}
+/* Reserve canvas space while the overlay is open: neither a surface mark nor
+   its DOM pin can end up underneath the report. ResizeObserver updates the
+   camera and line widths through the viewer's existing resize path. */
+.performance-open #viewer {
+  right: 250px;
+  width: auto;
+}
+@media (max-width: 700px) {
+  .performance-open #viewer {
+    right: 0;
+    top: 170px;
+    height: auto;
+  }
+  #perf-panel {
+    top: 35px;
+    left: 8px;
+    right: 116px;
+    width: auto;
+    max-height: 125px;
+  }
+  .toolbar:has(#display-toggle) {
+    max-width: calc(100% - 16px);
+    flex-wrap: wrap;
+  }
+}
+
+/* === Batch 1 integration: clear navigation controls with performance open === */
+@media (min-width: 701px) {
+  #perf-panel {
+    /* The navigation lane adds cube arrows and a projection button below it.
+       Keep the report below the complete control stack, including Home. */
+    top: calc(var(--orient-reach) + 120px);
+    max-height: calc(100% - var(--orient-reach) - 240px);
+  }
+}
+@media (max-width: 700px) {
+  #perf-panel {
+    /* On phones, the section controls need the space beside the cube. Put the
+       scrollable report below both, and start the model below the report. */
+    top: calc(var(--orient-reach) + 120px);
+    right: 8px;
+  }
+  .performance-open #viewer {
+    top: calc(var(--orient-reach) + 255px);
+  }
+}
+
+/* === FIX lane: phone Section controls clear the complete navigation widget === */
+@media (max-width: 760px) {
+  .section-options {
+    max-width: calc(100% - var(--orient-reach) - 90px);
+    padding: 8px;
+  }
+  /* The triad normally sits left of the cube, exactly where the expanded cut
+     controls need to wrap. Keep it beneath the cube while those are open. */
+  .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
+    right: 0;
+    top: 220px;
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* === FIX lane: phone marks retain a readable list beside their note === */
+@media (max-width: 760px) {
+  /* A capped panel spent its whole height on the heading, note and send area,
+     leaving the list only a few pixels. Let those siblings take their natural
+     height and reserve a scrollable card-sized viewport for the marks. */
+  .annotations-panel,
+  .annotations-panel:has(#mark-note:not([hidden])),
+  .annotations-panel:has(#receipt-nudge:not([hidden])),
+  .annotations-panel:has(#mark-note:not([hidden])):has(#receipt-nudge:not([hidden])) {
+    max-height: none;
+  }
+  #annotations-list {
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 100px;
+  }
+  .annotation-empty {
+    padding: 12px 10px;
+  }
+}
+
+/* === FIX lane: mark text and actions occupy separate rows in every locale === */
+.annotations-panel:not(.collapsed) {
+  min-width: 176px;
+}
+.annotation-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+.annotation-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-left: 24px;
+}
+.annotation-select {
+  min-width: 0;
+}
+.annotation-select strong {
+  overflow-wrap: anywhere;
+}
+.annotation-actions .annotation-action {
+  margin-left: 0;
+}
+
+/* === Follow-up lane: publication notices === */
+#publication-notices {
+  flex: none;
+  color: var(--ink-muted);
+  background: var(--surface-sunken);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.publication-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+}
+.publication-notice[hidden] {
+  display: none;
+}
+.publication-notice span {
+  flex: 1;
+  min-width: 0;
+}
+.publication-notice button {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+}

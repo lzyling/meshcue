@@ -84,7 +84,7 @@ const pad4 = (n) => (n + 3) & ~3;
 /* A glTF writer, kept to exactly what a review mesh needs: triangles, normals,
    and a colour when the source declared one. Nothing here is a general-purpose
    exporter, and it should not become one -- the viewer is the only reader. */
-function toGlb(meshes, generator) {
+function toGlb(meshes, generator, root, sourceMeshes) {
   const views = [],
     accessors = [],
     chunks = [];
@@ -169,13 +169,50 @@ function toGlb(meshes, generator) {
         ? { brepFaces: m.brep_faces.map((f) => [f.first, f.last]) }
         : undefined,
     });
-    nodes.push({ mesh: gltfMeshes.length - 1, name: m.name || undefined });
+    nodes.push({
+      mesh: gltfMeshes.length - 1,
+      name: m.name || undefined,
+      extras: { stepMeshIndex: gltfMeshes.length - 1 },
+    });
   }
+
+  // OCCT already bakes instance transforms into these vertices. Assembly
+  // nodes therefore carry names and children only: applying transforms again
+  // would move old pins. Keep the mesh table and its face buffers byte-for-byte
+  // in the old order; stepMeshIndex also protects ids if tree traversal differs.
+  const indices = new Map(
+    meshes.map((mesh, i) => [sourceMeshes.indexOf(mesh), i]),
+  );
+  const used = new Set();
+  const branch = (part, sceneRoot = false) => {
+    const children = (part.meshes || []).flatMap((index) => {
+      const mesh = indices.get(index);
+      if (mesh === undefined || used.has(mesh)) return [];
+      used.add(mesh);
+      return [mesh];
+    });
+    for (const child of part.children || []) children.push(...branch(child));
+    if (!children.length) return [];
+    // Only OCCT's synthetic scene root is omitted. An unnamed assembly inside
+    // the file still owns its subtree and receives the viewer's stable fallback.
+    if (!part.name && sceneRoot) return children;
+    if (
+      children.length === 1 &&
+      nodes[children[0]].mesh !== undefined &&
+      !(part.children || []).length
+    )
+      return children;
+    const index = nodes.length;
+    nodes.push({ name: part.name ? readable(part.name) : undefined, children });
+    return [index];
+  };
+  const roots = root ? branch(root, true) : [];
+  for (let i = 0; i < meshes.length; i++) if (!used.has(i)) roots.push(i);
 
   const json = {
     asset: { version: "2.0", generator },
     scene: 0,
-    scenes: [{ nodes: nodes.map((_, i) => i) }],
+    scenes: [{ nodes: roots }],
     nodes,
     meshes: gltfMeshes,
     accessors,
@@ -263,7 +300,7 @@ export async function convertStep(buffer, { generator = "MeshCue" } = {}) {
   }
   return {
     ok: true,
-    glb: toGlb(meshes, generator),
+    glb: toGlb(meshes, generator, result.root, result.meshes),
     triangles,
     brepFaces,
     meshCount: meshes.length,

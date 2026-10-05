@@ -109,6 +109,11 @@ export const TOOL = {
       annotations: { type: "array", items: { type: "object" } },
       activate: { type: "boolean" },
       resume: { type: "boolean" },
+      host: {
+        type: "string",
+        description:
+          'New reviews default to 127.0.0.1. Use "lan" for automatic private LAN selection or a verified private IPv4; LAN admission is required. Existing reviews keep their stored host.',
+      },
       confirmedClientAddress: { type: "string" },
       agentName: {
         type: "string",
@@ -177,6 +182,7 @@ export function createHandler({
   const manager = () =>
     new InstanceManager(context, {
       installRoot: root,
+      listenHost: "127.0.0.1",
       ...(packaged
         ? {}
         : {

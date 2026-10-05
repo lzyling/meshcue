@@ -202,6 +202,7 @@ export class MarksMethods {
     );
   }
   setAnnotations(annotations, selectedId) {
+    this.partAnnotations = [annotations, selectedId];
     this.clearOverlay(this.overlay);
     this.labels.replaceChildren();
     this.pins = [];
@@ -215,7 +216,7 @@ export class MarksMethods {
     for (const a of annotations) {
       if (a.type === "pin") {
         const mesh = this.meshMap.get(a.meshId);
-        if (!mesh) continue;
+        if (!mesh || this.parts?.meshVisible(a.meshId) === false) continue;
         const el = document.createElement("button");
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
@@ -230,11 +231,12 @@ export class MarksMethods {
         this.labels.append(el);
         this.pins.push({ el, a, mesh });
       } else if (a.type === "measure") {
-        this.drawKeptMeasure(a, a.id === selectedId);
+        if (!a.picks?.some((p) => this.parts?.meshVisible(p.meshId) === false))
+          this.drawKeptMeasure(a, a.id === selectedId);
       } else {
         for (const [meshId, faces] of Object.entries(a.faces)) {
           const mesh = this.meshMap.get(meshId);
-          if (!mesh) continue;
+          if (!mesh || this.parts?.meshVisible(meshId) === false) continue;
           const coords = [];
           if (a.coverage === "source-v2") {
             // Both halves of one mark: the faces a stroke took whole are drawn
@@ -325,13 +327,7 @@ export class MarksMethods {
       else if (moved) {
         pin.unoccluded = false;
         if (inView) {
-          this.ray.set(
-            this.camera.position,
-            this.scratch.direction
-              .copy(world)
-              .sub(this.camera.position)
-              .normalize(),
-          );
+          this.navigationRayTo(world);
           const hit = sectionIntersection(
             this.sectionHits(),
             this.sectionClips?.[0],
@@ -340,7 +336,7 @@ export class MarksMethods {
           );
           pin.unoccluded =
             !hit ||
-            hit.distance >= this.camera.position.distanceTo(world) - 0.015;
+            hit.distance >= this.ray.ray.origin.distanceTo(world) - 0.015;
         }
       }
       pin.el.hidden =
@@ -582,7 +578,7 @@ export class MarksMethods {
     const byMesh = new Map();
     for (const patch of this.expandWholeFaces(a)) {
       const mesh = this.meshMap.get(patch.meshId);
-      if (!mesh) continue;
+      if (!mesh || this.parts?.meshVisible(patch.meshId) === false) continue;
       const carriers = [];
       const sourceFace =
         patch.sourceFaceIndex ??
@@ -729,10 +725,8 @@ export class MarksMethods {
   animateEcho() {
     const core = this.lineMaterials.get("echo-core");
     if (!core || !this.agentOverlay.children.length) return;
-    const distance = this.camera.position.distanceTo(this.controls.target);
     const worldPerPixel =
-      (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) /
-      Math.max(1, this.container.clientHeight);
+      this.navigationHeight() / Math.max(1, this.container.clientHeight);
     core.dashScale = 1 / worldPerPixel;
     const still = this.reduceMotion.matches;
     const now = performance.now();

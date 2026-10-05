@@ -1,14 +1,14 @@
 export default {
   "help.p12":
-    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à l’Agent et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
   "help.p12.named":
-    "Coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
+    "Vue en coupe : couper selon l’axe X, Y ou Z du modèle, régler le décalage dans les unités du modèle ou inverser le côté retiré. La face de coupe ambrée est une aide visuelle ; elle ne peut être ni marquée ni mesurée. Les faces avant restantes peuvent toujours être marquées et mesurées. La vue en coupe sert uniquement à la visualisation, n’est jamais envoyée à {agent} et se réinitialise au chargement d’un autre modèle ou d’une autre version.",
 
   "help.open": "Mode d'emploi",
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",
   "help.p1":
-    "Glisser avec le bouton droit pour pivoter, molette ou pincement pour zoomer, bouton du milieu ou Maj+molette pour déplacer — identique à la souris et au pavé tactile. Le bouton gauche n'est jamais à la caméra : marquez sans changer d'outil.",
+    "Souris ou pavé tactile : glisser avec le bouton droit pour tourner, molette ou pincement pour zoomer vers le pointeur, bouton central ou Maj+défilement pour déplacer. Dans l’outil Rotation, glisser avec le bouton gauche tourne aussi ; Maj+glisser avec le bouton gauche ou droit déplace. Les outils de marquage gardent le bouton gauche. Sur écran tactile, un doigt tourne, deux doigts pincent ou déplacent ; un toucher ne place aucune marque.",
   "help.p2":
     "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
@@ -32,7 +32,7 @@ export default {
   "help.p8.named":
     "« Envoyer à {agent} » envoie ce lot ; {agent} répond par une nouvelle version sur laquelle vous continuez à marquer. Rien n'a besoin d'être clos, et les brouillons s'enregistrent seuls.",
   "help.p9":
-    "GLB, STL et STEP, jusqu'à 80 Mo et 600 000 triangles. Un STEP est triangulé une seule fois à son arrivée et vos annotations portent sur ce maillage ; le téléchargement renvoie toujours le STEP lui-même. Un STL ne porte aucune couleur et s'affiche donc toujours en gris ; les couleurs viennent avec STEP et GLB. Animation, squelettes et GLB compressé ne sont pas encore pris en charge. C'est un outil de revue ; il ne sculpte pas le modèle.",
+    "GLB, glTF, STL et STEP, jusqu'à 80 Mo et 600 000 triangles. Un STEP est triangulé une seule fois à son arrivée et vos annotations portent sur ce maillage ; le téléchargement renvoie toujours le STEP lui-même. Un STL ne porte aucune couleur et s'affiche donc toujours en gris ; les couleurs viennent avec STEP et GLB. Les compressions Draco et Meshopt sont prises en charge ; les animations et les squelettes ne le sont pas encore. C'est un outil de revue ; il ne sculpte pas le modèle.",
   "help.p10":
     "Mesurer : choisissez l'outil de mesure, puis « Point à point » (les coins s'aimantent), « Longueur d'arête », « Deux faces » — deux faces parallèles donnent leur écart, toutes les autres l'angle entre elles — ou « Cercle par 3 points » : trois clics sur le bord d'un trou ou d'un arbre donnent son diamètre. Sur un STEP, une face est celle du fichier, entière, et une arête l'endroit où deux d'entre elles se rencontrent. Les millimètres s'affichent avec deux décimales ; un modèle sans unité n'affiche que le nombre. Une mesure disparaît à la suivante, sauf si vous appuyez sur « Garder » : elle devient alors une marque que vous pouvez annoter, annuler, supprimer et envoyer.",
   "help.p11":

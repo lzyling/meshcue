@@ -67,6 +67,21 @@ export function help(installRoot = INSTALL_ROOT) {
   return {
     usage: `meshcue <${ACTIONS.join("|")}> [--option value]…`,
     actions: ACTIONS,
+    flags: Object.fromEntries(
+      Object.entries(FLAGS).map(([flag, field]) => [
+        `--${flag} <value>`,
+        field,
+      ]),
+    ),
+    switches: {
+      "--resume": "resume: true",
+      "--no-activate": "activate: false",
+    },
+    help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
+    limits:
+      "CLI read returns summaries; full geometry and region echoes require MCP or the host tool.",
+    network:
+      'New CLI/MCP reviews default to 127.0.0.1; opt into LAN with --host lan (MCP host: "lan") or a verified private IPv4. OpenClaw defaults to automatic private LAN selection with admission. Existing reviews keep their stored host.',
     start:
       "Read AGENT-INTERFACE.md before the first call: it states what each answer does and does not mean, and how to check an install. SKILL.md is the procedure for running a review.",
     docs: docPaths(installRoot),
@@ -168,6 +183,7 @@ export async function run(
       serverEntry,
       distRoot,
       ...(environment ? { environment } : {}),
+      listenHost: "127.0.0.1",
       clientAddress: input.confirmedClientAddress,
       resolveOrigin: () => cliOrigin(input.owner),
     },

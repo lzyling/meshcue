@@ -8,8 +8,12 @@ you cannot see the reason for is a step you cannot trust.
 
 ## What listens, and where
 
-By default the workbench binds `127.0.0.1`. Nothing outside the machine can
-reach it.
+CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
+CLI `--host lan` or MCP `host: "lan"`, or give an explicit verified private
+IPv4 address. The OpenClaw plugin defaults to automatic private LAN selection
+with admission required. Existing configured reviews keep their stored host;
+these defaults do not move a running or saved review to another address.
+Only browsers on this machine can reach a loopback review.
 
 LAN mode exists because the person reviewing a model is often not sitting at the
 machine that generated it. It binds **one verified private IPv4 address**:

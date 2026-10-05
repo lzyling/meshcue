@@ -1,4 +1,7 @@
 import "./style.css";
+import { bindPublicationNotices } from "./app/publication-notices.js";
+import { bindParts } from "./app/parts.js";
+import { bindDisplay } from "./app/display.js";
 import {
   installAnnotationsPanel,
   initializeAnnotations,
@@ -18,6 +21,7 @@ import {
 import { installEcho, bindEcho } from "./app/echo.js";
 import { bindKeyboard } from "./app/keyboard.js";
 import { installMeasure, bindMeasure } from "./app/measure.js";
+import { bindNavigation } from "./app/navigation.js";
 import { bindOrientation } from "./app/orientation.js";
 import { installReceipt, bindReceipt, bindSubmission } from "./app/receipt.js";
 import { bindSection } from "./app/section.js";
@@ -55,13 +59,17 @@ registerToolbarCommands(review);
 mountShell(review);
 mountToolbar(review);
 initializeState(review);
+bindPublicationNotices(review);
 initializeDraftCache(review);
 initializeAnnotations(review);
 createViewer(review);
+bindParts(review);
 bindSection(review);
 bindMeasure(review);
 bindSettings(review);
+bindDisplay(review);
 bindOrientation(review);
+bindNavigation(review);
 bindAnnotationEditing(review);
 bindToolbarOptions(review);
 bindEcho(review);

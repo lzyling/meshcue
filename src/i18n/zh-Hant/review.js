@@ -63,7 +63,7 @@ export default {
   "feedback.submit": "交給 AI Agent",
   "feedback.submit.named": "交給{agent}",
   "feedback.submitting": "提交中…",
-  "feedback.submitted": "標記已保存；提交狀態以實際回執為準。模型維持鎖定。",
+  "feedback.submitted": "標記已保存；提交狀態以實際回執為準。您可以繼續標記此版本。",
 
   "receipt.next": "AI Agent 的理解會顯示在模型右下角",
   "receipt.next.named": "{agent}的理解會顯示在模型右下角",

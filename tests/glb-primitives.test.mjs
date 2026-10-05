@@ -14,6 +14,7 @@ import { InstanceManager, ipc } from "../integration/manager.mjs";
 import { removeNonTrianglePrimitives } from "../src/glb-primitives.js";
 import { buildFillTopology } from "../src/planar-fill.js";
 import { reviewSurface } from "../src/surface.js";
+import { stopManagedReview } from "./helpers/managed-server.mjs";
 import { primitiveGlb, mixedPrimitives } from "./fixtures/primitive-glb.mjs";
 
 process.env.REVIEW_UPDATE_CHECK = "off";
@@ -37,7 +38,16 @@ function setup(t) {
   const workspace = fs.mkdtempSync(
     path.join(process.cwd(), "tmp/glb-primitives-"),
   );
-  t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
+  const cleanup = [];
+  // node:test runs after hooks in registration order. Keep the workspace and
+  // its process lock until shutdown has completed, including on assertion failure.
+  t.after(async () => {
+    try {
+      for (const stop of cleanup) await stop();
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
   const ctx = {
     workspaceDir: workspace,
     fsPolicy: { workspaceOnly: true },
@@ -50,7 +60,7 @@ function setup(t) {
     fs.writeFileSync(path.join(workspace, "part.glb"), buffer);
     return "part.glb";
   };
-  return { workspace, ctx, write };
+  return { workspace, ctx, write, cleanup };
 }
 
 test("mixed GLB server counts match loader triangles and page source-face numbering", async () => {
@@ -270,7 +280,7 @@ test("precheck retains pixel fields and adds the byte estimate and notices", (t)
 });
 
 test("publish, repeated open and reopen carry the skipped primitive notice to the Agent", async (t) => {
-  const { workspace, ctx, write } = setup(t);
+  const { workspace, ctx, write, cleanup } = setup(t);
   write(primitiveGlb(mixedPrimitives));
   fs.mkdirSync(path.join(workspace, "web"));
   fs.writeFileSync(path.join(workspace, "web/index.html"), "<!doctype html>");
@@ -282,11 +292,7 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
     environment: { REVIEW_BRIDGE: "off" },
   });
   const project = "projects/fixture";
-  t.after(async () => {
-    try {
-      await manager.execute({ action: "stop", project });
-    } catch {}
-  });
+  cleanup.push(() => stopManagedReview(manager, project));
   const args = {
     action: "open",
     project,
@@ -294,8 +300,21 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
     host: "127.0.0.1",
     confirmedClientAddress: "127.0.0.1",
   };
+  // Re-publication now explains reuse as well as the geometry omission; a
+  // plain reopen without a file still reports only the model's own notice.
+  const reusedNotices = [
+    ...notice,
+    {
+      code: "SAME_CONTENT_REUSED",
+      message:
+        "Content identical to initial; initial reopened. Requested version/label were not applied.",
+    },
+  ];
   for (let i = 0; i < 2; i++)
-    assert.deepEqual((await manager.execute(args)).notices, notice);
+    assert.deepEqual(
+      (await manager.execute(args)).notices,
+      i ? reusedNotices : notice,
+    );
   assert.deepEqual(
     (await manager.execute({ ...args, file: undefined })).notices,
     notice,
@@ -307,7 +326,7 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
   const published = await ipc(p.runtime, config.instance, "/publish", {
     file: "part.glb",
   });
-  assert.deepEqual(published.notices, notice);
+  assert.deepEqual(published.notices, reusedNotices);
   write(primitiveGlb());
   assert.equal(
     (await manager.execute({ ...args, activate: false })).notices,
@@ -317,7 +336,7 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
     (await manager.execute({ ...args, file: undefined })).notices,
     notice,
   );
-  assert.equal((await manager.execute(args)).notices, undefined);
+  assert.deepEqual((await manager.execute(args)).notices, [reusedNotices[1]]);
 });
 
 test("empty strips and construction parents preserve only their child surfaces and transforms", async () => {

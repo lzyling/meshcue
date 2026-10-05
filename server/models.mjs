@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
 import { ReviewError, atomicJson } from "./store.mjs";
 import { convertStepDetached, STEP_FORMATS } from "./step.mjs";
+import { packGltf } from "./gltf-pack.mjs";
+import { compressionViews, prepareCompression } from "./gltf-compression.mjs";
 
 // Also disable decoder fallback: a malformed RIFF header must not reach a
 // different format's parser after the supported-format signature check.
@@ -37,7 +39,9 @@ function limitError(message, code, measured) {
 }
 
 export function inspectModel(buffer, format, { derived } = {}) {
-  if (!buffer.length || buffer.length > MAX_BYTES)
+  if (!buffer.length)
+    throw new ReviewError("The model file is empty; it contains no model.", 400, "MODEL_FORMAT");
+  if (buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,
       "MODEL_LIMIT",
@@ -100,6 +104,9 @@ export function inspectModel(buffer, format, { derived } = {}) {
       (doc.extensionsRequired || []).some(
         (x) =>
           ![
+            "KHR_draco_mesh_compression",
+            "EXT_meshopt_compression",
+            "KHR_mesh_quantization",
             "KHR_materials_unlit",
             "KHR_materials_clearcoat",
             "KHR_materials_transmission",
@@ -111,7 +118,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
       )
     )
       throw new ReviewError(
-        "This GLB uses compression or a required extension that is not supported yet; export an uncompressed GLB.",
+        "This GLB uses a required extension that is not supported; export without that extension.",
         400,
         "UNSUPPORTED_EXTENSION",
       );
@@ -133,6 +140,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
         bin = buffer.subarray(offset + 8, offset + 8 + size);
       offset += 8 + size;
     }
+    const { viewBytes, primitiveCounts } = compressionViews(doc, bin);
     let texturePixels = 0;
     let textureBytes = 0;
     for (const image of doc.images || []) {
@@ -146,13 +154,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
           );
         bytes = Buffer.from(image.uri.slice(comma + 1), "base64");
       } else {
-        const view = doc.bufferViews?.[image.bufferView];
-        if (!view || view.buffer !== 0 || !bin)
-          throw new ReviewError("The texture data is incomplete.", 400);
-        bytes = bin.subarray(
-          view.byteOffset || 0,
-          (view.byteOffset || 0) + view.byteLength,
-        );
+        bytes = viewBytes(image.bufferView);
       }
       let dimensions;
       try {
@@ -218,6 +220,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
         if (![4, 5, 6].includes(mode))
           throw new ReviewError("Only triangle meshes are accepted.", 400);
         const count =
+          primitiveCounts.get(prim) ??
           doc.accessors?.[prim.indices ?? prim.attributes?.POSITION]?.count;
         if (
           !Number.isInteger(count) ||
@@ -250,7 +253,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
       format,
       texturePixels,
       textureBytes,
-      ...(notices ? { notices } : {}),
+      ...(notices ? { notices, skippedPrimitives } : {}),
     };
   }
   if (format === "stl") {
@@ -269,7 +272,7 @@ export function inspectModel(buffer, format, { derived } = {}) {
     return { triangles, format };
   }
   throw new ReviewError(
-    "GLB, STL and STEP are supported.",
+    "GLB, glTF, STL and STEP are supported.",
     400,
     "MODEL_FORMAT",
   );
@@ -340,8 +343,13 @@ export async function importModel(
       "MODEL_LIMIT",
       { bytes: stat.size },
     );
-  const buffer = fs.readFileSync(actual),
-    format = path.extname(actual).slice(1).toLowerCase();
+  let buffer = fs.readFileSync(actual);
+  let format = path.extname(actual).slice(1).toLowerCase();
+  if (format === "gltf") {
+    buffer = packGltf(buffer, actual, workspace, MAX_BYTES);
+    format = "glb";
+  }
+  await prepareCompression(buffer, format);
   const hash = sha256(buffer);
   const step = STEP_FORMATS.includes(format);
   const { derived, ...metadata } = inspectModel(buffer, format, {

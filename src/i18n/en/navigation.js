@@ -1,0 +1,23 @@
+export default {
+  "navigation.projection": "Projection",
+  "navigation.perspective": "Perspective",
+  "navigation.orthographic": "Orthographic",
+  "navigation.fit": "Fit all",
+  "navigation.iso": "Isometric",
+  "navigation.zoomIn": "Zoom in",
+  "navigation.zoomOut": "Zoom out",
+  "navigation.normal": "Normal to face",
+  "navigation.noFace": "No face under the pointer",
+  "navigation.shortcuts": "Keyboard shortcuts",
+  "navigation.axes": "Model file axes",
+  "navigation.rotateLeft": "Rotate left",
+  "navigation.rotateRight": "Rotate right",
+  "navigation.rotateUp": "Rotate up",
+  "navigation.rotateDown": "Rotate down",
+  "navigation.panLeft": "Pan left",
+  "navigation.panRight": "Pan right",
+  "navigation.panUp": "Pan up",
+  "navigation.panDown": "Pan down",
+  "help.p13":
+    "Navigation: double-click a surface in Orbit to set the rotation centre, or empty space to fit all. F fits visible geometry in the current direction; Home returns to the fitted isometric view. Projection switches between perspective and orthographic and remembers your choice. Shift+1–7 selects Front, Back, Left, Right, Top, Bottom and Isometric. Arrows rotate 15°, Ctrl+arrows 5°, Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z zooms in. N looks straight at the face under the pointer; N again reverses the side. Drag the view cube to rotate, or use its arrows for 90° steps. Shift+/ lists all shortcuts. View changes animate briefly unless reduced motion is preferred; any navigation input interrupts them.",
+};

@@ -73,7 +73,7 @@ export default {
   "feedback.submit.named": "An {agent}",
   "feedback.submitting": "Wird gesendet …",
   "feedback.submitted":
-    "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Das Modell bleibt gesperrt.",
+    "Markierungen gespeichert; der Sendestatus richtet sich nach der tatsächlichen Bestätigung. Sie können diese Version weiter markieren.",
 
   "receipt.next":
     "Was der Agent verstanden hat, erscheint unten rechts am Modell",

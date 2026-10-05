@@ -352,6 +352,8 @@ const markView = z
     up: vec3,
     fov: z.number().finite().positive().max(180),
     aspect: z.number().finite().positive(),
+    projection: z.literal("orthographic").optional(),
+    visibleHeight: z.number().finite().positive().optional(),
   })
   .strict()
   .optional();
@@ -462,7 +464,14 @@ const annotation = z.discriminatedUnion("type", [
     .strict(),
 ]);
 const owner = z.object({ versionId: id, clientId: id });
-const camera = z.object({ position: vec3, target: vec3 }).nullable();
+const camera = z
+  .object({
+    position: vec3,
+    target: vec3,
+    projection: z.literal("orthographic").optional(),
+    visibleHeight: z.number().finite().positive().optional(),
+  })
+  .nullable();
 const draftSchema = owner.extend({
   revision: z.number().int().min(0),
   labelCursor: z.number().int().min(0).max(1000000).optional(),
@@ -1030,7 +1039,7 @@ app.post("/api/feedback", async (req, res) => {
       locale: matchLocale(p.locale),
     }),
   );
-  if (item.status === "accepted")
+  if (item.status === "accepted" || item.readAt)
     return res.json({ ...item, annotations: undefined });
   res.json(await deliverFeedback(item));
 });
@@ -1084,6 +1093,10 @@ function describeMeasure(a, units) {
   return `${value} ${a.quantity === "angle" ? "between two faces" : "between two parallel faces"}, ${on(a.picks[0])} and ${on(a.picks[1])}`;
 }
 function deliverFeedback(item) {
+  if (item.readAt) {
+    const { annotations, ...receipt } = item;
+    return Promise.resolve(receipt);
+  }
   if (!managedEnabled())
     throw new ReviewError(
       "The extension is disabled; the submission is still kept.",
@@ -1192,6 +1205,10 @@ function deliverFeedback(item) {
           const { annotations, ...receipt } = item;
           return receipt;
         } catch (error) {
+          if (item.readAt) {
+            const { annotations, ...receipt } = item;
+            return receipt;
+          }
           // Already counted when this attempt moved to "sending"; the old log
           // line added one again and reported a number the batch never held.
           const attempts = item.attempts || 0;
@@ -1240,6 +1257,7 @@ const outboxTimer = config.managed
         const next = store.state.submissions.find(
           (item) =>
             item.status !== "accepted" &&
+            !item.readAt &&
             !feedbackFlights.has(item.id) &&
             (item.nextAttemptAt || 0) <= Date.now(),
         );
@@ -1312,7 +1330,7 @@ agentApp.use((req, res, next) => {
 // hours later that the product never reacted.
 function outboxSummary() {
   const queued = store.state.submissions.filter(
-    (item) => item.status !== "accepted",
+    (item) => item.status !== "accepted" && !item.readAt,
   );
   const stalled = queued.filter((item) => item.status === "stalled");
   const worst = stalled[0] || queued[0] || null;
@@ -1466,9 +1484,13 @@ agentApp.post("/publish", async (req, res) => {
     generator: `MeshCue ${version}`,
   });
   if (p.label) model.label = p.label;
+  const published = store.publish(model, p.origin, {
+    activate: p.activate !== false,
+  });
+  const notices = [...(model.notices || []), ...(published.notices || [])];
   res.json({
-    ...store.publish(model, p.origin, { activate: p.activate !== false }),
-    ...(model.notices ? { notices: model.notices } : {}),
+    ...published,
+    ...(notices.length ? { notices } : {}),
   });
 });
 // Presentation is the Agent's to drive: it decides which version the reviewer

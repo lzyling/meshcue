@@ -1,5 +1,5 @@
 export default {
-  "section.title": "断面",
+  "section.title": "断面表示",
   "section.axis": "モデル軸",
   "section.offset": "オフセット",
   "section.flip": "側を反転",
