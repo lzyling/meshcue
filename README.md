@@ -153,7 +153,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 405 unit and integration tests
+npm test             # 406 unit and integration tests
 npm run test:browser # 205 real-Chromium tests, isolated port and data
 ```
 

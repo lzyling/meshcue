@@ -127,3 +127,34 @@ test("CI skips the browser lock and waiting can be cancelled", async (t) => {
   recovered();
   assert.equal(fs.existsSync(`${file}.reaper`), false);
 });
+
+test(
+  "browser lock admits as many runs as it has slots and queues the next",
+  { timeout: 10000 },
+  async (t) => {
+    const file = fixture(t),
+      abort = new AbortController(),
+      quiet = { file, slots: 2, ci: false, waitMs: 10, log: () => {} };
+    const first = await acquireBrowserLock(quiet),
+      second = await acquireBrowserLock(quiet);
+    assert.equal(fs.existsSync(file), true);
+    assert.equal(fs.existsSync(`${file}.2`), true);
+    let third = null;
+    const waiting = acquireBrowserLock({ ...quiet, signal: abort.signal }).then(
+      (release) => (third = release),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(
+      third,
+      null,
+      "a third run must wait while both slots are held",
+    );
+    first();
+    await waiting;
+    assert.equal(typeof third, "function");
+    second();
+    third();
+    assert.equal(fs.existsSync(file), false);
+    assert.equal(fs.existsSync(`${file}.2`), false);
+  },
+);

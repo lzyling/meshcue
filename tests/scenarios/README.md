@@ -32,6 +32,9 @@ Always call `stop()` in `finally`. Create a Playwright page and pass it to
 The kit performs no assertions about a reviewer goal. POP supplies those later.
 Browser scripts must acquire `acquireBrowserLock()` from
 `scripts/browser-lock.mjs` before launching Chrome and release it in `finally`.
+The machine-wide lock admits two browser runs at once by default (about 14 of 18
+cores under SwiftShader); set `MESHCUE_BROWSER_SLOTS` to change that.
+CI does not take the lock.
 The standalone environment starts a server only, so it does not hold that lock.
 
 The infrastructure smoke check opens a fixture and checks a canvas screenshot

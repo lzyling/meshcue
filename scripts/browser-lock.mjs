@@ -41,27 +41,43 @@ export async function acquireBrowserLock({
   signal,
   waitMs = 1000,
   log = console.log,
+  // The machine-wide default admits two runs at once (owner, 2026-10-06):
+  // about 14 of 18 cores under SwiftShader. Slot 0 keeps the old file name so
+  // an older checkout still waiting on it can never make a third. An explicit
+  // `file` stays exclusive unless slots are asked for.
+  slots = file === browserLockPath
+    ? Math.max(1, Number(process.env.MESHCUE_BROWSER_SLOTS) || 2)
+    : 1,
 } = {}) {
   if (ci) return () => {};
   const token = crypto.randomUUID();
+  const files = Array.from({ length: slots }, (_, i) =>
+    i ? `${file}.${i + 1}` : file,
+  );
   let lastReport = 0;
   while (true) {
     signal?.throwIfAborted();
-    try {
-      claimLock(file, {
-        token,
-        startedAt: new Date().toISOString(),
-        cwd: process.cwd(),
-      });
-      return () => {
-        if (readLock(file)?.token === token) fs.rmSync(file, { force: true });
-      };
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
+    let reaped = false;
+    for (const slot of files) {
+      try {
+        claimLock(slot, {
+          token,
+          startedAt: new Date().toISOString(),
+          cwd: process.cwd(),
+        });
+        return () => {
+          if (readLock(slot)?.token === token) fs.rmSync(slot, { force: true });
+        };
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+      }
+      const owner = readLock(slot);
+      if (owner && !processAlive(owner.pid) && reapDead(slot, owner))
+        reaped = true;
     }
-    const owner = readLock(file);
-    if (owner && !processAlive(owner.pid) && reapDead(file, owner)) continue;
+    if (reaped) continue;
     if (Date.now() - lastReport >= 5000) {
+      const owner = readLock(file);
       log(
         `Waiting for browser tests: pid ${owner?.pid ?? "unknown"}, started ${owner?.startedAt ?? "unknown"}, checkout ${owner?.cwd ?? "unknown"} (${file})`,
       );
