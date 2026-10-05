@@ -11,6 +11,4 @@ export default {
   "shell.dismissHint": "Fermer le conseil",
   "shell.perfDetails": "Afficher les détails des performances",
   "shell.perfDrag": "Déplacer la fenêtre des performances",
-  "shell.rotate": "Pivoter",
-  "shell.fill": "Remplir",
 };

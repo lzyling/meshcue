@@ -11,6 +11,4 @@ export default {
   "shell.dismissHint": "关闭工具提示",
   "shell.perfDetails": "显示性能详情",
   "shell.perfDrag": "拖动性能窗口",
-  "shell.rotate": "旋转",
-  "shell.fill": "填充",
 };

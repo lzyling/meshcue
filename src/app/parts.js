@@ -31,6 +31,7 @@ export function bindParts(review) {
     id: "parts-panel",
     labelKey: "parts.title",
     captionKey: "parts.title",
+    closeLabelKey: "parts.close",
     icon: "orbit",
     menu: "view",
     menuOrder: 70,

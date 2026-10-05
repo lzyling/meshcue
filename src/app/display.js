@@ -24,7 +24,7 @@ export function bindDisplay(review) {
   const close = (focus = false) => {
     menu.hidden = true;
     button.setAttribute("aria-expanded", "false");
-    if (focus) button.focus();
+    if (focus) review.$('[data-menu="view"] .split-main').focus();
   };
   for (const style of DISPLAY_STYLES) {
     const option = document.createElement("button");
@@ -74,6 +74,8 @@ export function bindDisplay(review) {
   button = review.$("#display-toggle");
   document.body.append(menu);
   menu.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Tab") close();
     const options = [...menu.children];
     const current = options.indexOf(document.activeElement);
     if (event.key === "Escape") {

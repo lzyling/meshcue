@@ -2463,8 +2463,7 @@ dialog .muted {
   position: relative;
   justify-content: center;
 }
-.annotations-panel.collapsed .sidebar-caption,
-.annotations-panel.collapsed .submit-label {
+.annotations-panel.collapsed .sidebar-caption {
   display: none;
 }
 .annotations-panel.collapsed #annotation-count {
@@ -2589,4 +2588,34 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
     min-height: 390px;
   }
+}
+@media (max-width: 760px) {
+  /* Eight independently tappable faces need 352px before chrome. Use the
+     full phone canvas width rather than shrinking any target below 44px. */
+  .toolbar {
+    gap: 0;
+    padding: 2px;
+    max-width: calc(100% - 4px);
+  }
+}
+
+.annotations-panel.collapsed .submit-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.shell-menu button:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+.shell-menu button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tool-hint-box {
+  pointer-events: none;
+}
+.tool-hint-box button {
+  pointer-events: auto;
 }

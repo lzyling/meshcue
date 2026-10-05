@@ -15,7 +15,7 @@ export function bindSidebar(review) {
   const marksTab = document.createElement("button"),
     partsTab = document.createElement("button");
   for (const [button, id, label, icon] of [
-    [marksTab, "marks", "marks.heading", "pin"],
+    [marksTab, "marks", "tool.marks", "pin"],
     [partsTab, "parts", "parts.title", "orbit"],
   ]) {
     button.id = `sidebar-${id}`;
@@ -36,6 +36,7 @@ export function bindSidebar(review) {
     tabs.append(button);
   }
   marksTab.append(count);
+  marksTab.setAttribute("aria-describedby", count.id);
   heading.prepend(tabs);
   parts.setAttribute("role", "tabpanel");
   parts.setAttribute("aria-labelledby", partsTab.id);
@@ -69,7 +70,9 @@ export function bindSidebar(review) {
     // The very same submit button stays mounted in both layouts. Its owner can
     // keep every capability, disconnect and in-flight guard in one place.
     actions.hidden = false;
-    review.renderNote();
+    review.$("#receipt-nudge").inert = collapsed;
+    // Sidebar mounts before annotation editing binds its textarea helper.
+    if (review.noteBox) review.renderNote();
     if (!collapsed && selected === "marks") review.revealSelectedMark();
     for (const fn of listeners) fn(!parts.hidden);
     review.refreshCommands();

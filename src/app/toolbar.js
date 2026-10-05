@@ -26,6 +26,9 @@ export function installToolbar(review) {
       review.disconnected ||
       !can.canEdit ||
       (!can.canSubmit && !review.annotations.length);
+    review.$("#submit-feedback").title = review
+      .$("#submit-feedback")
+      .textContent.trim();
     review.refreshCommands();
     // Read-only rather than disabled: a note that cannot be changed right now
     // can still be read, scrolled and copied.
@@ -162,9 +165,9 @@ export function registerToolbarCommands(review) {
     !review.accessBlocked;
   const idle = () => ready() && !review.submitting;
   for (const [mode, labelKey, titleKey, captionKey, icon] of [
-    ["orbit", "tool.orbitLabel", "tool.orbitTitle", "shell.rotate", "orbit"],
+    ["orbit", "tool.orbitLabel", "tool.orbitTitle", "tool.orbit", "orbit"],
     ["label", "tool.labelLabel", "tool.labelTitle", "tool.label", "pin"],
-    ["fill", "tool.bucketLabel", "tool.bucketTitle", "shell.fill", "fill"],
+    ["fill", "tool.bucketLabel", "tool.bucketTitle", "tool.bucket", "fill"],
     [
       "measure",
       "tool.measureLabel",
@@ -327,6 +330,8 @@ export function mountToolbar(review) {
     review.refreshCommands();
   });
   document.addEventListener("click", (event) => {
+    if (event.target.closest?.("#section-off"))
+      review.$('[data-menu="inspect"] .split-main').focus();
     const button = event.target.closest?.("[data-command]");
     if (button && !button.disabled) {
       review.commands.run(button.dataset.command);

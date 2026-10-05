@@ -9,7 +9,7 @@ export function positionMenu(menu, anchor) {
   const width = viewport?.width || innerWidth,
     height = viewport?.height || innerHeight;
   const box = anchor.getBoundingClientRect();
-  menu.style.maxHeight = `${Math.max(44, box.top - top - 16)}px`;
+  menu.style.maxHeight = `${Math.max(44, Math.min(box.top - top - 16, height - 16))}px`;
   menu.style.maxWidth = `${width - 16}px`;
   const size = menu.getBoundingClientRect();
   menu.style.left = `${Math.max(left + 8, Math.min(box.left, left + width - size.width - 8))}px`;
@@ -85,6 +85,7 @@ export function mountMenus(review) {
     const state = { main, arrow, menu, selected: read(name) || defaults[name] };
     menus.set(name, state);
     main.onclick = () => {
+      close();
       review.commands.run(state.selected);
       review.refreshCommands();
     };
@@ -142,7 +143,11 @@ export function mountMenus(review) {
       button.setAttribute(key, value);
     button.className = "menu-command";
     button.dataset.command = command.id;
-    button.role = command.checked ? "menuitemcheckbox" : "menuitem";
+    button.role = command.checked
+      ? "menuitemcheckbox"
+      : command.attributes?.["data-mode"]
+        ? "menuitemradio"
+        : "menuitem";
     button.tabIndex = -1;
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
@@ -166,6 +171,16 @@ export function mountMenus(review) {
         button.hidden = command.visible ? !command.visible() : false;
         if (command.checked)
           button.setAttribute("aria-checked", String(command.checked()));
+        else if (command.attributes?.["data-mode"])
+          button.setAttribute(
+            "aria-checked",
+            String(command.attributes["data-mode"] === review.mode),
+          );
+        button.title = t(
+          command.checked?.() && command.closeLabelKey
+            ? command.closeLabelKey
+            : command.labelKey,
+        );
         button.classList.toggle(
           "menu-separator",
           !button.hidden &&
@@ -206,5 +221,6 @@ export function mountMenus(review) {
   });
   window.addEventListener("resize", () => close());
   window.visualViewport?.addEventListener("resize", () => close());
+  window.visualViewport?.addEventListener("scroll", () => close());
   review.openMenu = open;
 }

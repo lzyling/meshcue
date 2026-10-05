@@ -11,6 +11,4 @@ export default {
   "shell.dismissHint": "ツールヒントを閉じる",
   "shell.perfDetails": "パフォーマンス詳細を表示",
   "shell.perfDrag": "パフォーマンスウィンドウをドラッグ",
-  "shell.rotate": "回転",
-  "shell.fill": "塗りつぶし",
 };

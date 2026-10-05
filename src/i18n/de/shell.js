@@ -11,6 +11,4 @@ export default {
   "shell.dismissHint": "Werkzeughinweis schließen",
   "shell.perfDetails": "Leistungsdetails anzeigen",
   "shell.perfDrag": "Leistungsfenster verschieben",
-  "shell.rotate": "Drehen",
-  "shell.fill": "Füllen",
 };

@@ -51,7 +51,12 @@ export function bindNavigation(review) {
       { shortcutLabel: `Shift+${i + 1}` },
     ),
   );
-  register("fit", "navigation.fit", "F", () => viewer.fitAll());
+  register("fit", "navigation.fit", "F", () => viewer.fitAll(), {
+    menu: "view",
+    menuOrder: 25,
+    menuSection: "camera",
+    icon: "home",
+  });
   register("zoom-out", "navigation.zoomOut", "Z", () =>
     viewer.zoomNavigation(1.2),
   );
@@ -100,10 +105,15 @@ export function bindNavigation(review) {
     },
   );
   viewer.onProjection = (ortho) => {
+    const command = review.commands.get("navigation-projection");
+    command.captionKey = ortho
+      ? "navigation.orthographic"
+      : "navigation.perspective";
     for (const button of document.querySelectorAll(
       '[data-command="navigation-projection"]',
     )) {
       button.setAttribute("aria-pressed", String(ortho));
+      button.querySelector("span").textContent = t(command.captionKey);
       button.title = t(
         ortho ? "navigation.perspective" : "navigation.orthographic",
       );

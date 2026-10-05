@@ -108,7 +108,7 @@ export default {
   "cube.homeTitle": "Back to the default view",
   "cube.homeLabel": "Reset the view",
 
-  "tool.orbit": "Orbit",
+  "tool.orbit": "Rotate",
   "tool.orbitLabel": "Orbit tool",
   "tool.orbitTitle": "Turn and inspect the model; nothing is placed or painted",
   "tool.label": "Label",
@@ -117,7 +117,7 @@ export default {
     "Click a surface to place a label; the right button orbits",
   "hint.label":
     "Click a surface to place a label · the right button still orbits",
-  "tool.bucket": "Bucket",
+  "tool.bucket": "Fill",
   "tool.bucketLabel": "Paint bucket tool",
   "tool.bucketTitle": "Previews the connected near-flat area; click to fill",
   "tool.undo": "Undo",
