@@ -33,7 +33,7 @@ export function installDraft(review) {
   }
 
   function cacheDraft() {
-    if (review.recoveryBlocked) return;
+    if (review.recoveryBlocked) return false;
     try {
       localStorage.setItem(
         review.draftKey(),
@@ -50,7 +50,9 @@ export function installDraft(review) {
       );
     } catch {
       review.toast(t("save.storageFull"));
+      return false;
     }
+    return true;
   }
 
   function historyPush() {
@@ -167,7 +169,8 @@ export function installDraft(review) {
             ? t("save.saved")
             : t("save.saving");
       } catch (e) {
-        review.$("#save-status").textContent = t("save.unsynced");
+        review.$("#save-status").textContent =
+          e.code === "CONNECTION_LOST" ? e.message : t("save.unsynced");
         throw e;
       } finally {
         review.saveFlight = null;

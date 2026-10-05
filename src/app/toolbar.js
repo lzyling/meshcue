@@ -15,10 +15,12 @@ export function installToolbar(review) {
       settled = review.editSeq === review.savedSeq && !review.saveFlight,
       busy = review.submitting || !ready;
     // Marks this tab has not managed to save yet still count as something to hand
-    // over — submitting flushes first. Requiring the server to have seen them
-    // would disable the button during exactly the outage it exists to survive.
+    // over — submitting flushes first once the connection is available again.
     review.$("#submit-feedback").disabled =
-      busy || !can.canEdit || (!can.canSubmit && !review.annotations.length);
+      busy ||
+      review.disconnected ||
+      !can.canEdit ||
+      (!can.canSubmit && !review.annotations.length);
     review.refreshCommands();
     // Read-only rather than disabled: a note that cannot be changed right now
     // can still be read, scrolled and copied.

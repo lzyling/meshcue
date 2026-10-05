@@ -347,6 +347,82 @@ test("R2 bug 6: GLB triangle stays above toolbar when Parts opens after load", a
   await screenshot(page, "bug6-triangle");
 });
 
+const lostConnection = {
+  en: "Connection lost",
+  "zh-Hans": "连接已断开",
+  "zh-Hant": "連線已中斷",
+  ja: "接続が切れました",
+  de: "Verbindung unterbrochen",
+  fr: "Connexion perdue",
+};
+for (const [locale, message] of Object.entries(lostConnection)) {
+  test(`R2 bug 8: offline draft guidance and Send recover (${locale})`, async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript(
+      (locale) => localStorage.setItem("meshcue-locale", locale),
+      locale,
+    );
+    await open(page);
+    await page.locator('[data-mode="label"]').click();
+    const r = await page.locator("#viewer canvas").boundingBox();
+    await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
+    await expect.poll(async () => (await diag(page)).annotationCount).toBe(1);
+    const note = page.locator("#mark-note-text");
+    await note.fill("Before the outage");
+    await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+    await context.setOffline(true);
+    await note.fill("Kept while disconnected");
+    await expect(page.locator("#submit-feedback")).toBeDisabled();
+    await expect(page.locator("#save-status")).toContainText(message);
+    const saved = await page.evaluate(() =>
+      JSON.parse(
+        localStorage.getItem(window.__reviewDiagnostics().draftCacheKey),
+      ),
+    );
+    expect(saved.annotations[0].note).toBe("Kept while disconnected");
+    expect(saved.dirty).toBe(true);
+    await page.mouse.click(r.x + r.width / 2 + 40, r.y + r.height * 0.45 + 35);
+    await expect(page.locator("#toast")).toContainText(message);
+    expect((await diag(page)).annotationCount).toBe(1);
+    await screenshot(page, `bug8-offline-${locale}`);
+    await context.setOffline(false);
+    await expect(page.locator("#submit-feedback")).toBeEnabled();
+    await page.locator("#submit-feedback").click();
+    await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+    await page.reload();
+    await expect(page.locator("#loading")).toBeHidden();
+    expect((await diag(page)).annotations[0].note).toBe(
+      "Kept while disconnected",
+    );
+  });
+}
+test("R2 bug 8: denied storage never claims the offline draft is saved", async ({
+  page,
+  context,
+}) => {
+  await open(page);
+  await page.locator('[data-mode="label"]').click();
+  const r = await page.locator("#viewer canvas").boundingBox();
+  await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
+  const note = page.locator("#mark-note-text");
+  await note.fill("Before the outage");
+  await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    };
+  });
+  await context.setOffline(true);
+  await note.fill("Only in this open page");
+  await expect(page.locator("#save-status")).toContainText(
+    "could not be saved on this device",
+  );
+  await expect(page.locator("#submit-feedback")).toBeDisabled();
+  expect((await diag(page)).annotations[0].note).toBe("Only in this open page");
+});
+
 test("R2 bug 6: keyboard pan, zoom and Frame prevent later automatic refitting", async ({
   page,
 }) => {
@@ -380,4 +456,41 @@ test("R2 bug 6: keyboard pan, zoom and Frame prevent later automatic refitting",
     });
     expectCameraUnchanged((await diag(page)).camera, moved);
   }
+});
+
+test("R2 bug 8: Send recovers when a new version arrives during an outage", async ({
+  page,
+  context,
+}) => {
+  await open(page);
+  const original = (await diag(page)).versionId;
+  await page.locator('[data-mode="label"]').click();
+  const r = await page.locator("#viewer canvas").boundingBox();
+  await page.mouse.click(r.x + r.width / 2, r.y + r.height * 0.45);
+  const note = page.locator("#mark-note-text");
+  await note.fill("Before the outage");
+  await expect.poll(async () => (await diag(page)).dirty).toBe(false);
+  await context.setOffline(true);
+  await note.fill("Keep this on the earlier version");
+  await expect(page.locator("#submit-feedback")).toBeDisabled();
+  fs.copyFileSync(
+    "tmp/samples/bunny-figurine.glb",
+    `${environment.workspace}/next.glb`,
+  );
+  await environment.ipc("/publish", {
+    file: "next.glb",
+    name: "Next version",
+    version: "v2",
+  });
+  await context.setOffline(false);
+  await expect(page.locator("#submit-feedback")).toBeEnabled();
+  expect((await diag(page)).versionId).toBe(original);
+  await page.locator("#submit-feedback").click();
+  await expect
+    .poll(async () => {
+      const batches = await environment.ipc("/submissions");
+      return batches.find((b) => b.versionId === original)?.annotations[0]
+        ?.note;
+    })
+    .toBe("Keep this on the earlier version");
 });
