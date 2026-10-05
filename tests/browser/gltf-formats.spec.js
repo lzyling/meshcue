@@ -81,6 +81,10 @@ async function publish(page, kind) {
       }),
     )
     .toBe(true);
+  // First-use hints are intentionally absent on subsequent loads. Dismiss the
+  // initial one so the format comparison measures the same visible UI state.
+  if (await page.locator("#dismiss-tool-hint").isVisible())
+    await page.locator("#dismiss-tool-hint").click();
   await page.locator('[data-view="0,0,1"]').press("Enter");
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().viewer.meshes))

@@ -327,6 +327,7 @@ test("old saved review retains its marks when parts hide, show and reload", asyn
   await expect(page.locator("#loading")).toBeHidden();
   expect((await diag(page)).annotations).toEqual(legacy.annotations);
   await expect(page.locator(".model-pin")).toHaveCount(2);
+  await showParts(page);
   await page.locator(".parts-name").first().click();
   await page.keyboard.press("y");
   await page.keyboard.press("Shift+Y");
