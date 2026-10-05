@@ -35,7 +35,7 @@
     "start": "node server/index.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "sync:docs": "node scripts/sync-reviewer-help.mjs",
-    "test": "npm run check:i18n && node --test tests/*.test.mjs",
+    "test": "npm run check:i18n && node scripts/test-node.mjs",
     "test:browser": "node scripts/test-browser.mjs",
     "test:lan": "node scripts/test-lan.mjs",
     "test:package": "node tests/package-smoke.mjs",
