@@ -620,6 +620,8 @@ does not mean read.
 - `deliveredAt` is written only when the batch is actually found in the
   originating conversation, and only on a host that can be read back.
 - `readAt` comes exclusively from your own `read`. Nothing infers it.
+  The response’s `submission.status` and `submission.readAt` reflect that
+  completed read, matching `receipt` on the first call as well as later calls.
 - `status: "read"` is an additive terminal status: the Agent has collected this
   batch, so it is confirmed, leaves `outbox.pending`, and is no longer retried.
   Repeated reads keep the first `readAt`; a late delivery result cannot undo it.

@@ -856,7 +856,9 @@ export class InstanceManager {
         });
         return {
           submission:
-            input.geometry === true ? batch : summarizeSubmission(batch),
+            // /read returns the same batch after recording the receipt. Using
+            // the earlier snapshot here made a first read contradict itself.
+            input.geometry === true ? receipt : summarizeSubmission(receipt),
           // The acknowledgement only; the batch itself is above. See
           // `readReceipt` for what the rest of it was duplicating.
           receipt: readReceipt(receipt),
