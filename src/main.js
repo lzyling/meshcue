@@ -1,3 +1,4 @@
+import { bindSidebar } from "./app/sidebar.js";
 import "./style.css";
 import { bindOverlayLayout } from "./app/overlay-layout.js";
 import { bindPublicationNotices } from "./app/publication-notices.js";
@@ -65,6 +66,7 @@ bindPublicationNotices(review);
 initializeDraftCache(review);
 initializeAnnotations(review);
 createViewer(review);
+bindSidebar(review);
 bindParts(review);
 bindSection(review);
 bindMeasure(review);

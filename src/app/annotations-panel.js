@@ -515,36 +515,4 @@ export function bindAnnotationsPanel(review) {
     review.setMode("fill");
     review.toast(t("tool.newRegionHint"));
   });
-
-  review.$("#toggle-annotations").addEventListener("click", () => {
-    review.$("#annotations-list").hidden =
-      !review.$("#annotations-list").hidden;
-    const collapsed = review.$("#annotations-list").hidden;
-    review
-      .$("#toggle-annotations")
-      .setAttribute("aria-expanded", String(!collapsed));
-    // The icon flips but the label did not: collapsed, the button still told a
-    // screen reader it would collapse the list. Found by the catalogue check —
-    // "expand" was a translated phrase that nothing ever asked for.
-    review
-      .$("#toggle-annotations")
-      .setAttribute(
-        "aria-label",
-        t(collapsed ? "marks.expand" : "marks.collapse"),
-      );
-    review
-      .$(".annotations-panel")
-      .classList.toggle("collapsed", review.$("#annotations-list").hidden);
-    review.renderNote();
-    // Handing the marks over is done while looking at them, so it folds with
-    // them; a send button left standing in the gap gives most of the width back.
-    review.$(".panel-actions").hidden = collapsed;
-    if (!collapsed) review.revealSelectedMark();
-    // A plus beside a list of marks reads as "add a mark", which is a thing this
-    // page can actually do — just not here. The control moves a panel sideways,
-    // so it points the way the panel will go.
-    review.$("#toggle-annotations").innerHTML = review.icon(
-      review.$("#annotations-list").hidden ? "expand-right" : "collapse-left",
-    );
-  });
 }
