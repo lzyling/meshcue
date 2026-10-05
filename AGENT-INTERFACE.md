@@ -72,11 +72,15 @@ someone sends marks into nothing.
 | `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
 | `open`     | publishes a model and **shows it**                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
 | `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
-| `status`   | every version with its mark count, unsubmitted count, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
+| `status`   | every version with its mark count, unsubmitted flag, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
 | `read`     | describes a submission, and writes your read receipt                                                                                       | `geometry: true` returns its polygons too; needed to echo or measure, never to understand                             |
 | `echo`     | shows the reviewer which surface you understood                                                                                            | a statement of understanding, not a change                                                                            |
 | `finish`   | closes a round on one version                                                                                                              | unsubmitted marks are **sealed into a batch**, not discarded                                                          |
 | `unlock`   | clears a stale presence record                                                                                                             | presence is a hint and never blocked anyone                                                                           |
+
+`versions[].unsubmitted` is a boolean: `true` means the draft has changes
+not yet submitted, including deleting all marks; `false` means no such changes.
+It is not a mark count. `versions[].annotations` is the current mark count.
 
 The publication `label` is optional and limited to 24 characters (UTF-16 code
 units, as counted by JavaScript string length). A longer label is rejected

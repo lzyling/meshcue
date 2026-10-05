@@ -116,10 +116,14 @@ at the top of the page, and the user can return to any of them and mark there.
 Switching therefore loses nothing and needs no permission.
 
 Use `status` to read `versions`: each carries an `id`, a `version`, its mark
-count, unsubmitted count, submitted batches, and whether a window is open. Use
+count, unsubmitted flag, submitted batches, and whether a window is open. Use
 `activate` to change what is displayed, passing `versionId` or the `version`
 string. To add a version without disturbing what the user is looking at right
 now, pass `activate: false` to `open`.
+
+`versions[].unsubmitted` is a boolean: `true` means the draft has changes
+not yet submitted, including deleting all marks; `false` means no such changes.
+It is not a mark count. `versions[].annotations` is the current mark count.
 
 Let a new version become the displayed one — that is the version they are about
 to mark. `activate: false` is for the single case where they are drawing at this

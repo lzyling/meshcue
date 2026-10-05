@@ -151,3 +151,11 @@ test("R2 bug 10: first summary and geometry reads return the receipt's updated b
     );
   }
 });
+test("R2 bug 11: agent docs describe unsubmitted as a boolean", () => {
+  for (const file of ["AGENT-INTERFACE.md", "skills/meshcue-review/SKILL.md"]) {
+    const text = fs.readFileSync(file, "utf8");
+    assert.doesNotMatch(text, /unsubmitted count/);
+    assert.match(text, /`versions\[\]\.unsubmitted` is a boolean/);
+    assert.match(text, /including deleting all marks/);
+  }
+});
