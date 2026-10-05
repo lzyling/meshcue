@@ -16,6 +16,9 @@ export class NavigationMethods {
     this.pivotDot.className = "navigation-pivot";
     this.pivotDot.hidden = true;
     this.container.append(this.pivotDot);
+    this.controls.addEventListener("start", () => {
+      this.navigationFitOnLayout = false;
+    });
     const canvas = this.renderer.domElement;
     canvas.addEventListener(
       "pointerdown",
@@ -48,10 +51,17 @@ export class NavigationMethods {
       this.navigationPointer = null;
       this.clearNavigationHover();
     });
-    canvas.addEventListener("wheel", () => this.cancelNavigation(), {
-      capture: true,
-      passive: true,
-    });
+    canvas.addEventListener(
+      "wheel",
+      () => {
+        this.navigationFitOnLayout = false;
+        this.cancelNavigation();
+      },
+      {
+        capture: true,
+        passive: true,
+      },
+    );
     canvas.addEventListener("dblclick", (e) => {
       if (!this.enabled || this.mode !== "orbit" || e.button !== 0) return;
       const hit = this.rayAt(e.clientX, e.clientY);
@@ -63,6 +73,9 @@ export class NavigationMethods {
       );
     });
     this.controls.addEventListener("change", () => {
+      // Keyboard pan/zoom and framing a mark also move the camera without a
+      // pointer start. Only load/restore may opt back into automatic fitting.
+      this.navigationFitOnLayout = false;
       this.navigationHoverDirty = true;
       this.updateNavigationProjection();
     });
@@ -85,6 +98,7 @@ export class NavigationMethods {
     target,
     { animate = true, height = this.navigationHeight() } = {},
   ) {
+    this.navigationFitOnLayout = false;
     this.cancelNavigation();
     const start = {
       position: this.camera.position.clone(),
@@ -329,6 +343,7 @@ export class NavigationMethods {
       this.camera.aspect,
       this.camera.fov,
       !!this.camera.isOrthographicCamera,
+      this.navigationViewport?.(),
     );
     this.animateNavigation(frame.position, frame.target, {
       animate,

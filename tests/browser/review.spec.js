@@ -1169,6 +1169,9 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
+  await expect
+    .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
+    .toBe(false);
   const camera = await page.evaluate(() => window.__reviewDiagnostics().camera);
   await page.locator(".annotation-select").click();
   const selectedCamera = await page.evaluate(
@@ -1750,15 +1753,16 @@ test("a cube face reframes from a named side without changing the framing", asyn
   await page.locator('.orient-face[data-view="1,0,0"]').click();
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        Math.abs(window.__reviewDiagnostics().camera.position[1]),
-      ),
+      page.evaluate(() => {
+        const { position, target } = window.__reviewDiagnostics().camera;
+        return Math.abs(position[1] - target[1]);
+      }),
     )
     .toBeLessThan(0.01);
   const after = await page.evaluate(() => window.__reviewDiagnostics().camera);
   // Looking from +X: level with the target and square on to it.
-  expect(after.position[0]).toBeGreaterThan(0);
-  expect(Math.abs(after.position[2])).toBeLessThan(0.01);
+  expect(after.position[0]).toBeGreaterThan(after.target[0]);
+  expect(Math.abs(after.position[2] - after.target[2])).toBeLessThan(0.01);
   // The side changed; what is being looked at, and how closely, did not.
   expect(after.target).toEqual(before.target);
   const span = (c) => Math.hypot(...c.position.map((v, i) => v - c.target[i]));

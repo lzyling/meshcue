@@ -189,3 +189,73 @@ test("navigation cursor zoom fixes the picked surface on screen and clamps the a
     }
   }
 });
+
+test("R2 bug 6: fitting reserves asymmetric overlay space in both projections", () => {
+  const box = new THREE.Box3(
+    new THREE.Vector3(-2, -3, -1),
+    new THREE.Vector3(2, 3, 1),
+  );
+  const area = { left: 0.08, right: 0.94, top: 0.1, bottom: 0.7 };
+  for (const ortho of [false, true]) {
+    const frame = fitFrame(
+      box,
+      new THREE.Vector3(4, 2.8, 5),
+      0.8,
+      38,
+      ortho,
+      area,
+    );
+    const camera = ortho
+      ? new THREE.OrthographicCamera(
+          (-frame.height * 0.8) / 2,
+          (frame.height * 0.8) / 2,
+          frame.height / 2,
+          -frame.height / 2,
+          0.001,
+          1000,
+        )
+      : new THREE.PerspectiveCamera(38, 0.8, 0.001, 1000);
+    camera.position.copy(frame.position);
+    camera.lookAt(frame.target);
+    camera.updateMatrixWorld();
+    for (const point of boxCorners(box)) {
+      point.project(camera);
+      assert.ok(
+        (point.x + 1) / 2 >= area.left && (point.x + 1) / 2 <= area.right,
+      );
+      assert.ok(
+        (1 - point.y) / 2 >= area.top && (1 - point.y) / 2 <= area.bottom,
+      );
+    }
+  }
+});
+
+test("R2 bug 6: controller changes revoke automatic fitting after keyboard or mark navigation", () => {
+  const documentBefore = globalThis.document,
+    windowBefore = globalThis.window;
+  const events = new Map();
+  try {
+    globalThis.document = { createElement: () => ({}) };
+    globalThis.window = { addEventListener() {} };
+    const viewer = {
+      navigationFitOnLayout: true,
+      controls: {
+        addEventListener: (type, listener) => events.set(type, listener),
+      },
+      renderer: { domElement: { addEventListener() {} } },
+      container: { append() {} },
+      addFrameHook() {},
+      updateNavigationProjection() {},
+    };
+    NavigationMethods.prototype.setupNavigation.call(viewer);
+    // Keyboard pan/zoom and Frame move controls without a pointer start.
+    // Their shared change event must protect the new camera from a late panel.
+    events.get("change")();
+    assert.equal(viewer.navigationFitOnLayout, false);
+  } finally {
+    if (documentBefore === undefined) delete globalThis.document;
+    else globalThis.document = documentBefore;
+    if (windowBefore === undefined) delete globalThis.window;
+    else globalThis.window = windowBefore;
+  }
+});

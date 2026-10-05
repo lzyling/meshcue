@@ -72,11 +72,19 @@ someone sends marks into nothing.
 | `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
 | `open`     | publishes a model and **shows it**                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
 | `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
-| `status`   | every version with its mark count, unsubmitted count, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
+| `status`   | every version with its mark count, unsubmitted flag, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
 | `read`     | describes a submission, and writes your read receipt                                                                                       | `geometry: true` returns its polygons too; needed to echo or measure, never to understand                             |
 | `echo`     | shows the reviewer which surface you understood                                                                                            | a statement of understanding, not a change                                                                            |
 | `finish`   | closes a round on one version                                                                                                              | unsubmitted marks are **sealed into a batch**, not discarded                                                          |
 | `unlock`   | clears a stale presence record                                                                                                             | presence is a hint and never blocked anyone                                                                           |
+
+`versions[].unsubmitted` is a boolean: `true` means the draft has changes
+not yet submitted, including deleting all marks; `false` means no such changes.
+It is not a mark count. `versions[].annotations` is the current mark count.
+
+The publication `label` is optional and limited to 24 characters (UTF-16 code
+units, as counted by JavaScript string length). A longer label is rejected
+with an error naming `label` and the limit; the existing version stays active.
 
 Every published version stays. Each keeps its own draft, presence and echo, and
 the reviewer can return to any of them and keep marking. Publishing therefore
@@ -373,8 +381,10 @@ mark, then say what to change."
 - Right-drag to orbit, wheel or pinch to zoom toward the pointer, middle-drag
   or Shift+wheel to pan — on a mouse or trackpad. In the Orbit tool, left-drag
   also rotates; Shift+left-drag or Shift+right-drag pans. Marking tools keep the
-  left button for marks. On a touchscreen, one finger rotates and two fingers
-  pinch or pan; touch taps do not place marks.
+  left button for marks. On a touchscreen, drag one finger to rotate and use two
+  fingers to pinch or pan; these gestures never mark. A tap places nothing in
+  Orbit; with Label, Paint bucket or Measure selected, tap the surface to use
+  that tool.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
@@ -614,6 +624,8 @@ does not mean read.
 - `deliveredAt` is written only when the batch is actually found in the
   originating conversation, and only on a host that can be read back.
 - `readAt` comes exclusively from your own `read`. Nothing infers it.
+  The response’s `submission.status` and `submission.readAt` reflect that
+  completed read, matching `receipt` on the first call as well as later calls.
 - `status: "read"` is an additive terminal status: the Agent has collected this
   batch, so it is confirmed, leaves `outbox.pending`, and is no longer retried.
   Repeated reads keep the first `readAt`; a late delivery result cannot undo it.

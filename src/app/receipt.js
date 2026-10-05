@@ -148,7 +148,7 @@ export function bindReceipt(review) {
 
 export function bindSubmission(review) {
   review.$("#submit-feedback").addEventListener("click", async () => {
-    if (review.submitting) return;
+    if (review.submitting || review.disconnected) return;
     review.submitting = true;
     review.updateButtons();
     review.$("#submit-feedback").textContent = t("feedback.submitting");

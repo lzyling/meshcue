@@ -2,10 +2,11 @@ import { planarFaces } from "../planar-fill.js";
 
 export class EditingMethods {
   pointerDown(e) {
+    this.clickStart = null;
     this.gestureStart = [e.clientX, e.clientY];
     this.lastGestureDragged = false;
     if (
-      e.pointerType === "touch" ||
+      this.navigationPointers.size > 1 ||
       e.button !== 0 ||
       this.mode === "orbit" ||
       !this.enabled ||
@@ -17,8 +18,12 @@ export class EditingMethods {
     // old scheme taught. Rotating no longer needs it — the right button does
     // that in every mode — so it is kept as a way to not mark, nothing more.
     if (e.altKey) return;
-    e.stopImmediatePropagation();
-    e.preventDefault();
+    // A touch press may still become an orbit or pinch. Let OrbitControls
+    // see it; only a single stationary contact earns a mark on release.
+    if (e.pointerType !== "touch") {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
     /* Every remaining tool places its mark on a click, not on a drag, so the
        press only records where the click began; `click` asks `onEdit` for the
        draft and does the work. The drag branch left with the brush. */
@@ -35,10 +40,13 @@ export class EditingMethods {
         e.clientX - this.gestureStart[0],
         e.clientY - this.gestureStart[1],
       ) > 4
-    )
+    ) {
       this.lastGestureDragged = true;
+      this.clickStart = null;
+    }
   }
   pointerUp() {
+    this.clickStart = null;
     this.gestureStart = null;
     if (this.editPending) return;
     this.controls.enabled = true;

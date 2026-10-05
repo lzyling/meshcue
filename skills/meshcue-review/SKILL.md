@@ -70,7 +70,7 @@ these defaults do not move a running or saved review to another address.
 
 Call `meshcue` with `action: "open"`, giving the workspace-relative `project`,
 the actual `file`, the model `name`, a recognisable `version` and `units`; use
-`label` for a short tab caption. Source, recipient and topic come from the host
+`label` for a short tab caption of at most 24 characters (UTF-16 code units). Source, recipient and topic come from the host
 context and are never added as tool parameters. To open a LAN entry for another
 machine, use a `confirmedClientAddress` the user has verified; reuse a device
 already verified in the package rather than treating the first visitor or a
@@ -116,10 +116,14 @@ at the top of the page, and the user can return to any of them and mark there.
 Switching therefore loses nothing and needs no permission.
 
 Use `status` to read `versions`: each carries an `id`, a `version`, its mark
-count, unsubmitted count, submitted batches, and whether a window is open. Use
+count, unsubmitted flag, submitted batches, and whether a window is open. Use
 `activate` to change what is displayed, passing `versionId` or the `version`
 string. To add a version without disturbing what the user is looking at right
 now, pass `activate: false` to `open`.
+
+`versions[].unsubmitted` is a boolean: `true` means the draft has changes
+not yet submitted, including deleting all marks; `false` means no such changes.
+It is not a mark count. `versions[].annotations` is the current mark count.
 
 Let a new version become the displayed one — that is the version they are about
 to mark. `activate: false` is for the single case where they are drawing at this

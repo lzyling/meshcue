@@ -484,6 +484,7 @@ export class ModelViewer {
     this.onSection?.();
     this.grid.position.y = floor - 0.025;
     this.home();
+    this.navigationFitOnLayout = true;
     const manifest = this.meshes.map((o) => ({
       id: o.userData.reviewId,
       name: o.name || o.userData.reviewId,

@@ -122,7 +122,12 @@ test("navigation double click moves the pivot without changing distance and empt
   await expect(page.locator(".navigation-pivot")).toBeHidden();
   await page.mouse.dblclick(box.x + 15, box.y + box.height / 2);
   await settled(page);
-  expect((await state(page)).camera.target).toEqual([0, 0, 0]);
+  // Fitting now centres the model in the area above the floating toolbar.
+  // The camera target consequently sits below the geometric centre.
+  const toolbar = await page.locator(".toolbar").boundingBox();
+  const centre = await project(page, [0, 0, 0]);
+  expect(centre.x).toBeCloseTo(box.x + box.width / 2, 1);
+  expect(centre.y).toBeCloseTo((box.y + 36 + toolbar.y - 8) / 2, 1);
   for (const corner of (await state(page)).navigation.bounds)
     expect(Math.max(Math.abs(corner[0]), Math.abs(corner[1]))).toBeLessThan(1);
 });
@@ -274,7 +279,7 @@ test("navigation reduced motion is instant, input cancels animation, and release
   expect((await state(page)).navigation.damping).toBe(false);
 });
 
-test("navigation left drag preserves marking modes and touch taps never place marks", async ({
+test("navigation left drag preserves marking modes and Orbit touch taps place no marks", async ({
   page,
 }) => {
   const box = await open(page);
@@ -292,7 +297,7 @@ test("navigation left drag preserves marking modes and touch taps never place ma
     expectCameraUnchanged((await state(page)).camera, before);
     expect((await state(page)).annotationCount).toBe(0);
   }
-  await page.locator('[data-mode="label"]').click();
+  await page.locator('[data-mode="orbit"]').click();
   const session = await page.context().newCDPSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",

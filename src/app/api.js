@@ -1,5 +1,11 @@
 import { t, ta } from "../i18n/index.js";
 export function installApi(review) {
+  function connectionMessage() {
+    if (!review.loadedId || !review.initialDraftRestored)
+      return ta("conn.unreachable");
+    return t(review.cacheDraft() ? "conn.offlineSaved" : "conn.offlineMemory");
+  }
+
   async function api(path, data, method = "POST") {
     const options =
       data === undefined
@@ -12,7 +18,23 @@ export function installApi(review) {
             },
             body: JSON.stringify(data),
           };
-    const res = await fetch(review.endpoint(`api/${path}`), options);
+    let res;
+    try {
+      res = await fetch(review.endpoint(`api/${path}`), options);
+    } catch {
+      // Fetch rejects before there is a server response. Keep server refusals
+      // on their existing path, and make no promise about disk storage until
+      // the current draft has actually been written to this browser's cache.
+      review.disconnected = true;
+      const message = connectionMessage();
+      review.$(".connection-dot").classList.remove("online");
+      review.$("#connection-status").textContent = t("conn.paused");
+      review.$("#save-status").textContent = message;
+      review.updateButtons();
+      const error = new Error(message);
+      error.code = "CONNECTION_LOST";
+      throw error;
+    }
     let json;
     try {
       json = await res.json();
@@ -104,6 +126,20 @@ export function installApi(review) {
       review.accessBlocked = false;
       const recovered = review.accessRecoveryNeeded;
       review.accessRecoveryNeeded = false;
+      // Successful polling restores connectivity even when dirty edits defer
+      // switching to a newly published version below.
+      if (review.disconnected)
+        review.$("#save-status").textContent = t(
+          review.editSeq > review.savedSeq ? "save.unsynced" : "save.saved",
+        );
+      review.disconnected = false;
+      review.$(".connection-dot").classList.add("online");
+      review.$("#connection-status").textContent = incoming.notifier?.send
+        ? t("conn.origin")
+        : incoming.owned || review.state?.submissions?.length
+          ? ta("conn.collect")
+          : t("conn.local");
+      review.updateButtons();
       review.restoreVersionChoice(incoming);
       // A pinned tab survives polls and reloads, until the agent activates a
       // different model. Unsaved edits still defer that switch below.
@@ -158,18 +194,12 @@ export function installApi(review) {
         !review.recoveryBlocked
       )
         await review.flushDraft();
-      review.$(".connection-dot").classList.add("online");
       // The compiled-in version is the build this page was cut from, which is
       // only the running one until somebody upgrades the service under an open
       // tab. Once the service has said which it is, it is the one that counts.
       if (incoming.version)
         review.$("#app-version").textContent = incoming.version;
       review.showUpdate(incoming.update);
-      review.$("#connection-status").textContent = incoming.notifier?.send
-        ? t("conn.origin")
-        : incoming.owned || review.state?.submissions?.length
-          ? ta("conn.collect")
-          : t("conn.local");
       review.updateEcho(incoming);
       review.updateOutbox(incoming);
       review.updateClosing(incoming);
@@ -194,7 +224,9 @@ export function installApi(review) {
         ? review.loadedId && review.initialDraftRestored
           ? t("conn.accessExpired")
           : t("conn.noAccess")
-        : t("conn.offline");
+        : review.disconnected
+          ? connectionMessage()
+          : t("conn.offline");
       review.updateButtons();
     }
   }

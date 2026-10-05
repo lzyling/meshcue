@@ -134,7 +134,7 @@ export class CameraMethods {
         : {}),
     };
   }
-  restoreCamera(data) {
+  restoreCamera(data, { fit = false } = {}) {
     if (!data) return;
     this.cancelNavigation();
     this.camera.position.fromArray(data.position);
@@ -157,6 +157,12 @@ export class CameraMethods {
           perspectiveDistance(height, this.camera.fov),
         );
     this.controls.update();
+    if (fit) {
+      // Only draft restoration opts into layout fitting. Recorded mark views
+      // and callers asking for an exact camera keep their original values.
+      this.fitAll({ animate: false });
+      this.navigationFitOnLayout = true;
+    }
   }
   home() {
     // Flush residual OrbitControls damping before resetting; otherwise the
