@@ -1,3 +1,8 @@
+import {
+  clickControl,
+  selectSetting,
+  showParts,
+} from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -110,7 +115,10 @@ const row = (page, name) =>
   page
     .locator(".parts-row")
     .filter({ has: page.getByRole("button", { name, exact: true }) });
-const select = (page, name) => row(page, name).locator(".parts-name").click();
+const select = async (page, name) => {
+  if (!(await page.locator("#parts-panel").isVisible())) await showParts(page);
+  await row(page, name).locator(".parts-name").click();
+};
 const front = async (page) => {
   await page.locator('[data-view="0,0,1"]').press("Enter");
   // Navigation animates cube views. The behind-part assertions require the
@@ -130,6 +138,7 @@ async function open(page, file) {
   );
   const kit = scenarioKit(page, { run: evidence });
   await kit.open(url);
+  if ((await page.viewportSize()).width > 760) await showParts(page);
   return kit;
 }
 async function amberPixels(page) {
@@ -191,9 +200,9 @@ test("part rows, selection, fit, panel actions, shortcuts and version resets", a
   await kit.clickModelPoint([0, 0, 1]);
   await expect(row(page, "Front")).toHaveAttribute("aria-selected", "true");
   const initial = await diag(page);
-  await page.locator("#theme-choice").selectOption("light");
+  await selectSetting(page, "#theme-choice", "light");
   await kit.screenshot("panel-light");
-  await page.locator("#theme-choice").selectOption("dark");
+  await selectSetting(page, "#theme-choice", "dark");
   await kit.screenshot("panel-dark");
   await kit.clickModelPoint([0, 0, 1]);
   await page.keyboard.press("y");
@@ -233,34 +242,34 @@ test("hidden parts lose pins and regions, cannot be marked, and stop contributin
 }) => {
   const kit = await open(page);
   await front(page);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   await kit.clickModelPoint([0.4, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const marks = (await diag(page)).annotations;
   await row(page, "Front").locator(".parts-eye").click();
   await expect(page.locator(".model-pin")).toHaveCount(0);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("3");
   expect((await diag(page)).annotations.at(-1).meshId).toBe("mesh-1");
   await row(page, "Front").locator(".parts-eye").click();
   await expect(page.locator(".model-pin")).toHaveCount(2);
   expect((await diag(page)).annotations.slice(0, 2)).toEqual(marks);
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption("z");
   await page.locator("#section-offset").fill("2");
   await page.locator("#section-offset").press("Enter");
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   await kit.screenshot("section-visible");
   expect(await amberPixels(page)).toBeGreaterThan(100);
   await row(page, "Front").locator(".parts-eye").click();
   await kit.screenshot("section-hidden");
   expect(await amberPixels(page)).toBeLessThan(10);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0.3, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("4");
   expect((await diag(page)).annotations.at(-1).meshId).toBe("mesh-1");
@@ -276,15 +285,15 @@ test("transparent parts allow marking and measuring behind them through plain vi
   await expect(row(page, "Front")).toHaveClass(/part-transparent/);
   await page.locator("#viewer").hover();
   await kit.screenshot("transparent");
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   expect((await diag(page)).annotations[0].meshId).toBe("mesh-1");
-  await page.locator("#neutral-view").click();
+  await clickControl(page, "#neutral-view");
   await kit.clickModelPoint([0.4, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   expect((await diag(page)).annotations[1].meshId).toBe("mesh-1");
-  await page.locator('[data-mode="measure"]').click();
+  await clickControl(page, '[data-mode="measure"]');
   await kit.clickModelPoint([-0.5, -0.6, 1], { meshId: "mesh-1" });
   await expect.poll(async () => (await diag(page)).measuring?.picks).toBe(1);
   await kit.clickModelPoint([0.5, -0.6, 1], { meshId: "mesh-1" });
@@ -297,7 +306,7 @@ test("transparent parts allow marking and measuring behind them through plain vi
   ]);
   await page.locator('[data-command="parts-transparent"]').click();
   await expect(row(page, "Front")).not.toHaveClass(/part-transparent/);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([-0.4, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("4");
   expect((await diag(page)).annotations[3].meshId).toBe("mesh-0");
@@ -332,7 +341,7 @@ test("phone parts sheet opens from the toolbar without covering the model", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   const kit = await open(page);
   await expect(page.locator("#parts-panel")).toBeHidden();
-  await page.locator('[data-command="parts-panel"]').click();
+  await clickControl(page, '[data-command="parts-panel"]');
   await expect(page.locator("#parts-panel")).toBeVisible();
   // The sheet enters layout before ResizeObserver has resized the WebGL canvas.
   // Wait for the rendered surface, not just the panel's display property.
@@ -340,20 +349,20 @@ test("phone parts sheet opens from the toolbar without covering the model", asyn
     .poll(async () => {
       const p = await page.locator("#parts-panel").boundingBox();
       const c = await page.locator("#viewer canvas").boundingBox();
-      return p.y >= c.y + c.height;
+      return p.y + p.height <= c.y;
     })
     .toBe(true);
   const panel = await page.locator("#parts-panel").boundingBox(),
     canvas = await page.locator("#viewer canvas").boundingBox();
   expect(canvas.x).toBeGreaterThanOrEqual(0);
   expect(canvas.x + canvas.width).toBeLessThanOrEqual(390);
-  expect(panel.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(canvas.y);
   expect(panel.x + panel.width).toBeLessThanOrEqual(390);
   await kit.screenshot("phone");
   await select(page, "Front");
   await page.locator('[data-command="parts-hide"]').click();
   await expect(row(page, "Front")).toHaveClass(/part-hidden/);
-  await page.locator("#parts-close").click();
+  await page.locator("#sidebar-marks").click();
   await expect(page.locator("#parts-panel")).toBeHidden();
 });
 

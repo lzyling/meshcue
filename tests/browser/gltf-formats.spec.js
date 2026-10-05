@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { browserServerUrl } from "../helpers/browser-server.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -93,7 +94,7 @@ async function screenshot(page, name) {
   return shot.toString("base64");
 }
 async function pin(page) {
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.42);
   await expect(page.locator("#annotation-count")).toHaveText("1");

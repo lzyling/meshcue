@@ -1,3 +1,4 @@
+import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import * as THREE from "three";
@@ -30,10 +31,11 @@ async function open(page, fixture) {
   await expect
     .poll(async () => (await diag(page)).viewer.display.pending)
     .toBe(false);
+  await showParts(page);
   await settle(page);
 }
 async function style(page, name) {
-  await page.locator("#display-toggle").click();
+  await clickControl(page, "#display-toggle");
   await page.locator(`[data-style="${name}"]`).click();
   expect((await diag(page)).viewer.display.style).toBe(name);
 }
@@ -105,7 +107,7 @@ test("integrated part double-click and Fit all share visible framing in both pro
 }) => {
   await open(page, await fixture());
   for (const orthographic of [false, true]) {
-    if (orthographic) await page.locator("#navigation-projection").click();
+    if (orthographic) await clickControl(page, "#navigation-projection");
     await row(page, "Side").locator(".parts-name").dblclick();
     await settle(page);
     const part = (await diag(page)).camera;
@@ -134,8 +136,8 @@ test("integrated part double-click and Fit all share visible framing in both pro
   await settle(page);
   await page.keyboard.press("Shift+T");
   await style(page, "xray");
-  await page.locator("#neutral-view").click();
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, "#neutral-view");
+  await clickControl(page, '[data-mode="label"]');
   const box = await page.locator("#viewer canvas").boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page.locator("#annotation-count")).toHaveText("1");
@@ -149,10 +151,10 @@ test("orthographic display styles retain section caps and performance readout wh
   page,
 }) => {
   await open(page, "tests/fixtures/plate.step");
-  await page.locator("#navigation-projection").click();
-  await page.locator("#section-toggle").click();
+  await clickControl(page, "#navigation-projection");
+  await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption("z");
-  await page.locator("#perf-toggle").click();
+  await clickControl(page, "#perf-toggle");
   const observations = [];
   for (const name of ["edges", "hidden", "wireframe", "xray", "shaded"]) {
     await style(page, name);
@@ -176,6 +178,7 @@ test("orthographic display styles retain section caps and performance readout wh
     });
   }
   await style(page, "edges");
+  await showParts(page);
   await page.locator(".parts-name").first().click();
   await page.keyboard.press("y");
   await page.mouse.move(5, 5);
@@ -199,7 +202,7 @@ test("orthographic display styles retain section caps and performance readout wh
         return (
           disjoint(await page.locator(".orient").boundingBox()) &&
           disjoint(await page.locator("#section-options").boundingBox()) &&
-          disjoint(await page.locator("#viewer canvas").boundingBox())
+          disjoint(await page.locator(".toolbar").boundingBox())
         );
       })
       .toBe(true);

@@ -1,3 +1,4 @@
+import { clickControl, selectSetting } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
@@ -53,9 +54,7 @@ function publish(file = "parametric-bracket.glb", version = "v1") {
 async function ready(page) {
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Label tool", exact: true }),
-  ).toBeEnabled();
+  await expect(page.locator('[data-mode="label"]')).toBeEnabled();
 }
 async function point(page, dx = 0, dy = 0) {
   const box = await page.locator("#viewer").boundingBox();
@@ -95,7 +94,7 @@ function writePlate() {
   return stl;
 }
 async function pin(page) {
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -180,9 +179,7 @@ test("a fill produces real face sets; undo, redo, delete and refresh retain the 
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page, -35, 0);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -305,9 +302,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   // A second tab is never locked out — it picks up the same draft and may mark.
   // Clobbering is prevented by the draft revision check, which is the only
   // guard that actually knows whether two edits conflict.
-  await expect(
-    other.getByRole("button", { name: "Label tool", exact: true }),
-  ).toBeEnabled();
+  await expect(other.locator('[data-mode="label"]')).toBeEnabled();
   await expect
     .poll(() => other.evaluate(() => window.__reviewDiagnostics().owned))
     .toBe(true);
@@ -316,7 +311,7 @@ test("a second browser tab cannot overwrite another tab’s active work", async 
   ).toBe(1);
   // The tab that lost presence is told another window is here.
   await expect(page.locator("#resume-banner")).toBeVisible();
-  await other.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(other, '[data-mode="label"]');
   const q = await point(other, 12, 12);
   await other.mouse.click(q.x, q.y);
   await expect
@@ -352,9 +347,7 @@ test("a bucket fill stays on the mesh it was clicked and stores no coordinates",
 }) => {
   publish("occlusion-check.glb", "occlusion-test");
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -395,7 +388,7 @@ test("temporary save failure keeps local edits, then retries without losing the 
 }) => {
   await ready(page);
   await page.route("**/api/draft", (r) => r.abort());
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -421,9 +414,7 @@ test("agent handoff sends true 3D patch data while keeping the model locked", as
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -507,9 +498,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   // The tool's own control has room at this width; it was the brush's size
   // slider that stood here before the brush was shelved.
   await expect(page.locator("#fill-range")).toBeVisible();
@@ -755,7 +744,7 @@ test("the looking tool places nothing while either left or right drag rotates", 
   /* Everything above happened in the looking tool, which is why none of it
      made a mark: turning the model can no longer produce one by accident.
      Placing is a tool you choose, and then one click is enough. */
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
@@ -805,7 +794,7 @@ test("a lost draft acknowledgement replays its exact write before saving a newer
     }
     return route.continue();
   });
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
@@ -829,7 +818,7 @@ test("refresh recovers newer local edits after an acknowledged-on-server draft l
     if (++writes === 1) await fetchThroughFixture(route);
     return route.abort();
   });
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
@@ -904,9 +893,7 @@ test("bytes that are not the announced version stop the page rather than looping
   await expect(page.locator("#loading-text")).toHaveText(
     /does not match the version/,
   );
-  await expect(
-    page.getByRole("button", { name: "Label tool", exact: true }),
-  ).toBeDisabled();
+  await expect(page.locator('[data-mode="label"]')).toBeDisabled();
 });
 
 test("resuming a closed tab restores its unsynced local draft instead of replacing it with the older server draft", async ({
@@ -915,7 +902,7 @@ test("resuming a closed tab restores its unsynced local draft instead of replaci
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
@@ -948,7 +935,7 @@ test("a truly divergent cached draft is durably backed up before new edits can r
 }) => {
   await ready(page);
   await page.route("**/api/draft", (route) => route.abort());
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toContainText("Not synced");
@@ -975,7 +962,7 @@ test("a truly divergent cached draft is durably backed up before new edits can r
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(different);
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(p.x + 8, p.y + 8);
   await expect
     .poll(() =>
@@ -1033,9 +1020,7 @@ test("legacy pins and paint fixture restore unchanged alongside a new fill", asy
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect
@@ -1071,7 +1056,7 @@ test("narrow embedded review fixture remains interactive without a duplicated co
     ),
   ).toBe(true);
   await expect(frame.locator("#chat-input")).toHaveCount(0);
-  await frame.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(frame, '[data-mode="label"]');
   const box = await frame.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect
@@ -1090,9 +1075,7 @@ test("marking never has to stop to turn the model, and does not consume point la
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -1110,7 +1093,7 @@ test("marking never has to stop to turn the model, and does not consume point la
   await page
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(p.x, p.y);
   await expect
     .poll(() =>
@@ -1196,12 +1179,12 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
     .toEqual(second.annotations);
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   await expect(page.locator(".model-pin")).toBeHidden();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().annotations))
     .toEqual(second.annotations);
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   // The control points the way the panel moves. A plus and a minus sat beside a
   // list that really can have marks added to it, and read as doing that.
   const iconRef = () =>
@@ -1210,20 +1193,17 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#annotations-list")).toBeHidden();
   expect(await iconRef()).toBe("#mc-expand-right");
-  // Folding the panel is a request for the model to have the room, and a
-  // send button left standing in the gap is most of the width back again.
-  // Handing the marks over is something you do while looking at them, so it
-  // folds with them and comes back when they do.
-  await expect(page.locator("#submit-feedback")).toBeHidden();
+  // The collapsed strip retains the same submit button and its guards.
+  await expect(page.locator("#submit-feedback")).toBeVisible();
   // Folded is the button and nothing else. A heading that stays behind keeps
   // the column roughly as wide as the words in it, in every language.
-  await expect(page.locator(".annotations-heading strong")).toBeHidden();
+  await expect(page.locator("#sidebar-marks .sidebar-caption")).toBeHidden();
   await expect(page.locator("#toggle-annotations")).toBeVisible();
   const folded = await page.locator(".annotations-panel").boundingBox();
   expect(folded.width).toBeLessThan(60);
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#submit-feedback")).toBeVisible();
-  await expect(page.locator(".annotations-heading strong")).toBeVisible();
+  await expect(page.locator("#sidebar-marks .sidebar-caption")).toBeVisible();
 });
 
 /* The preview has to be the promise: what the cursor shades before the click is
@@ -1236,9 +1216,7 @@ test("iteration: bucket preview equals filled coverage, and a fill can be taken 
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.move(p.x, p.y);
   await expect
@@ -1277,9 +1255,7 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
   page,
 }) => {
   await ready(page);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -1331,7 +1307,7 @@ test("iteration: explicit Agent read receipt and separate echo survive correctio
     await page.evaluate(() => window.__reviewDiagnostics().camera),
     before.camera,
   );
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   expect(
     await page.evaluate(
       () => window.__reviewDiagnostics().viewer.annotationsVisible,
@@ -1353,7 +1329,7 @@ test("iteration: current-version download is original bytes, including after neu
   await ready(page);
   await pin(page);
   const stateBefore = (await request("GET", "state")).data;
-  await page.locator("#neutral-view").click();
+  await clickControl(page, "#neutral-view");
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().viewer.neutral),
   ).toBe(true);
@@ -1449,12 +1425,13 @@ test("iteration: the orientation cube sits in the corner it is read from", async
   expect(cube.y - shell.y).toBeLessThan(16);
   expect(shell.x + shell.width - (cube.x + cube.width)).toBeLessThan(16);
 });
-test("iteration: the view switches live in the toolbar and say how they are set", async ({
+test("iteration: the view switches live in the View menu and say how they are set", async ({
   page,
 }) => {
   await ready(page);
-  const marks = page.locator(".toolbar #toggle-marks");
-  const plain = page.locator(".toolbar #neutral-view");
+  const marks = page.locator("#view-menu #toggle-marks");
+  await page.locator("#view-menu-button").click();
+  const plain = page.locator("#view-menu #neutral-view");
   // They used to float over the model in a corner of their own, which is the
   // one place on the page that is meant to be the model.
   await expect(marks).toBeVisible();
@@ -1466,17 +1443,17 @@ test("iteration: the view switches live in the toolbar and say how they are set"
   // the switch is about; the icon is which way it is set.
   await expect(marks.locator("span")).toHaveText("Marks");
   await expect(plain.locator("span")).toHaveText("Plain");
-  await marks.click();
+  await clickControl(page, "#toggle-marks");
   expect(await iconOf(marks)).toBe("#mc-eye-off");
   // Redrawing the icon must not take the caption with it.
   await expect(marks.locator("span")).toHaveText("Marks");
   await expect(marks).toHaveAttribute("aria-pressed", "true");
   await expect(marks).toHaveAttribute("aria-label", "Show marks");
-  await plain.click();
+  await clickControl(page, "#neutral-view");
   await expect(plain).toHaveAttribute("aria-pressed", "true");
   await expect(plain).toHaveAttribute("aria-label", "Original colours");
   // Picking a tool brings the marks back, so the switch has to admit it.
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   expect(await iconOf(marks)).toBe("#mc-eye");
   await expect(marks).toHaveAttribute("aria-pressed", "false");
 });
@@ -1490,10 +1467,10 @@ test("iteration: the options panel is gone whenever the tool has no options", as
   // not merely gone once some other tool has been visited first.
   await expect(palette).toBeHidden();
   await expect(panel).toBeHidden();
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await expect(palette).toBeVisible();
   await expect(panel).toBeVisible();
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   await expect(palette).toBeHidden();
   // An empty frame still reads as a window that failed to close.
   await expect(panel).toBeHidden();
@@ -1512,13 +1489,13 @@ test("iteration: changing tool cancels a bucket action awaiting edit ownership",
     await blocked;
     await route.continue();
   });
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => entered).toBe(true);
   // Any other tool will do; what is being cancelled is the fill still waiting
   // for the draft to be claimed.
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   release();
   await expect
     .poll(async () => (await request("GET", "state")).data.locked)
@@ -1637,7 +1614,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   expect(colored.red).toBeGreaterThan(1000);
   expect(colored.blue).toBeGreaterThan(1000);
   await pin(page);
-  await page.locator('[data-mode="fill"]').click();
+  await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -1655,17 +1632,17 @@ test("iteration: colored texture survives annotation, hide and neutral display r
       path.join(dir, "2026-09-09-3d-review-v03-colored-annotations.png"),
     ),
   });
-  await page.locator("#toggle-marks").click();
+  await clickControl(page, "#toggle-marks");
   const hidden = await capture();
   expectCameraUnchanged(
     await page.evaluate(() => window.__reviewDiagnostics().camera),
     cleanCamera,
   );
   expect(hidden.equals(clean)).toBe(true);
-  await page.locator("#neutral-view").click();
+  await clickControl(page, "#neutral-view");
   const neutral = await colors(await capture());
   expect(neutral.red + neutral.blue).toBeLessThan(100);
-  await page.locator("#neutral-view").click();
+  await clickControl(page, "#neutral-view");
   expect((await capture()).equals(clean)).toBe(true);
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
@@ -2263,7 +2240,7 @@ test("the reviewer can overrule the automatic language and theme", async ({
   const darkCanvas = await page.evaluate(
     () => window.__reviewDiagnostics().viewer.background,
   );
-  await page.locator("#theme-choice").selectOption("light");
+  await selectSetting(page, "#theme-choice", "light");
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
     .toBe("light");
@@ -2289,7 +2266,7 @@ test("the reviewer can overrule the automatic language and theme", async ({
   // Language: the control existed in full — catalogues, matching, storage — and
   // nothing in the product ever called setLocale. Six languages, no way in.
   await expect(page.locator("#locale-choice")).toHaveValue("en");
-  await page.locator("#locale-choice").selectOption("ja");
+  await selectSetting(page, "#locale-choice", "ja");
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#locale-choice")).toHaveValue("ja");
   await expect(
@@ -2307,7 +2284,7 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const spot = await point(page);
   await page.mouse.click(spot.x, spot.y);
   await expect
@@ -2359,7 +2336,7 @@ test("a mark arrives at its point instead of flying in from the corner", async (
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   // Stretch the arrival so it can be measured while it is still running. Every
   // existing assertion polls until the animation has settled, so none of them
   // could see where a mark travelled on its way in — and travelling is the
@@ -2425,7 +2402,7 @@ test("a mark is on its point the first time it is drawn", async ({ page }) => {
             window.__unplacedPins++;
     }).observe(document.body, { childList: true, subtree: true });
   });
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const spot = await point(page);
   await page.mouse.click(spot.x, spot.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -2452,7 +2429,7 @@ test("a note is written on the chosen mark and keeps its words", async ({
 }) => {
   await ready(page);
   const marks = () => page.evaluate(() => window.__reviewDiagnostics());
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const spot = await point(page);
   await page.mouse.click(spot.x, spot.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
@@ -2534,7 +2511,7 @@ test("a mark's view puts the reviewer's screen back together in the model's own 
     { cwd: repo, env, encoding: "utf8" },
   );
   await ready(page);
-  await page.getByRole("button", { name: "Label tool", exact: true }).click();
+  await clickControl(page, '[data-mode="label"]');
   const spot = await point(page);
   await page.mouse.click(spot.x, spot.y);
   await expect

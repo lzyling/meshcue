@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
@@ -18,7 +19,7 @@ test("performance retains input across slow frames under CPU throttling", async 
   page,
 }) => {
   await scenarioKit(page, environment).open(environment.url);
-  await page.locator("#perf-toggle").click();
+  await clickControl(page, "#perf-toggle");
   const session = await page.context().newCDPSession(page);
   await session.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   try {
@@ -71,7 +72,7 @@ test("performance retains input across slow frames under CPU throttling", async 
       )
       .toBe(true);
     await page.screenshot({ path: `${evidence}/performance-idle.png` });
-    await page.locator("#perf-toggle").click();
+    await clickControl(page, "#perf-toggle");
     const off = await page.evaluate(
       () => window.__reviewDiagnostics().viewer.performance.sampledFrames,
     );

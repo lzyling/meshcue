@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
@@ -16,7 +17,7 @@ test("registered shortcuts respect typing and modal focus and retain undo, redo 
 }) => {
   const kit = scenarioKit(page, environment);
   await kit.open(environment.url);
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   const count = () =>
@@ -40,7 +41,9 @@ test("registered shortcuts respect typing and modal focus and retain undo, redo 
   ]) {
     // The section number input is hidden until its viewing aid is enabled.
     if (selector === "#section-offset")
-      await page.locator("#section-toggle").click();
+      await clickControl(page, "#section-toggle");
+    if (selector === "#theme-choice")
+      await page.locator("#settings-button").click();
     /* Focus only lands on what is shown. The note box appears once the new
        mark is selected, and on a slower runner that can come after the click
        returns: focusing it early left focus on a toolbar button, where Ctrl+Z
@@ -51,13 +54,15 @@ test("registered shortcuts respect typing and modal focus and retain undo, redo 
     await expect(page.locator(selector)).toBeFocused();
     await kit.key("Control+z");
     expect(await count()).toBe(1);
+    if (selector === "#theme-choice")
+      await page.locator("#close-settings").click();
   }
   await page.locator("#help-button").click();
   await kit.key("Meta+z");
   expect(await count()).toBe(1);
   await kit.key("Escape");
   await expect(page.locator("#help-dialog")).not.toBeVisible();
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   await kit.key("Control+z");
   await expect.poll(count).toBe(0);
   await kit.key("Meta+Shift+z");

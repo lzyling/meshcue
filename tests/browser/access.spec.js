@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import fs from "node:fs";
@@ -58,15 +59,11 @@ async function ready(page, context) {
   await authorize(context);
   await page.goto(browserUrl);
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Paint bucket tool", exact: true }),
-  ).toBeEnabled();
+  await expect(page.locator('[data-mode="fill"]')).toBeEnabled();
   expect(await page.evaluate(() => isSecureContext)).toBe(false);
 }
 async function mark(page) {
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   const box = await page.locator("#viewer").boundingBox();
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect

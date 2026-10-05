@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 /* What the reviewer is shown after pressing the button: how many marks went,
  * that the Agent read them and when, that its understanding arrived — and,
@@ -88,14 +89,14 @@ async function reader(browser, locale, viewport) {
 }
 async function markAndSend(page, send) {
   const box = await page.locator("#viewer").boundingBox();
-  await page.locator('[data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
     )
     .toBe(1);
-  await page.locator('[data-mode="orbit"]').click();
+  await clickControl(page, '[data-mode="orbit"]');
   await page.getByRole("button", { name: send }).click();
 }
 const submitted = () =>

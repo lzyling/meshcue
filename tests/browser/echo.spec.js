@@ -1,3 +1,4 @@
+import { clickControl } from "./b1u-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -133,12 +134,10 @@ async function submitTop(page, file) {
   await page.goto(url);
   await expect(page.locator("#loading")).toBeHidden();
   const top = await screenOf(page, [2, 1, 4]);
-  await page
-    .getByRole("button", { name: "Paint bucket tool", exact: true })
-    .click();
+  await clickControl(page, '[data-mode="fill"]');
   await page.mouse.click(top.x, top.y);
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
-  await page.getByRole("button", { name: "Orbit tool", exact: true }).click();
+  await clickControl(page, '[data-mode="orbit"]');
   await page.mouse.move(5, 5);
   await page.getByRole("button", { name: /Send to Agent/ }).click();
   await expect
