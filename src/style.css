@@ -2218,3 +2218,8 @@ dialog .muted {
      widget at desktop widths too, even when Parts narrows the canvas. */
   max-width: min(520px, calc(100% - var(--orient-reach) - 90px));
 }
+.toolbar:has(#display-menu:not([hidden])) {
+  /* The toolbar transform creates a stacking context. Raise that context,
+     rather than only the menu inside it, above the sibling tool options. */
+  z-index: 6;
+}

@@ -168,3 +168,18 @@ for (const [width, height] of [
     expect((await diag(page)).camera).not.toEqual(before);
   });
 }
+test("R2 bug 3: Display choices win over measurement options", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  await page.locator('[data-mode="measure"]').click();
+  for (const style of ["hidden", "xray"]) {
+    await page.locator("#display-toggle").click();
+    await screenshot(page, `bug3-display-${style}`);
+    const choice = page.locator(`[data-style="${style}"]`);
+    expect(await unobscured(choice)).toBe(true);
+    await choice.click({ timeout: 3000 });
+    await expect(choice).toHaveAttribute("aria-checked", "true");
+  }
+});
