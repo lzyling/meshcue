@@ -14,18 +14,54 @@ export function bindHints(review) {
   box.append(dismiss);
   let current,
     showing = false;
+  /* A first-use hint counts as seen only once it has actually been on screen,
+   or when the reviewer closes it. Recording it the moment it was asked for
+   lost it for good whenever it was asked for out of sight -- under the
+   section controls on a phone, behind an open menu or the settings dialog,
+   or pushed out of a short viewport -- and a reload then never showed it. */
+  const onScreen = () => {
+    if (box.hidden || box.style.visibility === "hidden") return false;
+    if (document.querySelector("dialog[open]")) return false;
+    const r = box.getBoundingClientRect();
+    return (
+      r.width > 0 &&
+      r.height > 0 &&
+      r.top >= 0 &&
+      r.left >= 0 &&
+      r.bottom <= innerHeight &&
+      r.right <= innerWidth &&
+      getComputedStyle(box).visibility !== "hidden"
+    );
+  };
+  const markSeen = () => {
+    if (!showing || !current || review.settings.get(`hint.${current}`)) return;
+    if (onScreen()) review.settings.set(`hint.${current}`, true);
+  };
   review.showToolHint = (mode) => {
     if (mode !== current) {
       current = mode;
       showing = !review.settings.get(`hint.${mode}`);
-      if (showing) review.settings.set(`hint.${mode}`, true);
     }
     box.hidden = !showing;
+    markSeen();
+    // A menu that chose this tool closes after the choice; look again then.
+    requestAnimationFrame(markSeen);
   };
   dismiss.onclick = () => {
+    if (current) review.settings.set(`hint.${current}`, true);
     showing = false;
     box.hidden = true;
   };
+  for (const dialog of document.querySelectorAll("dialog"))
+    dialog.addEventListener("close", markSeen);
+  // Menus hide the hint with `visibility`, which no ResizeObserver sees come
+  // back. Watching the classes and `hidden` flags that do it costs one early
+  // return per change once the current hint has been seen.
+  new MutationObserver(markSeen).observe(review.$(".viewer-shell"), {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class", "hidden"],
+  });
   review.resetToolHints = () => {
     for (const mode of ["orbit", "pan", "label", "fill", "measure", "relocate"])
       review.settings.set(`hint.${mode}`, false);
@@ -56,6 +92,7 @@ export function bindHints(review) {
       hint.bottom > cut.top
         ? "hidden"
         : "";
+    markSeen();
   };
   const observer = new ResizeObserver(position);
   for (const selector of [

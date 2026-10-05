@@ -278,3 +278,37 @@ test("smart measure pairs corners, straight edges and flat faces truthfully", as
   );
   await expect(keep).toBeDisabled();
 });
+
+test.describe("phone hint", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 3,
+  });
+  test("a first-use hint hidden behind the section controls is not counted as seen", async ({
+    page,
+  }) => {
+    await open(page, "tests/fixtures/plate.step");
+    const seen = () =>
+      page.evaluate(() =>
+        localStorage.getItem("meshcue.settings.hint.measure"),
+      );
+    const hint = page.locator(".tool-hint-box");
+    await clickControl(page, '[data-mode="measure"]');
+    await page.locator("#measure-advanced summary").click();
+    await clickControl(page, "#section-toggle");
+    await expect(hint).toBeHidden();
+    // Ask for the hints again while Section still covers this one.
+    await page.locator("#settings-button").click();
+    await page.locator("#reset-tool-hints").click();
+    await page.locator("#close-settings").click();
+    await expect(hint).toBeHidden();
+    expect(await seen()).not.toBe("true");
+    await page.screenshot({ path: `${evidence}/hint-covered.png` });
+    // Seen once it is actually on screen.
+    await page.locator("#section-off").click();
+    await expect(hint).toBeVisible();
+    await expect.poll(seen).toBe("true");
+  });
+});
