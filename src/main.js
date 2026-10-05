@@ -1,4 +1,5 @@
 import "./style.css";
+import { bindOverlayLayout } from "./app/overlay-layout.js";
 import { bindPublicationNotices } from "./app/publication-notices.js";
 import { bindParts } from "./app/parts.js";
 import { bindDisplay } from "./app/display.js";
@@ -70,6 +71,7 @@ bindSettings(review);
 bindDisplay(review);
 bindOrientation(review);
 bindNavigation(review);
+bindOverlayLayout(review);
 bindAnnotationEditing(review);
 bindToolbarOptions(review);
 bindEcho(review);

@@ -233,3 +233,27 @@ for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
     });
   }
 }
+test("R2 bug 5: phone palettes leave every toolbar icon tappable", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    viewport: { width: 390, height: 664 },
+  });
+  try {
+    const page = await context.newPage();
+    await open(page);
+    await page.locator("#toggle-annotations").tap();
+    for (const mode of ["label", "fill"]) {
+      await chooseTouchTool(page, mode);
+      await screenshot(page, `bug5-palette-${mode}`);
+      for (const button of await page.locator(".toolbar button:visible").all())
+        expect.soft(await unobscured(button)).toBe(true);
+    }
+    const measure = page.locator('[data-mode="measure"] svg').first();
+    await measure.tap({ timeout: 3000 });
+    await expect(page.locator('[data-mode="measure"]')).toHaveClass(/active/);
+  } finally {
+    await context.close();
+  }
+});

@@ -2236,3 +2236,6 @@ dialog .muted {
 .toolbar .tool span {
   white-space: nowrap;
 }
+.tool-options {
+  bottom: var(--tool-options-bottom, 92px);
+}
