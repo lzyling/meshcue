@@ -71,6 +71,7 @@ export function installDraft(review) {
 
   function changed() {
     review.editSeq++;
+    if (review.disconnected) review.offlineDraftPending = true;
     review.submissionKey = null;
     review.cacheDraft();
     review.renderAnnotations();

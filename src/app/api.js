@@ -3,6 +3,10 @@ export function installApi(review) {
   function connectionMessage() {
     if (!review.loadedId || !review.initialDraftRestored)
       return ta("conn.unreachable");
+    // Saving a recovered draft is not submitting it. Remember its version
+    // across the save/poll race so reconnecting cannot move Send to a different
+    // model before the reviewer has handed over these edits.
+    if (review.editSeq > review.savedSeq) review.offlineDraftPending = true;
     return t(review.cacheDraft() ? "conn.offlineSaved" : "conn.offlineMemory");
   }
 
@@ -150,9 +154,11 @@ export function installApi(review) {
             incoming.sameContentReuse.id !== review.state.sameContentReuse?.id))
       )
         review.followActive = true;
-      const wanted = review.followActive
-        ? incoming.active?.id
-        : review.viewingId;
+      const wanted = review.offlineDraftPending
+        ? review.loadedId
+        : review.followActive
+          ? incoming.active?.id
+          : review.viewingId;
       if (
         wanted !== review.loadedId ||
         incoming.reviewId !== review.loadedReviewId
