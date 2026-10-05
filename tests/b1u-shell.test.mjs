@@ -42,3 +42,39 @@ test("menu registrations sort stably, preserve groups and register late commands
     );
   assert.equal(registry.get("bad"), undefined);
 });
+
+import { createSettings } from "../src/app/settings.js";
+test("settings persist independently, notify changes and tolerate unavailable or corrupt storage", () => {
+  const data = new Map(),
+    storage = {
+      getItem: (id) => data.get(id) ?? null,
+      setItem: (id, value) => data.set(id, value),
+    };
+  const settings = createSettings(storage),
+    calls = [];
+  assert.equal(settings.get("parts"), false);
+  assert.equal(settings.get("viewCube"), true);
+  const off = settings.on("parts", (value) => calls.push(value));
+  settings.set("parts", true);
+  settings.set("parts", true);
+  assert.equal(data.get("meshcue.settings.parts"), "true");
+  assert.equal(createSettings(storage).get("parts"), true);
+  off();
+  settings.set("parts", false);
+  assert.deepEqual(calls, [true]);
+  data.set("meshcue.settings.parts", "broken");
+  data.set("meshcue.settings.viewCube", '"false"');
+  assert.equal(createSettings(storage).get("parts"), false);
+  assert.equal(createSettings(storage).get("viewCube"), true);
+  const denied = createSettings({
+    getItem() {
+      throw Error();
+    },
+    setItem() {
+      throw Error();
+    },
+  });
+  denied.set("parts", true);
+  assert.equal(denied.get("parts"), true);
+  assert.throws(() => settings.set("parts", "true"), TypeError);
+});

@@ -2366,3 +2366,32 @@ dialog .muted {
   min-width: 44px;
   min-height: 44px;
 }
+.setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.setting-switch input {
+  width: 20px;
+  height: 20px;
+}
+#settings-features > button,
+#settings-features summary {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+#settings-features dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  font-size: 12px;
+}
+#settings-features dd {
+  margin: 0;
+}
+.orient[hidden] {
+  display: none;
+}

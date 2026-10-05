@@ -26,7 +26,7 @@ import { bindNavigation } from "./app/navigation.js";
 import { bindOrientation } from "./app/orientation.js";
 import { installReceipt, bindReceipt, bindSubmission } from "./app/receipt.js";
 import { bindSection } from "./app/section.js";
-import { bindSettings } from "./app/settings.js";
+import { bindSettings, installSettings } from "./app/settings.js";
 import { installShell, mountShell, bindHelp } from "./app/shell.js";
 import { initializeState } from "./app/state.js";
 import {
@@ -46,6 +46,7 @@ import { createViewer } from "./app/viewer.js";
 // Install callable seams first, then initialize in the original order: callbacks
 // can refer to later features without introducing module evaluation cycles.
 const review = {};
+installSettings(review);
 installShell(review);
 installApi(review);
 installDraft(review);
