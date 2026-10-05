@@ -1,3 +1,4 @@
+import { positionMenu } from "./menus.js";
 import { t } from "../i18n/index.js";
 import { DISPLAY_STYLES } from "../viewer/display-modes.js";
 import { bindPerformance } from "./perf.js";
@@ -53,7 +54,9 @@ export function bindDisplay(review) {
     labelKey: "display.title",
     captionKey: "display.title",
     icon: "plain",
-    group: "display",
+    menu: "view",
+    menuOrder: 40,
+    menuSection: "display",
     attributes: {
       id: "display-toggle",
       "aria-haspopup": "menu",
@@ -63,12 +66,13 @@ export function bindDisplay(review) {
     run() {
       if (!menu.hidden) return close(true);
       menu.hidden = false;
+      positionMenu(menu, review.$(".toolbar"));
       button.setAttribute("aria-expanded", "true");
       menu.querySelector('[aria-checked="true"]').focus();
     },
   });
   button = review.$("#display-toggle");
-  button.after(menu);
+  document.body.append(menu);
   menu.addEventListener("keydown", (event) => {
     const options = [...menu.children];
     const current = options.indexOf(document.activeElement);

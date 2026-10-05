@@ -1,0 +1,16 @@
+export default {
+  "shell.view": "Vue",
+  "shell.mark": "Annoter",
+  "shell.inspect": "Inspecter",
+  "shell.settings": "Réglages",
+  "shell.parts": "Arbre des pièces",
+  "shell.performance": "Diagnostic des performances",
+  "shell.cube": "Cube de vue",
+  "shell.hints": "Réafficher les conseils des outils",
+  "shell.shortcuts": "Raccourcis clavier",
+  "shell.dismissHint": "Fermer le conseil",
+  "shell.perfDetails": "Afficher les détails des performances",
+  "shell.perfDrag": "Déplacer la fenêtre des performances",
+  "shell.rotate": "Pivoter",
+  "shell.fill": "Remplir",
+};

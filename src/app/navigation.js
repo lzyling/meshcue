@@ -90,16 +90,15 @@ export function bindNavigation(review) {
         viewer.camera.isOrthographicCamera ? "perspective" : "orthographic",
       ),
     {
-      group: "display",
+      menu: "view",
+      menuOrder: 30,
+      menuSection: "camera",
+      checked: () => !!viewer.camera.isOrthographicCamera,
       captionKey: "navigation.projection",
       icon: "plain",
       attributes: { id: "navigation-projection", "aria-pressed": "false" },
     },
   );
-  const projection = document.createElement("button");
-  projection.className = "quiet-dark navigation-projection";
-  projection.dataset.command = "navigation-projection";
-  review.$(".orient").append(projection);
   viewer.onProjection = (ortho) => {
     for (const button of document.querySelectorAll(
       '[data-command="navigation-projection"]',
@@ -109,9 +108,7 @@ export function bindNavigation(review) {
         ortho ? "navigation.perspective" : "navigation.orthographic",
       );
     }
-    projection.textContent = t(
-      ortho ? "navigation.orthographic" : "navigation.perspective",
-    );
+    review.refreshCommands();
   };
   viewer.onProjection(!!viewer.camera.isOrthographicCamera);
 
