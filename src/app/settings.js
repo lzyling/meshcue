@@ -7,6 +7,10 @@ import {
 import { storeThemeChoice, applyTheme, THEMES } from "../theme.js";
 
 export function bindSettings(review) {
+  review.$("#settings-button").onclick = () =>
+    review.$("#settings-dialog").showModal();
+  review.$("#close-settings").onclick = () =>
+    review.$("#settings-dialog").close();
   /* The theme follows the system, so it can change while the page is open — at
    dusk, or when the reviewer flips the setting mid-review. CSS repaints itself;
    the WebGL canvas will not until it is told to. */
