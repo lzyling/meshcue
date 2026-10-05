@@ -1,4 +1,4 @@
-import { planarFaces } from "../planar-fill.js";
+import { faceRegion } from "../face-region.js";
 
 export class EditingMethods {
   pointerDown(e) {
@@ -78,7 +78,7 @@ export class EditingMethods {
     this.fillTarget = target;
     const { mesh, seed } = target;
     const selected = new Set(
-      planarFaces(mesh.userData.fillTopology, seed, this.fillTolerance),
+      faceRegion(mesh.userData.fillTopology, seed, this.fillTolerance),
     );
     // Every one of these is an entire source face by construction, so each is
     // stored as its number alone. The bucket is the cheapest tool there is.

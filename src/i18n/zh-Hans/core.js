@@ -114,7 +114,7 @@ export default {
   "tool.newRegion": "新区域",
   "tool.newRegionHint": "下一次填色会自成一个颜色区域。",
   "hint.orbit":
-    "左键或右键拖动旋转 · 平移工具（H）或 Shift+滚动/拖动平移 · 滚轮/捏合缩放",
+    "单击选面 · 双击设旋转中心 · 拖动旋转 · 平移（H） · 滚轮／捏合缩放",
   "hint.fill": "悬停预览 · 点击填充 · 右键照样旋转",
   "hint.relocate": "点击表面移动标签 · 按 Esc 取消",
 

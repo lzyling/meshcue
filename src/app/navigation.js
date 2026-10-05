@@ -11,7 +11,30 @@ export function bindNavigation(review) {
     passive: true,
   });
   // Read-only inspection follows the existing review diagnostics convention.
-  window.__navigationDiagnostics = () => ({
+  window.__navigationDiagnostics = (x, y) => ({
+    pick:
+      Number.isFinite(x) && Number.isFinite(y)
+        ? (() => {
+            const hit = viewer.rayAt(x, y);
+            if (!hit) return null;
+            const mesh = hit.object;
+            const seed = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+            const brep = mesh.userData.fillTopology.brep;
+            const range = brep?.ranges[brep.of[seed]];
+            return {
+              meshId: mesh.userData.reviewId,
+              seed,
+              range,
+              point: hit.point.toArray(),
+            };
+          })()
+        : null,
+    selection: viewer.navigationSelection
+      ? {
+          meshId: viewer.navigationSelection.mesh.userData.reviewId,
+          faces: viewer.navigationSelection.faces,
+        }
+      : null,
     projection: viewer.camera.isOrthographicCamera
       ? "orthographic"
       : "perspective",
@@ -23,6 +46,19 @@ export function bindNavigation(review) {
       point.project(viewer.camera).toArray(),
     ),
   });
+  // Compose with the existing Escape command, including parts isolation and
+  // measurement, so typing/dialog boundaries still belong to the registry.
+  const escape = review.commands.get("escape");
+  const previousRun = escape.run,
+    previousEnabled = escape.enabled;
+  escape.enabled = (source) =>
+    !!viewer.navigationSelection || previousEnabled(source);
+  escape.run = () => {
+    viewer.clearNavigationSelection();
+    viewer.navigationLastClick = null;
+    viewer.parts?.select(null);
+    previousRun();
+  };
   const enabled = () => viewer.enabled;
   const register = (id, labelKey, shortcuts, run, extra = {}) =>
     review.commands.register({
