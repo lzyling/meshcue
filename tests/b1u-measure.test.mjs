@@ -17,7 +17,7 @@ const arc = (span = 360, noise = 0, ellipse = 1) =>
   });
 
 test("smart circle fit accepts a full circular B-rep edge and a 90 degree arc", () => {
-  for (const span of [360, 90]) {
+  for (const span of [360, 90, 359]) {
     const fit = measure.fitCircle(arc(span));
     assert.ok(fit);
     assert.ok(Math.abs(fit.diameter - 5) < 1e-8);
@@ -171,4 +171,15 @@ test("smart circles keep three fitted ring samples in the existing circle mark s
     );
   viewer.measuring.result.keepable = false;
   assert.equal(viewer.measureMark(), null);
+});
+
+test("each locale's measurement help exposes the Smart and Advanced paths", async () => {
+  for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
+    const { default: help } = await import(`../src/i18n/${locale}/help.js`);
+    const { default: strings } = await import(
+      `../src/i18n/${locale}/measure.js`
+    );
+    assert.ok(help["help.p10"].includes(strings["measure.smart"]), locale);
+    assert.ok(help["help.p10"].includes(strings["measure.advanced"]), locale);
+  }
 });

@@ -1,12 +1,6 @@
 import { newId } from "../browser-crypto.js";
 import { t } from "../i18n/index.js";
 export function installMeasure(review) {
-  review.MEASURE_HINTS.smart = "measure.hintSmart";
-  review.MEASURE_NEXT.smart = ["measure.nextObject", "measure.restart"];
-  Object.assign(review.MEASURE_REFUSALS, {
-    unsupported: "measure.unsupported",
-    notCylinder: "measure.notCylinder",
-  });
   const format = review.formatMeasure;
   review.formatMeasure = (value) => {
     const reading = format(value);
@@ -76,6 +70,14 @@ export function installMeasure(review) {
 }
 
 export function bindMeasure(review) {
+  review.MEASURE_KINDS.circle = "measure.circleMark";
+  review.MEASURE_HINTS.smart = "measure.hintSmart";
+  review.MEASURE_NEXT.smart = ["measure.nextObject", "measure.restart"];
+  Object.assign(review.MEASURE_REFUSALS, {
+    unsupported: "measure.unsupported",
+    notCylinder: "measure.notCylinder",
+  });
+
   review.viewer.formatMeasure = review.formatMeasure;
   review.viewer.setMeasureKind("smart");
 
@@ -100,13 +102,17 @@ export function bindMeasure(review) {
     // Storage can be unavailable in private/embedded contexts; the native
     // disclosure remains usable for this visit.
   }
-  advanced.addEventListener("toggle", () => {
+  const rememberAdvanced = () => {
     try {
       localStorage.setItem("meshcue.measure.advanced", String(advanced.open));
     } catch {
       /* Remembering a disclosure is optional, measuring is not. */
     }
-  });
+  };
+  advanced.addEventListener("toggle", rememberAdvanced);
+  // Native toggle is queued after the click. A reload can win that race;
+  // pagehide records the actual disclosure state before the document goes.
+  window.addEventListener("pagehide", rememberAdvanced);
 
   for (const b of document.querySelectorAll("[data-measure]"))
     b.addEventListener("click", () => {

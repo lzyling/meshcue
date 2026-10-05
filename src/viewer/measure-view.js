@@ -456,6 +456,7 @@ export class MeasureViewMethods {
         ? {
             kind: m.kind,
             picks: m.picks.length,
+            ...(m.smart ? { objects: m.picks.map((p) => p.type) } : {}),
             result: m.result
               ? {
                   quantity: m.result.quantity,

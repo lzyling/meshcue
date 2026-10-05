@@ -2261,14 +2261,23 @@ dialog .muted {
   padding: 8px 0;
 }
 #measure-advanced[open] {
-  display: flex;
-  align-items: center;
+  display: block;
 }
 #measure-advanced .measure-kinds {
   flex-wrap: wrap;
 }
 #measure-advanced .measure-kind {
+  flex: 1;
   min-height: 32px;
+}
+@media (max-width: 600px) {
+  #measure-advanced {
+    flex-basis: 100%;
+  }
+  #measure-advanced .measure-kinds {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (pointer: coarse) {
   #measure-options .measure-kind,

@@ -366,7 +366,7 @@ test("on a STEP a face and an edge are the file's own, and three points on a rim
   mark.normal.forEach((v, i) => expect(v).toBeCloseTo([0, 0, 1][i], 6));
   const row = page.locator(".annotation-row");
   await expect(row.locator("strong")).toHaveText("⌀5.00 mm");
-  await expect(row).toContainText("3-point circle");
+  await expect(row).toContainText("Circle");
   await expect(page.locator(".measure-label")).toContainText("⌀5.00 mm");
 
   // Measured again, the same hole's two readings are not printed one over the

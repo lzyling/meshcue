@@ -439,13 +439,16 @@ mark, then say what to change."
   supported; animation and skeletons are not supported yet. This is a review
   tool; it does not sculpt the model.
 
-- Measure: pick the Measure tool, then Point to point (corners snap), Edge
-  length, Two faces — parallel faces give the distance between them, any others
-  the angle — or 3-point circle, three clicks on the rim of a hole or shaft for
-  its diameter. On a STEP a face is the file's own face, whole, and an edge is
-  where two of them meet. Millimetres show two decimals; a model with no unit
-  shows the bare number. A measurement is gone at the next one unless you press
-  “Keep”, which makes it a mark you can write a note on, undo, delete and send.
+- Measure starts in Smart: click an edge, hole or face; click a second one to
+  compare. Nearby corners snap first, then edges, then faces. A straight edge
+  shows its length. On STEP, one click on a circular edge or cylindrical wall
+  shows the diameter; an arc also shows radius and angle. Two corners give
+  distance; two flat faces give gap when parallel, otherwise angle. Unsupported
+  pairs say so. The third click starts over; Escape clears the reading. Advanced
+  opens the original four kinds, including 3-point circle for STL/GLB.
+  Noncircular STEP curves show approximate tessellated length only and cannot be
+  kept. Values use model units and the usual decimals. Keep makes the reading a
+  mark you can note, undo, delete and send.
 
 - After “Send to Agent” the lines under the button follow the batch: how many
   marks were sent, then when the Agent read them, then its understanding, which

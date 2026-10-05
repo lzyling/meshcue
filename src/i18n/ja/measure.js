@@ -1,4 +1,5 @@
 export default {
+  "measure.circleMark": "円",
   "measure.smart": "スマート",
   "measure.advanced": "詳細",
   "measure.hintSmart":

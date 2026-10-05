@@ -285,6 +285,9 @@ test("transparent parts allow marking and measuring behind them through plain vi
   await expect(page.locator("#annotation-count")).toHaveText("2");
   expect((await diag(page)).annotations[1].meshId).toBe("mesh-1");
   await page.locator('[data-mode="measure"]').click();
+  // Compare arbitrary surface points behind the transparent part.
+  await page.locator("#measure-advanced summary").click();
+  await page.locator('[data-measure="points"]').click();
   await kit.clickModelPoint([-0.5, -0.6, 1], { meshId: "mesh-1" });
   await expect.poll(async () => (await diag(page)).measuring?.picks).toBe(1);
   await kit.clickModelPoint([0.5, -0.6, 1], { meshId: "mesh-1" });

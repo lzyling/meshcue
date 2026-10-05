@@ -1,4 +1,5 @@
 export default {
+  "measure.circleMark": "圆",
   "measure.smart": "智能",
   "measure.advanced": "高级",
   "measure.hintSmart": "单击边、孔或面 · 再单击一个进行比较 · 右键拖动旋转",

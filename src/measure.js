@@ -517,6 +517,15 @@ export function fitCircle(input) {
       return null;
     angles.push(Math.atan2(radial.dot(v), radial.dot(u)));
   }
+  // Coverage rejects underconstrained fits, but the ordered edge determines
+  // its actual sweep. Near a complete open circle, an ordinary tessellation
+  // segment can be larger than the missing arc; calling that segment the gap
+  // would understate the measured angle.
+  let sweep = 0;
+  for (let i = 1; i < angles.length; i++) {
+    const delta = angles[i] - angles[i - 1];
+    sweep += Math.atan2(Math.sin(delta), Math.cos(delta));
+  }
   angles.sort((a, b) => a - b);
   let gap = 0;
   for (let i = 0; i < angles.length; i++)
@@ -527,13 +536,12 @@ export function fitCircle(input) {
     );
   const coverage = (2 * Math.PI - gap) / RAD;
   if (coverage < CIRCLE_MIN_ARC) return null;
-  const closed =
-    input[0].distanceTo(input[input.length - 1]) < radius * CIRCLE_FIT_SHARE;
+  const closed = input[0].distanceTo(input[input.length - 1]) < radius * 1e-7;
   return {
     centre,
     normal,
     diameter: radius * 2,
-    arcAngle: closed ? 360 : coverage,
+    arcAngle: closed ? 360 : Math.abs(sweep) / RAD,
     points,
   };
 }

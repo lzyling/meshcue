@@ -1,4 +1,5 @@
 export default {
+  "measure.circleMark": "Circle",
   "measure.smart": "Smart",
   "measure.advanced": "Advanced",
   "measure.hintSmart":

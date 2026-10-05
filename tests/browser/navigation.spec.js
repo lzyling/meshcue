@@ -336,6 +336,9 @@ test("navigation orthographic measuring and section caps use parallel picking ra
   await front(page);
   await page.locator("#navigation-projection").click();
   await page.locator('[data-mode="measure"]').click();
+  // This ray regression measures arbitrary points, using the explicit kind.
+  await page.locator("#measure-advanced summary").click();
+  await page.locator('[data-measure="points"]').click();
   for (const world of [
     [-0.6, 0, 1.2],
     [0.6, 0, 1.2],
