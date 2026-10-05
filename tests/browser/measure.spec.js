@@ -106,6 +106,9 @@ async function open(page, units, file = writePlate()) {
   await expect(page.locator("#loading")).toBeHidden();
   await page.getByRole("button", { name: "Measure tool", exact: true }).click();
   await expect(page.locator("#measure-options")).toBeVisible();
+  // These regressions exercise the original explicit kinds, now in Advanced.
+  await page.locator("#measure-advanced summary").click();
+  await page.locator('[data-measure="points"]').click();
 }
 // Where a point of the plate is on the screen, from the camera the page holds.
 // A GLB is not stood up: its (x, y, z) is the preview's 0.15 × (x, y, z).

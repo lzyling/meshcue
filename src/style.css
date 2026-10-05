@@ -2247,3 +2247,32 @@ dialog .muted {
 .pan-tool .measure-label {
   pointer-events: none;
 }
+
+/* === b1u Lane M: smart measurement and advanced kinds === */
+#measure-options > [data-measure="smart"] {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-height: 32px;
+}
+#measure-advanced summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-size: 11px;
+  padding: 8px 0;
+}
+#measure-advanced[open] {
+  display: flex;
+  align-items: center;
+}
+#measure-advanced .measure-kinds {
+  flex-wrap: wrap;
+}
+#measure-advanced .measure-kind {
+  min-height: 32px;
+}
+@media (pointer: coarse) {
+  #measure-options .measure-kind,
+  #measure-advanced summary {
+    min-height: 44px;
+  }
+}

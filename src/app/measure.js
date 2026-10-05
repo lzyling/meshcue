@@ -91,6 +91,23 @@ export function bindMeasure(review) {
     .$("#keep-measure")
     .addEventListener("click", () => review.keepMeasure());
 
+  const advanced = review.$("#measure-advanced");
+  // Remember only the disclosure. Every new page starts in Smart so a kind
+  // chosen for yesterday's model doesn't silently change today's first pick.
+  try {
+    advanced.open = localStorage.getItem("meshcue.measure.advanced") === "true";
+  } catch {
+    // Storage can be unavailable in private/embedded contexts; the native
+    // disclosure remains usable for this visit.
+  }
+  advanced.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem("meshcue.measure.advanced", String(advanced.open));
+    } catch {
+      /* Remembering a disclosure is optional, measuring is not. */
+    }
+  });
+
   for (const b of document.querySelectorAll("[data-measure]"))
     b.addEventListener("click", () => {
       for (const other of document.querySelectorAll("[data-measure]")) {
