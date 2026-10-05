@@ -506,27 +506,53 @@ export class MeasureViewMethods {
      are, and a coordinate within a billionth of the model of zero is zero. */
   measureMark() {
     const m = this.measuring;
-    if (!m?.result) return null;
+    if (!m?.result || m.result.keepable === false) return null;
+    const kind = m.smart ? m.savedKind : m.kind;
+    let picks = m.picks;
+    if (m.smart && kind === "circle") {
+      const source = m.picks[0];
+      const topology = source.mesh.userData.fillTopology;
+      const frame = this.modelFrame(source.mesh);
+      // A fitted circle is still the existing three-point mark. Associate
+      // each fitted ring sample with its nearest source triangle, rather than
+      // pretending all three samples were on the triangle clicked once.
+      picks = m.result.points.map((point) => {
+        let sourceFaceIndex = source.sourceFaceIndex,
+          best = Infinity;
+        for (let face = 0; face < topology.vertices.length; face++)
+          for (const corner of topology.vertices[face]) {
+            const distance = new V()
+              .fromArray(corner)
+              .applyMatrix4(frame)
+              .distanceToSquared(point);
+            if (distance < best) {
+              best = distance;
+              sourceFaceIndex = face;
+            }
+          }
+        return { meshId: source.meshId, sourceFaceIndex };
+      });
+    }
     const span = 3 / (this.root.scale.x || 1);
     const round = (v) =>
       Math.abs(v) < span * 1e-9 ? 0 : Number(v.toPrecision(6));
     const unit = (v) => (Math.abs(v) < 1e-9 ? 0 : Number(v.toPrecision(6)));
     return {
-      kind: m.kind,
+      kind,
       quantity: m.result.quantity,
       value: Number(m.result.value.toPrecision(6)),
       space: "model",
       points: m.result.points.map((p) => p.toArray().map(round)),
-      picks: m.picks.map((p) => ({
+      picks: picks.map((p) => ({
         meshId: p.meshId,
         sourceFaceIndex: p.sourceFaceIndex,
       })),
-      ...(m.kind === "planes"
+      ...(kind === "planes"
         ? {
             normals: m.picks.map((p) => p.plane.normal.toArray().map(unit)),
           }
         : {}),
-      ...(m.kind === "circle"
+      ...(kind === "circle"
         ? {
             center: m.result.center.toArray().map(round),
             normal: m.result.normal.toArray().map(unit),

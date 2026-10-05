@@ -120,3 +120,55 @@ test("smart measurement compares its second object and starts over on the third"
   viewer.smartMeasureClick(point(9));
   assert.equal(viewer.measuring.picks.length, 1);
 });
+
+test("smart circles keep three fitted ring samples in the existing circle mark shape", () => {
+  const points = arc(360).filter((_, i) => [0, 16, 32].includes(i));
+  const mesh = {
+    userData: {
+      fillTopology: {
+        vertices: points.map((p) => [
+          p.toArray(),
+          p.clone().addScalar(0.1).toArray(),
+          p.clone().addScalar(-0.1).toArray(),
+        ]),
+      },
+    },
+  };
+  const viewer = Object.assign(Object.create(methods), {
+    root: { scale: { x: 0.15 } },
+    modelFrame: () => identity,
+    measuring: {
+      kind: "smart",
+      smart: true,
+      savedKind: "circle",
+      picks: [{ mesh, meshId: "mesh-0", sourceFaceIndex: 0 }],
+      result: {
+        quantity: "diameter",
+        value: 5,
+        points,
+        center: new THREE.Vector3(3, -2, 4),
+        normal: new THREE.Vector3(0, 0, 1),
+      },
+    },
+  });
+  const mark = viewer.measureMark();
+  assert.equal(mark.kind, "circle");
+  assert.equal(mark.points.length, 3);
+  assert.deepEqual(
+    mark.picks.map((p) => p.sourceFaceIndex),
+    [0, 1, 2],
+  );
+  assert.deepEqual(mark.center, [3, -2, 4]);
+  assert.deepEqual(mark.normal, [0, 0, 1]);
+  for (const p of mark.points)
+    assert.ok(
+      Math.abs(
+        new THREE.Vector3()
+          .fromArray(p)
+          .distanceTo(new THREE.Vector3().fromArray(mark.center)) -
+          mark.value / 2,
+      ) < 1e-5,
+    );
+  viewer.measuring.result.keepable = false;
+  assert.equal(viewer.measureMark(), null);
+});
