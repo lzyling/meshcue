@@ -17,8 +17,14 @@ means a model that actually loads, not a URL.
 
 ## 2. Checking the tool and the project
 
-Find and call `meshcue`'s `inspect` action to check the workspace, agent,
-session and generation; on Telegram the return target and account as well. When
+Find and call `meshcue`'s `inspect` action to check the installed version,
+document paths and context availability. Its workspace, agent, session,
+generation and delivery fields are presence booleans, not their identities
+(`channel` is a name or null). Confirm the workspace in the host configuration
+or CLI `--workspace`/working directory. For an existing review, compare
+`status.project` and `status.origin` with the intended project, owner/session
+and return route. CLI `inspect` does not validate `--owner` and reports no host
+session even when that flag is supplied. When
 the tool is missing, the sandbox forbids it, or the context is incomplete, say
 what is actually absent — never substitute a guessed command, localhost, or an
 old topic's URL. Choose a separate `projects/<name>` for new modelling work, or
@@ -64,6 +70,12 @@ machine, use a `confirmedClientAddress` the user has verified; reuse a device
 already verified in the package rather than treating the first visitor or a
 User-Agent as confirmation. When device details are missing, ask only for the
 IPv4 — never for a token or a pairing code.
+
+These are tool field names. On the CLI, use `--client-address` for
+`confirmedClientAddress`, `--submission` for `submissionId`, `--version-id` for
+`versionId`, and `--agent-name` for `agentName`. Run `meshcue help` for the
+complete flag map; per-action `--help` is not supported. The CLI supports text
+`echo --summary`; geometry reads and region echoes need MCP or the host tool.
 
 Pass `agentName` on every `open`: the page calls you by it, with the tool it
 recognises in brackets after it (“Send to Ada (OpenClaw)”; full-width in

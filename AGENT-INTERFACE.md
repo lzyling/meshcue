@@ -27,7 +27,7 @@ second and runs the `prepare` script in it.
 
 | Host             | Install                                                                                                                     | It worked when                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Claude Code      | `claude plugin marketplace add lzyling/meshcue`, then `claude plugin install meshcue@meshcue`; Node.js 22 or later on `PATH` | `/mcp` shows `plugin:meshcue:meshcue` connected and `inspect` reports the project directory |
+| Claude Code      | `claude plugin marketplace add lzyling/meshcue`, then `claude plugin install meshcue@meshcue`; Node.js 22 or later on `PATH` | `/mcp` shows `plugin:meshcue:meshcue` connected and `inspect` reports context availability and installed document paths |
 | Any MCP client   | `npm i -g "github:lzyling/meshcue#v1.4.1"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
 | CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
 | OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
@@ -44,8 +44,19 @@ MeshCue is **not published on npm**. A package named `meshcue` or `meshcue-mcp`
 on that registry is not this project; every release states the SHA-256 of its
 own artifact, and that is what to check an install against.
 
-`inspect` is the first call on every host: it reports the workspace, agent and
-session a review would belong to. When it fails, say what is actually missing.
+`inspect` is the first call on every host: it returns `product`,
+`integrationVersion`, `docs` (installed document paths), and `context`.
+Context fields report **availability**, not identity: `workspace`, `agent`,
+`sessionKey`, `sessionGeneration`, delivery target/account/thread, file policy
+and sandbox are booleans; `channel` is its name or `null`. Two different
+workspaces can therefore return identical results. The CLI does not check
+`--owner` during `inspect`; its session booleans are false even with that flag.
+Confirm the workspace from the host configuration (`MESHCUE_WORKSPACE` for
+MCP, `--workspace` or the working directory for CLI). For an existing review,
+`status.project` and `status.origin` identify the project and bound owner/session
+(and the return route on hosts that supply one); compare them with the intended
+conversation. `inspect` alone cannot verify those identities.
+When a call fails, say what is actually missing.
 A guessed command, a guessed port or a remembered URL from another topic is
 worse than stopping, because it looks like a working setup right up until
 someone sends marks into nothing.
@@ -57,7 +68,7 @@ someone sends marks into nothing.
 
 | Action     | Does                                                                                                                                       | Notes                                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `inspect`  | where you are, which version is installed, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
+| `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
 | `open`     | publishes a model and **shows it**                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
 | `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
 | `status`   | every version with its mark count, unsubmitted count, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
@@ -70,6 +81,40 @@ Every published version stays. Each keeps its own draft, presence and echo, and
 the reviewer can return to any of them and keep marking. Publishing therefore
 never needs anyone to step aside: there is no queue, and no "end the round"
 gate.
+
+## CLI flags and tool fields
+
+Run `meshcue help` (or `meshcue --help`) for the accepted flags and their tool
+field names. Help is a top-level action: `meshcue open --help` is not supported.
+From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
+
+| CLI flag | Tool field / meaning |
+| --- | --- |
+| `--workspace <directory>` | CLI workspace root; defaults to the working directory |
+| `--owner <id>` | CLI originating session; required except for help, inspect and precheck |
+| `--project <projects/name>` | `project` |
+| `--file <path>` | `file`, relative to the workspace |
+| `--name <text>`, `--version <text>`, `--units <text>`, `--label <text>` | Same-named publication fields |
+| `--agent-name <text>` | `agentName` |
+| `--client-address <IPv4>` | `confirmedClientAddress`, the verified browser device address |
+| `--host <address>` | `host`, the listening address for a new review |
+| `--submission <id>` | `submissionId` for read/echo |
+| `--version-id <id>` | `versionId` for activate/read/echo/finish |
+| `--summary <text>` | `summary` for echo |
+| `--keep <number>` | `keep` for retain |
+| `--resume` | `resume: true` |
+| `--no-activate` | `activate: false` |
+
+Do not turn camelCase tool fields into guessed CLI flags:
+`--submission-id`, `--confirmed-client-address`, and `--confirmedClientAddress`
+are not accepted. The CLI currently has no `geometry` or `annotations` flag;
+use MCP or the host tool for full-geometry reads and region echoes. CLI echo
+accepts a text `--summary`.
+
+```sh
+node cli/meshcue.mjs read --owner demo --project projects/sample --submission BATCH_ID
+node cli/meshcue.mjs echo --owner demo --project projects/sample --submission BATCH_ID --version-id VERSION_ID --summary "I understand the requested change."
+```
 
 ## What the page calls you — `agentName`
 

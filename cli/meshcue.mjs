@@ -67,6 +67,19 @@ export function help(installRoot = INSTALL_ROOT) {
   return {
     usage: `meshcue <${ACTIONS.join("|")}> [--option value]…`,
     actions: ACTIONS,
+    flags: Object.fromEntries(
+      Object.entries(FLAGS).map(([flag, field]) => [
+        `--${flag} <value>`,
+        field,
+      ]),
+    ),
+    switches: {
+      "--resume": "resume: true",
+      "--no-activate": "activate: false",
+    },
+    help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
+    limits:
+      "CLI read returns summaries; full geometry and region echoes require MCP or the host tool.",
     start:
       "Read AGENT-INTERFACE.md before the first call: it states what each answer does and does not mean, and how to check an install. SKILL.md is the procedure for running a review.",
     docs: docPaths(installRoot),
