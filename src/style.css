@@ -2516,3 +2516,42 @@ dialog .muted {
     min-height: 330px;
   }
 }
+/* The optional report floats within the canvas without changing its camera or
+   stealing the toolbar's hit targets. Opening a menu temporarily clears it. */
+#perf-panel {
+  top: auto;
+  left: auto;
+  right: 8px;
+  bottom: calc(var(--tool-options-bottom, 68px) + 8px);
+  width: 230px;
+  max-width: calc(100% - 16px);
+  padding: 4px;
+}
+#perf-panel:has(#perf-details[hidden]) {
+  width: max-content;
+}
+#perf-summary {
+  min-height: 44px;
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 8px;
+  cursor: move;
+  touch-action: none;
+}
+#perf-details {
+  padding: 4px 8px 8px;
+}
+#perf-details[hidden] {
+  display: none;
+}
+.performance-open #viewer {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.menu-open #perf-panel,
+body:has(#display-menu:not([hidden])) #perf-panel {
+  visibility: hidden;
+}
