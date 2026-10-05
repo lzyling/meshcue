@@ -2555,3 +2555,38 @@ dialog .muted {
 body:has(#display-menu:not([hidden])) #perf-panel {
   visibility: hidden;
 }
+.tool-hint-box {
+  position: absolute;
+  left: 12px;
+  max-width: min(540px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  font-size: 11px;
+  z-index: 4;
+}
+.tool-hint-box button {
+  min-width: 32px;
+  min-height: 32px;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.menu-open .tool-hint-box,
+body:has(#display-menu:not([hidden])) .tool-hint-box {
+  visibility: hidden;
+}
+.viewer-bottom {
+  bottom: 70px;
+}
+@media (max-width: 760px) {
+  .viewer-shell {
+    min-height: 390px;
+  }
+  .review-body:has(#parts-panel:not([hidden])) > .viewer-shell {
+    min-height: 390px;
+  }
+}

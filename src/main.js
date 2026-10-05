@@ -1,3 +1,4 @@
+import { bindHints } from "./app/hints.js";
 import { bindSidebar } from "./app/sidebar.js";
 import "./style.css";
 import { bindOverlayLayout } from "./app/overlay-layout.js";
@@ -77,6 +78,7 @@ bindNavigation(review);
 bindOverlayLayout(review);
 bindAnnotationEditing(review);
 bindToolbarOptions(review);
+bindHints(review);
 bindEcho(review);
 bindVersionScrolling(review);
 bindAnnotationsPanel(review);

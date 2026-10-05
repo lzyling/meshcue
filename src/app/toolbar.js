@@ -91,6 +91,7 @@ export function installToolbar(review) {
       pan: t("hint.pan"),
       measure: t(review.MEASURE_HINTS[review.viewer.measureKind]),
     }[next];
+    review.showToolHint?.(next);
   }
 
   function updatePalette() {
