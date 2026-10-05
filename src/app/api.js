@@ -1,5 +1,33 @@
 import { t, ta } from "../i18n/index.js";
 export function installApi(review) {
+  /* The header keeps one small mark for the connection, beside Help and
+   Settings, because whether the Agent can still collect is something a
+   reviewer needs before they spend ten minutes marking, not after they open a
+   dialog to look. Three states, each a different shape as well as a colour --
+   a filled dot, a hollow ring, a struck-out ring -- so the difference survives
+   colour blindness, a grey-scale screen and a glance. "Reconnecting" is every
+   failure the page will keep polling its way out of; "offline" is only the two
+   it will not (access gone, review closed), where waiting does not help. The
+   words are its accessible name and tooltip, followed by the longer sentence
+   the settings dialog still shows, so nothing that was readable there is lost
+   here. */
+  const CONNECTION_KEYS = {
+    connecting: "conn.connecting",
+    online: "shell.online",
+    reconnecting: "shell.reconnecting",
+    offline: "shell.offline",
+  };
+  function showConnection(state) {
+    review.$(".connection-dot").classList.toggle("online", state === "online");
+    const dot = review.$("#connection-indicator");
+    const words = t(CONNECTION_KEYS[state]),
+      detail = review.$("#connection-status").textContent;
+    const label = detail && detail !== words ? `${words} · ${detail}` : words;
+    dot.dataset.state = state;
+    dot.setAttribute("aria-label", label);
+    dot.title = label;
+  }
+
   function connectionMessage() {
     if (!review.loadedId || !review.initialDraftRestored)
       return ta("conn.unreachable");
@@ -31,8 +59,8 @@ export function installApi(review) {
       // the current draft has actually been written to this browser's cache.
       review.disconnected = true;
       const message = connectionMessage();
-      review.$(".connection-dot").classList.remove("online");
       review.$("#connection-status").textContent = t("conn.paused");
+      showConnection(review.accessBlocked ? "offline" : "reconnecting");
       review.$("#save-status").textContent = message;
       review.updateButtons();
       const error = new Error(message);
@@ -137,12 +165,12 @@ export function installApi(review) {
           review.editSeq > review.savedSeq ? "save.unsynced" : "save.saved",
         );
       review.disconnected = false;
-      review.$(".connection-dot").classList.add("online");
       review.$("#connection-status").textContent = incoming.notifier?.send
         ? t("conn.origin")
         : incoming.owned || review.state?.submissions?.length
           ? ta("conn.collect")
           : t("conn.local");
+      showConnection("online");
       review.updateButtons();
       review.restoreVersionChoice(incoming);
       // A pinned tab survives polls and reloads, until the agent activates a
@@ -211,12 +239,12 @@ export function installApi(review) {
       review.updateClosing(incoming);
       review.updateButtons();
     } catch (e) {
-      review.$(".connection-dot").classList.remove("online");
       // A service that announced its own reclaim and then stopped answering did
       // not fail. Saying "offline" here would describe a crash, and would leave
       // the reviewer with no reason to believe their marks are still there.
       if (review.wasReclaimed()) {
         review.$("#connection-status").textContent = t("conn.reclaimed");
+        showConnection("offline");
         review.$("#save-status").textContent = ta("closing.done");
         review.$("#closing-text").textContent = ta("closing.done");
         review.$("#closing-banner").hidden = false;
@@ -226,6 +254,7 @@ export function installApi(review) {
       review.$("#connection-status").textContent = review.accessBlocked
         ? t("conn.returnToChat")
         : t("conn.paused");
+      showConnection(review.accessBlocked ? "offline" : "reconnecting");
       review.$("#save-status").textContent = review.accessBlocked
         ? review.loadedId && review.initialDraftRestored
           ? t("conn.accessExpired")

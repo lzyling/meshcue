@@ -11,4 +11,7 @@ export default {
   "shell.dismissHint": "Fermer le conseil",
   "shell.perfDetails": "Afficher les détails des performances",
   "shell.perfDrag": "Déplacer la fenêtre des performances",
+  "shell.online": "En ligne",
+  "shell.reconnecting": "Reconnexion…",
+  "shell.offline": "Hors ligne",
 };

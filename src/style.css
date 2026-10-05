@@ -324,14 +324,16 @@ a {
 }
 /* Both are the same control and are sized by one rule, which is how a third
    one that only picked up `.quiet` was caught standing 12px and 27px tall
-   beside two neighbours at 10px and 25px. */
+   beside two neighbours at 10px and 25px. They used to sit in the header,
+   capped at 116px (78px and 9px type on a phone) to leave room for the brand;
+   they now live in the settings dialog, where that cap only cut "Follow the
+   system" short in a row with space to spare. The dialog's own rule sizes
+   them to the row. */
 #locale-choice,
 #theme-choice {
   min-width: 0;
-  max-width: 116px;
-  padding: 4px 6px;
-  min-height: 27px;
-  font-size: 11px;
+  padding: 6px 10px;
+  font-size: 13px;
   text-overflow: ellipsis;
 }
 .connection-dot,
@@ -346,6 +348,51 @@ a {
 .connection-dot.online,
 .tiny-dot {
   background: var(--accent);
+}
+/* The header's connection mark (see `showConnection` in src/app/api.js).
+   Shape carries the state as much as colour does: filled when online, a
+   hollow ring while (re)connecting, a struck-out ring when offline. */
+.connection-indicator {
+  position: relative;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--warn);
+  background: transparent;
+}
+.connection-indicator[data-state="online"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.connection-indicator[data-state="connecting"],
+.connection-indicator[data-state="reconnecting"] {
+  animation: connection-pulse 1.4s ease-in-out infinite;
+}
+.connection-indicator[data-state="offline"] {
+  border-color: var(--danger);
+}
+.connection-indicator[data-state="offline"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--danger);
+  transform: rotate(45deg);
+}
+@keyframes connection-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connection-indicator {
+    animation: none !important;
+  }
 }
 .quiet {
   background: transparent;
@@ -1279,17 +1326,6 @@ dialog .muted {
   .scene-pill {
     font-size: 9px;
     padding: 6px 8px;
-  }
-}
-@media (max-width: 860px) {
-  #locale-choice,
-  #theme-choice {
-    max-width: 78px;
-    font-size: 9px;
-    padding: 3px 4px;
-  }
-  .header-right #connection-status {
-    display: none;
   }
 }
 @media (max-width: 800px) {
@@ -2399,6 +2435,9 @@ dialog .muted {
 #settings-dialog select {
   flex: 1;
   min-height: 44px;
+}
+#settings-dialog .connection-dot {
+  margin-right: 8px;
 }
 .header-right button {
   min-width: 44px;

@@ -11,4 +11,7 @@ export default {
   "shell.dismissHint": "ツールヒントを閉じる",
   "shell.perfDetails": "パフォーマンス詳細を表示",
   "shell.perfDrag": "パフォーマンスウィンドウをドラッグ",
+  "shell.online": "オンライン",
+  "shell.reconnecting": "再接続中…",
+  "shell.offline": "オフライン",
 };
