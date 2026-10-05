@@ -130,7 +130,7 @@ export default {
   "tool.newRegion": "New area",
   "tool.newRegionHint": "The next fill starts its own colour area.",
   "hint.orbit":
-    "Left/right-drag to orbit · Pan (H) or Shift+scroll/drag to pan · wheel/pinch to zoom",
+    "Click selects · double-click centres · drag rotates · Pan (H) to pan · wheel/pinch to zoom",
   "hint.fill":
     "Hover to preview · click to fill · the right button still orbits",
   "hint.relocate": "Click a surface to move the label · Esc cancels",

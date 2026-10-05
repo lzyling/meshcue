@@ -288,7 +288,7 @@ test("STL hover and fill retain planar regions and the spread slider", async ({
     name: "STEP replacement",
     version: "step",
   });
-  await page.locator("[data-version]").last().click();
+  await page.locator("[data-version-id]").last().click();
   await expect
     .poll(async () => (await diag(page)).modelFilename)
     .toMatch(/\.stp$/);
@@ -302,3 +302,69 @@ test("STL hover and fill retain planar regions and the spread slider", async ({
   await expect(page.locator("#fill-control")).toBeVisible();
 });
 
+test("fixed mouse mapping remains available in every tool and help describes View selection", async ({
+  page,
+}) => {
+  await open(page);
+  const offset = (c) => c.position.map((v, i) => v - c.target[i]);
+  const drag = async (button, shift = false) => {
+    await page.mouse.move(1000, 420);
+    if (shift) await page.keyboard.down("Shift");
+    await page.mouse.down({ button });
+    await page.mouse.move(1040, 435, { steps: 4 });
+    await page.mouse.up({ button });
+    if (shift) await page.keyboard.up("Shift");
+  };
+  for (const mode of ["orbit", "label", "fill", "measure", "pan"]) {
+    await page.locator(`[data-mode="${mode}"]`).click();
+    let before = (await diag(page)).camera;
+    await drag("right");
+    expect(offset((await diag(page)).camera)).not.toEqual(offset(before));
+    before = (await diag(page)).camera;
+    await drag("left");
+    const after = (await diag(page)).camera;
+    if (["label", "fill", "measure"].includes(mode)) {
+      offset(after).forEach((v, i) =>
+        expect(v).toBeCloseTo(offset(before)[i], 7),
+      );
+      expect(after.target).toEqual(before.target);
+    } else if (mode === "orbit")
+      expect(offset(after)).not.toEqual(offset(before));
+    for (const [button, shift] of [
+      ["middle", false],
+      ["left", true],
+      ["right", true],
+    ]) {
+      before = (await diag(page)).camera;
+      await drag(button, shift);
+      const after = (await diag(page)).camera;
+      expect(after.target).not.toEqual(before.target);
+      offset(after).forEach((v, i) =>
+        expect(v).toBeCloseTo(offset(before)[i], 7),
+      );
+    }
+    before = (await diag(page)).camera;
+    await page.mouse.wheel(0, -40);
+    await expect
+      .poll(async () => Math.hypot(...offset((await diag(page)).camera)))
+      .toBeLessThan(Math.hypot(...offset(before)));
+    before = (await diag(page)).camera;
+    await page.keyboard.down("Shift");
+    await page.mouse.wheel(15, 20);
+    await page.keyboard.up("Shift");
+    await expect
+      .poll(async () => (await diag(page)).camera.target)
+      .not.toEqual(before.target);
+    offset((await diag(page)).camera).forEach((v, i) =>
+      expect(v).toBeCloseTo(offset(before)[i], 7),
+    );
+  }
+  expect((await diag(page)).annotationCount).toBe(0);
+  await page.locator("#help-button").click();
+  await expect(page.locator("#help-dialog")).toContainText(
+    "click or tap a face to select it",
+  );
+  await expect(page.locator("#help-dialog")).toContainText(
+    "double-clicking empty space does nothing",
+  );
+});

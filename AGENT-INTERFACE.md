@@ -387,16 +387,14 @@ with agentName and, when the host knows it, your tool's name after it ("Send
 to Ada (OpenClaw)"), or your tool's name alone when you gave none. "Look,
 mark, then say what to change."
 
-- Right-drag to orbit, wheel or pinch to zoom toward the pointer, middle-drag
-  or Shift+wheel to pan — on a mouse or trackpad. In the Orbit tool, left-drag
-  also rotates; Shift+left-drag or Shift+right-drag pans. Marking tools keep the
-  left button for marks. On a touchscreen, drag one finger to rotate and use two
-  fingers to pinch or pan; these gestures never mark. A tap places nothing in
-  Orbit; with Label, Paint bucket or Measure selected, tap the surface to use
-  that tool. For trackpad-only panning, select Pan (H) and click-drag. Pan also
-  moves the view with one finger on touchscreens; clicks and taps do not select
-  or place marks. Shift+two-finger scroll/drag or middle-drag also pans in every
-  tool.
+- Right-drag rotates in every tool. Left-drag rotates only in View; marking
+  tools use the left button for their action. Middle-drag, Shift+left/right-drag
+  or Shift+scroll pans. Wheel or pinch zooms. For trackpads and tablets, select
+  Pan (H) and drag to move the view. In View, click or tap a face to select it;
+  click empty space or press Esc to clear. Double-click or double-tap a face to
+  centre rotation there without zooming. Selection creates no mark. On
+  touchscreens, one finger rotates (or pans in Pan); two fingers pan or pinch to
+  zoom. Pan clicks and taps do nothing.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
@@ -462,11 +460,13 @@ mark, then say what to change."
   marked and measured. Section view is a viewing aid only, is never sent to the
   Agent, and resets when you load another model or version.
 
-- Navigation: double-click a surface in Orbit to set the rotation centre, or
-  empty space to fit all. F fits visible geometry in the current direction; Home
-  returns to the fitted isometric view. Projection switches between perspective
-  and orthographic and remembers your choice. Shift+1–7 selects Front, Back,
-  Left, Right, Top, Bottom and Isometric. Arrows rotate 15°, Ctrl+arrows 5°,
+- Navigation: in View, click or tap selects a face. Double-click or double-tap
+  a surface sets the rotation centre; double-clicking empty space does nothing.
+  STEP hover and new bucket fills follow the file’s whole faces; STEP needs no
+  spread slider. F fits visible geometry in the current direction; Home returns
+  to the fitted isometric view. Projection switches between perspective and
+  orthographic and remembers your choice. Shift+1–7 selects Front, Back, Left,
+  Right, Top, Bottom and Isometric. Arrows rotate 15°, Ctrl+arrows 5°,
   Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z zooms in. N
   looks straight at the face under the pointer; N again reverses the side. Drag
   the view cube to rotate, or use its arrows for 90° steps. Shift+/ lists all
