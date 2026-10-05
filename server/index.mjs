@@ -1647,12 +1647,25 @@ function errorHandler(err, req, res, next) {
       code: err.code || "ERROR",
       message: err.message,
     });
+  // Publication captions are supplied by agents, so name the rejected field
+  // and its existing bound without exposing arbitrary schema input values.
+  const labelLimit =
+    schemaError && req.path === "/publish"
+      ? err.issues.find(
+          (issue) =>
+            issue.path.length === 1 &&
+            issue.path[0] === "label" &&
+            issue.code === "too_big",
+        )
+      : null;
   res.status(status).json({
-    error: schemaError
-      ? "The input is not in the expected shape."
-      : status >= 500
-        ? "The service could not complete the request for now; the draft is kept."
-        : err.message,
+    error: labelLimit
+      ? `Publication label must be at most ${labelLimit.maximum} characters.`
+      : schemaError
+        ? "The input is not in the expected shape."
+        : status >= 500
+          ? "The service could not complete the request for now; the draft is kept."
+          : err.message,
     code: err.code || "ERROR",
   });
 }

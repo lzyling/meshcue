@@ -70,7 +70,7 @@ these defaults do not move a running or saved review to another address.
 
 Call `meshcue` with `action: "open"`, giving the workspace-relative `project`,
 the actual `file`, the model `name`, a recognisable `version` and `units`; use
-`label` for a short tab caption. Source, recipient and topic come from the host
+`label` for a short tab caption of at most 24 characters (UTF-16 code units). Source, recipient and topic come from the host
 context and are never added as tool parameters. To open a LAN entry for another
 machine, use a `confirmedClientAddress` the user has verified; reuse a device
 already verified in the package rather than treating the first visitor or a

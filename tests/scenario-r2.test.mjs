@@ -30,3 +30,22 @@ test("R2 bug 7: invalid STL is a format error without simplification advice", as
   );
   assert.throws(() => precheckModel(ctx, "invalid.stl"), invalid);
 });
+
+import { startReview } from "./helpers/review-server.mjs";
+
+test("R2 bug 9: publication names the label field and unchanged 24-character limit", async (t) => {
+  const f = await startReview(t, { managed: true });
+  const first = await f.publish();
+  const input = {
+    file: "tmp/samples/parametric-bracket.glb",
+    name: "Label limit",
+    version: "v2",
+  };
+  const accepted = await f.ipc("/publish", { ...input, label: "a".repeat(24) });
+  assert.equal(accepted.status, 200);
+  const refused = await f.ipc("/publish", { ...input, label: "a".repeat(25) });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /label.*24.*characters/i);
+  assert.equal(refused.body.code, "ERROR");
+  assert.equal((await f.ipc("/status")).body.active.id, first.id);
+});

@@ -78,6 +78,10 @@ someone sends marks into nothing.
 | `finish`   | closes a round on one version                                                                                                              | unsubmitted marks are **sealed into a batch**, not discarded                                                          |
 | `unlock`   | clears a stale presence record                                                                                                             | presence is a hint and never blocked anyone                                                                           |
 
+The publication `label` is optional and limited to 24 characters (UTF-16 code
+units, as counted by JavaScript string length). A longer label is rejected
+with an error naming `label` and the limit; the existing version stays active.
+
 Every published version stays. Each keeps its own draft, presence and echo, and
 the reviewer can return to any of them and keep marking. Publishing therefore
 never needs anyone to step aside: there is no queue, and no "end the round"
