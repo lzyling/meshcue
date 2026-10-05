@@ -49,9 +49,7 @@ export class DisplayMethods {
   applyTheme() {
     const token = (name) =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    this.sectionColor = token("--section-fill") || "#bd801a";
-    if (this.sectionCapMaterial)
-      this.sectionCapMaterial.color.set(this.sectionColor);
+    this.updateSectionColors();
     const backdrop = new THREE.Color(token("--canvas-b") || "#e9ede8");
     this.scene.background = backdrop;
     this.scene.fog = new THREE.Fog(backdrop, 10, 35);

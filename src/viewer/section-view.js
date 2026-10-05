@@ -4,6 +4,7 @@ import {
   retainedPoint,
   sectionIntersection,
   sectionPartGroups,
+  sectionPartColors,
 } from "../section.js";
 import * as THREE from "three";
 import { V } from "./shared.js";
@@ -126,6 +127,25 @@ export class SectionViewMethods {
     });
     this.sectionCap = this.sectionCaps[0];
     this.sectionCapMaterial = this.sectionCap?.material;
+    this.updateSectionColors();
+  }
+  updateSectionColors() {
+    if (!this.sectionCaps?.length) return;
+    // A part with multiple materials takes its first primitive's diffuse colour;
+    // lighting is deliberately excluded so orbiting cannot recolour the cut.
+    const source = this.sectionCaps.map((cap) => {
+      const mesh = cap.userData.sectionPart.meshes[0];
+      const material = Array.isArray(mesh.material)
+        ? mesh.material[0]
+        : mesh.material;
+      return material.color || new THREE.Color("#bd801a");
+    });
+    const colors = sectionPartColors(
+      source,
+      this.neutral || this.displayStyle === "hidden",
+    );
+    this.sectionCaps.forEach((cap, i) => cap.material.color.copy(colors[i]));
+    this.sectionColor = `#${colors[0].getHexString()}`;
   }
   disposeSectionCaps() {
     this.sectionCapGroup?.clear();
@@ -153,6 +173,7 @@ export class SectionViewMethods {
     this.sectionSides?.clear();
   }
   applySectionMaterials() {
+    this.updateSectionColors();
     this.restoreSectionSides();
     for (const mesh of this.meshes) {
       for (const material of Array.isArray(mesh.material)

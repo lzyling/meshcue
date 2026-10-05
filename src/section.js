@@ -1,4 +1,4 @@
-import { Matrix3, Plane, Vector3 } from "three";
+import { Color, Matrix3, Plane, Vector3 } from "three";
 
 // Positive distance is retained, matching three.js material clipping. The
 // plane is made in the source frame before the preview's fit and Z-up turn;
@@ -112,4 +112,36 @@ export function sectionPartGroups(meshes, parts) {
   }
   if (fragments.length) groups.push({ id: "open-shells", meshes: fragments });
   return groups;
+}
+
+// These middle-value categorical colours remain visible against either canvas
+// theme. Keep the order fixed: hiding a neighbour must never recolour a part.
+const SECTION_PALETTE = [
+  "#d99a47",
+  "#55b7c7",
+  "#be79c9",
+  "#7cba65",
+  "#dc737a",
+  "#7c99dc",
+  "#c5b85d",
+  "#64b6a0",
+  "#d08aaf",
+  "#9d9b73",
+];
+export function sectionPartColors(source, plain = false) {
+  const similar = source.some((a, i) =>
+    source
+      .slice(0, i)
+      .some((b) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b) < 0.18),
+  );
+  const tooDark = source.some((c) => Math.max(c.r, c.g, c.b) < 0.08);
+  const categorical = tooDark || (source.length > 1 && (plain || similar));
+  // Three stores linear RGB. Multiplying by 0.68 retains the source hue while
+  // making the cut visibly darker. Hatch ink multiplies that result by 0.42.
+  return source.map((c, i) =>
+    (categorical
+      ? new Color(SECTION_PALETTE[i % SECTION_PALETTE.length])
+      : c.clone()
+    ).multiplyScalar(0.68),
+  );
 }
