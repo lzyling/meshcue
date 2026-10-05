@@ -294,8 +294,21 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
     host: "127.0.0.1",
     confirmedClientAddress: "127.0.0.1",
   };
+  // Re-publication now explains reuse as well as the geometry omission; a
+  // plain reopen without a file still reports only the model's own notice.
+  const reusedNotices = [
+    ...notice,
+    {
+      code: "SAME_CONTENT_REUSED",
+      message:
+        "Content identical to initial; initial reopened. Requested version/label were not applied.",
+    },
+  ];
   for (let i = 0; i < 2; i++)
-    assert.deepEqual((await manager.execute(args)).notices, notice);
+    assert.deepEqual(
+      (await manager.execute(args)).notices,
+      i ? reusedNotices : notice,
+    );
   assert.deepEqual(
     (await manager.execute({ ...args, file: undefined })).notices,
     notice,
@@ -307,7 +320,7 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
   const published = await ipc(p.runtime, config.instance, "/publish", {
     file: "part.glb",
   });
-  assert.deepEqual(published.notices, notice);
+  assert.deepEqual(published.notices, reusedNotices);
   write(primitiveGlb());
   assert.equal(
     (await manager.execute({ ...args, activate: false })).notices,
@@ -317,7 +330,7 @@ test("publish, repeated open and reopen carry the skipped primitive notice to th
     (await manager.execute({ ...args, file: undefined })).notices,
     notice,
   );
-  assert.equal((await manager.execute(args)).notices, undefined);
+  assert.deepEqual((await manager.execute(args)).notices, [reusedNotices[1]]);
 });
 
 test("empty strips and construction parents preserve only their child surfaces and transforms", async () => {

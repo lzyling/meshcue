@@ -82,6 +82,30 @@ the reviewer can return to any of them and keep marking. Publishing therefore
 never needs anyone to step aside: there is no queue, and no "end the round"
 gate.
 
+## Same-content publication
+
+Version identity is the content SHA. Publishing identical bytes, including a
+renamed copy, reuses the existing version with its marks and receipts. Its
+existing tab caption (`label`, then `version`, then `name`) is kept; the requested
+`version`/`label` is not applied. HTTP publication and CLI/MCP/OpenClaw `open`
+return an additive entry in `notices`:
+
+```json
+{"code":"SAME_CONTENT_REUSED","message":"Content identical to v1; v1 reopened. Requested version/label were not applied."}
+```
+
+With `activate: false`, the notice instead says that the existing version was
+reused and the displayed version was not changed. No reviewer notice is emitted
+for that passive publication. A different SHA creates a new version without
+this notice.
+
+An activating reuse also adds optional `sameContentReuse` to review state:
+`{id, reviewId, versionId, label}` identifies that publication event and the
+existing caption. The page shows it once per event per browser tab, with a
+close button, and remembers consumption across reloads. Ordinary activation or
+a new active publication clears the event; ordinary tab switching does not
+create one. It is not stored as a permanent model notice.
+
 ## CLI flags and tool fields
 
 Run `meshcue help` (or `meshcue --help`) for the accepted flags and their tool

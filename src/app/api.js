@@ -109,7 +109,9 @@ export function installApi(review) {
       // different model. Unsaved edits still defer that switch below.
       if (
         review.state?.active?.id &&
-        incoming.active?.id !== review.state.active.id
+        (incoming.active?.id !== review.state.active.id ||
+          (incoming.sameContentReuse?.id &&
+            incoming.sameContentReuse.id !== review.state.sameContentReuse?.id))
       )
         review.followActive = true;
       const wanted = review.followActive

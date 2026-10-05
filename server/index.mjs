@@ -1484,9 +1484,13 @@ agentApp.post("/publish", async (req, res) => {
     generator: `MeshCue ${version}`,
   });
   if (p.label) model.label = p.label;
+  const published = store.publish(model, p.origin, {
+    activate: p.activate !== false,
+  });
+  const notices = [...(model.notices || []), ...(published.notices || [])];
   res.json({
-    ...store.publish(model, p.origin, { activate: p.activate !== false }),
-    ...(model.notices ? { notices: model.notices } : {}),
+    ...published,
+    ...(notices.length ? { notices } : {}),
   });
 });
 // Presentation is the Agent's to drive: it decides which version the reviewer

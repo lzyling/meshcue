@@ -36,6 +36,7 @@ export function installToolbar(review) {
             : review.blockedText(can.blocked) || t("review.current");
     review.updateReceipt();
     review.renderVersions();
+    review.updatePublicationNotices();
     review.$("#pending-banner").hidden = !behind;
     if (behind)
       review.$("#pending-text").textContent = t("version.pinnedNotice", {
