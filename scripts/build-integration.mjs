@@ -130,7 +130,11 @@ execFileSync(
 const occtDist = path.join(repo, "node_modules/occt-import-js/dist");
 fs.mkdirSync(path.join(out, "vendor"), { recursive: true });
 // Keep one server decoder alongside the other offline runtime assets.
-for (const name of ["draco_decoder.cjs", "LICENSE.draco.txt", "LICENSE.meshopt.txt"])
+for (const name of [
+  "draco_decoder.cjs",
+  "LICENSE.draco.txt",
+  "LICENSE.meshopt.txt",
+])
   fs.copyFileSync(
     path.join(repo, "server/gltf-vendor", name),
     path.join(out, "vendor", name),

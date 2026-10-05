@@ -35,15 +35,17 @@ selection, visibility, isolation and transparency reset per version. None enters
 the saved review, camera, mesh manifest or agent contract.
 
 ```js
-viewer.parts.list()            // [{id, name, parentId: null|string, meshIds: [...], childIds: [...]}]
-viewer.parts.bounds(id)        // THREE.Box3 in world space (empty for unknown id)
-viewer.parts.object(id)        // THREE.Object3D for transforms, or null
-viewer.parts.setVisible(id, bool); viewer.parts.isVisible(id)
-viewer.parts.isolate(ids|null) // null restores visibility from before isolation
-viewer.parts.setTransparent(id, bool)
-viewer.parts.select(id|null); viewer.parts.selected()
-viewer.parts.partOfMesh(meshId) // owning leaf/node id, or null
-viewer.parts.onChange(fn)      // returns unsubscribe; includes reset/transparency
+viewer.parts.list(); // [{id, name, parentId: null|string, meshIds: [...], childIds: [...]}]
+viewer.parts.bounds(id); // THREE.Box3 in world space (empty for unknown id)
+viewer.parts.object(id); // THREE.Object3D for transforms, or null
+viewer.parts.setVisible(id, bool);
+viewer.parts.isVisible(id);
+viewer.parts.isolate(ids | null); // null restores visibility from before isolation
+viewer.parts.setTransparent(id, bool);
+viewer.parts.select(id | null);
+viewer.parts.selected();
+viewer.parts.partOfMesh(meshId); // owning leaf/node id, or null
+viewer.parts.onChange(fn); // returns unsubscribe; includes reset/transparency
 ```
 
 Ids are deterministic node paths, independent of names and Three UUIDs. Duplicate

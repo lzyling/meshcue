@@ -40,7 +40,11 @@ function limitError(message, code, measured) {
 
 export function inspectModel(buffer, format, { derived } = {}) {
   if (!buffer.length)
-    throw new ReviewError("The model file is empty; it contains no model.", 400, "MODEL_FORMAT");
+    throw new ReviewError(
+      "The model file is empty; it contains no model.",
+      400,
+      "MODEL_FORMAT",
+    );
   if (buffer.length > MAX_BYTES)
     throw limitError(
       `A model must be under ${mb(MAX_BYTES)}; this one is ${mb(buffer.length)}.`,

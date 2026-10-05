@@ -2142,7 +2142,9 @@ dialog .muted {
   .annotations-panel,
   .annotations-panel:has(#mark-note:not([hidden])),
   .annotations-panel:has(#receipt-nudge:not([hidden])),
-  .annotations-panel:has(#mark-note:not([hidden])):has(#receipt-nudge:not([hidden])) {
+  .annotations-panel:has(#mark-note:not([hidden])):has(
+      #receipt-nudge:not([hidden])
+    ) {
     max-height: none;
   }
   #annotations-list {
