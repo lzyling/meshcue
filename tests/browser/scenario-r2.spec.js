@@ -99,6 +99,11 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
         .poll(async () => (await diag(page)).annotationCount)
         .toBe(2);
       await chooseTouchTool(page, "measure");
+      // This gesture check taps arbitrary points, not Smart objects. Close
+      // the disclosure again so its phone layout does not cover those taps.
+      await page.locator("#measure-advanced summary").tap();
+      await page.locator('[data-measure="points"]').tap();
+      await page.locator("#measure-advanced summary").tap();
       await page.touchscreen.tap(x - 45, y + 50);
       await page.touchscreen.tap(x + 35, y + 50);
       await expect.soft

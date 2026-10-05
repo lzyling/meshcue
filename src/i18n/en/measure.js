@@ -1,4 +1,18 @@
 export default {
+  "measure.circleMark": "Circle",
+  "measure.smart": "Smart",
+  "measure.advanced": "Advanced",
+  "measure.hintSmart":
+    "Click an edge, hole or face · Click a second one to compare · Right-drag to orbit",
+  "measure.nextObject": "Click a second object to compare",
+  "measure.restart": "Click to start a new measurement",
+  "measure.unsupported":
+    "This pair cannot be compared yet. Try two corners or two flat faces.",
+  "measure.notCylinder":
+    "This curved face is not a recognised cylinder. Try a circular STEP edge or Advanced → 3-point circle.",
+  "measure.curveLength": "≈{value} along curve · Cannot keep",
+  "measure.arcReading": "{diameter} · R {radius} · {angle}",
+
   "measure.kinds": "What to measure",
   "measure.points": "Point to point",
   "measure.edge": "Edge length",

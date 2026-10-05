@@ -1,6 +1,18 @@
 import { newId } from "../browser-crypto.js";
 import { t } from "../i18n/index.js";
 export function installMeasure(review) {
+  const format = review.formatMeasure;
+  review.formatMeasure = (value) => {
+    const reading = format(value);
+    if (value.approximate) return t("measure.curveLength", { value: reading });
+    if (value.radius != null)
+      return t("measure.arcReading", {
+        diameter: reading,
+        radius: format({ quantity: "length", value: value.radius }),
+        angle: format({ quantity: "angle", value: value.arcAngle }),
+      });
+    return reading;
+  };
   /* The reading beside the tool, said to a screen reader as it changes: what to
    click next, or what was measured. */
   function showMeasure() {
@@ -13,6 +25,7 @@ export function installMeasure(review) {
     const can = review.state?.capabilities || {};
     review.$("#keep-measure").disabled =
       !r?.result ||
+      r.result.keepable === false ||
       review.submitting ||
       !can.canEdit ||
       !review.loadedId ||
@@ -57,7 +70,16 @@ export function installMeasure(review) {
 }
 
 export function bindMeasure(review) {
+  review.MEASURE_KINDS.circle = "measure.circleMark";
+  review.MEASURE_HINTS.smart = "measure.hintSmart";
+  review.MEASURE_NEXT.smart = ["measure.nextObject", "measure.restart"];
+  Object.assign(review.MEASURE_REFUSALS, {
+    unsupported: "measure.unsupported",
+    notCylinder: "measure.notCylinder",
+  });
+
   review.viewer.formatMeasure = review.formatMeasure;
+  review.viewer.setMeasureKind("smart");
 
   review.viewer.onMeasure = (report) => {
     review.measureReport = report;
@@ -70,6 +92,27 @@ export function bindMeasure(review) {
   review
     .$("#keep-measure")
     .addEventListener("click", () => review.keepMeasure());
+
+  const advanced = review.$("#measure-advanced");
+  // Remember only the disclosure. Every new page starts in Smart so a kind
+  // chosen for yesterday's model doesn't silently change today's first pick.
+  try {
+    advanced.open = localStorage.getItem("meshcue.measure.advanced") === "true";
+  } catch {
+    // Storage can be unavailable in private/embedded contexts; the native
+    // disclosure remains usable for this visit.
+  }
+  const rememberAdvanced = () => {
+    try {
+      localStorage.setItem("meshcue.measure.advanced", String(advanced.open));
+    } catch {
+      /* Remembering a disclosure is optional, measuring is not. */
+    }
+  };
+  advanced.addEventListener("toggle", rememberAdvanced);
+  // Native toggle is queued after the click. A reload can win that race;
+  // pagehide records the actual disclosure state before the document goes.
+  window.addEventListener("pagehide", rememberAdvanced);
 
   for (const b of document.querySelectorAll("[data-measure]"))
     b.addEventListener("click", () => {

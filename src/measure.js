@@ -441,3 +441,173 @@ export function circleLine({ centre, normal }, start, pieces = 96) {
       .addScaledVector(v, Math.sin(turn));
   });
 }
+
+/* A fitted STEP circle is deliberately conservative: at least five distinct
+   tessellation vertices spanning 30 degrees, with EVERY vertex within 0.5%
+   of the radius both radially and out of plane. Three points alone always fit
+   and would turn an arbitrary spline into a diameter. The angular coverage
+   gate also keeps tiny nearly straight arcs from amplifying float32 noise.
+   These are recognition tolerances, not claims of CAD-exact dimensions. */
+export const CIRCLE_FIT_SHARE = 0.005;
+export const CIRCLE_MIN_ARC = 30;
+export function fitCircle(input) {
+  const points = [...new Map(input.map((p) => [key(p.toArray()), p])).values()];
+  if (points.length < 5) return null;
+  const origin = new Vector3();
+  for (const p of points) origin.add(p);
+  origin.divideScalar(points.length);
+  const offsets = points.map((p) => p.clone().sub(origin));
+  const normal = new Vector3();
+  for (let i = 0; i < offsets.length; i++)
+    normal.add(offsets[i].clone().cross(offsets[(i + 1) % offsets.length]));
+  if (!normal.lengthSq()) return null;
+  normal.normalize();
+  const u = offsets[0]
+    .clone()
+    .addScaledVector(normal, -offsets[0].dot(normal))
+    .normalize();
+  const v = normal.clone().cross(u);
+  const scale = Math.max(...offsets.map((p) => p.length()));
+  if (!(scale > 0)) return null;
+  // Centre first and normalize by the span: a small hole far from the model
+  // origin must have the same fit as one centred on it. Solve the algebraic
+  // least-squares circle x²+y² = A*x+B*y+C with pivoted elimination.
+  const rows = Array.from({ length: 3 }, () => [0, 0, 0, 0]);
+  for (const p of offsets) {
+    const x = p.dot(u) / scale,
+      y = p.dot(v) / scale;
+    const row = [x, y, 1],
+      rhs = x * x + y * y;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) rows[i][j] += row[i] * row[j];
+      rows[i][3] += row[i] * rhs;
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    let pivot = i;
+    for (let j = i + 1; j < 3; j++)
+      if (Math.abs(rows[j][i]) > Math.abs(rows[pivot][i])) pivot = j;
+    [rows[i], rows[pivot]] = [rows[pivot], rows[i]];
+    if (Math.abs(rows[i][i]) < 1e-12) return null;
+    const divisor = rows[i][i];
+    for (let j = i; j < 4; j++) rows[i][j] /= divisor;
+    for (let k = 0; k < 3; k++) {
+      if (k === i) continue;
+      const factor = rows[k][i];
+      for (let j = i; j < 4; j++) rows[k][j] -= factor * rows[i][j];
+    }
+  }
+  const cx = rows[0][3] / 2,
+    cy = rows[1][3] / 2;
+  const radius = scale * Math.sqrt(rows[2][3] + cx * cx + cy * cy);
+  if (!(radius > 0) || !Number.isFinite(radius)) return null;
+  const centre = origin
+    .clone()
+    .addScaledVector(u, cx * scale)
+    .addScaledVector(v, cy * scale);
+  const angles = [];
+  for (const p of points) {
+    const d = p.clone().sub(centre),
+      height = d.dot(normal);
+    const radial = d.addScaledVector(normal, -height);
+    if (
+      Math.abs(height) > radius * CIRCLE_FIT_SHARE ||
+      Math.abs(radial.length() - radius) > radius * CIRCLE_FIT_SHARE
+    )
+      return null;
+    angles.push(Math.atan2(radial.dot(v), radial.dot(u)));
+  }
+  // Coverage rejects underconstrained fits, but the ordered edge determines
+  // its actual sweep. Near a complete open circle, an ordinary tessellation
+  // segment can be larger than the missing arc; calling that segment the gap
+  // would understate the measured angle.
+  let sweep = 0;
+  for (let i = 1; i < angles.length; i++) {
+    const delta = angles[i] - angles[i - 1];
+    sweep += Math.atan2(Math.sin(delta), Math.cos(delta));
+  }
+  angles.sort((a, b) => a - b);
+  let gap = 0;
+  for (let i = 0; i < angles.length; i++)
+    gap = Math.max(
+      gap,
+      (angles[(i + 1) % angles.length] - angles[i] + 2 * Math.PI) %
+        (2 * Math.PI),
+    );
+  const coverage = (2 * Math.PI - gap) / RAD;
+  if (coverage < CIRCLE_MIN_ARC) return null;
+  const closed = input[0].distanceTo(input[input.length - 1]) < radius * 1e-7;
+  return {
+    centre,
+    normal,
+    diameter: radius * 2,
+    arcAngle: closed ? 360 : Math.abs(sweep) / RAD,
+    points,
+  };
+}
+
+/* Cylinders are recognised from a circular boundary AND the entire B-rep
+   face, never from a single curved triangle. Testing the radial distance and
+   triangle directions rejects cones, spheres and fillets that merely happen
+   to share a circular rim. Partial cylinders (a rounded upright corner) work
+   too when their boundary arc spans enough to identify its circle. */
+export function cylinderAt(topology, seed, frame) {
+  if (!topology.brep) return null;
+  const [first, last] = topology.brep.ranges[topology.brep.of[seed]];
+  const points = [];
+  for (let f = first; f <= last; f++)
+    for (const p of topology.vertices[f])
+      points.push(new Vector3().fromArray(p).applyMatrix4(frame));
+  const checked = new Set();
+  for (let f = first; f <= last; f++) {
+    for (const s of faceEdges(topology, f)) {
+      if (!isFeatureEdge(topology, f, s.ka, s.kb)) continue;
+      const edgeKey = [s.ka, s.kb].sort().join("|");
+      if (checked.has(edgeKey)) continue;
+      const edge = brepEdge(topology, f, s.ka, s.kb, frame);
+      // Record all segments of this boundary, so a rejected spline isn't fit
+      // again for every one of the hundreds of triangles beside it.
+      const inverse = frame.clone().invert();
+      const keys = edge.points.map((p) =>
+        key(p.clone().applyMatrix4(inverse).toArray()),
+      );
+      for (let i = 1; i < keys.length; i++)
+        checked.add([keys[i - 1], keys[i]].sort().join("|"));
+      if (!edge.curved) continue;
+      const fit = fitCircle(edge.points);
+      if (!fit) continue;
+      const radius = fit.diameter / 2,
+        tolerance = radius * CIRCLE_FIT_SHARE;
+      let low = Infinity,
+        high = -Infinity,
+        valid = true;
+      for (const p of points) {
+        const d = p.clone().sub(fit.centre),
+          height = d.dot(fit.normal);
+        low = Math.min(low, height);
+        high = Math.max(high, height);
+        if (
+          Math.abs(d.addScaledVector(fit.normal, -height).length() - radius) >
+          tolerance
+        ) {
+          valid = false;
+          break;
+        }
+      }
+      if (!valid || high - low <= tolerance) continue;
+      for (let i = 0; i < points.length; i += 3) {
+        const normal = points[i + 1]
+          .clone()
+          .sub(points[i])
+          .cross(points[i + 2].clone().sub(points[i]))
+          .normalize();
+        if (Math.abs(normal.dot(fit.normal)) > 0.02) {
+          valid = false;
+          break;
+        }
+      }
+      if (valid) return fit;
+    }
+  }
+  return null;
+}

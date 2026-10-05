@@ -258,6 +258,9 @@ test("amber cut faces reject labels, bucket and measurement while exposed cavity
   expect((await diagnostics(page)).viewer.fillFaces).toBe(0);
   expect((await diagnostics(page)).annotationCount).toBe(0);
   await page.locator('[data-mode="measure"]').click();
+  // Keep the cut-face regression on its original arbitrary-point tool.
+  await page.locator("#measure-advanced summary").click();
+  await page.locator('[data-measure="points"]').click();
   await clickAt(page, [8, 0, -4]);
   expect((await diagnostics(page)).measuring?.picks || 0).toBe(0);
   await clickAt(page, [-2, 0, -3]);
@@ -396,6 +399,8 @@ test("section clips region paint, echo and wide measurement lines as well as the
   await clickAt(page, [0, 0, 4]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await page.locator('[data-mode="measure"]').click();
+  await page.locator("#measure-advanced summary").click();
+  await page.locator('[data-measure="points"]').click();
   await clickAt(page, [-8, -6, 4]);
   await clickAt(page, [8, -6, 4]);
   await expect(page.locator("#measure-reading")).toHaveText("16.00 mm");
