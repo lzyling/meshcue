@@ -58,19 +58,32 @@ const step = async (name) =>
   (await convertStep(fs.readFileSync(`tests/fixtures/${name}.step`))).glb;
 
 test("STEP hierarchy preserves base 15d03b0 mesh buffers, materials and b-rep face numbering", async () => {
-  // Captured from unmodified 15d03b0 before implementation. The hash includes
-  // every source vertex, index, normal, accessor, face range and material.
+  // Captured from unmodified 15d03b0 before implementation (materials
+  // re-hashed at 12 significant digits once Node 22 showed a 1-ULP colour
+  // difference). The hash includes every source vertex, index, normal,
+  // accessor, face range and material.
   const baseline = {
     plate: "4c7870eed87ea4bfb555399b3c02bdaae3ebb8035c0a148691e86b84311dbac8",
     "grouped-colours":
-      "e16ea65f7def82ee062581d2ea02d88ca314cc7a1dda759c392fc621a543ee0d",
+      "73684eadae79dda24255e1cad2aa2eaf18a56bd3e147f841b62a5bea040f701f",
   };
   for (const [name, expected] of Object.entries(baseline)) {
     const { json: j, bin } = unpack(await step(name));
     assert.equal(
       createHash("sha256")
         .update(
-          JSON.stringify([j.meshes, j.accessors, j.bufferViews, j.materials]),
+          JSON.stringify([
+            j.meshes,
+            j.accessors,
+            j.bufferViews,
+            // Material colours come from sRGB→linear Math.pow, whose last bit
+            // differs between Node 22 (CI) and Node 24; round them, keep the
+            // geometry, face ranges and buffers exact.
+            j.materials &&
+              JSON.parse(JSON.stringify(j.materials), (_, v) =>
+                typeof v === "number" ? Number(v.toPrecision(12)) : v,
+              ),
+          ]),
         )
         .update(bin)
         .digest("hex"),
