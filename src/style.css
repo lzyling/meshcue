@@ -2581,6 +2581,10 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .viewer-bottom {
   bottom: 70px;
 }
+.viewer-shell {
+  /* The metadata row moved above the toolbar; its echo must clear it too. */
+  --bottom-row-reach: 110px;
+}
 @media (max-width: 760px) {
   .viewer-shell {
     min-height: 390px;

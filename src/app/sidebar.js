@@ -95,6 +95,8 @@ export function bindSidebar(review) {
       !review.settings.get("sidebarCollapsed"),
     );
   tabs.onkeydown = (e) => {
+    // Modified arrows belong to the existing camera shortcut registry.
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
     e.stopPropagation();

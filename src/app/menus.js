@@ -150,6 +150,7 @@ export function mountMenus(review) {
         : "menuitem";
     button.tabIndex = -1;
     button.title = t(command.titleKey || command.labelKey);
+    button.setAttribute("aria-label", t(command.labelKey));
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
       `<span>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
