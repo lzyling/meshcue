@@ -235,6 +235,8 @@ export class ModelViewer {
       material.resolution.set(width, height);
   }
   setMode(mode) {
+    this.navigationPress = null;
+    this.navigationLastClick = null;
     this.editEpoch = (this.editEpoch || 0) + 1;
     this.clickStart = null;
     // Putting the measuring tool down, or picking it up again, starts over.
@@ -260,6 +262,9 @@ export class ModelViewer {
     );
   }
   clearModel() {
+    this.clearNavigationSelection();
+    this.navigationPress = null;
+    this.navigationLastClick = null;
     this.setSection(null);
     this.sectionBounds = null;
     this.sectionCapGroup?.clear();

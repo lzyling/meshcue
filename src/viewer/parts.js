@@ -8,29 +8,8 @@ export class PartsMethods {
     this.partMaterials = new WeakMap();
     this.partsHighlight = new THREE.Group();
     this.scene.add(this.partsHighlight);
-    const canvas = this.renderer.domElement;
-    let down;
-    canvas.addEventListener("pointerdown", (e) => {
-      down = e.button === 0 ? [e.clientX, e.clientY] : null;
-    });
-    canvas.addEventListener("pointercancel", () => {
-      down = null;
-    });
-    canvas.addEventListener("pointerup", (e) => {
-      if (
-        down &&
-        e.button === 0 &&
-        this.enabled &&
-        this.mode === "orbit" &&
-        Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 5
-      ) {
-        const hit = this.rayAt(e.clientX, e.clientY);
-        this.parts.select(
-          hit ? this.parts.partOfMesh(hit.object.userData.reviewId) : null,
-        );
-      }
-      down = null;
-    });
+    // View pointer selection is owned by navigation, so face and tree
+    // selection share the same drag threshold and multi-touch cancellation.
   }
   buildParts(object, names) {
     // glTF commonly shares one material across hundreds of instances. A part's

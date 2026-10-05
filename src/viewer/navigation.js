@@ -25,6 +25,24 @@ export class NavigationMethods {
       (e) => {
         this.cancelNavigation();
         this.navigationPointers.add(e.pointerId);
+        // Four CSS pixels is a click's maximum excursion, not just the
+        // release distance. Returning after a drag must never select a face.
+        this.navigationPress =
+          this.enabled &&
+          this.mode === "orbit" &&
+          e.button === 0 &&
+          !e.shiftKey &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          this.navigationPointers.size === 1
+            ? {
+                id: e.pointerId,
+                x: e.clientX,
+                y: e.clientY,
+              }
+            : null;
+        if (!this.navigationPress) this.navigationLastClick = null;
         this.navigationPointer = null;
         this.clearNavigationHover();
         this.controls.mouseButtons.LEFT =
@@ -46,6 +64,25 @@ export class NavigationMethods {
       true,
     );
     const release = (e) => {
+      const press = this.navigationPress;
+      this.navigationPress = null;
+      if (
+        e.type === "pointerup" &&
+        press?.id === e.pointerId &&
+        this.navigationPointers.size === 1 &&
+        this.enabled &&
+        this.mode === "orbit" &&
+        Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4
+      ) {
+        const rect = canvas.getBoundingClientRect();
+        if (
+          e.clientX >= rect.left &&
+          e.clientX < rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY < rect.bottom
+        )
+          this.clickNavigation(e);
+      } else this.navigationLastClick = null;
       this.navigationPointers.delete(e.pointerId);
       if (!this.navigationPointers.size) {
         this.navigationRotating = false;
@@ -54,6 +91,20 @@ export class NavigationMethods {
     };
     window.addEventListener("pointerup", release);
     window.addEventListener("pointercancel", release);
+    window.addEventListener(
+      "pointermove",
+      (e) => {
+        const press = this.navigationPress;
+        if (
+          press?.id === e.pointerId &&
+          Math.hypot(e.clientX - press.x, e.clientY - press.y) >= 4
+        ) {
+          this.navigationPress = null;
+          this.navigationLastClick = null;
+        }
+      },
+      true,
+    );
     canvas.addEventListener("pointermove", (e) => {
       this.navigationPointer =
         e.pointerType === "mouse" && !e.buttons ? [e.clientX, e.clientY] : null;
@@ -74,16 +125,6 @@ export class NavigationMethods {
         passive: true,
       },
     );
-    canvas.addEventListener("dblclick", (e) => {
-      if (!this.enabled || this.mode !== "orbit" || e.button !== 0) return;
-      const hit = this.rayAt(e.clientX, e.clientY);
-      if (!hit) return this.fitAll();
-      const shift = hit.point.clone().sub(this.controls.target);
-      this.animateNavigation(
-        this.camera.position.clone().add(shift),
-        hit.point.clone(),
-      );
-    });
     this.controls.addEventListener("change", () => {
       // Keyboard pan/zoom and framing a mark also move the camera without a
       // pointer start. Only load/restore may opt back into automatic fitting.
@@ -98,6 +139,64 @@ export class NavigationMethods {
     } catch {
       /* Storage denial must not prevent reviewing a model. */
     }
+  }
+
+  clickNavigation(e) {
+    const hit = this.rayAt(e.clientX, e.clientY);
+    this.clearNavigationSelection();
+    this.parts?.select(
+      hit ? this.parts.partOfMesh(hit.object.userData.reviewId) : null,
+    );
+    if (!hit) {
+      this.navigationLastClick = null;
+      return;
+    }
+    const mesh = hit.object;
+    const seed = mesh.geometry.userData.sourceFaces[hit.faceIndex];
+    const faces = faceRegion(
+      mesh.userData.fillTopology,
+      seed,
+      this.fillTolerance,
+    );
+    if (!this.navigationSelectionOverlay) {
+      this.navigationSelectionOverlay = new THREE.Group();
+      this.scene.add(this.navigationSelectionOverlay);
+    }
+    this.addFaces(this.navigationSelectionOverlay, mesh, faces);
+    this.navigationSelection = { mesh, faces: faces.length };
+    // Pointer releases cover mouse, pen and touch alike. Native dblclick is
+    // not emitted consistently for touch, and listening to both would animate
+    // twice on browsers which synthesize it after a double tap.
+    const last = this.navigationLastClick;
+    // Use input timestamps: building a large face overlay must not lengthen
+    // the measured gap between two taps that arrived close together.
+    const now = e.timeStamp;
+    if (
+      last &&
+      now - last.at < 450 &&
+      last.type === e.pointerType &&
+      Math.hypot(e.clientX - last.x, e.clientY - last.y) < 8
+    ) {
+      const shift = hit.point.clone().sub(this.controls.target);
+      this.animateNavigation(
+        this.camera.position.clone().add(shift),
+        hit.point.clone(),
+      );
+      this.navigationLastClick = null;
+    } else {
+      this.navigationLastClick = {
+        at: now,
+        x: e.clientX,
+        y: e.clientY,
+        type: e.pointerType,
+      };
+    }
+  }
+
+  clearNavigationSelection() {
+    if (this.navigationSelectionOverlay)
+      this.clearOverlay(this.navigationSelectionOverlay);
+    this.navigationSelection = null;
   }
 
   cancelNavigation() {
@@ -142,6 +241,16 @@ export class NavigationMethods {
   }
 
   navigationFrame() {
+    const selected = this.navigationSelection?.mesh;
+    if (
+      selected &&
+      (!this.enabled ||
+        this.meshMap.get(selected.userData.reviewId) !== selected ||
+        (this.parts &&
+          (!this.parts.meshVisible(selected.userData.reviewId) ||
+            this.parts.meshTransparent(selected.userData.reviewId))))
+    )
+      this.clearNavigationSelection();
     const animation = this.navigationAnimation;
     if (animation) {
       const t = Math.min(1, (performance.now() - animation.at) / 300);
