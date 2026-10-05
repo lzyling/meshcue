@@ -144,9 +144,10 @@ export class NavigationMethods {
   clickNavigation(e) {
     const hit = this.rayAt(e.clientX, e.clientY);
     this.clearNavigationSelection();
-    this.parts?.select(
-      hit ? this.parts.partOfMesh(hit.object.userData.reviewId) : null,
-    );
+    if (this.canSelectNavigationPart?.() ?? true)
+      this.parts?.select(
+        hit ? this.parts.partOfMesh(hit.object.userData.reviewId) : null,
+      );
     if (!hit) {
       this.navigationLastClick = null;
       return;

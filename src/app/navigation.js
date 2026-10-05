@@ -4,6 +4,10 @@ import { t } from "../i18n/index.js";
 
 export function bindNavigation(review) {
   const viewer = review.viewer;
+  // The viewer keeps parts for clipping even when the beginner-facing shell
+  // hides their tree. Only an enabled Parts tab should receive canvas picks.
+  viewer.canSelectNavigationPart = () =>
+    review.settings.get("parts") && !!review.$("#sidebar-parts:not([hidden])");
   // Cursor zoom consumes the wheel before it bubbles to the document. Keep
   // trusted navigation activity on the same renewal path as other input.
   viewer.renderer.domElement.addEventListener("wheel", review.noteActivity, {
