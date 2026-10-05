@@ -4,6 +4,7 @@ import {
   retainedPoint,
   sectionIntersection,
   sectionPartGroups,
+  sectionCapBatches,
   sectionPartColors,
 } from "../section.js";
 import * as THREE from "three";
@@ -44,11 +45,8 @@ export class SectionViewMethods {
         this.buildSectionCaps();
       }
       const cut = sectionPlane(this.section, this.root.matrixWorld);
-      const center = this.sectionBounds
-        .getCenter(new V())
-        .applyMatrix4(this.root.matrixWorld);
       for (const cap of this.sectionCaps) {
-        cut.projectPoint(center, cap.position);
+        cut.projectPoint(cap.userData.sectionCenter, cap.position);
         cap.quaternion.setFromUnitVectors(new V(0, 0, 1), cut.normal);
       }
     } else this.sectionClips = [];
@@ -84,11 +82,28 @@ export class SectionViewMethods {
           stencilZPass: operation,
         }),
     );
-    const groups = sectionPartGroups(this.meshes, this.parts);
-    const size =
-      this.sectionBounds.getSize(new V()).multiply(this.root.scale).length() *
-      1.01;
-    const geometry = new THREE.PlaneGeometry(size, size);
+    const groups = sectionCapBatches(
+      sectionPartGroups(this.meshes, this.parts),
+    );
+    // A shared unit quad scales to each part's bounding diagonal. Drawing a
+    // full-assembly quad per part multiplies fragment work on large assemblies.
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    const counters = new Map();
+    this.sectionCounterGeometries = [];
+    for (const mesh of this.meshes) {
+      const vertices = mesh.userData.fillTopology?.vertices;
+      // Review subdivision only adds coplanar triangles for marks. Winding
+      // needs the original surface, so drawing that smaller source topology
+      // avoids counting hundreds of thousands of needless review triangles.
+      const source = vertices
+        ? new THREE.BufferGeometry().setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(vertices.flat(2), 3),
+          )
+        : mesh.geometry;
+      counters.set(mesh, source);
+      if (source !== mesh.geometry) this.sectionCounterGeometries.push(source);
+    }
     this.sectionCaps = groups.map((part, index) => {
       // Draw source surfaces first, then each complete count/cap/clear sequence,
       // all before overlays at order 2. Depth keeps retained exterior surfaces
@@ -96,7 +111,7 @@ export class SectionViewMethods {
       const order = 1 + index / groups.length;
       this.sectionStencilMaterials.forEach((material, pass) => {
         for (const mesh of part.meshes) {
-          const counter = new THREE.Mesh(mesh.geometry, material);
+          const counter = new THREE.Mesh(counters.get(mesh), material);
           counter.userData.partMeshId = mesh.userData.reviewId;
           counter.matrixAutoUpdate = false;
           counter.matrix.copy(mesh.matrixWorld);
@@ -140,6 +155,15 @@ export class SectionViewMethods {
         pixelRatio.value = renderer.getPixelRatio();
       };
       cap.userData.sectionPart = part;
+      const bounds = new THREE.Box3();
+      for (const mesh of part.meshes) {
+        if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+        bounds.union(
+          mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld),
+        );
+      }
+      cap.userData.sectionCenter = bounds.getCenter(new V());
+      cap.scale.setScalar(bounds.getSize(new V()).length() * 1.01);
       cap.renderOrder = order + 2 / (groups.length * 3);
       // Clear even where depth rejected the cap. A hidden or ghosted part has
       // no counting meshes, so it produces no cap and cannot leak old stencil.
@@ -164,7 +188,9 @@ export class SectionViewMethods {
     });
     const colors = sectionPartColors(
       source,
-      this.neutral || this.displayStyle === "hidden",
+      this.neutral ||
+        this.displayStyle === "hidden" ||
+        this.sectionCaps[0].userData.sectionPart.palette,
     );
     this.sectionCaps.forEach((cap, i) => cap.material.color.copy(colors[i]));
     this.sectionColor = `#${colors[0].getHexString()}`;
@@ -172,6 +198,9 @@ export class SectionViewMethods {
   disposeSectionCaps() {
     this.sectionCapGroup?.clear();
     this.sectionCap?.geometry.dispose();
+    for (const geometry of this.sectionCounterGeometries || [])
+      geometry.dispose();
+    this.sectionCounterGeometries = [];
     for (const cap of this.sectionCaps || []) cap.material.dispose();
     for (const material of this.sectionStencilMaterials || [])
       material.dispose();

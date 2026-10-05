@@ -100,7 +100,11 @@ export function sectionPartGroups(meshes, parts) {
   }
   const groups = [],
     fragments = [];
-  for (const group of owners.values()) {
+  const order = new Map((parts?.list() || []).map((part, i) => [part.id, i]));
+  const sorted = [...owners.values()].sort(
+    (a, b) => (order.get(a.id) || 0) - (order.get(b.id) || 0),
+  );
+  for (const group of sorted) {
     // Multiple primitives already belong to one part and must never be split.
     const topology = group.meshes[0].userData.fillTopology;
     if (
@@ -144,4 +148,23 @@ export function sectionPartColors(source, plain = false) {
       : c.clone()
     ).multiplyScalar(0.68),
   );
+}
+
+// Software-renderer measurements at 50 parts made full stencil clears the
+// expensive part of independent caps. Beyond 32 parts, complete parts sharing
+// a categorical colour also share one winding counter (at most ten clears).
+// This keeps palette identity and hatch direction per part without ever
+// splitting a part's outer/cavity shells between counters. As with ordinary
+// per-part caps, the last category wins where different solids overlap.
+export function sectionCapBatches(groups) {
+  if (groups.length <= 32) return groups;
+  const batches = Array.from({ length: SECTION_PALETTE.length }, (_, i) => ({
+    id: `palette-${i}`,
+    meshes: [],
+    palette: true,
+  }));
+  groups.forEach((group, i) =>
+    batches[i % batches.length].meshes.push(...group.meshes),
+  );
+  return batches;
 }

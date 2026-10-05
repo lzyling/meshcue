@@ -8,7 +8,10 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const repo = process.cwd();
 let url;
-const evidence = path.join(repo, "tmp/b1u-x/evidence");
+const evidence = path.join(
+  repo,
+  process.env.MESHCUE_SECTION_EVIDENCE || "tmp/b1u-x/evidence",
+);
 let child, dir, env;
 const ctl = (...args) =>
   execFileSync(process.execPath, ["scripts/reviewctl.mjs", ...args], {
@@ -233,6 +236,7 @@ test("two part caps have distinct hues and hiding or ghosting removes only that 
   await front(page);
   await page.screenshot({ path: path.join(evidence, "before.png") });
   await section(page);
+  await page.screenshot({ path: path.join(evidence, "caps-initial.png") });
   const left = average(await scan(page, [-9, 0, 0], [-3, 0, 0]));
   const right = average(await scan(page, [3, 0, 0], [9, 0, 0]));
   expect(left[0] - left[1]).toBeGreaterThan(25);
@@ -241,11 +245,9 @@ test("two part caps have distinct hues and hiding or ghosting removes only that 
     await page.locator("#theme-choice").selectOption(theme);
     await page.screenshot({ path: path.join(evidence, `caps-${theme}.png`) });
   }
-  const row = page
-    .locator(".parts-row")
-    .filter({
-      has: page.getByRole("button", { name: "Solid 1", exact: true }),
-    });
+  const row = page.locator(".parts-row").filter({
+    has: page.getByRole("button", { name: "Solid 1", exact: true }),
+  });
   await row.locator(".parts-name").click();
   await page.keyboard.press("y");
   const hidden = average(await scan(page, [-9, 0, 0], [-3, 0, 0]));
@@ -304,5 +306,133 @@ for (const dpr of [1, 2])
       expect(Math.hypot(...left.map((v, i) => v - right[i]))).toBeGreaterThan(
         50,
       );
+    });
+  });
+
+test("section frame times on the largest multipart sample and fifty solids", async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  fs.mkdirSync(evidence, { recursive: true });
+  const { inspectModel } = await import("../../server/models.mjs");
+  const models = fs
+    .readdirSync("tmp/samples")
+    .filter((f) => f.endsWith(".glb"))
+    .map((name) => ({
+      name,
+      triangles: inspectModel(fs.readFileSync(`tmp/samples/${name}`), "glb")
+        .triangles,
+    }))
+    .sort((a, b) => b.triangles - a.triangles);
+  const results = [];
+  for (const file of [`tmp/samples/${models[0].name}`, await boxes(50, true)]) {
+    await open(page, file);
+    await expect
+      .poll(async () => (await diagnostics(page)).viewer.display.pending)
+      .toBe(false);
+    await page.locator("#perf-toggle").click();
+    const sample = () =>
+      page.evaluate(async () => {
+        const times = [];
+        let last;
+        const canvas = document.querySelector("#viewer canvas");
+        for (let i = 0; i < 100; i++) {
+          canvas.dispatchEvent(
+            new PointerEvent("pointermove", { clientX: 700, clientY: 450 }),
+          );
+          const now = await new Promise(requestAnimationFrame);
+          if (i > 20) times.push(now - last);
+          last = now;
+        }
+        times.sort((a, b) => a - b);
+        const meanMs = times.reduce((a, b) => a + b, 0) / times.length;
+        return {
+          samples: times.length,
+          meanMs,
+          fps: 1000 / meanMs,
+          p95Ms: times[Math.floor(times.length * 0.95)],
+          performance: window.__reviewDiagnostics().viewer.performance,
+        };
+      });
+    const off = await sample();
+    await section(page, "z");
+    const on = await sample();
+    results.push({ file, off, on, viewer: (await diagnostics(page)).viewer });
+    await page.screenshot({
+      path: path.join(evidence, `performance-${results.length}.png`),
+    });
+    await page.locator("#perf-toggle").click();
+  }
+  fs.writeFileSync(
+    path.join(evidence, "frame-times.json"),
+    JSON.stringify(
+      {
+        renderer: results[0].on.performance.snapshot.renderer,
+        method:
+          "1440x1000, 20 warmup frames and 79 intervals, stationary home view with pointer activity",
+        models,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
+  expect(results[1].on.samples).toBe(79);
+});
+
+for (const format of ["glb", "stl"])
+  test(`a single ${format} part caps while its internal cavity remains open`, async ({
+    page,
+  }) => {
+    await hollowBox();
+    const { mergeGeometries } =
+      await import("three/addons/utils/BufferGeometryUtils.js");
+    const outer = new THREE.BoxGeometry(20, 15, 8).toNonIndexed();
+    const inner = new THREE.BoxGeometry(12, 9, 6).toNonIndexed();
+    const attr = inner.attributes.position;
+    for (let i = 0; i < attr.count; i += 3) {
+      const b = new THREE.Vector3().fromBufferAttribute(attr, i + 1);
+      const c = new THREE.Vector3().fromBufferAttribute(attr, i + 2);
+      attr.setXYZ(i + 1, c.x, c.y, c.z);
+      attr.setXYZ(i + 2, b.x, b.y, b.z);
+    }
+    inner.computeVertexNormals();
+    const mesh = new THREE.Mesh(
+      mergeGeometries([outer, inner]),
+      new THREE.MeshStandardMaterial({ color: 0xcdd7dc }),
+    );
+    const file = path.join(dir, `single-hollow.${format}`);
+    if (format === "glb")
+      fs.writeFileSync(
+        file,
+        Buffer.from(
+          await new GLTFExporter().parseAsync(mesh, { binary: true }),
+        ),
+      );
+    else {
+      const { STLExporter } =
+        await import("three/addons/exporters/STLExporter.js");
+      // Counteract the STL loader's Z-up conversion to keep the same pixel probes.
+      mesh.rotation.x = Math.PI / 2;
+      mesh.updateMatrixWorld();
+      fs.writeFileSync(file, new STLExporter().parse(mesh));
+    }
+    await open(page, file);
+    await front(page);
+    await section(page, format === "glb" ? "z" : "y");
+    if (format === "stl") await page.locator("#section-flip").click();
+    const wall = await scan(page, [-9, 0, 0], [-7, 0, 0]);
+    const hole = await scan(page, [-3, 0, 0], [3, 0, 0]);
+    const variation = (p) =>
+      Math.max(...p.map((c) => c[0])) - Math.min(...p.map((c) => c[0]));
+    expect(variation(wall)).toBeGreaterThan(25);
+    expect(variation(hole)).toBeLessThan(5);
+    await page.locator('[data-mode="label"]').click();
+    await clickAt(page, [-8, 0, 0]);
+    expect((await diagnostics(page)).annotationCount).toBe(0);
+    await clickAt(page, [0, 0, -3]);
+    await expect(page.locator("#annotation-count")).toHaveText("1");
+    await page.screenshot({
+      path: path.join(evidence, `cavity-${format}.png`),
     });
   });
