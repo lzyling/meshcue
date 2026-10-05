@@ -1,4 +1,17 @@
 export default {
+  "measure.smart": "Intelligent",
+  "measure.advanced": "Erweitert",
+  "measure.hintSmart":
+    "Kante, Bohrung oder Fläche anklicken · Zweites Objekt zum Vergleichen wählen · Rechts ziehen zum Drehen",
+  "measure.nextObject": "Zweites Objekt zum Vergleichen anklicken",
+  "measure.restart": "Klicken, um eine neue Messung zu beginnen",
+  "measure.unsupported":
+    "Dieses Paar lässt sich noch nicht vergleichen. Wählen Sie zwei Eckpunkte oder zwei ebene Flächen.",
+  "measure.notCylinder":
+    "Diese gekrümmte Fläche wurde nicht als Zylinder erkannt. Wählen Sie eine STEP-Kreiskante oder Erweitert → 3-Punkt-Kreis.",
+  "measure.curveLength": "≈{value} entlang der Kurve · Nicht speicherbar",
+  "measure.arcReading": "{diameter} · R {radius} · {angle}",
+
   "measure.kinds": "Was gemessen wird",
   "measure.points": "Punkt zu Punkt",
   "measure.edge": "Kantenlänge",

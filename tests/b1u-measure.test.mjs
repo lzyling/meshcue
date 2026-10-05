@@ -76,3 +76,47 @@ test("smart cylinder fit verifies the whole face and rejects cones and stretched
   delete topology.brep;
   assert.equal(measure.cylinderAt(topology, 0, identity), null);
 });
+
+// Use the actual viewer methods with deterministic screen-pick candidates:
+// this checks priority independently of camera angle and tessellation density.
+import { MeasureViewMethods } from "../src/viewer/measure-view.js";
+const methods = MeasureViewMethods.prototype;
+test("smart picks prefer snapped vertices, then edges, then faces", () => {
+  const point = { point: new THREE.Vector3(), snapped: true };
+  const edge = { length: 8 },
+    face = { plane: {} };
+  const viewer = {
+    snapPoint: () => point,
+    edgeAt: () => edge,
+    planeUnder: () => face,
+  };
+  assert.equal(methods.smartCandidate.call(viewer, {}, 0, 0).type, "point");
+  point.snapped = false;
+  assert.equal(methods.smartCandidate.call(viewer, {}, 0, 0).type, "edge");
+  viewer.edgeAt = () => null;
+  assert.equal(methods.smartCandidate.call(viewer, {}, 0, 0).type, "face");
+});
+
+test("smart measurement compares its second object and starts over on the third", () => {
+  const refusals = [];
+  const viewer = Object.assign(Object.create(methods), {
+    drawMeasure() {},
+    onMeasureRefused: (why) => refusals.push(why),
+    smartOwn(pick) {
+      if (pick.type === "point") return { result: null };
+      return { kind: "edge", result: { value: pick.length } };
+    },
+  });
+  const point = (x) => ({ type: "point", point: new THREE.Vector3(x, 0, 0) });
+  viewer.smartMeasureClick(point(1));
+  assert.equal(viewer.measuring.result, null);
+  viewer.smartMeasureClick(point(6));
+  assert.equal(viewer.measuring.result.value, 5);
+  viewer.smartMeasureClick({ type: "edge", length: 8 });
+  assert.equal(viewer.measuring.result.value, 8);
+  viewer.smartMeasureClick(point(2));
+  assert.equal(viewer.measuring.result, null);
+  assert.deepEqual(refusals, ["unsupported"]);
+  viewer.smartMeasureClick(point(9));
+  assert.equal(viewer.measuring.picks.length, 1);
+});

@@ -1,4 +1,18 @@
 export default {
+  "measure.smart": "Intelligent",
+  "measure.advanced": "Avancé",
+  "measure.hintSmart":
+    "Cliquez sur une arête, un trou ou une face · Cliquez sur un second objet pour comparer · Glissez avec le bouton droit pour tourner",
+  "measure.nextObject": "Cliquez sur un second objet pour comparer",
+  "measure.restart": "Cliquez pour commencer une nouvelle mesure",
+  "measure.unsupported":
+    "Cette paire ne peut pas encore être comparée. Essayez deux sommets ou deux faces planes.",
+  "measure.notCylinder":
+    "Cette face courbe ne correspond pas à un cylindre reconnu. Essayez une arête circulaire STEP ou Avancé → Cercle à 3 points.",
+  "measure.curveLength":
+    "≈{value} le long de la courbe · Conservation impossible",
+  "measure.arcReading": "{diameter} · R {radius} · {angle}",
+
   "measure.kinds": "Quoi mesurer",
   "measure.points": "Point à point",
   "measure.edge": "Longueur d'arête",

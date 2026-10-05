@@ -5,6 +5,8 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import {
   circleLine,
   circleThrough,
+  fitCircle,
+  cylinderAt,
   planeAt,
   planesMeasure,
 } from "../measure.js";
@@ -104,10 +106,188 @@ export class MeasureViewMethods {
     overlay.renderOrder = 4;
     group.add(overlay);
   }
+  // All smart hover and click paths use the same priority. A tessellation
+  // vertex still wins within the existing snap tolerance, including on rims.
+  smartCandidate(hit, x, y) {
+    const point = this.snapPoint(hit, x, y);
+    if (point.snapped) return { ...point, type: "point" };
+    const edge = this.edgeAt(hit, x, y);
+    if (edge) return { ...edge, type: "edge", mesh: hit.object };
+    const face = this.planeUnder(hit);
+    return face ? { ...face, type: "face" } : null;
+  }
+  smartOwn(pick) {
+    let circle;
+    if (pick.type === "edge") {
+      if (!pick.curved)
+        return {
+          kind: "edge",
+          result: {
+            quantity: "length",
+            value: pick.length,
+            points: pick.ends,
+            line: pick.points,
+          },
+        };
+      if (!pick.mesh.userData.fillTopology.brep) {
+        this.onMeasureRefused?.("curved");
+        return { result: null };
+      }
+      circle = fitCircle(pick.points);
+      if (!circle) {
+        // The old edge mark is exactly two endpoints; a curved polyline
+        // cannot truthfully be kept in that shape. Its tessellated length is
+        // still useful on screen, explicitly labelled as an approximation.
+        const value = pick.points.reduce(
+          (sum, p, i, points) => sum + (i ? p.distanceTo(points[i - 1]) : 0),
+          0,
+        );
+        return {
+          kind: "edge",
+          result: {
+            quantity: "length",
+            value,
+            points: pick.ends,
+            line: pick.points,
+            keepable: false,
+            approximate: true,
+          },
+        };
+      }
+    } else if (pick.type === "face" && pick.plane.curved) {
+      const topology = pick.mesh.userData.fillTopology;
+      // Fitting and validating a whole B-rep face happens only once per face
+      // and model load; flat faces and mesh-only faces never enter this cache.
+      topology.measureCylinders ||= new Map();
+      const id = topology.brep?.of[pick.sourceFaceIndex];
+      if (!topology.measureCylinders.has(id))
+        topology.measureCylinders.set(
+          id,
+          cylinderAt(
+            topology,
+            pick.sourceFaceIndex,
+            this.modelFrame(pick.mesh),
+          ),
+        );
+      circle = topology.measureCylinders.get(id);
+      if (!circle) this.onMeasureRefused?.("notCylinder");
+    }
+    if (!circle) return { result: null };
+    const eye = this.root.worldToLocal(this.camera.position.clone());
+    if (circle.normal.dot(eye.sub(circle.centre)) < 0)
+      circle = { ...circle, normal: circle.normal.clone().negate() };
+    // Project three well-spaced boundary samples onto the fitted ring. This
+    // keeps its saved points exactly coplanar and at the fitted radius even
+    // when the tessellation accepted by the fit contains small residuals.
+    const samples = [
+      0,
+      Math.floor(circle.points.length / 3),
+      Math.floor((2 * circle.points.length) / 3),
+    ].map((i) => circle.points[i]);
+    const points = samples.map((p) => {
+      const radial = p.clone().sub(circle.centre);
+      radial
+        .addScaledVector(circle.normal, -radial.dot(circle.normal))
+        .setLength(circle.diameter / 2);
+      return circle.centre.clone().add(radial);
+    });
+    return {
+      kind: "circle",
+      result: {
+        quantity: "diameter",
+        value: circle.diameter,
+        points,
+        center: circle.centre,
+        normal: circle.normal,
+        line: circleLine(circle, points[0]),
+        ...(circle.arcAngle < 359.9
+          ? { radius: circle.diameter / 2, arcAngle: circle.arcAngle }
+          : {}),
+      },
+    };
+  }
+  smartMeasureClick(pick) {
+    if (!pick) return;
+    if (!this.measuring?.smart || this.measuring.picks.length >= 2)
+      this.measuring = { kind: "smart", smart: true, picks: [], result: null };
+    const m = this.measuring;
+    const first = m.picks[0];
+    if (
+      first?.type === "face" &&
+      pick.type === "face" &&
+      first.mesh === pick.mesh &&
+      first.faceSet.has(pick.sourceFaceIndex)
+    )
+      return this.onMeasureRefused?.("sameFace");
+    m.picks.push(pick);
+    m.result = null;
+    m.savedKind = null;
+    if (!first) {
+      const own = this.smartOwn(pick);
+      m.result = own.result;
+      m.savedKind = own.kind;
+    } else if (first.type === "point" && pick.type === "point") {
+      const points = m.picks.map((p) => p.point);
+      m.savedKind = "points";
+      m.result = {
+        quantity: "length",
+        value: points[0].distanceTo(points[1]),
+        points,
+      };
+    } else if (
+      first.type === "face" &&
+      pick.type === "face" &&
+      !first.plane.curved &&
+      !pick.plane.curved
+    ) {
+      m.savedKind = "planes";
+      m.result = planesMeasure(first, pick);
+    } else this.onMeasureRefused?.("unsupported");
+    this.drawMeasure();
+  }
+  hoverSmartMeasure(hit, x, y) {
+    const candidate = hit ? this.smartCandidate(hit, x, y) : null;
+    const old = this.measureCandidate;
+    this.measureCandidate = candidate;
+    this.hoverAnchor?.el.remove();
+    this.hoverAnchor = null;
+    if (candidate?.type === "point") {
+      const el = document.createElement("div");
+      el.className = "measure-dot hover snapped";
+      this.hoverAnchor = { el, model: candidate.point };
+      this.measureLayer.append(el);
+    }
+    // Avoid rebuilding the same large face/edge overlay for every pixel.
+    if (
+      candidate?.type === "face" &&
+      old?.type === "face" &&
+      candidate.plane === old.plane
+    )
+      return;
+    if (
+      candidate?.type === "edge" &&
+      old?.type === "edge" &&
+      candidate.points === old.points
+    )
+      return;
+    this.clearOverlay(this.measureCandidateGroup);
+    if (candidate?.type === "edge")
+      this.measureCandidateGroup.add(
+        this.modelLine(candidate.points, this.lineMaterial("hover"), 8),
+      );
+    if (candidate?.type === "face")
+      this.addFaces(
+        this.measureCandidateGroup,
+        candidate.mesh,
+        candidate.plane.faces,
+        true,
+      );
+  }
   hoverMeasure(x, y) {
     if (!this.enabled) return;
     const hit = this.rayAt(x, y);
     const kind = this.measureKind;
+    if (kind === "smart") return this.hoverSmartMeasure(hit, x, y);
     const onPoints = kind === "points" || kind === "circle";
     const candidate = !hit
       ? null
@@ -154,6 +334,8 @@ export class MeasureViewMethods {
     const hit = this.rayAt(x, y);
     if (!hit) return;
     const kind = this.measureKind;
+    if (kind === "smart")
+      return this.smartMeasureClick(this.smartCandidate(hit, x, y));
     // A finished measurement is replaced by the next click, not added to.
     if (!this.measuring || this.measuring.result)
       this.measuring = { kind, picks: [], result: null };
@@ -247,6 +429,12 @@ export class MeasureViewMethods {
       this.measureAnchors.push({ el, model: model.clone(), ring });
       return el;
     };
+    if (m?.smart)
+      for (const p of m.picks) {
+        if (p.type === "face")
+          this.addFaces(this.measureFaces, p.mesh, p.plane.faces);
+        if (p.type === "point") anchor("measure-dot", p.point);
+      }
     if (m?.kind === "planes")
       for (const p of m.picks)
         this.addFaces(this.measureFaces, p.mesh, p.plane.faces);
@@ -269,7 +457,14 @@ export class MeasureViewMethods {
             kind: m.kind,
             picks: m.picks.length,
             result: m.result
-              ? { quantity: m.result.quantity, value: m.result.value }
+              ? {
+                  quantity: m.result.quantity,
+                  value: m.result.value,
+                  keepable: m.result.keepable,
+                  approximate: m.result.approximate,
+                  radius: m.result.radius,
+                  arcAngle: m.result.arcAngle,
+                }
               : null,
           }
         : null,

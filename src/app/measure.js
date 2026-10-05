@@ -1,6 +1,24 @@
 import { newId } from "../browser-crypto.js";
 import { t } from "../i18n/index.js";
 export function installMeasure(review) {
+  review.MEASURE_HINTS.smart = "measure.hintSmart";
+  review.MEASURE_NEXT.smart = ["measure.nextObject", "measure.restart"];
+  Object.assign(review.MEASURE_REFUSALS, {
+    unsupported: "measure.unsupported",
+    notCylinder: "measure.notCylinder",
+  });
+  const format = review.formatMeasure;
+  review.formatMeasure = (value) => {
+    const reading = format(value);
+    if (value.approximate) return t("measure.curveLength", { value: reading });
+    if (value.radius != null)
+      return t("measure.arcReading", {
+        diameter: reading,
+        radius: format({ quantity: "length", value: value.radius }),
+        angle: format({ quantity: "angle", value: value.arcAngle }),
+      });
+    return reading;
+  };
   /* The reading beside the tool, said to a screen reader as it changes: what to
    click next, or what was measured. */
   function showMeasure() {
@@ -13,6 +31,7 @@ export function installMeasure(review) {
     const can = review.state?.capabilities || {};
     review.$("#keep-measure").disabled =
       !r?.result ||
+      r.result.keepable === false ||
       review.submitting ||
       !can.canEdit ||
       !review.loadedId ||
@@ -58,6 +77,7 @@ export function installMeasure(review) {
 
 export function bindMeasure(review) {
   review.viewer.formatMeasure = review.formatMeasure;
+  review.viewer.setMeasureKind("smart");
 
   review.viewer.onMeasure = (report) => {
     review.measureReport = report;
