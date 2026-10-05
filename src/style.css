@@ -2223,3 +2223,16 @@ dialog .muted {
      rather than only the menu inside it, above the sibling tool options. */
   z-index: 6;
 }
+.toolbar {
+  /* Parts can make a desktop canvas narrower than a phone viewport. Wrap by
+     available space, while keeping each translated caption with its icon. */
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
+}
+.toolbar .tool {
+  flex: 0 0 auto;
+}
+.toolbar .tool span {
+  white-space: nowrap;
+}

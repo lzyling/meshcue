@@ -183,3 +183,53 @@ test("R2 bug 3: Display choices win over measurement options", async ({
     await expect(choice).toHaveAttribute("aria-checked", "true");
   }
 });
+for (const locale of ["en", "zh-Hans", "zh-Hant", "ja", "de", "fr"]) {
+  for (const theme of ["light", "dark"]) {
+    test(`R2 bug 4: narrow toolbar fits with Parts (${locale}, ${theme})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await page.addInitScript(
+        ({ locale, theme }) => {
+          localStorage.setItem("meshcue-locale", locale);
+          localStorage.setItem("meshcue-theme", theme);
+        },
+        { locale, theme },
+      );
+      await open(page);
+      await expect(page.locator("#parts-panel")).toBeVisible();
+      await screenshot(page, `bug4-toolbar-${locale}-${theme}`);
+      for (const button of await page
+        .locator(".toolbar button:visible")
+        .all()) {
+        expect
+          .soft(
+            await unobscured(button),
+            await button.getAttribute("data-command"),
+          )
+          .toBe(true);
+      }
+      expect(
+        await page.locator(".toolbar").evaluate((toolbar) => {
+          const bounds = toolbar
+            .closest(".viewer-shell")
+            .getBoundingClientRect();
+          const buttons = [...toolbar.querySelectorAll("button")].filter(
+            (b) => b.getClientRects().length,
+          );
+          return buttons.every((b) => {
+            const r = b.getBoundingClientRect();
+            return (
+              r.left >= bounds.left &&
+              r.right <= bounds.right &&
+              [...b.querySelectorAll("span")].every((s) => {
+                const text = s.getBoundingClientRect();
+                return text.left >= r.left && text.right <= r.right;
+              })
+            );
+          });
+        }),
+      ).toBe(true);
+    });
+  }
+}
