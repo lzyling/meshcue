@@ -74,6 +74,50 @@ test("Home restores a saved default's exact framing and screen-up direction", ()
   assert.ok(close(v.screenUp(), saved.up));
 });
 
+function homeAfterSmallPart(projection) {
+  const v = cameraViewer();
+  v.setProjection(projection, false);
+  v.fitAll({ animate: false });
+  v.rollNavigation(90);
+  const saved = { ...v.cameraState(), up: v.screenUp() };
+  const height = v.navigationHeight();
+  const limits = {
+    minDistance: v.controls.minDistance,
+    maxDistance: v.controls.maxDistance,
+    minZoom: v.controls.minZoom,
+    maxZoom: v.controls.maxZoom,
+  };
+  v.getDefaultView = () => saved;
+  v.parts = {
+    bounds: () =>
+      new THREE.Box3(
+        new THREE.Vector3(0.4, 0.2, 0.1),
+        new THREE.Vector3(0.42, 0.22, 0.12),
+      ),
+  };
+  v.fitPart("small-part");
+  assert.ok(v.controls.maxDistance < limits.maxDistance / 10);
+  v.home();
+  assert.ok(close(v.camera.position.toArray(), saved.position));
+  assert.ok(close(v.controls.target.toArray(), saved.target));
+  assert.ok(close(v.screenUp(), saved.up));
+  assert.ok(Math.abs(v.navigationHeight() - height) < 1e-8);
+  for (const [key, value] of Object.entries(limits))
+    assert.equal(
+      v.controls[key],
+      value,
+      `${key} returns to whole-model limits`,
+    );
+}
+
+test("perspective Home restores saved whole-model framing after fitting a small part", () => {
+  homeAfterSmallPart("perspective");
+});
+
+test("orthographic Home restores saved whole-model framing after fitting a small part", () => {
+  homeAfterSmallPart("orthographic");
+});
+
 test("90 degree rolls keep the pivot and distance, compass agrees, and subsequent orbit uses the rolled axis", () => {
   const v = cameraViewer();
   const position = v.camera.position.toArray();

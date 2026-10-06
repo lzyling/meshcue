@@ -202,6 +202,10 @@ export class CameraMethods {
     const saved = this.getDefaultView?.();
     if (saved) {
       this.setProjection(saved.projection || "perspective");
+      // Fitting a small part narrows both distance and orthographic zoom
+      // limits. Restore whole-model limits before OrbitControls updates the
+      // saved frame, including when setProjection keeps the same camera.
+      this.updateNavigationLimits();
       this.restoreCamera(saved);
     } else {
       this.setNavigationUp(new V(0, 1, 0));
