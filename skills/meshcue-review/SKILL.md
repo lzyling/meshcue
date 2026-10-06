@@ -185,7 +185,10 @@ A mark of `type: "measure"` (M1, M2) is a dimension the reviewer read and kept:
 between two points, along a straight edge, between two faces (a gap when
 parallel, else an angle), or the diameter of the circle through three points on
 a rim (`kind: "circle"`, with its `center` and axis `normal`), with the `value`
-and its `unit` side by side. On a STEP its faces and edges are the file's own.
+and its `unit` side by side. From the smart tool, one end of `kind: "points"`
+may be the foot of the perpendicular on an edge's line or a face's plane,
+possibly beyond its outline; each pick is the triangle clicked for that object.
+On a STEP its faces and edges are the file's own.
 It asks for no change by itself. Take the target from its note or the conversation and
 echo it as from and to ("M1: 20.00 mm to 22 mm"); with neither, ask what it
 should be. When `unit` is `"unspecified"`, say the model declares no unit

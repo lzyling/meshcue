@@ -286,6 +286,10 @@ test("a batch with a measurement says what was read, in the model's unit", async
   );
   assert.match(summary.measureHint, /asks for no change/);
   assert.match(summary.measureHint, /"circle" is three points/);
+  assert.match(
+    summary.measureHint,
+    /from the smart tool, one end may be the foot of the perpendicular on an edge's line or a face's plane, possibly beyond its outline;.*each pick is the source triangle the reviewer clicked for that object/,
+  );
   assert.deepEqual(
     summary.meshManifest.meshes.map((m) => m.id),
     ["mesh-0"],
