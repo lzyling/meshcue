@@ -289,6 +289,90 @@ test("direct Label and Fill close View overflow without stealing focus or hiding
     await expect(shell).not.toHaveClass(/menu-open/);
   }
 });
+test("modified arrows reach camera shortcuts from flat View and Display buttons", async ({
+  page,
+}) => {
+  await open(page);
+  await page.evaluate(() => {
+    window.__b1vToolbarArrowEvents = [];
+    // This bubble listener runs after the application's registry listener;
+    // a group that stops propagation never delivers an event here.
+    window.addEventListener("keydown", (event) => {
+      if (["ArrowUp", "ArrowDown"].includes(event.key))
+        window.__b1vToolbarArrowEvents.push({
+          key: event.key,
+          prevented: event.defaultPrevented,
+        });
+    });
+  });
+  for (const [selector, popup, more] of [
+    [
+      '.toolbar [data-command="navigation-fit"]',
+      "#view-menu",
+      "#view-menu-button",
+    ],
+    ["#display-toggle", "#display-options", "#display-menu-button"],
+  ]) {
+    const button = page.locator(selector),
+      menu = page.locator(popup);
+    await button.focus();
+    await expect(button).toBeFocused();
+    for (const key of ["ArrowUp", "ArrowDown"]) {
+      for (const [modifier, registered] of [
+        ["Control", true],
+        ["Shift", true],
+        ["Control+Shift", true],
+        ["Meta", false],
+        ["Alt", false],
+      ]) {
+        await settle(page);
+        const before = (await diagnostics(page)).camera;
+        await page.evaluate(() => {
+          window.__b1vToolbarArrowEvents = [];
+        });
+        await page.keyboard.press(`${modifier}+${key}`);
+        await settle(page);
+        await expect(menu).toBeHidden();
+        await expect(page.locator(more)).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        );
+        await expect(page.locator(".viewer-shell")).not.toHaveClass(
+          /menu-open/,
+        );
+        await expect(button).toBeFocused();
+        expect(
+          await page.evaluate(() => window.__b1vToolbarArrowEvents),
+        ).toEqual([{ key, prevented: registered }]);
+        if (!registered) continue;
+        const after = (await diagnostics(page)).camera;
+        expect(after).not.toEqual(before);
+        if (modifier === "Control+Shift") {
+          // Pan must translate camera and target together, not orbit instead.
+          const positionShift = new THREE.Vector3()
+              .fromArray(after.position)
+              .sub(new THREE.Vector3().fromArray(before.position)),
+            targetShift = new THREE.Vector3()
+              .fromArray(after.target)
+              .sub(new THREE.Vector3().fromArray(before.target));
+          expect(targetShift.length()).toBeGreaterThan(0.001);
+          expect(positionShift.distanceTo(targetShift)).toBeLessThan(1e-7);
+        }
+      }
+      // Only bare arrows enter the menu, with Up choosing the last item.
+      await page.keyboard.press(key);
+      await expect(menu).toBeVisible();
+      const items = menu.locator('[role^="menuitem"]:visible');
+      await expect(
+        key === "ArrowUp" ? items.last() : items.first(),
+      ).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(menu).toBeHidden();
+      await expect(page.locator(more)).toBeFocused();
+      await button.focus();
+    }
+  }
+});
 test("Reset restores parts, section, original colours, display and home without changing a noted mark or measurement", async ({
   page,
 }) => {

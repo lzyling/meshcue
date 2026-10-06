@@ -102,6 +102,8 @@ export function mountMenus(review) {
     menus.set(name, { tools, more, menu });
     more.onclick = () => (menu.hidden ? open(name) : close(true));
     group.onkeydown = (e) => {
+      // Modified arrows belong to the camera's command-registry shortcuts.
+      if (e.ctrlKey || e.shiftKey || e.metaKey || e.altKey) return;
       if (!more.hidden && ["ArrowUp", "ArrowDown"].includes(e.key)) {
         e.preventDefault();
         e.stopPropagation();
