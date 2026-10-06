@@ -224,6 +224,18 @@ export function bindNavigation(review) {
   );
 
   const stage = review.$(".orient-stage");
+  // Tab blurs the old button before focusing the next one. CSS-only
+  // :focus-visible would briefly hide that destination and prevent focus, so
+  // retain keyboard reveal while focus moves within the cube, not after a
+  // mouse contact or after focus leaves the widget.
+  stage.addEventListener("focusin", (event) => {
+    if (event.target.matches(":focus-visible"))
+      stage.classList.add("navigation-keyboard-controls");
+  });
+  stage.addEventListener("focusout", (event) => {
+    if (!stage.contains(event.relatedTarget))
+      stage.classList.remove("navigation-keyboard-controls");
+  });
   for (const [name, glyph] of [
     ["Left", "◀"],
     ["Right", "▶"],
@@ -265,6 +277,12 @@ export function bindNavigation(review) {
     "pointerdown",
     () => {
       heldReleaseClick = false;
+      stage.classList.remove("navigation-keyboard-controls");
+      // Keep a completed drag until its compatibility click can be consumed,
+      // but never let it swallow a new contact on Home, an arrow or the menu
+      // when the previous browser gesture did not generate that click.
+      clearTimeout(longPress);
+      drag = null;
     },
     true,
   );

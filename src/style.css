@@ -2745,8 +2745,12 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 }
 .orient-stage:hover .navigation-arrow,
 .orient-stage:hover .navigation-roll,
-.orient-stage:focus-within .navigation-arrow,
-.orient-stage:focus-within .navigation-roll,
+.orient-stage:focus-visible .navigation-arrow,
+.orient-stage:focus-visible .navigation-roll,
+.orient-stage:has(:focus-visible) .navigation-arrow,
+.orient-stage:has(:focus-visible) .navigation-roll,
+.navigation-keyboard-controls .navigation-arrow,
+.navigation-keyboard-controls .navigation-roll,
 .navigation-touch-controls .navigation-arrow,
 .navigation-touch-controls .navigation-roll {
   visibility: visible;
@@ -2788,6 +2792,9 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
    the old narrow-layout exception that hid the floating panel. */
 .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
   display: block;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .orient-menu {
   position: absolute;

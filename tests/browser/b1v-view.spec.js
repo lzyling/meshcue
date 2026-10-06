@@ -124,6 +124,65 @@ test("cube keeps Home visible, hides arrows until hover and embeds rotating axes
   await shot(page, "desktop-rolled-fit");
 });
 
+test("mouse-clicked cube arrows hide on leave while keyboard focus keeps them accessible", async ({
+  page,
+}) => {
+  await open(page);
+  await cube(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const selector of [".navigation-arrow-left", ".navigation-roll-left"]) {
+    await page.locator(".orient-stage").hover();
+    await page.locator(selector).click();
+    await expect(page.locator(selector)).toBeFocused();
+    await page.mouse.move(10, 10);
+    for (const button of await page
+      .locator(".navigation-arrow, .navigation-roll")
+      .all())
+      await expect(button).toBeHidden();
+  }
+  await page.locator(".orient-stage").focus();
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#home-view")).toBeFocused();
+  for (const button of await page
+    .locator(".navigation-arrow, .navigation-roll")
+    .all())
+    await expect(button).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".navigation-arrow-left")).toBeFocused();
+  const before = (await diag(page)).camera;
+  await page.keyboard.press("Enter");
+  await settled(page);
+  expect((await diag(page)).camera.position).not.toEqual(before.position);
+  await expect(page.locator(".navigation-arrow-left")).toBeVisible();
+  await page.locator(".navigation-roll-left").click();
+  await page.mouse.move(10, 10);
+  for (const button of await page
+    .locator(".navigation-arrow, .navigation-roll")
+    .all())
+    await expect(button).toBeHidden();
+});
+
+test("phone Section keeps the axes the same size and position as the cube stage", async ({
+  page,
+}) => {
+  await open(page);
+  await cube(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#toggle-annotations").click();
+  await clickControl(page, "#section-toggle");
+  await expect(page.locator("#section-options")).toBeVisible();
+  for (const width of [390, 760]) {
+    await page.setViewportSize({ width, height: 844 });
+    await settled(page);
+    const stage = await page.locator(".orient-stage").boundingBox();
+    const triad = await page.locator(".navigation-triad").boundingBox();
+    expect(triad).not.toBeNull();
+    for (const key of ["x", "y", "width", "height"])
+      expect(triad[key]).toBeCloseTo(stage[key], 5);
+    await shot(page, `phone-section-${width}`);
+  }
+});
+
 test("saved review default includes framing, projection and roll, survives reload, and can be reset", async ({
   page,
 }) => {
@@ -310,6 +369,79 @@ test("touch reveals compact controls, long-press opens defaults, and a drag does
     await expect(page.locator(".orient-stage")).not.toHaveClass(
       /navigation-touch-controls/,
     );
+  } finally {
+    await touch.detach().catch(() => {});
+  }
+});
+
+test("a long-press without a compatibility click never swallows a new menu, Home or arrow contact", async ({
+  page,
+}) => {
+  await open(page);
+  await cube(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#toggle-annotations").click();
+  await page.mouse.move(10, 10);
+  await page.locator(".orient-stage").click({ button: "right" });
+  await page.locator('[data-command="navigation-default-set"]').click();
+  await page.evaluate(() => {
+    window.__cubeOmittedReleaseClicks = 0;
+    // Model browsers that omit the release click by withholding it before
+    // application listeners see it. The pointer down/up and later contacts
+    // are genuine browser input; no cube gesture state is changed by the test.
+    window.addEventListener(
+      "click",
+      (event) => {
+        if (!window.__cubeOmitReleaseClick) return;
+        window.__cubeOmitReleaseClick = false;
+        window.__cubeOmittedReleaseClicks++;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      },
+      true,
+    );
+  });
+  const box = await page.locator(".orient-stage").boundingBox();
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const touch = await page.context().newCDPSession(page);
+  let sequences = 0;
+  try {
+    for (const chooseMenu of [true, false])
+      for (const selector of ["#home-view", ".navigation-arrow-up"]) {
+        if (!chooseMenu) await page.keyboard.press("Shift+2");
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [point],
+        });
+        await expect(page.locator(".orient-menu")).toBeVisible();
+        await page.evaluate(() => {
+          window.__cubeOmitReleaseClick = true;
+        });
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        sequences++;
+        expect(
+          await page.evaluate(() => window.__cubeOmittedReleaseClicks),
+        ).toBe(sequences);
+        if (chooseMenu)
+          await page.locator('[data-command="navigation-default-set"]').click();
+        const saved = (await nav(page)).defaultView;
+        if (chooseMenu) await page.keyboard.press("Shift+2");
+        const before = (await diag(page)).camera;
+        await page.locator(selector).click();
+        await settled(page);
+        const after = (await diag(page)).camera;
+        expect(after.position).not.toEqual(before.position);
+        if (selector === "#home-view")
+          for (const key of ["position", "target"])
+            after[key].forEach((value, i) =>
+              expect(value).toBeCloseTo(saved[key][i], 6),
+            );
+        if (!chooseMenu) await page.keyboard.press("Escape");
+      }
   } finally {
     await touch.detach().catch(() => {});
   }
