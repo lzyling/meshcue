@@ -1,9 +1,17 @@
 export default {
+  "shell.more": "更多{group}选项",
+  "shell.rotateMode": "旋转模式 — 点击切换平移 (H)",
+  "shell.panMode": "平移模式 — 点击切换旋转",
+  "shell.reset": "重置",
+  "shell.resetTitle":
+    "重置预览：显示全部零件，清除隔离和透明，退出剖面，恢复默认显示与视角；保留标注、备注和测量",
+  "shell.history": "历史",
+  "help.p16":
+    "工具栏按查看、显示、标记和检查分组。常用工具可直接单击切换；“…”打开更多选项。查看组显示当前旋转或平移模式，点击即可切换，旁边是重置视角和适合全部。显示组显示当前样式，点击选择；显示标注开关在标注页。重置会显示全部零件、退出剖面、恢复带边线着色与原色，并回到默认视角，不更改标注、备注、草稿或测量。",
   "shell.view": "查看",
   "shell.mark": "标记",
   "shell.inspect": "检查",
   "shell.settings": "设置",
-  "shell.parts": "零件树",
   "shell.performance": "性能诊断",
   "shell.cube": "视图立方体",
   "shell.hints": "重新显示工具提示",

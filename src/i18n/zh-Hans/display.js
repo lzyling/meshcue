@@ -1,4 +1,5 @@
 export default {
+  "display.choose": "显示：{style} — 点击选择样式",
   "display.title": "显示",
   "display.edges": "着色并显示边线",
   "display.shaded": "着色",

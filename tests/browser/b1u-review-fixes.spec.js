@@ -129,9 +129,7 @@ for (const [name, viewport] of [
     });
   });
 
-test("turning the part tree off brings every hidden or see-through part back", async ({
-  page,
-}) => {
+test("Reset brings every hidden or see-through part back", async ({ page }) => {
   await open(page, "tests/fixtures/grouped-colours.step");
   await showParts(page);
   const rows = page.locator('[role="treeitem"]');
@@ -150,13 +148,9 @@ test("turning the part tree off brings every hidden or see-through part back", a
   await page.keyboard.press("Shift+T");
   await expect(page.locator(".part-hidden")).not.toHaveCount(0);
   await expect(page.locator(".part-transparent")).not.toHaveCount(0);
-  await page.locator("#settings-button").click();
-  await page.locator("#setting-parts").uncheck();
-  await page.locator("#close-settings").click();
-  // With the tree off, its keys must not be able to hide anything again.
-  await page.locator("#viewer canvas").focus();
-  for (const key of ["Y", "Shift+I", "Shift+T"]) await page.keyboard.press(key);
-  await page.screenshot({ path: `${evidence}/parts-off-restored.png` });
+  await page.locator("#sidebar-marks").click();
+  await page.locator("#reset-preview").click();
+  await page.screenshot({ path: `${evidence}/parts-reset-restored.png` });
   await showParts(page);
   await expect(rows.first()).toBeVisible();
   await expect(page.locator(".part-hidden, .part-transparent")).toHaveCount(0);
@@ -315,7 +309,9 @@ test.describe("phone hint", () => {
 
 test.describe("landscape phone hint", () => {
   test.use({
-    viewport: { width: 844, height: 390 },
+    // Group captions lift the hint above its old off-screen position. Keep
+    // this regression deliberately clipped with a shorter landscape viewport.
+    viewport: { width: 844, height: 350 },
     hasTouch: true,
     isMobile: true,
   });
@@ -338,7 +334,7 @@ test.describe("landscape phone hint", () => {
     page,
   }) => {
     await open(page);
-    expect((await extent(page)).bottom).toBeGreaterThan(390);
+    expect((await extent(page)).bottom).toBeGreaterThan(350);
     expect(await seen(page)).not.toBe("true");
     const counts = await page.evaluate(async () => {
       const frame = () => new Promise(requestAnimationFrame);
@@ -432,10 +428,9 @@ test.describe("landscape phone hint", () => {
 
 test("Fit to window and Home use different icons", async ({ page }) => {
   await open(page);
-  await page.locator("#view-menu-button").click();
   const icon = (command) =>
     page
-      .locator(`#view-menu [data-command="${command}"] use`)
+      .locator(`.toolbar [data-command="${command}"] use`)
       .getAttribute("href");
   const fit = await icon("navigation-fit"),
     home = await icon("home");
@@ -443,7 +438,7 @@ test("Fit to window and Home use different icons", async ({ page }) => {
   expect(fit).not.toBe(home);
   // The icon it names is drawn from the bundle's own sprite, not left blank.
   const drawn = await page
-    .locator('#view-menu [data-command="navigation-fit"] use')
+    .locator('.toolbar [data-command="navigation-fit"] use')
     .evaluate((use) => use.getBBox().width);
   expect(drawn).toBeGreaterThan(10);
   await page.screenshot({ path: `${evidence}/view-menu-icons.png` });

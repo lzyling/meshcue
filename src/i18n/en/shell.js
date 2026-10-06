@@ -1,9 +1,17 @@
 export default {
+  "shell.more": "More {group} options",
+  "shell.rotateMode": "Rotate mode — switch to Pan (H)",
+  "shell.panMode": "Pan mode — switch to Rotate",
+  "shell.reset": "Reset",
+  "shell.resetTitle":
+    "Reset preview: show all parts, clear isolation and transparency, exit Section, restore default display and view; keep marks, notes and measurements",
+  "shell.history": "History",
+  "help.p16":
+    "The toolbar groups View, Display, Mark and Inspect. Common tools work in one click; “…” opens extra options. View shows Rotate or Pan: click to switch, with Reset view and Fit all beside it. Display shows the current style; click to choose. Show marks is on the Marks tab. Reset restores all parts, exits Section, restores shaded-with-edges and original colours, and calls the default view without changing marks, notes, drafts or measurements.",
   "shell.view": "View",
   "shell.mark": "Mark",
   "shell.inspect": "Inspect",
   "shell.settings": "Settings",
-  "shell.parts": "Part tree",
   "shell.performance": "Performance diagnostics",
   "shell.cube": "View cube",
   "shell.hints": "Show tool hints again",

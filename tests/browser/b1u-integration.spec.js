@@ -34,11 +34,11 @@ const noOverlap = (a, b) =>
   a.y + a.height <= b.y + 1 ||
   b.y + b.height <= a.y + 1;
 
-test("integrated View selection synchronizes only with an enabled Parts tab", async ({
+test("integrated View selection synchronizes with the permanent Parts tab", async ({
   page,
 }) => {
   await open(page);
-  await expect(page.locator("#sidebar-parts")).toBeHidden();
+  await expect(page.locator("#sidebar-parts")).toBeVisible();
   let p = await face(page);
   await page.mouse.click(p.x, p.y);
   expect(
@@ -47,7 +47,7 @@ test("integrated View selection synchronizes only with an enabled Parts tab", as
   await showParts(page);
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   p = await face(page);
   await page.mouse.click(p.x, p.y);
   await expect(
@@ -59,16 +59,14 @@ test("integrated View selection synchronizes only with an enabled Parts tab", as
   ).not.toBeNull();
   await page.screenshot({ path: `${evidence}/selection-and-section.png` });
   await page.keyboard.press("Escape");
-  await page.locator("#settings-button").click();
-  await page.locator("#setting-parts").uncheck();
-  await page.locator("#close-settings").click();
+  await page.locator("#sidebar-marks").click();
   await page.locator("#section-off").click();
   p = await face(page);
   await page.mouse.click(p.x, p.y);
   await showParts(page);
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(0);
@@ -142,9 +140,11 @@ for (const [name, viewport] of [
       await page.screenshot({
         path: `${evidence}/${name}-smart-advanced-section.png`,
       });
-      for (const menu of ["view", "mark", "inspect"]) {
+      for (const menu of ["view", "display"]) {
         await page.locator(`#${menu}-menu-button`).click();
-        const popup = page.locator(`#${menu}-menu`);
+        const popup = page.locator(
+          menu === "display" ? "#display-options" : `#${menu}-menu`,
+        );
         await expect(popup).toBeVisible();
         expect(
           noOverlap(
@@ -153,18 +153,8 @@ for (const [name, viewport] of [
           ),
         ).toBe(true);
         const commands = {
-          view: [
-            "mode-orbit",
-            "mode-pan",
-            "home",
-            "navigation-fit",
-            "navigation-projection",
-            "display",
-            "plain",
-            "marks",
-          ],
-          mark: ["mode-label", "mode-fill"],
-          inspect: ["mode-measure", "section"],
+          view: ["mode-orbit", "mode-pan"],
+          display: ["navigation-projection", "plain"],
         }[menu];
         for (const command of commands)
           await expect(

@@ -1,9 +1,17 @@
 export default {
+  "shell.more": "更多{group}選項",
+  "shell.rotateMode": "旋轉模式 — 按一下切換平移 (H)",
+  "shell.panMode": "平移模式 — 按一下切換旋轉",
+  "shell.reset": "重設",
+  "shell.resetTitle":
+    "重設預覽：顯示全部零件，清除隔離與透明，結束剖面，恢復預設顯示與視角；保留標註、備註與測量",
+  "shell.history": "歷史",
+  "help.p16":
+    "工具列依檢視、顯示、標記與檢查分組。常用工具可直接按一下切換；「…」開啟更多選項。檢視組顯示目前的旋轉或平移模式，按一下即可切換，旁邊是重設視角與符合全部。顯示組顯示目前樣式，按一下選擇；顯示標註開關在標註頁。重設會顯示全部零件、結束剖面、恢復含邊線的著色與原色，並回到預設視角，不變更標註、備註、草稿或測量。",
   "shell.view": "檢視",
   "shell.mark": "標記",
   "shell.inspect": "檢查",
   "shell.settings": "設定",
-  "shell.parts": "零件樹",
   "shell.performance": "效能診斷",
   "shell.cube": "視圖立方體",
   "shell.hints": "重新顯示工具提示",

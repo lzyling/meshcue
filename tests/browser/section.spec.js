@@ -251,7 +251,7 @@ test("section controls clip in model units, flip, hide pins and reset without ed
   expect((await diagnostics(page)).annotationCount).toBe(1);
   expect((await diagnostics(page)).annotations).toEqual(before.annotations);
   await page.locator("#section-off").click();
-  await expect(page.locator('[data-menu="inspect"] .split-main')).toBeFocused();
+  await expect(page.locator("#section-toggle")).toBeFocused();
   await clickAt(page, [-8, 2, 4]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await section(page, "x");

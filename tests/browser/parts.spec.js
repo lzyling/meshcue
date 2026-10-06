@@ -356,7 +356,7 @@ test("old saved review retains its marks when parts hide, show and reload", asyn
   await kit.screenshot("legacy-marks");
 });
 
-test("phone parts sheet opens from the toolbar without covering the model", async ({
+test("phone parts sheet opens from its always-visible tab without covering the model", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });

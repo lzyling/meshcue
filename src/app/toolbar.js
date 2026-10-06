@@ -173,6 +173,38 @@ export function registerToolbarCommands(review) {
     !review.recoveryBlocked &&
     !review.accessBlocked;
   const idle = () => ready() && !review.submitting;
+  review.commands.register({
+    id: "view-mode",
+    labelKey: "shell.rotateMode",
+    icon: "orbit",
+    menu: "view",
+    attributes: { id: "view-mode-toggle" },
+    enabled: ready,
+    run: () => review.setMode(review.mode === "pan" ? "orbit" : "pan"),
+  });
+  review.commands.register({
+    id: "reset-preview",
+    labelKey: "shell.reset",
+    titleKey: "shell.resetTitle",
+    captionKey: "shell.reset",
+    icon: "reset",
+    group: "reset",
+    attributes: { id: "reset-preview", class: "tool reset-preview" },
+    enabled: ready,
+    run: () => {
+      // These are viewer-only switches: never call changed(), setMode(), or
+      // touch annotations/history/drafts. The camera belongs to home(), which
+      // also owns a reviewer's saved default rather than the shell guessing it.
+      review.viewer.parts.restoreAll({ preserveMeasure: true });
+      review.viewer.hoverPart(null);
+      review.viewer.setSection(null);
+      if (review.viewer.neutral) review.commands.run("plain");
+      review.setDisplayStyle("edges");
+      review.viewer.setVisible(true);
+      review.showMarksToggle();
+      review.viewer.home();
+    },
+  });
   for (const [mode, labelKey, titleKey, captionKey, icon] of [
     ["orbit", "tool.orbitLabel", "tool.orbitTitle", "tool.orbit", "orbit"],
     ["label", "tool.labelLabel", "tool.labelTitle", "tool.label", "pin"],
@@ -250,9 +282,7 @@ export function registerToolbarCommands(review) {
     titleKey: "marks.hide",
     captionKey: "tool.marks",
     icon: "eye",
-    menu: "view",
-    menuOrder: 60,
-    menuSection: "display",
+    group: "marks-panel",
     checked: () => !!review.viewer?.annotationsVisible,
     attributes: { id: "toggle-marks", class: "tool", "aria-pressed": "false" },
     run: () => {
@@ -340,7 +370,7 @@ export function mountToolbar(review) {
   });
   document.addEventListener("click", (event) => {
     if (event.target.closest?.("#section-off"))
-      review.$('[data-menu="inspect"] .split-main').focus();
+      review.$("#section-toggle").focus();
     const button = event.target.closest?.("[data-command]");
     if (button && !button.disabled) {
       review.commands.run(button.dataset.command);

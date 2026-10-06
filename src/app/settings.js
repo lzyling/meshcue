@@ -12,16 +12,23 @@ import { storeThemeChoice, applyTheme, THEMES } from "../theme.js";
 export function createSettings(
   storage,
   defaults = {
-    parts: false,
     performance: false,
     viewCube: true,
     sidebarCollapsed: false,
   },
 ) {
+  // Parts is now a permanent entry point. Retire the old switch without
+  // letting a saved false hide the tree, including in older feature callers.
+  try {
+    storage?.removeItem("meshcue.settings.parts");
+  } catch {
+    /* Storage is optional. */
+  }
   const values = new Map(),
     listeners = new Map();
   return {
     get(id) {
+      if (id === "parts") return true;
       if (!values.has(id)) {
         let value = defaults[id];
         try {
@@ -39,6 +46,7 @@ export function createSettings(
       return values.get(id);
     },
     set(id, value) {
+      if (id === "parts") return;
       if (id in defaults && typeof value !== typeof defaults[id])
         throw new TypeError(`Invalid setting: ${id}`);
       const previous = this.get(id);
@@ -75,7 +83,6 @@ export function bindSettings(review) {
     review.$("#settings-dialog").close();
   const features = review.$("#settings-features");
   for (const [id, key] of [
-    ["parts", "shell.parts"],
     ["performance", "shell.performance"],
     ["viewCube", "shell.cube"],
   ]) {
