@@ -91,11 +91,15 @@ export function bindNavigation(review) {
       { shortcutLabel: `Shift+${i + 1}` },
     ),
   );
+  // Home returns to the starting view; Fit keeps the current direction and
+  // only frames the whole model. Two different actions side by side in the
+  // same menu section need two different marks, or the one used less looks
+  // like a duplicate. Corner brackets round a box, as viewers usually draw it.
   register("fit", "navigation.fit", "F", () => viewer.fitAll(), {
     menu: "view",
     menuOrder: 25,
     menuSection: "camera",
-    icon: "home",
+    icon: "fit",
   });
   register("zoom-out", "navigation.zoomOut", "Z", () =>
     viewer.zoomNavigation(1.2),

@@ -5,11 +5,13 @@ export default {
   "measure.hintSmart": "单击边、孔或面 · 再单击一个进行比较 · 右键拖动旋转",
   "measure.nextObject": "再单击一个对象进行比较",
   "measure.restart": "单击开始新的测量",
-  "measure.unsupported": "暂不支持比较这两个对象。请试试两个角点或两个平面。",
+  "measure.unsupported": "这两个对象无法比较。请使用角点、直边或平面。",
   "measure.notCylinder":
     "这个曲面无法识别为圆柱面。请试试 STEP 圆边，或「高级 → 三点圆」。",
   "measure.curveLength": "沿曲线约 {value} · 无法保留",
   "measure.arcReading": "{diameter} · 半径 {radius} · {angle}",
+  "measure.cannotKeep": "{value} · 无法保留",
+  "measure.sameEdge": "这是同一条边，请单击另一条边。",
 
   "measure.kinds": "测量什么",
   "measure.points": "点到点",

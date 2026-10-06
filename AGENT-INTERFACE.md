@@ -440,9 +440,11 @@ mark, then say what to change."
 - Measure starts in Smart: click an edge, hole or face; click a second one to
   compare. Nearby corners snap first, then edges, then faces. A straight edge
   shows its length. On STEP, one click on a circular edge or cylindrical wall
-  shows the diameter; an arc also shows radius and angle. Two corners give
-  distance; two flat faces give gap when parallel, otherwise angle. Unsupported
-  pairs say so. The third click starts over; Escape clears the reading. Advanced
+  shows the diameter; an arc also shows radius and angle. Corners, straight
+  edges and flat faces pair in any combination: a distance is measured square to
+  the edge or face, and edges or faces that are not parallel give their angle
+  instead. An angle involving an edge is shown but cannot be kept; pairs with a
+  curve say so. The third click starts over; Escape clears the reading. Advanced
   opens the original four kinds, including 3-point circle for STL/GLB.
   Noncircular STEP curves show approximate tessellated length only and cannot be
   kept. Values use model units and the usual decimals. Keep makes the reading a
@@ -584,7 +586,14 @@ from any `note` they wrote on a mark.
   units like its `position` and `target`.
 - **A mark of `type: "measure"` is a dimension the reviewer read off this
   version and kept.** `kind: "points"` is the distance between two points; a
-  click within a few pixels of a triangle corner is taken at the corner.
+  click within a few pixels of a triangle corner is taken at the corner. The
+  smart tool keeps the same shape for a corner, straight edge or flat face
+  measured to an edge or face it is parallel to (a corner always is): the two
+  points are the ends of the line square to that edge or face, so one of them
+  may lie on the edge's line or the face's plane beyond its outline, and each
+  pick is the triangle the reviewer clicked for that object. An angle between
+  two edges, or between an edge and a face, is shown on the page but is not
+  kept.
   `"edge"` is the length of a straight edge, end to end; a curved edge is
   refused on the page, not measured. `"planes"` is two flat faces:
   `quantity: "length"` when they are parallel within 0.5°, the gap between

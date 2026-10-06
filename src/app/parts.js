@@ -75,13 +75,26 @@ export function bindParts(review) {
       id: `parts-${id}`,
       labelKey: labels[id],
       shortcuts,
+      /* Hiding, isolating and see-through are part-tree tools. With the tree
+         switched off nothing on screen says a part was hidden or how to get it
+         back, so their keys go quiet with it. Show all stays: it can only
+         bring things back. */
       enabled: () =>
         viewer.enabled &&
         (id === "showAll" ||
-          !!selected() ||
-          (id === "isolate" && viewer.parts.isIsolated())),
+          (review.settings.get("parts") &&
+            (!!selected() || (id === "isolate" && viewer.parts.isIsolated())))),
       run,
     });
+  /* Turning the tree off restores every part rather than leaving its state
+     behind. The alternative -- a "Show all parts" entry in View that only
+     matters after this -- is one more item a beginner sees and has to
+     understand, for a state they can only have reached through a tool they
+     have just put away. Turning the tree back on starts from the model as it
+     was drawn, which is what someone who switched it off expects. */
+  review.settings.on("parts", (on) => {
+    if (!on) viewer.parts.restoreAll();
+  });
   // Escape already has one registry owner. Extend its entry so measurement and
   // relocation retain their behavior and there is still just one key binding.
   const escape = commands.get("escape"),

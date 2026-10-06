@@ -5,11 +5,13 @@ export default {
   "measure.hintSmart": "點一下邊、孔或面 · 再點一個進行比較 · 右鍵拖曳旋轉",
   "measure.nextObject": "再點一個物件進行比較",
   "measure.restart": "點一下開始新的量測",
-  "measure.unsupported": "暫不支援比較這兩個物件。請試試兩個角點或兩個平面。",
+  "measure.unsupported": "這兩個物件無法比較。請使用角點、直邊或平面。",
   "measure.notCylinder":
     "這個曲面無法辨識為圓柱面。請試試 STEP 圓邊，或「進階 → 三點圓」。",
   "measure.curveLength": "沿曲線約 {value} · 無法保留",
   "measure.arcReading": "{diameter} · 半徑 {radius} · {angle}",
+  "measure.cannotKeep": "{value} · 無法保留",
+  "measure.sameEdge": "這是同一條邊，請點另一條邊。",
 
   "measure.kinds": "測量什麼",
   "measure.points": "點到點",

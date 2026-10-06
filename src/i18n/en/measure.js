@@ -7,11 +7,13 @@ export default {
   "measure.nextObject": "Click a second object to compare",
   "measure.restart": "Click to start a new measurement",
   "measure.unsupported":
-    "This pair cannot be compared yet. Try two corners or two flat faces.",
+    "This pair cannot be compared. Use corners, straight edges or flat faces.",
   "measure.notCylinder":
     "This curved face is not a recognised cylinder. Try a circular STEP edge or Advanced → 3-point circle.",
   "measure.curveLength": "≈{value} along curve · Cannot keep",
   "measure.arcReading": "{diameter} · R {radius} · {angle}",
+  "measure.cannotKeep": "{value} · Cannot keep",
+  "measure.sameEdge": "That is the same edge — click a different one.",
 
   "measure.kinds": "What to measure",
   "measure.points": "Point to point",

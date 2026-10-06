@@ -7,11 +7,13 @@ export default {
   "measure.nextObject": "Zweites Objekt zum Vergleichen anklicken",
   "measure.restart": "Klicken, um eine neue Messung zu beginnen",
   "measure.unsupported":
-    "Dieses Paar lässt sich noch nicht vergleichen. Wählen Sie zwei Eckpunkte oder zwei ebene Flächen.",
+    "Dieses Paar lässt sich nicht vergleichen. Wählen Sie Eckpunkte, gerade Kanten oder ebene Flächen.",
   "measure.notCylinder":
     "Diese gekrümmte Fläche wurde nicht als Zylinder erkannt. Wählen Sie eine STEP-Kreiskante oder Erweitert → 3-Punkt-Kreis.",
   "measure.curveLength": "≈{value} entlang der Kurve · Nicht speicherbar",
   "measure.arcReading": "{diameter} · R {radius} · {angle}",
+  "measure.cannotKeep": "{value} · Nicht speicherbar",
+  "measure.sameEdge": "Das ist dieselbe Kante – klicken Sie eine andere an.",
 
   "measure.kinds": "Was gemessen wird",
   "measure.points": "Punkt zu Punkt",

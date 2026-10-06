@@ -11,4 +11,7 @@ export default {
   "shell.dismissHint": "Dismiss tool hint",
   "shell.perfDetails": "Show performance details",
   "shell.perfDrag": "Drag performance window",
+  "shell.online": "Online",
+  "shell.reconnecting": "Reconnecting…",
+  "shell.offline": "Offline",
 };

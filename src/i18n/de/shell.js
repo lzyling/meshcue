@@ -11,4 +11,7 @@ export default {
   "shell.dismissHint": "Werkzeughinweis schließen",
   "shell.perfDetails": "Leistungsdetails anzeigen",
   "shell.perfDrag": "Leistungsfenster verschieben",
+  "shell.online": "Online",
+  "shell.reconnecting": "Verbindung wird wiederhergestellt…",
+  "shell.offline": "Offline",
 };

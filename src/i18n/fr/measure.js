@@ -7,12 +7,14 @@ export default {
   "measure.nextObject": "Cliquez sur un second objet pour comparer",
   "measure.restart": "Cliquez pour commencer une nouvelle mesure",
   "measure.unsupported":
-    "Cette paire ne peut pas encore être comparée. Essayez deux sommets ou deux faces planes.",
+    "Cette paire ne peut pas être comparée. Choisissez des sommets, des arêtes droites ou des faces planes.",
   "measure.notCylinder":
     "Cette face courbe ne correspond pas à un cylindre reconnu. Essayez une arête circulaire STEP ou Avancé → Cercle à 3 points.",
   "measure.curveLength":
     "≈{value} le long de la courbe · Conservation impossible",
   "measure.arcReading": "{diameter} · R {radius} · {angle}",
+  "measure.cannotKeep": "{value} · Conservation impossible",
+  "measure.sameEdge": "C'est la même arête — cliquez-en une autre.",
 
   "measure.kinds": "Quoi mesurer",
   "measure.points": "Point à point",

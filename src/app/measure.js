@@ -5,6 +5,10 @@ export function installMeasure(review) {
   review.formatMeasure = (value) => {
     const reading = format(value);
     if (value.approximate) return t("measure.curveLength", { value: reading });
+    // An angle involving an edge is real but has no kept shape (`smartCompare`
+    // in src/measure.js); say so where the number is, before Keep stays grey.
+    if (value.keepable === false)
+      return t("measure.cannotKeep", { value: reading });
     if (value.radius != null)
       return t("measure.arcReading", {
         diameter: reading,
@@ -75,6 +79,7 @@ export function bindMeasure(review) {
   review.MEASURE_NEXT.smart = ["measure.nextObject", "measure.restart"];
   Object.assign(review.MEASURE_REFUSALS, {
     unsupported: "measure.unsupported",
+    sameEdge: "measure.sameEdge",
     notCylinder: "measure.notCylinder",
   });
 

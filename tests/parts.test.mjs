@@ -378,3 +378,24 @@ test("showing a child of a hidden mesh node draws only the child", () => {
   });
   assert.deepEqual(pin.normal, JSON.parse(JSON.stringify(pin.normal)));
 });
+
+test("restoring every part clears hiding, isolation, transparency and selection at once", async () => {
+  const viewer = await load(await step("grouped-colours"), "step");
+  const parts = viewer.parts,
+    leaves = parts.list().filter((p) => !p.childIds.length);
+  parts.setVisible(leaves[0].id, false);
+  parts.setTransparent(leaves[1].id, true);
+  parts.isolate([leaves[1].id]);
+  parts.select(leaves[1].id);
+  let changes = 0;
+  const off = parts.onChange(() => changes++);
+  parts.restoreAll();
+  off();
+  assert.equal(changes, 1, "one redraw, not four");
+  for (const leaf of leaves) {
+    assert.equal(parts.isVisible(leaf.id), true);
+    assert.equal(parts.isTransparent(leaf.id), false);
+  }
+  assert.equal(parts.isIsolated(), false);
+  assert.equal(parts.selected(), null);
+});

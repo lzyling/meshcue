@@ -11,4 +11,7 @@ export default {
   "shell.dismissHint": "關閉工具提示",
   "shell.perfDetails": "顯示效能詳情",
   "shell.perfDrag": "拖曳效能視窗",
+  "shell.online": "在線",
+  "shell.reconnecting": "正在重新連線…",
+  "shell.offline": "離線",
 };

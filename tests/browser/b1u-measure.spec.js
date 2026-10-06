@@ -211,11 +211,11 @@ test("smart straight edge, parallel faces, unsupported relation and third-click 
   const front = await screenOf(page, [0, -7.5, 4]);
   await click(page, { x: front.x, y: front.y + 3 });
   await expect(reading(page)).toHaveText("16.00 mm");
+  // Edge to face is supported since the b1u review follow-up: this edge lies
+  // in the top face, so their gap is zero. The refusal for pairs that remain
+  // unsupported (a curved face) is in tests/browser/b1u-review-fixes.spec.js.
   await click(page, await screenOf(page, [5, 3, 4]));
-  await expect(page.locator("#toast")).toHaveText(
-    "This pair cannot be compared yet. Try two corners or two flat faces.",
-  );
-  await expect(page.locator("#keep-measure")).toBeDisabled();
+  await expect(reading(page)).toHaveText("0.00 mm");
   await click(page, await screenOf(page, [5, 3, 4]));
   await expect(reading(page)).toHaveText("Click a second object to compare");
   await page.locator('.orient-face[data-view="0,-1,0"]').dispatchEvent("click");

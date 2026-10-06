@@ -129,6 +129,35 @@ test("settings persist, sidebar keeps submit and hints can be restored", async (
   await expect(page.locator(".annotations-panel")).toHaveClass(/collapsed/);
   await expect(page.locator(".orient")).toBeHidden();
   await expect(page.locator("#perf-panel")).toBeVisible();
+});
+
+/* This continues the case above from the state its reload proved persistent.
+   As one case it was some sixty interactions, many of them over a modal
+   dialog whose blurred backdrop sits on a canvas still drawing every frame:
+   about 15 s here, about 55 s on a software-rendered CI runner, where the
+   first test to pass that line timed out with nothing wrong. Starting from
+   the stored preferences keeps every step and leaves each half its own
+   minute instead of raising the limit for both. */
+test("the sidebar strip submits marks and settings switch back off", async ({
+  page,
+}) => {
+  await open(page);
+  await page.evaluate(() => {
+    for (const [id, value] of Object.entries({
+      parts: true,
+      viewCube: false,
+      performance: true,
+      sidebarCollapsed: true,
+    }))
+      localStorage.setItem(`meshcue.settings.${id}`, JSON.stringify(value));
+  });
+  await page.reload();
+  await page.waitForFunction(
+    () => window.__reviewDiagnostics?.().viewer.meshes > 0,
+  );
+  await expect(page.locator(".annotations-panel")).toHaveClass(/collapsed/);
+  await expect(page.locator(".orient")).toBeHidden();
+  await expect(page.locator("#perf-panel")).toBeVisible();
   await page.locator("#sidebar-marks").click();
   await expect(page.locator("#annotations-list")).toBeVisible();
   // The strip must hand over real marks through the same guarded button.

@@ -158,20 +158,25 @@ test("View touch tap selects, double-tap recentres and drag or pinch never selec
       );
   });
   const touch = await page.context().newCDPSession(page);
-  const send = (type, touchPoints) =>
-    touch.send("Input.dispatchTouchEvent", { type, touchPoints });
+  const send = (type, touchPoints, timestamp) =>
+    touch.send("Input.dispatchTouchEvent", { type, touchPoints, timestamp });
   const point = { x: p.x, y: p.y };
   try {
     await send("touchStart", [point]);
     await send("touchEnd", []);
     expect((await nav(page)).selection?.faces).toBe(20);
     await page.keyboard.press("Escape");
-    // Keep protocol assertions out of the double-tap interval: software
-    // rendering can otherwise turn two deliberate taps into separate clicks.
-    await send("touchStart", [point]);
-    await send("touchEnd", []);
-    await send("touchStart", [point]);
-    await send("touchEnd", []);
+    // A finger's taps carry the time the screen sensed them, and that is what
+    // the double-tap window measures. An unstamped protocol event is stamped
+    // when the browser receives it instead, and each send waits for the page
+    // to handle the previous one: on a software-rendered runner that put
+    // 850 ms between the two releases, so the test tapped too slowly rather
+    // than the page missing a double tap. State a finger's timing outright.
+    const at = Date.now() / 1000;
+    await send("touchStart", [point], at);
+    await send("touchEnd", [], at + 0.06);
+    await send("touchStart", [point], at + 0.18);
+    await send("touchEnd", [], at + 0.24);
     fs.writeFileSync(
       `${evidence}/touch-events.json`,
       JSON.stringify(await page.evaluate(() => window.__touchEvents), null, 2),
