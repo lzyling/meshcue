@@ -6,6 +6,34 @@ import { V } from "./shared.js";
 /* How far off the pole a top or bottom view stands, in radians. Far enough
    from the 1e-6 OrbitControls clamps to, too little to see. */
 const POLE_OFFSET = 1e-4;
+
+// localStorage is untrusted and may contain an old or manually edited value.
+// Refuse degenerate frames before they can poison OrbitControls with NaNs.
+export function validDefaultView(data) {
+  const vector = (v) =>
+    Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+  if (
+    !data ||
+    !vector(data.position) ||
+    !vector(data.target) ||
+    !vector(data.up)
+  )
+    return false;
+  const direction = new V()
+    .fromArray(data.position)
+    .sub(new V().fromArray(data.target));
+  const up = new V().fromArray(data.up);
+  return (
+    Number.isFinite(direction.lengthSq()) &&
+    Number.isFinite(up.lengthSq()) &&
+    direction.lengthSq() > 1e-12 &&
+    up.lengthSq() > 1e-12 &&
+    new V().crossVectors(direction, up).lengthSq() > 1e-12 &&
+    (data.projection === undefined || data.projection === "orthographic") &&
+    (data.projection !== "orthographic" ||
+      (Number.isFinite(data.visibleHeight) && data.visibleHeight > 0))
+  );
+}
 export class CameraMethods {
   setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -137,6 +165,7 @@ export class CameraMethods {
   restoreCamera(data, { fit = false } = {}) {
     if (!data) return;
     this.cancelNavigation();
+    this.setNavigationUp(new V().fromArray(data.up || [0, 1, 0]));
     this.camera.position.fromArray(data.position);
     this.controls.target.fromArray(data.target);
     // The user's remembered projection wins over a draft saved in another
@@ -170,9 +199,43 @@ export class CameraMethods {
     const damping = this.controls.enableDamping;
     this.controls.enableDamping = false;
     this.controls.update();
-    this.camera.up.set(0, 1, 0);
-    this.fitAll({ direction: new V(4, 2.8, 5) });
+    const saved = this.getDefaultView?.();
+    if (saved) {
+      this.setProjection(saved.projection || "perspective");
+      // Fitting a small part narrows both distance and orthographic zoom
+      // limits. Restore whole-model limits before OrbitControls updates the
+      // saved frame, including when setProjection keeps the same camera.
+      this.updateNavigationLimits();
+      this.restoreCamera(saved);
+    } else {
+      this.setNavigationUp(new V(0, 1, 0));
+      this.fitAll({ direction: new V(4, 2.8, 5) });
+    }
     this.controls.enableDamping = damping;
+  }
+  /* OrbitControls captures its orbit axis at construction, rather than reading
+     camera.up each frame. Synchronize that cached basis when rolling, without
+     rebuilding controls and losing their input/change listeners. These two
+     fields belong to the pinned Three.js version; the roll regression tests
+     check both immediate framing and the next drag. */
+  setNavigationUp(up) {
+    this.camera.up.copy(up).normalize();
+    this.controls._quat.setFromUnitVectors(this.camera.up, new V(0, 1, 0));
+    this.controls._quatInverse.copy(this.controls._quat).invert();
+  }
+  rollNavigation(degrees) {
+    this.cancelNavigation();
+    const axis = this.camera.position
+      .clone()
+      .sub(this.controls.target)
+      .normalize();
+    this.setNavigationUp(
+      new V()
+        .fromArray(this.screenUp())
+        .applyAxisAngle(axis, THREE.MathUtils.degToRad(degrees)),
+    );
+    this.controls.update();
+    this.occlusionValid = false;
   }
   /* Where the camera sits relative to what it is looking at, as the two angles
      a compass needs. Reported from the render loop but only when it actually
@@ -185,14 +248,24 @@ export class CameraMethods {
       .normalize();
     const yaw = Math.atan2(d.x, d.z) * (180 / Math.PI);
     const pitch = Math.asin(Math.min(1, Math.max(-1, d.y))) * (180 / Math.PI);
+    const right = new V(
+      Math.cos((yaw * Math.PI) / 180),
+      0,
+      -Math.sin((yaw * Math.PI) / 180),
+    );
+    const up = new V().crossVectors(d, right).normalize();
+    const screenUp = new V().fromArray(this.screenUp());
+    const roll =
+      (-Math.atan2(screenUp.dot(right), screenUp.dot(up)) * 180) / Math.PI;
     if (
       this.orientAt &&
       Math.abs(this.orientAt.yaw - yaw) < 0.05 &&
-      Math.abs(this.orientAt.pitch - pitch) < 0.05
+      Math.abs(this.orientAt.pitch - pitch) < 0.05 &&
+      Math.abs(this.orientAt.roll - roll) < 0.05
     )
       return;
-    this.orientAt = { yaw, pitch };
-    this.onOrient(yaw, pitch);
+    this.orientAt = { yaw, pitch, roll };
+    this.onOrient(yaw, pitch, roll);
   }
   /* A standard view changes only where the camera looks from. The target and
      the distance are kept, so picking a face reframes the model rather than
@@ -201,6 +274,7 @@ export class CameraMethods {
     const damping = this.controls.enableDamping;
     this.controls.enableDamping = false;
     this.controls.update();
+    this.setNavigationUp(new V(0, 1, 0));
     const target = this.controls.target;
     const distance = this.camera.position.distanceTo(target);
     /* Straight down or straight up leaves the up vector parallel to the view,

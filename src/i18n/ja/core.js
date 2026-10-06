@@ -108,6 +108,10 @@ export default {
   "cube.sideJoin": "",
   "cube.homeTitle": "既定の視点に戻す",
   "cube.homeLabel": "視点をリセット",
+  "cube.widgetLabel": "ビューキューブ；右クリックや長押しで既定ビューを設定",
+  "cube.defaultMenu": "既定のビュー",
+  "cube.setDefault": "現在のビューを既定にする",
+  "cube.resetDefault": "既定のビューをリセット",
 
   "tool.orbit": "回転",
   "tool.orbitLabel": "回転ツール",

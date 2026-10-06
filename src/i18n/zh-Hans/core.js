@@ -93,6 +93,10 @@ export default {
   "cube.sideJoin": "",
   "cube.homeTitle": "回到默认视角",
   "cube.homeLabel": "重置视角",
+  "cube.widgetLabel": "视图方块；右键或长按设置默认视角",
+  "cube.defaultMenu": "默认视角",
+  "cube.setDefault": "将当前视角设为默认",
+  "cube.resetDefault": "重置默认视角",
 
   "tool.orbit": "旋转",
   "tool.orbitLabel": "查看模式",

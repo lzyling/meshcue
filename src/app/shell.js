@@ -188,8 +188,9 @@ export function mountShell(review) {
    <div id="viewer"></div>
    <div class="viewer-top"><span class="scene-pill" id="review-status">${review.T("review.loadingModel")}</span></div>
    <div class="orient">
-    <div class="orient-stage"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div></div>
-    <button class="orient-home quiet-dark" id="home-view" data-command="home" title="${review.T("cube.homeTitle")}" aria-label="${review.T("cube.homeLabel")}">${review.icon("home")}</button>
+    <div class="orient-stage" tabindex="0" role="group" aria-label="${review.T("cube.widgetLabel")}"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div>
+     <button class="orient-home quiet-dark" id="home-view" data-command="home" title="${review.T("cube.homeTitle")}" aria-label="${review.T("cube.homeLabel")}">${review.icon("home")}</button>
+    </div>
    </div>
    <div class="toolbar" role="toolbar" aria-label="${review.T("a11y.toolbar")}">
     <div data-toolbar-slot="tools"></div><div data-toolbar-slot="history" class="toolbar-history" role="group" aria-label="${review.T("shell.history")}"></div><div data-toolbar-slot="reset"></div>
@@ -209,7 +210,7 @@ export function mountShell(review) {
  </section>
 </main><div id="toast" role="status" hidden></div>
 <dialog id="settings-dialog" aria-labelledby="settings-title"><button id="close-settings" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><h2 id="settings-title">${review.T("shell.settings")}</h2><span class="connection-dot"></span><span id="connection-status">${review.T("conn.connecting")}</span><label class="setting">${review.icon("language")}<select class="quiet" id="locale-choice" aria-label="${review.T("settings.language")}"></select></label><label class="setting">${review.icon("theme")}<select class="quiet" id="theme-choice" aria-label="${review.T("settings.theme")}"><option value="system">${review.T("settings.themeSystem")}</option><option value="light">${review.T("settings.themeLight")}</option><option value="dark">${review.T("settings.themeDark")}</option></select></label><div id="settings-features"></div></dialog>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><span class="eyebrow">${review.T("help.eyebrow")}</span><h2>${review.T("help.title")}</h2><p>${review.T("help.p1")}</p><p>${review.T("help.p2")}</p><p>${review.T("help.p3")}</p><p>${review.T("help.p4")}</p><p>${review.T("help.p10")}</p><p data-agent-text="help.p5">${review.TA("help.p5")}</p><p data-agent-text="help.p6">${review.TA("help.p6")}</p><p data-agent-text="help.p7">${review.TA("help.p7")}</p><p data-agent-text="help.p8">${review.TA("help.p8")}</p><p data-agent-text="help.p11">${review.TA("help.p11")}</p><p data-agent-text="help.p12">${review.TA("help.p12")}</p><p>${review.T("help.p13")}</p><p>${review.T("help.p14")}</p><p>${review.T("help.p16")}</p><p data-agent-text="help.p15">${review.TA("help.p15")}</p><p class="muted">${review.T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><span class="eyebrow">${review.T("help.eyebrow")}</span><h2>${review.T("help.title")}</h2><p>${review.T("help.p1")}</p><p>${review.T("help.p2")}</p><p>${review.T("help.p3")}</p><p>${review.T("help.p4")}</p><p>${review.T("help.p10")}</p><p data-agent-text="help.p5">${review.TA("help.p5")}</p><p data-agent-text="help.p6">${review.TA("help.p6")}</p><p data-agent-text="help.p7">${review.TA("help.p7")}</p><p data-agent-text="help.p8">${review.TA("help.p8")}</p><p data-agent-text="help.p11">${review.TA("help.p11")}</p><p data-agent-text="help.p12">${review.TA("help.p12")}</p><p data-agent-text="help.p13">${review.TA("help.p13")}</p><p>${review.T("help.p14")}</p><p>${review.T("help.p16")}</p><p data-agent-text="help.p15">${review.TA("help.p15")}</p><p class="muted">${review.T("help.p9")}</p></dialog>`;
 }
 
 export function bindHelp(review) {

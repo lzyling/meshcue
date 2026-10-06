@@ -107,6 +107,10 @@ export default {
   "cube.sideJoin": "-",
   "cube.homeTitle": "Back to the default view",
   "cube.homeLabel": "Reset the view",
+  "cube.widgetLabel": "View cube; right-click or hold for default-view options",
+  "cube.defaultMenu": "Default view",
+  "cube.setDefault": "Set current view as default",
+  "cube.resetDefault": "Reset default view",
 
   "tool.orbit": "Rotate",
   "tool.orbitLabel": "Orbit tool",

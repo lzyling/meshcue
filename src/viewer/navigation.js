@@ -152,24 +152,13 @@ export class NavigationMethods {
       this.navigationLastClick = null;
       return;
     }
-    const mesh = hit.object;
-    const seed = mesh.geometry.userData.sourceFaces[hit.faceIndex];
-    const faces = faceRegion(
-      mesh.userData.fillTopology,
-      seed,
-      this.fillTolerance,
-    );
-    if (!this.navigationSelectionOverlay) {
-      this.navigationSelectionOverlay = new THREE.Group();
-      this.scene.add(this.navigationSelectionOverlay);
-    }
-    this.addFaces(this.navigationSelectionOverlay, mesh, faces);
-    this.navigationSelection = { mesh, faces: faces.length };
+    // A View click selects only the part. The surface belongs to hover, not a
+    // persistent selection layer; centring below uses this release's hit point.
     // Pointer releases cover mouse, pen and touch alike. Native dblclick is
     // not emitted consistently for touch, and listening to both would animate
     // twice on browsers which synthesize it after a double tap.
     const last = this.navigationLastClick;
-    // Use input timestamps: building a large face overlay must not lengthen
+    // Use input timestamps: handling a large model must not lengthen
     // the measured gap between two taps that arrived close together.
     const now = e.timeStamp;
     if (
@@ -314,7 +303,7 @@ export class NavigationMethods {
     if (!this.navigationHoverDirty) return;
     this.navigationHoverDirty = false;
     // Share the bucket's connected-face definition, but the measurement
-    // hover's plain green tint: stripes would imply a mark had been placed.
+    // hover's plain green tint, without a painted region's coloured outline.
     // Picking occurs once per dirty frame and uses the section-aware ray.
     const hit = this.rayAt(...this.navigationPointer);
     if (!hit) return this.clearNavigationHover();
@@ -466,6 +455,7 @@ export class NavigationMethods {
       this.camera.fov,
       !!this.camera.isOrthographicCamera,
       this.navigationViewport?.(),
+      this.camera.up,
     );
     this.animateNavigation(frame.position, frame.target, {
       animate,
@@ -478,7 +468,11 @@ export class NavigationMethods {
   rotateNavigation(horizontal, vertical) {
     this.cancelNavigation();
     const offset = this.camera.position.clone().sub(this.controls.target);
-    const direction = rotateDirection(offset, horizontal, vertical);
+    const direction = rotateDirection(
+      offset.clone().applyQuaternion(this.controls._quat),
+      horizontal,
+      vertical,
+    ).applyQuaternion(this.controls._quatInverse);
     this.animateNavigation(
       this.controls.target.clone().addScaledVector(direction, offset.length()),
       this.controls.target.clone(),

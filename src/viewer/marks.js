@@ -282,6 +282,10 @@ export class MarksMethods {
           overlay.renderOrder = 3;
           this.overlay.add(overlay);
         }
+        this.drawOutline(this.overlay, this.serializeAnnotations([a])[0], {
+          color: a.color,
+          selected: a.id === selectedId,
+        });
       }
     }
     this.knownPins = new Set(
@@ -494,7 +498,9 @@ export class MarksMethods {
     const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.83,
+      // Solid translucency lets the model remain legible. Its boundary, not a
+      // screen-space pattern, tells a painted region apart from section hatch.
+      opacity: 0.46,
       toneMapped: false,
       depthWrite: false,
       polygonOffset: true,
@@ -502,16 +508,6 @@ export class MarksMethods {
       polygonOffsetUnits: -2,
       side: THREE.DoubleSide,
     });
-    material.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <color_fragment>",
-        `#include <color_fragment>
-        float stripe = step(0.68, fract((gl_FragCoord.x + gl_FragCoord.y) / 10.0));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${selected ? "0.05" : "0.98"}), stripe * 0.85);
-      `,
-      );
-    };
-    material.customProgramCacheKey = () => `marks-${selected}`;
     this.clipMaterial(material);
     this.markMaterials.set(key, material);
     return material;
@@ -571,7 +567,7 @@ export class MarksMethods {
      marks, but only a few pixels wide and on the edge, so where the Agent
      points at a place the reviewer also painted, their colour is still all
      there and the line still shows. */
-  drawOutline(group, a) {
+  drawOutline(group, a, mark) {
     // A mark indexed against the review mesh was cut from its triangles, and
     // the edges between two of them lie inside one source face.
     const review = !["source-v1", "source-v2"].includes(a.coverage);
@@ -647,13 +643,40 @@ export class MarksMethods {
       "instanceLift",
       new THREE.InstancedBufferAttribute(new Float32Array(lifts), 3),
     );
-    ["glow", "under", "core"].forEach((kind, i) => {
-      const line = new LineSegments2(geometry, this.echoLineMaterial(kind));
-      if (kind === "core") line.computeLineDistances();
-      // Over the reviewer's marks (3) and the bucket's preview (4).
-      line.renderOrder = 5 + i;
-      group.add(line);
-    });
+    // Painted regions get a still, coloured boundary. Echoes alone retain the
+    // cyan glow and moving dashes, even when both address the same surface.
+    (mark ? ["under", "colour"] : ["glow", "under", "core"]).forEach(
+      (kind, i) => {
+        const line = new LineSegments2(
+          geometry,
+          mark
+            ? this.regionLineMaterial(mark.color, mark.selected, kind)
+            : this.echoLineMaterial(kind),
+        );
+        if (!mark && kind === "core") line.computeLineDistances();
+        // Over the reviewer's marks (3) and the bucket's preview (4).
+        line.renderOrder = (mark ? 4 : 5) + i;
+        group.add(line);
+      },
+    );
+  }
+  regionLineMaterial(color, selected, kind) {
+    const key = `region-${color}-${selected}-${kind}`;
+    let material = this.lineMaterials.get(key);
+    if (material) return material;
+    // Reuse the tested eye-depth lift and section-aware clipping; only the
+    // visual vocabulary changes. clone() does not copy compilation callbacks.
+    const base = this.echoLineMaterial("under");
+    material = base.clone();
+    material.onBeforeCompile = base.onBeforeCompile;
+    material.customProgramCacheKey = base.customProgramCacheKey;
+    material.color.set(kind === "under" ? ECHO_UNDER : color);
+    material.linewidth = (selected ? 3.5 : 1.8) + (kind === "under" ? 1.5 : 0);
+    material.opacity = kind === "under" ? 0.65 : 1;
+    material.dashed = false;
+    this.clipMaterial(material);
+    this.lineMaterials.set(key, material);
+    return material;
   }
   /* The echo's three strokes, bottom to top: a soft glow, a dark underlay that
      keeps the line readable on a pale model and a pale backdrop, and the

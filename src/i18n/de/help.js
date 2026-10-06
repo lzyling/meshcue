@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "SCHNELLSTART",
   "help.title": "Ansehen, markieren, dann sagen, was zu ändern ist.",
   "help.p1":
-    "Rechts ziehen dreht in jedem Werkzeug. Links ziehen dreht nur in Ansicht; Markierwerkzeuge nutzen die linke Taste für ihre Aktion. Ziehen mit der mittleren Taste, Umschalt+Links-/Rechtsziehen oder Umschalt+Scrollen verschiebt die Ansicht. Mausrad oder Pinch zoomt. Für Trackpads und Tablets: Verschieben (H) wählen und ziehen. In Ansicht wählt ein Klick oder Tippen eine Fläche aus; ein Klick ins Leere oder Esc hebt die Auswahl auf. Doppelklick oder Doppeltippen auf eine Fläche setzt dort den Drehpunkt, ohne zu zoomen. Die Auswahl erstellt keine Markierung. Auf Touchscreens dreht ein Finger (im Werkzeug Verschieben verschiebt er); zwei Finger verschieben oder zoomen. Klicken und Tippen im Werkzeug Verschieben bewirken nichts.",
+    "Rechts ziehen dreht in jedem Werkzeug. Links ziehen dreht nur in Ansicht; Markierwerkzeuge nutzen die linke Taste für ihre Aktion. Ziehen mit der mittleren Taste, Umschalt+Links-/Rechtsziehen oder Umschalt+Scrollen verschiebt die Ansicht. Mausrad oder Pinch zoomt. Für Trackpads und Tablets: Verschieben (H) wählen und ziehen. In Ansicht wählt ein Klick oder Tippen auf eine Oberfläche nur ihr Bauteil aus, ohne dauerhafte Flächenhervorhebung; ein Klick ins Leere oder Esc hebt die Auswahl auf. Doppelklick oder Doppeltippen auf eine Fläche setzt dort den Drehpunkt, ohne zu zoomen. Die Auswahl erstellt keine Markierung. Auf Touchscreens dreht ein Finger (im Werkzeug Verschieben verschiebt er); zwei Finger verschieben oder zoomen. Klicken und Tippen im Werkzeug Verschieben bewirken nichts.",
   "help.p2":
     "Marken: Werkzeug „Marke“ wählen und auf die Oberfläche klicken, das setzt A, B, C; „Drehen“ setzt nichts, das Modell lässt sich also drehen, ohne Marken zu erzeugen. Füllwerkzeug: ein Klick auf eine Oberfläche markiert die ganze zusammenhängende Fläche — und die rechte Taste dreht weiterhin, das Markieren muss dafür nie unterbrochen werden.",
   "help.p3":
@@ -16,9 +16,9 @@ export default {
   "help.p4":
     "Das Füllwerkzeug zeigt die zusammenhängende, nahezu ebene Fläche und füllt sie auf Klick; der Umfangsregler bestimmt, wie weit diese Fläche reichen darf. Es wirkt auf eine ganze zusammenhängende Oberfläche, auch auf hinter anderen Objekten verborgene Teile. Um eine Füllung zurückzunehmen, machen Sie sie rückgängig oder löschen Sie die Markierung aus der Liste.",
   "help.p5":
-    "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
+    "Gemalte Bereiche haben eine halbtransparente Vollfarbe und einen Umriss, bei Auswahl dicker; nur Schnittflächen sind schraffiert. Markierungen lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei beim Agenten trägt sie nie.",
   "help.p5.named":
-    "Markierungen sind am Muster zu unterscheiden und lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei bei {agent} trägt sie nie.",
+    "Gemalte Bereiche haben eine halbtransparente Vollfarbe und einen Umriss, bei Auswahl dicker; nur Schnittflächen sind schraffiert. Markierungen lassen sich mit einem Druck ausblenden; die neutrale Ansicht ist nur eine Sehhilfe. Markierungen bestehen allein in der Durchsicht — die Modelldatei bei {agent} trägt sie nie.",
   "help.p6":
     "„An den Agenten“ speichert und sendet die Markierungen samt Notizen. Was geändert werden soll, können Sie in eine Notiz schreiben oder im ursprünglichen Gespräch sagen – beides zählt; bei Unklarheiten fragt der Agent nach. Das Senden allein ändert das Modell nicht.",
   "help.p6.named":
