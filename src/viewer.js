@@ -516,7 +516,14 @@ export class ModelViewer {
     return () => this.frameHooks.delete(fn);
   }
   render() {
-    this.controls.update();
+    // Input handlers and programmatic navigation already update controls.
+    // Only damping/auto-rotation need another update on an idle render: even
+    // with no input, OrbitControls normalizes and rescales target while
+    // clamping its radius (including the default 0..Infinity), changing its
+    // last floating-point digit. Painting hover or changing a sidebar must
+    // not move an otherwise settled camera/pivot.
+    if (this.controls.enableDamping || this.controls.autoRotate)
+      this.controls.update();
     /* Seen from underneath, the ground is between the reviewer and the thing
        they went under there to look at, and every line of it lands on the
        surface being inspected. It is a floor: stand below it and it is not

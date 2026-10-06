@@ -25,6 +25,48 @@ function cameraViewer() {
 }
 const close = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-8);
 
+test("idle renders preserve the exact camera and pivot in both projections while dynamic controls still update", () => {
+  for (const projection of ["perspective", "orthographic"]) {
+    const v = cameraViewer();
+    v.setProjection(projection, false);
+    // This target is from the empty-double-click browser regression. The
+    // pinned OrbitControls clampLength normalizes it even without a clamp,
+    // changing its final digit on an otherwise idle update.
+    v.controls.target.set(
+      1.4988603614784115,
+      0.588980190697558,
+      0.8394808720582373,
+    );
+    v.camera.lookAt(v.controls.target);
+    let paints = 0;
+    v.renderer = { render: () => paints++ };
+    for (const method of [
+      "animateEcho",
+      "reportOrientation",
+      "placePins",
+      "placeMeasure",
+      "placeReadings",
+    ])
+      v[method] = () => {};
+    const before = v.cameraState();
+    for (let i = 0; i < 5; i++) v.render();
+    assert.equal(paints, 5);
+    assert.deepEqual(v.cameraState(), before);
+    let updates = 0;
+    v.controls.update = () => updates++;
+    v.controls.enableDamping = true;
+    v.render();
+    v.controls.enableDamping = false;
+    v.controls.autoRotate = true;
+    v.render();
+    assert.equal(
+      updates,
+      2,
+      "damping and auto-rotation still update per frame",
+    );
+  }
+});
+
 test("saved default validation rejects malformed, nonfinite and degenerate local camera frames", () => {
   const valid = { position: [1, 2, 3], target: [0, 0, 0], up: [0, 1, 0] };
   assert.equal(validDefaultView(valid), true);
