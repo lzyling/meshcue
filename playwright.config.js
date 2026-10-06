@@ -2,9 +2,14 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
   workers: 1,
-  outputDir: process.env.MESHCUE_BROWSER_RUN
-    ? `${process.env.MESHCUE_BROWSER_RUN}/results`
-    : "test-results",
+  // Local runs keep each run's evidence apart so two can share the machine.
+  // CI runs one at a time, and the workflow uploads test-results/ on failure:
+  // writing under tmp/browser-run-*/ there meant every red run uploaded no
+  // trace at all, and "Test timeout exceeded" was all anyone had to go on.
+  outputDir:
+    process.env.MESHCUE_BROWSER_RUN && !process.env.CI
+      ? `${process.env.MESHCUE_BROWSER_RUN}/results`
+      : "test-results",
   timeout: 60000,
   expect: { timeout: 12000 },
   // Identical test code went green on one commit and red on the next, with only
