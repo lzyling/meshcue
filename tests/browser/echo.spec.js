@@ -97,9 +97,9 @@ async function screenOf(page, [x, y, z]) {
     y: box.y + ((1 - p.y) / 2) * box.height,
   };
 }
-/* Pixels by what they read as. The reviewer's first colour is a coral red and
-   the echo cyan; the white and dark stripes that tell a mark from the
-   model are neither, and the grey model is neither. */
+/* Pixels by what they read as. A painted region has a translucent coral
+   tint and a solid coral outline; the echo is cyan, and the grey model is
+   neither. Keep the cyan test separate even when the two boundaries overlap. */
 async function colours(page, clip) {
   const shot = await page.screenshot({ clip });
   return page.evaluate(async (base64) => {
@@ -116,7 +116,11 @@ async function colours(page, clip) {
       cyan = 0;
     for (let i = 0; i < px.length; i += 4) {
       const [r, g, b] = [px[i], px[i + 1], px[i + 2]];
-      if (r > 170 && g < 160 && b < 150 && r - g > 50) red++;
+      // The old classifier required the opaque red between white stripes.
+      // A solid translucent fill blends with grey, so identify the same coral
+      // hue by its channel differences instead. Grey and cyan cannot match;
+      // the pixel-count and unpainted-interior assertions stay unchanged.
+      if (r > 150 && r - g > 24 && r - b > 28 && (r - g) / (r - b) > 0.7) red++;
       if (g > 145 && b > 170 && b - r > 55 && g - r > 35) cyan++;
     }
     return { red, cyan };

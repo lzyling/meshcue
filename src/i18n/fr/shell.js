@@ -1,9 +1,17 @@
 export default {
+  "shell.more": "Plus d’options : {group}",
+  "shell.rotateMode": "Mode rotation — passer au déplacement (H)",
+  "shell.panMode": "Mode déplacement — passer à la rotation",
+  "shell.reset": "Réinitialiser",
+  "shell.resetTitle":
+    "Réinitialiser l’aperçu : afficher toutes les pièces, effacer isolation et transparence, quitter la coupe et rétablir affichage et vue par défaut ; conserver marques, notes et mesures",
+  "shell.history": "Historique",
+  "help.p16":
+    "La barre regroupe Vue, Affichage, Marquer et Inspecter. Les outils courants fonctionnent en un clic ; « … » ouvre les autres options. Vue indique Rotation ou Déplacement : cliquez pour changer, avec Réinitialiser la vue et Tout cadrer à côté. Affichage montre le style actuel ; cliquez pour choisir. Afficher les marques est dans l’onglet Marques. Réinitialiser affiche toutes les pièces, quitte la coupe, rétablit l’ombrage avec arêtes, les couleurs d’origine et la vue par défaut sans modifier marques, notes, brouillons ou mesures.",
   "shell.view": "Vue",
   "shell.mark": "Annoter",
   "shell.inspect": "Inspecter",
   "shell.settings": "Réglages",
-  "shell.parts": "Arbre des pièces",
   "shell.performance": "Diagnostic des performances",
   "shell.cube": "Cube de vue",
   "shell.hints": "Réafficher les conseils des outils",

@@ -2706,3 +2706,308 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     max-width: calc(100% - 24px);
   }
 }
+
+/* === b1v Lane UI: always-present tabs, searchable parts and flat tool groups === */
+.annotations-panel:not(.collapsed) .annotations-heading {
+  position: relative;
+  padding: 0 28px 0 0;
+}
+.annotations-panel:not(.collapsed) #toggle-annotations {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.annotations-panel:not(.collapsed) .sidebar-tabs {
+  width: 100%;
+}
+.annotations-panel:not(.collapsed) .sidebar-tabs button {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 48px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+}
+.sidebar-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent) !important;
+  background: var(--accent-soft);
+}
+.annotations-heading .sidebar-caption {
+  font-size: inherit;
+  margin: 0;
+  color: inherit;
+}
+#marks-controls {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+#marks-controls .tool {
+  min-height: 32px;
+  height: auto;
+  flex-direction: row;
+  gap: 8px;
+  font-size: 16px;
+  width: 100%;
+}
+#marks-controls .tool span {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+#parts-search {
+  margin: 6px 8px;
+  width: calc(100% - 16px);
+  min-height: 36px;
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.parts-actions {
+  flex-shrink: 0;
+}
+.parts-row:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.toolbar {
+  align-items: stretch;
+  gap: 0;
+  padding: 5px;
+}
+.toolbar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  padding: 0 3px;
+  border-right: 1px solid var(--line);
+}
+.toolbar-group-label {
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--ink-muted);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toolbar-group-tools {
+  display: flex;
+}
+.toolbar .toolbar-command,
+.toolbar .toolbar-more,
+.toolbar .tool.small {
+  width: 32px;
+  height: 44px;
+  min-width: 32px;
+  padding: 4px;
+  font-size: 19px;
+}
+.toolbar .toolbar-more[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+.toolbar .toolbar-history {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 3px;
+  border-right: 1px solid var(--line);
+}
+.toolbar [data-toolbar-slot="reset"] {
+  display: flex;
+  align-items: flex-end;
+}
+.toolbar .reset-preview {
+  min-width: 48px;
+  width: 48px;
+  height: 44px;
+  padding: 3px;
+  font-size: 18px;
+}
+.toolbar .reset-preview span {
+  font-size: 9px;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.annotations-panel [hidden],
+.toolbar [hidden] {
+  display: none !important;
+}
+@media (max-width: 760px) {
+  /* Keep independent 44px targets rather than squeezing thirteen buttons into
+     one phone row. Groups wrap as units; live overlay layout measures the new
+     toolbar height before placing options or fitting the model. */
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    padding: 3px;
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar-group {
+    padding: 0 2px;
+  }
+  .toolbar .toolbar-command,
+  .toolbar .toolbar-more,
+  .toolbar .tool.small {
+    width: 44px;
+    min-width: 44px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden]) #measure-advanced[open]):has(
+      #section-options:not([hidden])
+    ) {
+    /* Two toolbar rows need more vertical room when both optional inspection
+       panels are expanded. Keep their controls separate, not drawn through
+       each other; a short phone viewport can scroll this expanded workspace. */
+    min-height: 650px;
+  }
+  .annotations-panel.collapsed .annotations-heading {
+    padding: 0;
+  }
+  .annotations-panel #parts-panel {
+    flex-basis: 220px;
+    height: 220px;
+  }
+}
+@media (max-width: 760px) and (max-height: 700px) {
+  /* The Marks-side visibility switch takes a row the old phone layout did not
+     have. Empty guidance needs no 100px rail; give that space back to the
+     canvas so both toolbar rows remain reachable on shorter portrait phones. */
+  #annotations-list:has(.annotation-empty) {
+    min-height: 64px;
+  }
+  .annotations-panel #parts-panel {
+    flex-basis: 170px;
+    height: 170px;
+  }
+}
+/* === b1v Lane VIEW: one compact cube, with optional navigation affordances === */
+.orient-stage {
+  width: calc(var(--orient-reach) + 40px);
+  height: calc(var(--orient-reach) + 40px);
+}
+.orient-home {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  opacity: 0.45;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.orient-stage:hover .orient-home,
+.orient-stage:focus-within .orient-home,
+.navigation-touch-controls .orient-home {
+  opacity: 1;
+}
+.navigation-arrow,
+.navigation-roll {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  width: 26px;
+  height: 26px;
+  background: none;
+  color: var(--ink-muted);
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 10;
+}
+.orient-stage:hover .navigation-arrow,
+.orient-stage:hover .navigation-roll,
+.orient-stage:focus-visible .navigation-arrow,
+.orient-stage:focus-visible .navigation-roll,
+.orient-stage:has(:focus-visible) .navigation-arrow,
+.orient-stage:has(:focus-visible) .navigation-roll,
+.navigation-keyboard-controls .navigation-arrow,
+.navigation-keyboard-controls .navigation-roll,
+.navigation-touch-controls .navigation-arrow,
+.navigation-touch-controls .navigation-roll {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.navigation-arrow:hover,
+.navigation-roll:hover,
+.orient-home:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.navigation-arrow-left,
+.navigation-arrow-right {
+  top: calc(50% - 13px);
+}
+.navigation-arrow-up,
+.navigation-arrow-down {
+  left: calc(50% - 13px);
+}
+.navigation-roll {
+  position: absolute;
+  top: 0;
+  font-size: 22px;
+  cursor: pointer;
+}
+.navigation-roll-left {
+  right: 29px;
+}
+.navigation-roll-right {
+  right: 0;
+}
+.navigation-triad {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Section controls reserve --orient-reach, so integrated axes no longer need
+   the old narrow-layout exception that hid the floating panel. */
+.viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
+  display: block;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.orient-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 11;
+  width: max-content;
+  max-width: min(270px, calc(100vw - 24px));
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+}
+.orient-menu[hidden] {
+  display: none;
+}
+.orient-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+.orient-menu button:hover,
+.orient-menu button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

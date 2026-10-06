@@ -46,8 +46,6 @@ export function bindSidebar(review) {
   const listeners = new Set();
   function update() {
     const collapsed = review.settings.get("sidebarCollapsed");
-    if (!review.settings.get("parts")) selected = "marks";
-    partsTab.hidden = !review.settings.get("parts");
     panel.classList.toggle("collapsed", collapsed);
     review.$("#annotations-list").hidden = collapsed || selected !== "marks";
     parts.hidden = collapsed || selected !== "parts";
@@ -67,9 +65,10 @@ export function bindSidebar(review) {
     toggle.innerHTML = review.icon(
       collapsed ? "expand-right" : "collapse-left",
     );
-    // The very same submit button stays mounted in both layouts. Its owner can
-    // keep every capability, disconnect and in-flight guard in one place.
-    actions.hidden = false;
+    // Folding is navigation, not hand-over. The strip shows only the two tabs
+    // and their expand control; expanding Marks restores the guarded button.
+    actions.hidden = collapsed || selected !== "marks";
+    review.$("#marks-controls").hidden = collapsed || selected !== "marks";
     review.$("#receipt-nudge").inert = collapsed;
     // Sidebar mounts before annotation editing binds its textarea helper.
     if (review.noteBox) review.renderNote();
@@ -113,7 +112,6 @@ export function bindSidebar(review) {
     target.click();
     target.focus();
   };
-  review.settings.on("parts", update);
   review.settings.on("sidebarCollapsed", update);
   update();
 }

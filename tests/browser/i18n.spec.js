@@ -168,10 +168,22 @@ for (const reader of READERS) {
       expect(stray, `untranslated text on a ${reader.lang} page`).toEqual([]);
     }
 
-    /* Words are longer in some languages than others — Radierer against 橡皮擦
-       against Gomme — so the room drawn for them has to hold all of them. */
+    /* Flat toolbar tools are icons, with localized accessible names/tooltips
+       rather than visible captions. Their explicitly screen-reader-only text
+       needs no drawn width; Reset, group names and cube faces still do. */
+    await expect(page.locator('[data-mode="fill"] span')).toHaveClass(
+      "sr-only",
+    );
+    for (const button of await page.locator(".toolbar button:visible").all()) {
+      await expect(button).toHaveAccessibleName(/.+/);
+      await expect(button).toHaveAttribute("title", /.+/);
+    }
     const overflowing = await page.evaluate(() =>
-      [...document.querySelectorAll(".toolbar .tool span, .orient-face")]
+      [
+        ...document.querySelectorAll(
+          ".toolbar .tool span:not(.sr-only), .toolbar-group-label, .orient-face",
+        ),
+      ]
         .filter((el) => el.scrollWidth > el.clientWidth + 1)
         .map((el) => `${el.className || "label"}: ${el.textContent}`),
     );

@@ -736,6 +736,7 @@ test("the looking tool places nothing while either left or right drag rotates", 
   expect(moved.annotationCount).toBe(0);
   expect(moved.camera).not.toEqual(dragged.camera);
   await page
+    .locator(".toolbar")
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
   await expect
@@ -1018,6 +1019,7 @@ test("legacy pins and paint fixture restore unchanged alongside a new fill", asy
   await expect(page.locator(".model-pin")).toHaveCount(2);
   await expect(page.locator(".annotation-badge").nth(2)).toHaveText("");
   await page
+    .locator(".toolbar")
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
   await clickControl(page, '[data-mode="fill"]');
@@ -1091,6 +1093,7 @@ test("marking never has to stop to turn the model, and does not consume point la
   expect(after.annotations).toEqual(before.annotations);
   expect(after.camera).not.toEqual(before.camera);
   await page
+    .locator(".toolbar")
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
   await clickControl(page, '[data-mode="label"]');
@@ -1150,6 +1153,7 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.mouse.up();
   await page.waitForTimeout(600);
   await page
+    .locator(".toolbar")
     .getByRole("button", { name: "Reset the view", exact: true })
     .click();
   await expect
@@ -1193,8 +1197,8 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.locator("#toggle-annotations").click();
   await expect(page.locator("#annotations-list")).toBeHidden();
   expect(await iconRef()).toBe("#mc-expand-right");
-  // The collapsed strip retains the same submit button and its guards.
-  await expect(page.locator("#submit-feedback")).toBeVisible();
+  // The collapsed strip is navigation only; hand-over returns on expansion.
+  await expect(page.locator("#submit-feedback")).toBeHidden();
   // Folded is the button and nothing else. A heading that stays behind keeps
   // the column roughly as wide as the words in it, in every language.
   await expect(page.locator("#sidebar-marks .sidebar-caption")).toBeHidden();
@@ -1425,13 +1429,13 @@ test("iteration: the orientation cube sits in the corner it is read from", async
   expect(cube.y - shell.y).toBeLessThan(16);
   expect(shell.x + shell.width - (cube.x + cube.width)).toBeLessThan(16);
 });
-test("iteration: the view switches live in the View menu and say how they are set", async ({
+test("iteration: marks live on Marks and plain view lives in Display options", async ({
   page,
 }) => {
   await ready(page);
-  const marks = page.locator("#view-menu #toggle-marks");
-  await page.locator("#view-menu-button").click();
-  const plain = page.locator("#view-menu #neutral-view");
+  const marks = page.locator("#marks-controls #toggle-marks");
+  await page.locator("#display-menu-button").click();
+  const plain = page.locator("#display-options #neutral-view");
   // They used to float over the model in a corner of their own, which is the
   // one place on the page that is meant to be the model.
   await expect(marks).toBeVisible();

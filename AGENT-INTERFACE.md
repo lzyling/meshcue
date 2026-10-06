@@ -390,11 +390,12 @@ mark, then say what to change."
 - Right-drag rotates in every tool. Left-drag rotates only in View; marking
   tools use the left button for their action. Middle-drag, Shift+left/right-drag
   or Shift+scroll pans. Wheel or pinch zooms. For trackpads and tablets, select
-  Pan (H) and drag to move the view. In View, click or tap a face to select it;
-  click empty space or press Esc to clear. Double-click or double-tap a face to
-  centre rotation there without zooming. Selection creates no mark. On
-  touchscreens, one finger rotates (or pans in Pan); two fingers pan or pinch to
-  zoom. Pan clicks and taps do nothing.
+  Pan (H) and drag to move the view. In View, click or tap a surface to select
+  its part, without leaving a face highlight; click empty space or press Esc to
+  clear. Double-click or double-tap a face to centre rotation there without
+  zooming. Selection creates no mark. On touchscreens, one finger rotates (or
+  pans in Pan); two fingers pan or pinch to zoom. Pan clicks and taps do
+  nothing.
 
 - Labels: pick the Label tool and click the surface to place A, B, C; the
   Orbit tool places nothing, so you can turn the model without making marks.
@@ -412,9 +413,10 @@ mark, then say what to change."
   connected surface, which can include parts hidden behind other objects. To
   take a fill back, undo it or delete the mark from the list.
 
-- Marks are told apart by pattern and can be hidden in one press; plain view
-  is only a viewing aid. Marks live in the review alone — the model file the
-  Agent holds never carries them.
+- Painted marks use a semi-transparent solid colour and an outline, thicker
+  when selected; only section cuts are hatched. Marks can be hidden in one
+  press; plain view is only a viewing aid. Marks live in the review alone — the
+  model file the Agent holds never carries them.
 
 - “Send to Agent” saves and submits the marks with their notes. Say what you
   want changed in a note or back in the original conversation — both count; the
@@ -465,18 +467,24 @@ mark, then say what to change."
   surfaces can still be marked and measured. Section view is a viewing aid only,
   is never sent to the Agent, and resets when you load another model or version.
 
-- Navigation: in View, click or tap selects a face. Double-click or double-tap
-  a surface sets the rotation centre; double-clicking empty space does nothing.
-  STEP hover and new bucket fills follow the file’s whole faces; STEP needs no
-  spread slider. F fits visible geometry in the current direction; Home returns
-  to the fitted isometric view. Projection switches between perspective and
-  orthographic and remembers your choice. Shift+1–7 selects Front, Back, Left,
-  Right, Top, Bottom and Isometric. Arrows rotate 15°, Ctrl+arrows 5°,
-  Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z zooms in. N
-  looks straight at the face under the pointer; N again reverses the side. Drag
-  the view cube to rotate, or use its arrows for 90° steps. Shift+/ lists all
-  shortcuts. View changes animate briefly unless reduced motion is preferred;
-  any navigation input interrupts them.
+- Navigation: in View, click or tap selects only the part; surfaces highlight
+  only on hover. Double-click or double-tap a surface sets the rotation centre;
+  double-clicking empty space does nothing. STEP hover and new bucket fills
+  follow the file’s whole faces; STEP needs no spread slider. F fits visible
+  geometry in the current direction; Home returns to your saved default view, or
+  the fitted isometric view if none is set. Projection switches between
+  perspective and orthographic and remembers your choice. Shift+1–7 selects
+  Front, Back, Left, Right, Top, Bottom and Isometric. Arrows rotate 15°,
+  Ctrl+arrows 5°, Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z
+  zooms in. N looks straight at the face under the pointer; N again reverses the
+  side. Drag the view cube to rotate. Hover over it to show small triangles for
+  adjacent views and curved arrows for 90° rolls. On touch, tap the cube to
+  reveal these controls; tap elsewhere to hide them. Right-click or hold the
+  cube to set or reset the default view, saved only in this browser for this
+  review and never sent to the Agent. The faint house always returns home; axes
+  grow from the cube’s corner. Shift+/ lists all shortcuts. View changes animate
+  briefly unless reduced motion is preferred; any navigation input interrupts
+  them.
 
 - Display styles change only how you see the model: shaded with edges (the
   default), shaded, wireframe, hidden line, or translucent (X-ray). The choice
@@ -487,13 +495,22 @@ mark, then say what to change."
   is still. Copy report copies device and rendering statistics only, without
   model content or file names.
 
-- Parts lists the model’s assemblies and parts. Hover to highlight, click to
-  select, or double-click to fit a part. In View, click a surface to select its
+- Parts is always available beside Marks, even for a single part. It follows
+  the file’s assembly hierarchy; search by name keeps each result’s parent path.
+  Expand or collapse groups, hover to highlight, click to select, or
+  double-click a part or group to fit it. In View, click a surface to select its
   part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or
-  Esc exits); Shift+T makes it transparent so you can mark behind it. Hidden
-  parts and their marks disappear. These viewing choices reset when you load a
-  model or version and are never sent to the Agent. Enable Part tree in
-  Settings, then open the Parts sidebar tab or use the View menu.
+  Esc exits); Shift+T makes it transparent so you can mark behind it. Group
+  actions affect every contained part. Switching to Marks keeps hidden parts
+  hidden; hand-over and notes appear only on Marks. Viewing choices reset when
+  you load a model or version and are never sent to the Agent.
+
+- The toolbar groups View, Display, Mark and Inspect. Common tools work in one
+  click; “…” opens extra options. View shows Rotate or Pan: click to switch,
+  with Reset view and Fit all beside it. Display shows the current style; click
+  to choose. Show marks is on the Marks tab. Reset restores all parts, exits
+  Section, restores shaded-with-edges and original colours, and calls the
+  default view without changing marks, notes, drafts or measurements.
 
 <!-- reviewer-help:end -->
 

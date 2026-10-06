@@ -384,6 +384,7 @@ test("navigation cube drags and arrows turn without roll and the triad follows S
   expect(axes.X[0]).toBeCloseTo(80, 2);
   expect(axes.Z[1]).toBeCloseTo(14, 2);
   expect(axes.Y[1]).toBeCloseTo(49, 2);
+  await page.locator(".orient-stage").hover();
   await page.locator(".navigation-arrow-up").click();
   await settled(page);
   expect(direction(await state(page)).y).toBeGreaterThan(0.9999);

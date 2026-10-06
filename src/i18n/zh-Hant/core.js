@@ -93,6 +93,10 @@ export default {
   "cube.sideJoin": "",
   "cube.homeTitle": "回到預設視角",
   "cube.homeLabel": "重設視角",
+  "cube.widgetLabel": "視圖方塊；右鍵或長按設定預設視角",
+  "cube.defaultMenu": "預設視角",
+  "cube.setDefault": "將目前視角設為預設",
+  "cube.resetDefault": "重設預設視角",
 
   "tool.orbit": "旋轉",
   "tool.orbitLabel": "檢視模式",

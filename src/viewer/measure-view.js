@@ -75,7 +75,8 @@ export class MeasureViewMethods {
       this.modelLine(points, this.lineMaterial(core), 8),
     );
   }
-  // Plain tint, no stripes: the stripes are what says "a mark".
+  // Plain green tint, without the coloured boundary of a painted mark.
+  // Measurements keep their own lines and readings; section cuts alone hatch.
   addFaces(group, mesh, faces, hover = false) {
     const key = hover ? "hover" : "fixed";
     let material = this.measureFaceMaterials.get(key);

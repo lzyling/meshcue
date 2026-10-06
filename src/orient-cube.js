@@ -127,8 +127,10 @@ export function projectedReach() {
    with the plates exactly: turning the cube by the camera's angles reversed is
    what makes the side the camera is on the side that faces the reviewer. Split
    across two files, the pair drifts and only a screenshot can tell. */
-export function compassTransform(yaw, pitch) {
-  return `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+export function compassTransform(yaw, pitch, roll = 0) {
+  // CSS's downward Y reverses camera roll. Apply it in screen space, outside
+  // the yaw/pitch pair, so labels and the integrated axes agree after a roll.
+  return `${roll ? `rotateZ(${roll}deg) ` : ""}rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
 }
 
 export const cameraAngles = angles;

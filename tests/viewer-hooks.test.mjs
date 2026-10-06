@@ -5,7 +5,13 @@ import { ModelViewer } from "../src/viewer.js";
 test("frame hooks follow the existing render phases and mutate only the next hook snapshot", () => {
   const viewer = Object.create(ModelViewer.prototype),
     seen = [];
-  viewer.controls = { update: () => seen.push("controls") };
+  // Controls need a per-frame phase only while damping/auto-rotation is
+  // active. Keep this ordering test on that path; idle rendering is covered
+  // separately by the exact-camera regression.
+  viewer.controls = {
+    enableDamping: true,
+    update: () => seen.push("controls"),
+  };
   viewer.renderer = { render: () => seen.push("render") };
   for (const name of [
     "animateEcho",

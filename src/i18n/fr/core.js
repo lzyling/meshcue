@@ -111,6 +111,11 @@ export default {
   "cube.sideJoin": "-",
   "cube.homeTitle": "Revenir à la vue par défaut",
   "cube.homeLabel": "Réinitialiser la vue",
+  "cube.widgetLabel":
+    "Cube de vue ; clic droit ou appui long pour la vue par défaut",
+  "cube.defaultMenu": "Vue par défaut",
+  "cube.setDefault": "Définir la vue actuelle par défaut",
+  "cube.resetDefault": "Réinitialiser la vue par défaut",
 
   "tool.orbit": "Pivoter",
   "tool.orbitLabel": "Outil pivoter",

@@ -94,16 +94,17 @@ test("STEP fill paints one whole B-rep face, hides spread and survives reload", 
   expect((await diag(page)).annotations).toEqual(marks);
 });
 
-test("View click selects a face and part without making a mark, empty space and Escape clear it", async ({
+test("View click selects only the part without making a mark, empty space and Escape clear it", async ({
   page,
 }) => {
   await open(page);
   await showParts(page);
   const p = (await probes(page)).find((p) => p.range[0] === 218);
   await page.mouse.click(p.x, p.y);
-  expect((await nav(page)).selection).toEqual({ meshId: p.meshId, faces: 20 });
+  expect((await nav(page)).selection).toBeNull();
+  expect((await nav(page)).selectionOverlayChildren).toBe(0);
   await page.mouse.move(500, 160);
-  expect((await nav(page)).selection).not.toBeNull();
+  expect((await nav(page)).selection).toBeNull();
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
   ).toHaveCount(1);
@@ -134,11 +135,12 @@ test("View double-click recentres at the hit without zoom and empty double-click
   expect((await diag(page)).camera.target).toEqual(after.target);
 });
 
-test("View touch tap selects, double-tap recentres and drag or pinch never selects", async ({
+test("View touch tap selects only a part, double-tap recentres and drag or pinch never selects", async ({
   page,
 }) => {
   await open(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await showParts(page);
   const p = (await probes(page)).find((p) => p.range[0] === 218);
   await page.evaluate(() => {
     window.__touchEvents = [];
@@ -164,7 +166,10 @@ test("View touch tap selects, double-tap recentres and drag or pinch never selec
   try {
     await send("touchStart", [point]);
     await send("touchEnd", []);
-    expect((await nav(page)).selection?.faces).toBe(20);
+    expect((await nav(page)).selection).toBeNull();
+    await expect(
+      page.locator('[role="treeitem"][aria-selected="true"]'),
+    ).toHaveCount(1);
     await page.keyboard.press("Escape");
     // A finger's taps carry the time the screen sensed them, and that is what
     // the double-tap window measures. An unstamped protocol event is stamped
@@ -369,7 +374,7 @@ test("fixed mouse mapping remains available in every tool and help describes Vie
   expect((await diag(page)).annotationCount).toBe(0);
   await page.locator("#help-button").click();
   await expect(page.locator("#help-dialog")).toContainText(
-    "click or tap a face to select it",
+    "click or tap a surface to select its part",
   );
   await expect(page.locator("#help-dialog")).toContainText(
     "double-clicking empty space does nothing",

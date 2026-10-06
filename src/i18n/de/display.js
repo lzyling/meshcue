@@ -1,4 +1,5 @@
 export default {
+  "display.choose": "Darstellung: {style} — Stil wählen",
   "display.title": "Darstellung",
   "display.edges": "Schattiert mit Kanten",
   "display.shaded": "Schattiert",
