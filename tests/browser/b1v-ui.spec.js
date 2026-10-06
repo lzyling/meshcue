@@ -254,6 +254,41 @@ test("common tools switch in one click and display icon tracks the current style
   await expect(page.locator('#view-menu [data-command="home"]')).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
+test("direct Label and Fill close View overflow without stealing focus or hiding hints", async ({
+  page,
+}) => {
+  await open(page);
+  const more = page.locator("#view-menu-button"),
+    menu = page.locator("#view-menu"),
+    shell = page.locator(".viewer-shell");
+  for (const mode of ["label", "fill"]) {
+    const tool = page.locator(`.toolbar [data-mode="${mode}"]`);
+    await more.click();
+    await expect(menu).toBeVisible();
+    await expect(shell).toHaveClass(/menu-open/);
+    await expect(page.locator(".tool-hint-box")).toBeHidden();
+    await tool.click();
+    await expect(menu).toBeHidden();
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await expect(shell).not.toHaveClass(/menu-open/);
+    await expect(tool).toHaveAttribute("aria-pressed", "true");
+    await expect(tool).toBeFocused();
+    await expect(page.locator(".tool-hint-box")).toBeVisible();
+    // Label/Fill have no pending Escape action. It must not revive the stale
+    // menu, move focus to its items, or hide the newly selected tool's hint.
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(tool).toBeFocused();
+    await expect(tool).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".tool-hint-box")).toBeVisible();
+    // A later menu session retains its own Escape focus restoration.
+    await more.click();
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(more).toBeFocused();
+    await expect(shell).not.toHaveClass(/menu-open/);
+  }
+});
 test("Reset restores parts, section, original colours, display and home without changing a noted mark or measurement", async ({
   page,
 }) => {

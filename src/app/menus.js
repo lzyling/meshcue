@@ -164,6 +164,12 @@ export function mountMenus(review) {
       (command.icon ? review.icon(command.icon) : "") +
       `<span>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
     if (placement.direct) {
+      // Toolbar groups keep focus/pointer entry inside an open menu session.
+      // A direct action ends that session before the shared command handler
+      // runs, without returning focus to the old overflow button.
+      button.addEventListener("click", () => {
+        if (!button.disabled) close();
+      });
       tools.insertBefore(button, more);
     } else menu.append(button);
   }
