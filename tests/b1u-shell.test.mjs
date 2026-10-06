@@ -52,19 +52,19 @@ test("settings persist independently, notify changes and tolerate unavailable or
     };
   const settings = createSettings(storage),
     calls = [];
-  assert.equal(settings.get("parts"), false);
+  assert.equal(settings.get("performance"), false);
   assert.equal(settings.get("viewCube"), true);
-  const off = settings.on("parts", (value) => calls.push(value));
-  settings.set("parts", true);
-  settings.set("parts", true);
-  assert.equal(data.get("meshcue.settings.parts"), "true");
-  assert.equal(createSettings(storage).get("parts"), true);
+  const off = settings.on("performance", (value) => calls.push(value));
+  settings.set("performance", true);
+  settings.set("performance", true);
+  assert.equal(data.get("meshcue.settings.performance"), "true");
+  assert.equal(createSettings(storage).get("performance"), true);
   off();
-  settings.set("parts", false);
+  settings.set("performance", false);
   assert.deepEqual(calls, [true]);
-  data.set("meshcue.settings.parts", "broken");
+  data.set("meshcue.settings.performance", "broken");
   data.set("meshcue.settings.viewCube", '"false"');
-  assert.equal(createSettings(storage).get("parts"), false);
+  assert.equal(createSettings(storage).get("performance"), false);
   assert.equal(createSettings(storage).get("viewCube"), true);
   const denied = createSettings({
     getItem() {
@@ -74,7 +74,7 @@ test("settings persist independently, notify changes and tolerate unavailable or
       throw Error();
     },
   });
-  denied.set("parts", true);
-  assert.equal(denied.get("parts"), true);
-  assert.throws(() => settings.set("parts", "true"), TypeError);
+  denied.set("performance", true);
+  assert.equal(denied.get("performance"), true);
+  assert.throws(() => settings.set("performance", "true"), TypeError);
 });

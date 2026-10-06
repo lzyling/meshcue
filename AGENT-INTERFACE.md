@@ -487,13 +487,22 @@ mark, then say what to change."
   is still. Copy report copies device and rendering statistics only, without
   model content or file names.
 
-- Parts lists the model’s assemblies and parts. Hover to highlight, click to
-  select, or double-click to fit a part. In View, click a surface to select its
+- Parts is always available beside Marks, even for a single part. It follows
+  the file’s assembly hierarchy; search by name keeps each result’s parent path.
+  Expand or collapse groups, hover to highlight, click to select, or
+  double-click a part or group to fit it. In View, click a surface to select its
   part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or
-  Esc exits); Shift+T makes it transparent so you can mark behind it. Hidden
-  parts and their marks disappear. These viewing choices reset when you load a
-  model or version and are never sent to the Agent. Enable Part tree in
-  Settings, then open the Parts sidebar tab or use the View menu.
+  Esc exits); Shift+T makes it transparent so you can mark behind it. Group
+  actions affect every contained part. Switching to Marks keeps hidden parts
+  hidden; hand-over and notes appear only on Marks. Viewing choices reset when
+  you load a model or version and are never sent to the Agent.
+
+- The toolbar groups View, Display, Mark and Inspect. Common tools work in one
+  click; “…” opens extra options. View shows Rotate or Pan: click to switch,
+  with Reset view and Fit all beside it. Display shows the current style; click
+  to choose. Show marks is on the Marks tab. Reset restores all parts, exits
+  Section, restores shaded-with-edges and original colours, and calls the
+  default view without changing marks, notes, drafts or measurements.
 
 <!-- reviewer-help:end -->
 

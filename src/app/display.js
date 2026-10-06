@@ -24,7 +24,7 @@ export function bindDisplay(review) {
   const close = (focus = false) => {
     menu.hidden = true;
     button.setAttribute("aria-expanded", "false");
-    if (focus) review.$('[data-menu="view"] .split-main').focus();
+    if (focus) button.focus();
   };
   for (const style of DISPLAY_STYLES) {
     const option = document.createElement("button");
@@ -37,14 +37,7 @@ export function bindDisplay(review) {
     );
     option.textContent = t(DISPLAY_LABELS[style]);
     option.addEventListener("click", () => {
-      review.viewer.setDisplayStyle(style);
-      try {
-        localStorage.setItem(KEY, style);
-      } catch {
-        /* Use it for this visit. */
-      }
-      for (const child of menu.children)
-        child.setAttribute("aria-checked", String(child === option));
+      review.setDisplayStyle(style);
       close(true);
     });
     menu.append(option);
@@ -66,12 +59,30 @@ export function bindDisplay(review) {
     run() {
       if (!menu.hidden) return close(true);
       menu.hidden = false;
-      positionMenu(menu, review.$(".toolbar"));
+      positionMenu(menu, button.closest(".toolbar-group"));
       button.setAttribute("aria-expanded", "true");
       menu.querySelector('[aria-checked="true"]').focus();
     },
   });
   button = review.$("#display-toggle");
+  review.setDisplayStyle = (style) => {
+    review.viewer.setDisplayStyle(style);
+    try {
+      localStorage.setItem(KEY, style);
+    } catch {
+      /* Use it for this visit. */
+    }
+    refreshStyle();
+  };
+  function refreshStyle() {
+    const style = review.viewer.displayStyle;
+    button.innerHTML = review.icon(`display-${style}`);
+    button.title = t("display.choose", { style: t(DISPLAY_LABELS[style]) });
+    button.setAttribute("aria-label", button.title);
+    for (const child of menu.children)
+      child.setAttribute("aria-checked", String(child.dataset.style === style));
+  }
+  refreshStyle();
   document.body.append(menu);
   menu.addEventListener("keydown", (event) => {
     event.stopPropagation();

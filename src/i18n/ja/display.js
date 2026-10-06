@@ -1,4 +1,5 @@
 export default {
+  "display.choose": "表示：{style} — スタイルを選択",
   "display.title": "表示",
   "display.edges": "エッジ付きシェーディング",
   "display.shaded": "シェーディング",

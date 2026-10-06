@@ -16,31 +16,37 @@ export function positionMenu(menu, anchor) {
   menu.style.top = `${Math.max(top + 8, Math.min(box.top - size.height - 8, top + height - size.height - 8))}px`;
 }
 
+// The registry's menu remains a capability grouping, not a promise that every
+// command needs a second click. Fit is registered later by navigation; routing
+// its stable id here avoids coupling that module to the shell's presentation.
+export function toolbarPlacement(command) {
+  if (command.id === "navigation-fit") return { group: "view", direct: true };
+  if (["navigation-projection", "plain"].includes(command.id))
+    return { group: "display", direct: false };
+  if (command.id === "display") return { group: "display", direct: true };
+  if (["home", "view-mode"].includes(command.id))
+    return { group: "view", direct: true };
+  if (
+    ["mode-label", "mode-fill", "mode-measure", "section"].includes(command.id)
+  )
+    return { group: command.menu, direct: true };
+  return command.menu ? { group: command.menu, direct: false } : null;
+}
+
 export function mountMenus(review) {
   const menus = new Map();
   const labels = {
     view: "shell.view",
+    display: "display.title",
     mark: "shell.mark",
     inspect: "shell.inspect",
   };
-  const defaults = {
-    view: "mode-orbit",
-    mark: "mode-label",
-    inspect: "mode-measure",
-  };
-  const read = (id) => {
-    try {
-      return localStorage.getItem(`meshcue.menu.${id}`);
-    } catch {
-      return null;
-    }
-  };
   function close(focus = false) {
-    for (const { menu, arrow } of menus.values()) {
+    for (const { menu, more } of menus.values()) {
       if (menu.hidden) continue;
       menu.hidden = true;
-      arrow.setAttribute("aria-expanded", "false");
-      if (focus) arrow.focus();
+      more.setAttribute("aria-expanded", "false");
+      if (focus) more.focus();
     }
     review.$(".viewer-shell").classList.remove("menu-open");
   }
@@ -50,48 +56,53 @@ export function mountMenus(review) {
     );
   function open(name, last = false) {
     close();
-    const { menu, arrow } = menus.get(name);
+    const { menu, more } = menus.get(name);
     review.refreshCommands();
+    if (!options(menu).length) return;
     menu.hidden = false;
-    arrow.setAttribute("aria-expanded", "true");
+    more.setAttribute("aria-expanded", "true");
     review.$(".viewer-shell").classList.add("menu-open");
-    positionMenu(menu, arrow.closest(".split-tool"));
+    positionMenu(menu, more.closest(".toolbar-group"));
     const items = options(menu);
     (last ? items.at(-1) : items[0])?.focus();
   }
-  for (const name of Object.keys(defaults)) {
-    const split = document.createElement("div");
-    split.className = "split-tool";
-    split.dataset.menu = name;
-    const main = document.createElement("button");
-    main.className = "tool split-main";
-    const arrow = document.createElement("button");
-    arrow.className = "split-arrow";
-    arrow.id = `${name}-menu-button`;
-    arrow.textContent = "▾";
-    arrow.setAttribute("aria-label", t(labels[name]));
-    arrow.setAttribute("aria-haspopup", "menu");
-    arrow.setAttribute("aria-expanded", "false");
-    arrow.setAttribute("aria-controls", `${name}-menu`);
+  for (const [name, label] of Object.entries(labels)) {
+    const group = document.createElement("div");
+    group.className = "toolbar-group";
+    group.dataset.menu = name;
+    group.role = "group";
+    group.setAttribute("aria-label", t(label));
+    const caption = document.createElement("span");
+    caption.className = "toolbar-group-label";
+    caption.textContent = t(label);
+    const tools = document.createElement("div");
+    tools.className = "toolbar-group-tools";
+    const more = document.createElement("button");
+    more.className = "tool toolbar-more";
+    more.id = `${name}-menu-button`;
+    more.textContent = "…";
+    more.title = t("shell.more", { group: t(label) });
+    more.setAttribute("aria-label", more.title);
+    more.setAttribute("aria-haspopup", "menu");
+    more.setAttribute("aria-expanded", "false");
+    more.setAttribute(
+      "aria-controls",
+      `${name === "display" ? "display-options" : name + "-menu"}`,
+    );
     const menu = document.createElement("div");
-    menu.id = `${name}-menu`;
+    menu.id = `${name === "display" ? "display-options" : name + "-menu"}`;
     menu.className = "shell-menu";
     menu.role = "menu";
-    menu.setAttribute("aria-label", t(labels[name]));
+    menu.setAttribute("aria-label", t(label));
     menu.hidden = true;
     document.body.append(menu);
-    split.append(main, arrow);
-    review.$('[data-toolbar-slot="tools"]').append(split);
-    const state = { main, arrow, menu, selected: read(name) || defaults[name] };
-    menus.set(name, state);
-    main.onclick = () => {
-      close();
-      review.commands.run(state.selected);
-      review.refreshCommands();
-    };
-    arrow.onclick = () => (menu.hidden ? open(name) : close(true));
-    split.onkeydown = (e) => {
-      if (["ArrowUp", "ArrowDown"].includes(e.key)) {
+    tools.append(more);
+    group.append(caption, tools);
+    review.$('[data-toolbar-slot="tools"]').append(group);
+    menus.set(name, { tools, more, menu });
+    more.onclick = () => (menu.hidden ? open(name) : close(true));
+    group.onkeydown = (e) => {
+      if (!more.hidden && ["ArrowUp", "ArrowDown"].includes(e.key)) {
         e.preventDefault();
         e.stopPropagation();
         open(name, e.key === "ArrowUp");
@@ -100,18 +111,11 @@ export function mountMenus(review) {
     menu.addEventListener("click", (event) => {
       const button = event.target.closest("[data-command]");
       if (!button || button.disabled) return;
-      state.selected = button.dataset.command;
-      try {
-        localStorage.setItem(`meshcue.menu.${name}`, state.selected);
-      } catch {
-        /* Keep the selection for this visit. */
-      }
-      // Let the shared click handler run the command before closing its menu;
-      // display's submenu can then receive focus without it being stolen back.
+      // The shared click handler owns the command; only close after it ran.
       queueMicrotask(() => {
         close();
         review.refreshCommands();
-        if (document.activeElement === button) main.focus();
+        if (document.activeElement === button) more.focus();
       });
     });
     menu.onkeydown = (e) => {
@@ -136,95 +140,83 @@ export function mountMenus(review) {
     };
   }
   function mount(command) {
-    if (!command.menu) return;
-    const { menu } = menus.get(command.menu);
+    const placement = toolbarPlacement(command);
+    if (!placement) return;
+    const { menu, more, tools } = menus.get(placement.group);
     const button = document.createElement("button");
     for (const [key, value] of Object.entries(command.attributes || {}))
       button.setAttribute(key, value);
-    button.className = "menu-command";
+    button.className = placement.direct
+      ? "tool toolbar-command"
+      : "menu-command";
     button.dataset.command = command.id;
-    button.role = command.checked
-      ? "menuitemcheckbox"
-      : command.attributes?.["data-mode"]
-        ? "menuitemradio"
-        : "menuitem";
-    button.tabIndex = -1;
+    if (!placement.direct) {
+      button.role = command.checked
+        ? "menuitemcheckbox"
+        : command.attributes?.["data-mode"]
+          ? "menuitemradio"
+          : "menuitem";
+      button.tabIndex = -1;
+    }
     button.title = t(command.titleKey || command.labelKey);
     button.setAttribute("aria-label", t(command.labelKey));
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
       `<span>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
-    menu.append(button);
-    const sorted = review.commands.menu(command.menu);
-    for (const entry of sorted) {
-      const item = [...menu.children].find(
-        (b) => b.dataset.command === entry.id,
-      );
-      if (item) menu.append(item);
-    }
+    if (placement.direct) {
+      tools.insertBefore(button, more);
+    } else menu.append(button);
   }
   review.commands.list().forEach(mount);
   review.commands.onRegister(mount);
   review.refreshMenus = () => {
-    for (const [name, state] of menus) {
+    for (const { menu, more, tools } of menus.values()) {
       let previousSection;
-      for (const button of state.menu.children) {
+      for (const button of [
+        ...menu.children,
+        ...tools.querySelectorAll("[data-command]"),
+      ]) {
         const command = review.commands.get(button.dataset.command);
         button.hidden = command.visible ? !command.visible() : false;
-        if (command.checked)
-          button.setAttribute("aria-checked", String(command.checked()));
-        else if (command.attributes?.["data-mode"])
-          button.setAttribute(
-            "aria-checked",
-            String(command.attributes["data-mode"] === review.mode),
+        const checked = command.checked
+          ? command.checked()
+          : command.attributes?.["data-mode"] === review.mode;
+        if (
+          button.closest(".shell-menu") &&
+          (command.checked || command.attributes?.["data-mode"])
+        )
+          button.setAttribute("aria-checked", String(checked));
+        if (!button.closest(".shell-menu")) {
+          button.classList.toggle("active", !!checked);
+          if (command.checked || command.attributes?.["data-mode"])
+            button.setAttribute("aria-pressed", String(!!checked));
+        }
+        if (button.parentElement === menu) {
+          button.classList.toggle(
+            "menu-separator",
+            !button.hidden &&
+              previousSection !== undefined &&
+              previousSection !== command.menuSection,
           );
-        if (command.closeLabelKey)
-          button.title = t(
-            command.checked?.() ? command.closeLabelKey : command.labelKey,
-          );
-        button.classList.toggle(
-          "menu-separator",
-          !button.hidden &&
-            previousSection !== undefined &&
-            previousSection !== command.menuSection,
-        );
-        if (!button.hidden) previousSection = command.menuSection;
+          if (!button.hidden) previousSection = command.menuSection;
+        }
       }
-      let command = review.commands.get(state.selected);
-      if (
-        !command ||
-        command.menu !== name ||
-        (command.visible && !command.visible())
-      ) {
-        state.selected = defaults[name];
-        command = review.commands.get(state.selected);
-      }
-      const item = [...state.menu.children].find(
-        (button) => button.dataset.command === command.id,
-      );
-      // Toggle owners update their menu icon/caption in place. Mirror that
-      // displayed state so the remembered face never shows yesterday's icon.
-      state.main.innerHTML = item.innerHTML;
-      state.main.title = item?.title || t(command.labelKey);
-      state.main.setAttribute(
-        "aria-label",
-        item?.getAttribute("aria-label") || t(command.labelKey),
-      );
-      state.main.disabled = !command.enabled("button");
-      state.main.classList.toggle(
-        "active",
-        command.attributes?.["data-mode"] === review.mode,
-      );
-      if (command.checked)
-        state.main.setAttribute("aria-pressed", String(command.checked()));
-      else state.main.removeAttribute("aria-pressed");
+      more.hidden = ![...menu.children].some((button) => !button.hidden);
+    }
+    const toggle = review.$("#view-mode-toggle");
+    if (toggle) {
+      const pan = review.mode === "pan";
+      toggle.innerHTML = review.icon(pan ? "pan" : "orbit");
+      toggle.title = t(pan ? "shell.panMode" : "shell.rotateMode");
+      toggle.setAttribute("aria-label", toggle.title);
+      toggle.setAttribute("aria-pressed", String(pan));
     }
   };
   document.addEventListener("pointerdown", (e) => {
-    if (!e.target.closest(".shell-menu, .split-tool")) close();
+    if (!e.target.closest(".shell-menu, .toolbar-group")) close();
   });
   document.addEventListener("focusin", (e) => {
-    if (!e.target.closest(".shell-menu, .split-tool")) close();
+    if (!e.target.closest(".shell-menu, .toolbar-group")) close();
   });
   window.addEventListener("resize", () => close());
   window.visualViewport?.addEventListener("resize", () => close());

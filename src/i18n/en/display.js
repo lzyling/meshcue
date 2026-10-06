@@ -1,4 +1,5 @@
 export default {
+  "display.choose": "Display: {style} — choose style",
   "display.title": "Display",
   "display.edges": "Shaded with edges",
   "display.shaded": "Shaded",

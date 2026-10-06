@@ -1,4 +1,5 @@
 export default {
+  "display.choose": "Affichage : {style} — choisir le style",
   "display.title": "Affichage",
   "display.edges": "Ombré avec arêtes",
   "display.shaded": "Ombré",

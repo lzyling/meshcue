@@ -7,6 +7,7 @@ export function bindParts(review) {
     rows = [],
     previousSelected = null;
   const collapsed = new Set();
+  let query = "";
   const rowHeight = 34;
   const labels = {
     hide: "parts.hide",
@@ -16,41 +17,18 @@ export function bindParts(review) {
   };
   panel.innerHTML = `<div class="parts-heading"><strong>${review.T("parts.title")}</strong></div>
     <div class="parts-actions">${["hide", "showAll", "isolate", "transparent"].map((key) => `<button class="quiet" data-command="parts-${key}" title="${review.T(labels[key])}">${review.T(labels[key])}</button>`).join("")}</div>
+    <input id="parts-search" type="search" placeholder="${review.T("parts.search")}" aria-label="${review.T("parts.search")}">
     <div id="parts-tree" role="tree" aria-label="${review.T("parts.title")}" tabindex="0"><div class="parts-rows"></div></div>`;
   const tree = panel.querySelector("#parts-tree"),
     content = tree.firstElementChild;
   const toggleOpen = (value) => {
     open = value;
-    review
-      .$('[data-command="parts-panel"]')
-      .setAttribute("aria-expanded", String(open));
     viewer.hoverPart(null);
     if (open) {
       reveal(selected());
       render();
     }
   };
-  commands.register({
-    id: "parts-panel",
-    labelKey: "parts.title",
-    captionKey: "parts.title",
-    closeLabelKey: "parts.close",
-    icon: "orbit",
-    menu: "view",
-    menuOrder: 70,
-    menuSection: "parts",
-    visible: () => review.settings.get("parts"),
-    checked: () => open,
-    attributes: {
-      "aria-controls": "parts-panel",
-      "aria-expanded": String(open),
-    },
-    run: () => {
-      review.settings.set("parts", true);
-      review.settings.set("sidebarCollapsed", false);
-      review.sidebar.select(open ? "marks" : "parts");
-    },
-  });
   const selected = () => viewer.parts.selected();
   for (const [id, shortcuts, run] of [
     ["hide", "Y", () => viewer.parts.setVisible(selected(), false)],
@@ -75,26 +53,14 @@ export function bindParts(review) {
       id: `parts-${id}`,
       labelKey: labels[id],
       shortcuts,
-      /* Hiding, isolating and see-through are part-tree tools. With the tree
-         switched off nothing on screen says a part was hidden or how to get it
-         back, so their keys go quiet with it. Show all stays: it can only
-         bring things back. */
+      // The tree is always available, even when Marks is the selected tab.
       enabled: () =>
         viewer.enabled &&
         (id === "showAll" ||
-          (review.settings.get("parts") &&
-            (!!selected() || (id === "isolate" && viewer.parts.isIsolated())))),
+          !!selected() ||
+          (id === "isolate" && viewer.parts.isIsolated())),
       run,
     });
-  /* Turning the tree off restores every part rather than leaving its state
-     behind. The alternative -- a "Show all parts" entry in View that only
-     matters after this -- is one more item a beginner sees and has to
-     understand, for a state they can only have reached through a tool they
-     have just put away. Turning the tree back on starts from the model as it
-     was drawn, which is what someone who switched it off expects. */
-  review.settings.on("parts", (on) => {
-    if (!on) viewer.parts.restoreAll();
-  });
   // Escape already has one registry owner. Extend its entry so measurement and
   // relocation retain their behavior and there is still just one key binding.
   const escape = commands.get("escape"),
@@ -108,9 +74,20 @@ export function bindParts(review) {
   };
   function flatten() {
     rows = [];
+    // Search keeps ancestors of matching names, never invents name-based
+    // assemblies. During a query that path is expanded without changing the
+    // reviewer's saved collapse state, which returns when the query is cleared.
+    const included = new Set();
+    if (query)
+      for (const part of entries) {
+        if (!part.name.toLocaleLowerCase().includes(query)) continue;
+        for (let parent = part; parent; parent = byId.get(parent.parentId))
+          included.add(parent.id);
+      }
     const visit = (part, depth) => {
+      if (query && !included.has(part.id)) return;
       rows.push({ part, depth });
-      if (!collapsed.has(part.id))
+      if (query || !collapsed.has(part.id))
         for (const id of part.childIds) visit(byId.get(id), depth + 1);
     };
     for (const part of entries) if (part.parentId === null) visit(part, 0);
@@ -128,6 +105,7 @@ export function bindParts(review) {
     content.replaceChildren();
     for (let i = start; i < end; i++) {
       const { part, depth } = rows[i];
+      const expanded = !!query || !collapsed.has(part.id);
       const row = document.createElement("div");
       row.className = "parts-row";
       row.dataset.partId = part.id;
@@ -135,7 +113,7 @@ export function bindParts(review) {
       row.setAttribute("aria-level", String(depth + 1));
       row.setAttribute("aria-selected", String(selected() === part.id));
       if (part.childIds.length)
-        row.setAttribute("aria-expanded", String(!collapsed.has(part.id)));
+        row.setAttribute("aria-expanded", String(expanded));
       row.style.top = `${i * rowHeight}px`;
       row.style.paddingLeft = `${4 + depth * 14}px`;
       row.classList.toggle("part-hidden", !viewer.parts.isVisible(part.id));
@@ -143,7 +121,9 @@ export function bindParts(review) {
         "part-transparent",
         viewer.parts.isTransparent(part.id),
       );
-      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(collapsed.has(part.id) ? "parts.expand" : "parts.collapse")}" ${part.childIds.length ? "" : "disabled"}>${part.childIds.length ? (collapsed.has(part.id) ? "▸" : "▾") : ""}</button><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(viewer.parts.isVisible(part.id) ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${viewer.parts.isVisible(part.id)}">${review.icon(viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button>`;
+      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(expanded ? "parts.collapse" : "parts.expand")}" ${part.childIds.length ? "" : "disabled"}>${part.childIds.length ? (expanded ? "▾" : "▸") : ""}</button><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(viewer.parts.isVisible(part.id) ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${viewer.parts.isVisible(part.id)}">${review.icon(viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button>`;
+      row.querySelector(".parts-expand").disabled =
+        !!query || !part.childIds.length;
       row.querySelector(".parts-expand").onclick = () => {
         collapsed.has(part.id)
           ? collapsed.delete(part.id)
@@ -163,8 +143,9 @@ export function bindParts(review) {
     }
   }
   function reveal(id) {
-    for (let p = byId.get(id); p?.parentId; p = byId.get(p.parentId))
-      collapsed.delete(p.parentId);
+    if (!query)
+      for (let p = byId.get(id); p?.parentId; p = byId.get(p.parentId))
+        collapsed.delete(p.parentId);
     flatten();
     const index = rows.findIndex(({ part }) => part.id === id);
     if (index < 0) return;
@@ -175,20 +156,50 @@ export function bindParts(review) {
     )
       tree.scrollTop = top;
   }
+  panel.querySelector("#parts-search").addEventListener("input", (event) => {
+    query = event.target.value.trim().toLocaleLowerCase();
+    tree.scrollTop = 0;
+    flatten();
+    render();
+  });
   panel.addEventListener("pointerleave", () => viewer.hoverPart(null));
   tree.addEventListener("scroll", () => {
     viewer.hoverPart(null);
     render();
   });
   tree.addEventListener("keydown", (event) => {
+    // Modified arrows remain camera shortcuts. Plain arrows belong to this
+    // focused tree and must not also turn the camera after moving a row.
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey)
+      return;
     const index = rows.findIndex(({ part }) => part.id === selected());
     let next;
     if (event.key === "ArrowDown") next = Math.min(rows.length - 1, index + 1);
     if (event.key === "ArrowUp") next = Math.max(0, index - 1);
     if (event.key === "Home") next = 0;
     if (event.key === "End") next = rows.length - 1;
+    const part = rows[index]?.part;
+    if (part && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "ArrowLeft") {
+        if (!query && part.childIds.length && !collapsed.has(part.id)) {
+          collapsed.add(part.id);
+          flatten();
+          render();
+          return;
+        }
+        next = rows.findIndex(({ part: p }) => p.id === part.parentId);
+      } else if (!query && part.childIds.length && collapsed.has(part.id)) {
+        collapsed.delete(part.id);
+        flatten();
+        render();
+        return;
+      } else if (rows[index + 1]?.part.parentId === part.id) next = index + 1;
+    }
     if (next !== undefined && rows[next]) {
       event.preventDefault();
+      event.stopPropagation();
       viewer.parts.select(rows[next].part.id);
       content
         .querySelector(`[data-part-id="${selected()}"] .parts-name`)
@@ -199,6 +210,8 @@ export function bindParts(review) {
     const next = viewer.parts.list();
     if (entries.length && !next.length) {
       collapsed.clear();
+      query = "";
+      panel.querySelector("#parts-search").value = "";
       tree.scrollTop = 0;
     }
     entries = next;

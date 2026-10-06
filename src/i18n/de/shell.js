@@ -1,9 +1,17 @@
 export default {
+  "shell.more": "Weitere Optionen: {group}",
+  "shell.rotateMode": "Drehmodus — zu Schwenken wechseln (H)",
+  "shell.panMode": "Schwenkmodus — zu Drehen wechseln",
+  "shell.reset": "Zurücksetzen",
+  "shell.resetTitle":
+    "Vorschau zurücksetzen: alle Bauteile zeigen, Isolation und Transparenz aufheben, Schnitt beenden und Standarddarstellung und Ansicht wiederherstellen; Markierungen, Notizen und Messungen bleiben",
+  "shell.history": "Verlauf",
+  "help.p16":
+    "Die Werkzeugleiste gruppiert Ansicht, Darstellung, Markieren und Prüfen. Häufige Werkzeuge reagieren auf einen Klick; „…“ öffnet weitere Optionen. Ansicht zeigt Drehen oder Schwenken: Klicken wechselt den Modus, daneben stehen Ansicht zurücksetzen und Alles einpassen. Darstellung zeigt den aktuellen Stil; Klicken öffnet die Auswahl. Markierungen anzeigen steht im Reiter Markierungen. Zurücksetzen zeigt alle Teile, beendet den Schnitt, stellt Schattierung mit Kanten und Originalfarben sowie die Standardansicht wieder her, ohne Markierungen, Notizen, Entwürfe oder Messungen zu ändern.",
   "shell.view": "Ansicht",
   "shell.mark": "Markieren",
   "shell.inspect": "Prüfen",
   "shell.settings": "Einstellungen",
-  "shell.parts": "Bauteilbaum",
   "shell.performance": "Leistungsdiagnose",
   "shell.cube": "Ansichtswürfel",
   "shell.hints": "Werkzeughinweise erneut anzeigen",

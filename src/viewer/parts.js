@@ -108,7 +108,7 @@ export class PartsMethods {
     }
     this.syncPartCaps();
     this.occlusionValid = false;
-    this.clearMeasure?.();
+    if (kind !== "reset-view") this.clearMeasure?.();
     this.clearOverlay?.(this.previewOverlay);
     this.fillTarget = null;
     if (this.partAnnotations) this.setAnnotations(...this.partAnnotations);
