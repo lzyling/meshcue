@@ -2808,13 +2808,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   padding: 4px;
   font-size: 19px;
 }
-.toolbar .toolbar-command span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
 .toolbar .toolbar-more[aria-expanded="true"] {
   background: var(--accent-soft);
 }

@@ -172,9 +172,17 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await open(page);
     await clickControl(page, "#section-toggle");
+    // Cube arrows are hover affordances now. Reveal them as a desktop user
+    // would before checking that Section leaves their whole targets clear.
+    await page.locator(".orient-stage").hover();
     await screenshot(page, `bug2-section-${width}`);
+    for (const control of await page
+      .locator(".navigation-arrow, .navigation-roll")
+      .all()) {
+      await expect(control).toBeVisible();
+      expect(await unobscured(control)).toBe(true);
+    }
     const arrow = page.locator(".navigation-arrow-left");
-    expect(await unobscured(arrow)).toBe(true);
     const before = (await diag(page)).camera;
     await arrow.click({ timeout: 3000 });
     await settled(page);

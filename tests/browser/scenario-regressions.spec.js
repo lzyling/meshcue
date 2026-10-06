@@ -77,10 +77,17 @@ for (const locale of ["en", "zh-Hant", "de"]) {
           .toBe(true);
       }
       await clickControl(page, "#section-toggle", "tap");
+      // Touch reveals the cube controls with a real tap, not a forced click
+      // or a CSS class injected by the test. Section must leave every target
+      // reachable once this optional affordance is open.
+      await page.locator(".orient-stage").tap();
       await screenshot(page, `bug1-${locale}-section`);
-      expect
-        .soft(await unobscured(page.locator(".navigation-arrow-left")))
-        .toBe(true);
+      for (const control of await page
+        .locator(".navigation-arrow, .navigation-roll")
+        .all()) {
+        await expect(control).toBeVisible();
+        expect.soft(await unobscured(control)).toBe(true);
+      }
       const section = await page.locator("#section-options").boundingBox();
       const triad = await page.locator(".navigation-triad").boundingBox();
       expect
