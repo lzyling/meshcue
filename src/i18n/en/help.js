@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "QUICK START",
   "help.title": "Look, mark, then say what to change.",
   "help.p1":
-    "Right-drag rotates in every tool. Left-drag rotates only in View; marking tools use the left button for their action. Middle-drag, Shift+left/right-drag or Shift+scroll pans. Wheel or pinch zooms. For trackpads and tablets, select Pan (H) and drag to move the view. In View, click or tap a face to select it; click empty space or press Esc to clear. Double-click or double-tap a face to centre rotation there without zooming. Selection creates no mark. On touchscreens, one finger rotates (or pans in Pan); two fingers pan or pinch to zoom. Pan clicks and taps do nothing.",
+    "Right-drag rotates in every tool. Left-drag rotates only in View; marking tools use the left button for their action. Middle-drag, Shift+left/right-drag or Shift+scroll pans. Wheel or pinch zooms. For trackpads and tablets, select Pan (H) and drag to move the view. In View, click or tap a surface to select its part, without leaving a face highlight; click empty space or press Esc to clear. Double-click or double-tap a face to centre rotation there without zooming. Selection creates no mark. On touchscreens, one finger rotates (or pans in Pan); two fingers pan or pinch to zoom. Pan clicks and taps do nothing.",
   "help.p2":
     "Labels: pick the Label tool and click the surface to place A, B, C; the Orbit tool places nothing, so you can turn the model without making marks. Paint bucket: click a surface to mark the whole connected area — and the right button still orbits while you hold it, so marking never has to stop to turn the model.",
   "help.p3":
@@ -16,9 +16,9 @@ export default {
   "help.p4":
     "The paint bucket previews the connected near-flat area and fills it on a click; the spread slider sets how far that area may run. It works on a whole connected surface, which can include parts hidden behind other objects. To take a fill back, undo it or delete the mark from the list.",
   "help.p5":
-    "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
+    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
   "help.p5.named":
-    "Marks are told apart by pattern and can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file {agent} holds never carries them.",
+    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file {agent} holds never carries them.",
   "help.p6":
     "“Send to Agent” saves and submits the marks with their notes. Say what you want changed in a note or back in the original conversation — both count; the Agent will ask if anything is unclear. Submitting does not change the model by itself.",
   "help.p6.named":

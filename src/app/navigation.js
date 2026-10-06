@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import { boxCorners } from "../viewer/navigation-math.js";
 import { t } from "../i18n/index.js";
+import { CUBE_GEOMETRY } from "../orient-cube.js";
 
 export function bindNavigation(review) {
   const viewer = review.viewer;
-  // The viewer keeps parts for clipping even when the beginner-facing shell
-  // hides their tree. Only an enabled Parts tab should receive canvas picks.
-  viewer.canSelectNavigationPart = () =>
-    review.settings.get("parts") && !!review.$("#sidebar-parts:not([hidden])");
+  // Canvas picks select the model's part regardless of which sidebar tab is
+  // currently open. Surface hover is transient and never becomes a selection.
+  viewer.canSelectNavigationPart = () => !!viewer.parts;
   // Cursor zoom consumes the wheel before it bubbles to the document. Keep
   // trusted navigation activity on the same renewal path as other input.
   viewer.renderer.domElement.addEventListener("wheel", review.noteActivity, {
@@ -39,6 +39,23 @@ export function bindNavigation(review) {
           faces: viewer.navigationSelection.faces,
         }
       : null,
+    selectionOverlayChildren:
+      viewer.navigationSelectionOverlay?.children.length || 0,
+    defaultView: viewer.getDefaultView?.() || null,
+    fills: viewer.overlay.children
+      .filter((o) => o.isMesh && !o.isLineSegments2)
+      .map((o) => ({
+        opacity: o.material.opacity,
+        solid:
+          o.material.onBeforeCompile ===
+          THREE.Material.prototype.onBeforeCompile,
+      })),
+    regionOutlines: viewer.overlay.children
+      .filter((o) => o.isLineSegments2)
+      .map((o) => ({
+        width: o.material.linewidth,
+        dashed: o.material.dashed,
+      })),
     projection: viewer.camera.isOrthographicCamera
       ? "orthographic"
       : "perspective",
@@ -56,7 +73,7 @@ export function bindNavigation(review) {
   const previousRun = escape.run,
     previousEnabled = escape.enabled;
   escape.enabled = (source) =>
-    !!viewer.navigationSelection || previousEnabled(source);
+    !!viewer.parts?.selected() || previousEnabled(source);
   escape.run = () => {
     viewer.clearNavigationSelection();
     viewer.navigationLastClick = null;
@@ -208,10 +225,10 @@ export function bindNavigation(review) {
 
   const stage = review.$(".orient-stage");
   for (const [name, glyph] of [
-    ["Left", "‹"],
-    ["Right", "›"],
-    ["Up", "⌃"],
-    ["Down", "⌄"],
+    ["Left", "◀"],
+    ["Right", "▶"],
+    ["Up", "▲"],
+    ["Down", "▼"],
   ]) {
     const arrow = document.createElement("button");
     arrow.className = `navigation-arrow navigation-arrow-${name.toLowerCase()}`;
@@ -220,20 +237,84 @@ export function bindNavigation(review) {
       "aria-label",
       t(arrows.find((arrow) => arrow[0] === name)[3]),
     );
+    arrow.title = arrow.getAttribute("aria-label");
     arrow.textContent = glyph;
     stage.append(arrow);
   }
-  let drag;
+  for (const [name, degrees, glyph, labelKey] of [
+    ["left", 90, "↶", "navigation.rollLeft"],
+    ["right", -90, "↷", "navigation.rollRight"],
+  ]) {
+    const id = `navigation-roll-${name}`;
+    register(`roll-${name}`, labelKey, undefined, () =>
+      viewer.rollNavigation(degrees),
+    );
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `navigation-roll navigation-roll-${name}`;
+    button.dataset.command = id;
+    button.setAttribute("aria-label", t(labelKey));
+    button.title = button.getAttribute("aria-label");
+    button.textContent = glyph;
+    stage.append(button);
+  }
+  let drag,
+    longPress,
+    heldReleaseClick = false;
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      heldReleaseClick = false;
+    },
+    true,
+  );
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!heldReleaseClick) return;
+      // Touch compatibility clicks can be retargeted to the menu now under the
+      // releasing finger, even with the pointer captured by the stage. Consume
+      // that release once at document capture; a fresh contact (above) is always
+      // an intentional menu choice, including on browsers that emit no click.
+      heldReleaseClick = false;
+      drag = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    },
+    true,
+  );
   stage.addEventListener("pointerdown", (event) => {
-    if (event.target.closest(".navigation-arrow") || event.button !== 0) return;
+    clearTimeout(longPress);
+    if (event.pointerType === "touch")
+      stage.classList.add("navigation-touch-controls");
+    if (
+      event.target.closest("button:not(.orient-region)") ||
+      event.button !== 0
+    )
+      return;
     viewer.cancelNavigation();
     drag = { x: event.clientX, y: event.clientY, moved: false };
+    if (event.pointerType === "touch") {
+      // A tap still chooses a face; it also reveals controls until the next
+      // outside tap. Holding for 550ms opens the same menu as a right click,
+      // suppressing the face click and cancelling on a real cube drag.
+      longPress = setTimeout(() => {
+        drag.moved = true;
+        drag.held = true;
+        heldReleaseClick = true;
+        stage.setPointerCapture(event.pointerId);
+        stage.dispatchEvent(
+          new Event("contextmenu", { bubbles: true, cancelable: true }),
+        );
+      }, 550);
+    }
   });
   stage.addEventListener("pointermove", (event) => {
-    if (!drag) return;
+    if (!drag || drag.held) return;
     const dx = event.clientX - drag.x,
       dy = event.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    clearTimeout(longPress);
     drag.moved = true;
     stage.setPointerCapture(event.pointerId);
     viewer.rotateNavigation(-dx * 0.6, dy * 0.6);
@@ -257,9 +338,11 @@ export function bindNavigation(review) {
     true,
   );
   stage.addEventListener("pointerup", () => {
+    clearTimeout(longPress);
     viewer.navigationRotating = false;
   });
   stage.addEventListener("pointercancel", () => {
+    clearTimeout(longPress);
     drag = null;
     viewer.navigationRotating = false;
   });
@@ -285,10 +368,27 @@ export function bindNavigation(review) {
     triad.append(group);
     return { line, text, direction: new THREE.Vector3().setComponent(i, 1) };
   });
-  review.$(".orient").append(triad);
+  stage.append(triad);
   viewer.addFrameHook(() => {
+    // The origin is a bottom corner of this same cube, projected in the same
+    // 400px perspective, rather than a free-floating axes panel to its left.
+    // The axes themselves name file coordinates after the model's up rotation.
+    const size = stage.clientWidth || 156;
+    triad.setAttribute("viewBox", `0 0 ${size} ${size}`);
     const inverse = viewer.camera.quaternion.clone().invert();
+    const corner = new THREE.Vector3(
+      -CUBE_GEOMETRY.HALF + CUBE_GEOMETRY.CHAMFER,
+      -CUBE_GEOMETRY.HALF,
+      CUBE_GEOMETRY.HALF - CUBE_GEOMETRY.CHAMFER,
+    ).applyQuaternion(inverse);
+    const perspective = 400 / (400 - corner.z);
+    const x = size / 2 + corner.x * perspective;
+    const y = size / 2 - corner.y * perspective;
     for (const { line, text, direction } of axes) {
+      line.parentNode.setAttribute(
+        "transform",
+        `translate(${x - 45 * 0.65} ${y - 45 * 0.65}) scale(0.65)`,
+      );
       const d = direction
         .clone()
         .applyQuaternion(viewer.root.quaternion)

@@ -112,6 +112,11 @@ export default {
   "cube.sideJoin": "-",
   "cube.homeTitle": "Zurück zur Standardansicht",
   "cube.homeLabel": "Ansicht zurücksetzen",
+  "cube.widgetLabel":
+    "Ansichtswürfel; Rechtsklick oder langes Drücken für die Standardansicht",
+  "cube.defaultMenu": "Standardansicht",
+  "cube.setDefault": "Aktuelle Ansicht als Standard festlegen",
+  "cube.resetDefault": "Standardansicht zurücksetzen",
 
   "tool.orbit": "Drehen",
   "tool.orbitLabel": "Drehwerkzeug",

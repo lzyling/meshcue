@@ -34,7 +34,7 @@ const noOverlap = (a, b) =>
   a.y + a.height <= b.y + 1 ||
   b.y + b.height <= a.y + 1;
 
-test("integrated View selection synchronizes only with an enabled Parts tab", async ({
+test("integrated View selects parts regardless of sidebar visibility, without a face overlay", async ({
   page,
 }) => {
   await open(page);
@@ -43,11 +43,11 @@ test("integrated View selection synchronizes only with an enabled Parts tab", as
   await page.mouse.click(p.x, p.y);
   expect(
     await page.evaluate(() => window.__navigationDiagnostics().selection),
-  ).not.toBeNull();
+  ).toBeNull();
   await showParts(page);
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   p = await face(page);
   await page.mouse.click(p.x, p.y);
   await expect(
@@ -56,7 +56,7 @@ test("integrated View selection synchronizes only with an enabled Parts tab", as
   await clickControl(page, "#section-toggle");
   expect(
     await page.evaluate(() => window.__navigationDiagnostics().selection),
-  ).not.toBeNull();
+  ).toBeNull();
   await page.screenshot({ path: `${evidence}/selection-and-section.png` });
   await page.keyboard.press("Escape");
   await page.locator("#settings-button").click();
@@ -68,7 +68,7 @@ test("integrated View selection synchronizes only with an enabled Parts tab", as
   await showParts(page);
   await expect(
     page.locator('[role="treeitem"][aria-selected="true"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(0);

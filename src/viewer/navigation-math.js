@@ -31,13 +31,13 @@ export function fitFrame(
   fov = 38,
   orthographic = false,
   area = { left: 0, right: 1, top: 0, bottom: 1 },
+  cameraUp = new THREE.Vector3(0, 1, 0),
 ) {
   const target = box.getCenter(new THREE.Vector3());
   const back = direction.clone().normalize();
-  const right = new THREE.Vector3().crossVectors(
-    new THREE.Vector3(0, 1, 0),
-    back,
-  );
+  // A rolled view has a different screen basis; Fit must not crop its tall
+  // projection by measuring against the pre-roll world-up direction.
+  const right = new THREE.Vector3().crossVectors(cameraUp, back);
   if (right.lengthSq() < 1e-12) right.set(1, 0, 0);
   right.normalize();
   const up = new THREE.Vector3().crossVectors(back, right);

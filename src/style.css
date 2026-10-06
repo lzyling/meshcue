@@ -2706,3 +2706,117 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     max-width: calc(100% - 24px);
   }
 }
+
+/* === b1v Lane VIEW: one compact cube, with optional navigation affordances === */
+.orient-stage {
+  width: calc(var(--orient-reach) + 40px);
+  height: calc(var(--orient-reach) + 40px);
+}
+.orient-home {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  opacity: 0.45;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.orient-stage:hover .orient-home,
+.orient-stage:focus-within .orient-home,
+.navigation-touch-controls .orient-home {
+  opacity: 1;
+}
+.navigation-arrow,
+.navigation-roll {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  width: 26px;
+  height: 26px;
+  background: none;
+  color: var(--ink-muted);
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 10;
+}
+.orient-stage:hover .navigation-arrow,
+.orient-stage:hover .navigation-roll,
+.orient-stage:focus-within .navigation-arrow,
+.orient-stage:focus-within .navigation-roll,
+.navigation-touch-controls .navigation-arrow,
+.navigation-touch-controls .navigation-roll {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.navigation-arrow:hover,
+.navigation-roll:hover,
+.orient-home:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.navigation-arrow-left,
+.navigation-arrow-right {
+  top: calc(50% - 13px);
+}
+.navigation-arrow-up,
+.navigation-arrow-down {
+  left: calc(50% - 13px);
+}
+.navigation-roll {
+  position: absolute;
+  top: 0;
+  font-size: 22px;
+  cursor: pointer;
+}
+.navigation-roll-left {
+  right: 29px;
+}
+.navigation-roll-right {
+  right: 0;
+}
+.navigation-triad {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Section controls reserve --orient-reach, so integrated axes no longer need
+   the old narrow-layout exception that hid the floating panel. */
+.viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
+  display: block;
+}
+.orient-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 11;
+  width: max-content;
+  max-width: min(270px, calc(100vw - 24px));
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+}
+.orient-menu[hidden] {
+  display: none;
+}
+.orient-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+.orient-menu button:hover,
+.orient-menu button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

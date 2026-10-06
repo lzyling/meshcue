@@ -8,7 +8,7 @@ export default {
   "help.eyebrow": "DÉMARRAGE RAPIDE",
   "help.title": "Regarder, marquer, puis dire ce qu'il faut changer.",
   "help.p1":
-    "Glisser avec le bouton droit fait tourner dans tous les outils. Le bouton gauche fait tourner uniquement dans Vue ; les outils de marquage le réservent à leur action. Glisser avec le bouton central, Maj+glisser avec le bouton gauche ou droit, ou Maj+défilement déplace la vue. Molette ou pincement zoome. Sur pavé tactile ou tablette, choisir Déplacer (H) puis glisser. Dans Vue, cliquer ou toucher une face la sélectionne ; cliquer dans le vide ou appuyer sur Esc efface la sélection. Un double-clic ou double toucher sur une face y place le centre de rotation sans zoomer. La sélection ne crée aucune marque. Sur écran tactile, un doigt fait tourner (ou déplace dans Déplacer) ; deux doigts déplacent ou pincent pour zoomer. Dans Déplacer, clics et touchers ne font rien.",
+    "Glisser avec le bouton droit fait tourner dans tous les outils. Le bouton gauche fait tourner uniquement dans Vue ; les outils de marquage le réservent à leur action. Glisser avec le bouton central, Maj+glisser avec le bouton gauche ou droit, ou Maj+défilement déplace la vue. Molette ou pincement zoome. Sur pavé tactile ou tablette, choisir Déplacer (H) puis glisser. Dans Vue, cliquer ou toucher une surface sélectionne uniquement sa pièce, sans garder de face en surbrillance ; cliquer dans le vide ou appuyer sur Esc efface la sélection. Un double-clic ou double toucher sur une face y place le centre de rotation sans zoomer. La sélection ne crée aucune marque. Sur écran tactile, un doigt fait tourner (ou déplace dans Déplacer) ; deux doigts déplacent ou pincent pour zoomer. Dans Déplacer, clics et touchers ne font rien.",
   "help.p2":
     "Repères : choisissez l'outil Repère et cliquez la surface pour poser A, B, C ; l'outil Pivoter ne pose rien, vous pouvez donc tourner le modèle sans créer de marques. Pot de peinture : un clic sur une surface marque toute la zone contiguë — et le bouton droit continue de pivoter, le marquage n'a jamais à s'interrompre pour tourner le modèle.",
   "help.p3":
@@ -16,9 +16,9 @@ export default {
   "help.p4":
     "Le pot de peinture prévisualise la zone contiguë quasi plane et la remplit d'un clic ; le curseur d'étendue fixe jusqu'où cette zone peut s'étendre. Il agit sur toute une surface contiguë, y compris des parties cachées derrière d'autres objets. Pour revenir sur un remplissage, annulez-le ou supprimez la marque dans la liste.",
   "help.p5":
-    "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
+    "Les zones peintes ont une couleur unie semi-transparente et un contour, plus épais si elles sont sélectionnées ; seules les coupes sont hachurées. Les marques se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient l'Agent ne les porte jamais.",
   "help.p5.named":
-    "Les marques se distinguent par leur motif et se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient {agent} ne les porte jamais.",
+    "Les zones peintes ont une couleur unie semi-transparente et un contour, plus épais si elles sont sélectionnées ; seules les coupes sont hachurées. Les marques se masquent d'une pression ; la vue neutre n'est qu'une aide visuelle. Les marques n'existent que dans la revue — le fichier du modèle que détient {agent} ne les porte jamais.",
   "help.p6":
     "« Envoyer à l'Agent » enregistre et transmet les marques avec leurs notes. Dites ce que vous voulez changer dans une note ou dans la conversation d'origine – les deux comptent ; l'Agent posera des questions si besoin. L'envoi seul ne modifie pas le modèle.",
   "help.p6.named":
