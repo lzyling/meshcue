@@ -1,19 +1,25 @@
 import { t } from "../i18n/index.js";
 
 export function bindHints(review) {
+  const shell = review.$(".viewer-shell"),
+    options = review.$("#tool-options"),
+    section = review.$("#section-options"),
+    displayMenu = review.$("#display-menu"),
+    dialogs = document.querySelectorAll("dialog");
   const hint = review.$("#tool-hint");
   const box = document.createElement("div");
   box.className = "tool-hint-box";
   hint.before(box);
   box.append(hint);
-  review.$(".viewer-shell").append(box);
+  shell.append(box);
   const dismiss = document.createElement("button");
   dismiss.id = "dismiss-tool-hint";
   dismiss.setAttribute("aria-label", t("shell.dismissHint"));
   dismiss.innerHTML = review.icon("close");
   box.append(dismiss);
   let current,
-    showing = false;
+    showing = false,
+    watching = false;
   /* A first-use hint counts as seen only once it has actually been on screen,
    or when the reviewer closes it. Recording it the moment it was asked for
    lost it for good whenever it was asked for out of sight -- under the
@@ -35,7 +41,42 @@ export function bindHints(review) {
   };
   const markSeen = () => {
     if (!showing || !current || review.settings.get(`hint.${current}`)) return;
-    if (onScreen()) review.settings.set(`hint.${current}`, true);
+    if (onScreen()) {
+      review.settings.set(`hint.${current}`, true);
+      stopWatching();
+    }
+  };
+  const stopWatching = () => {
+    visibilityObserver.disconnect();
+    if (!watching) return;
+    watching = false;
+    window.removeEventListener("scroll", markSeen, true);
+    window.removeEventListener("resize", position);
+    for (const dialog of dialogs) dialog.removeEventListener("close", markSeen);
+  };
+  const watchVisibility = () => {
+    stopWatching();
+    if (!showing || !current || review.settings.get(`hint.${current}`)) return;
+    watching = true;
+    // Observe only the flags that can cover the hint, never the canvas subtree:
+    // navigation pivots and mark readouts write attributes every rendered frame.
+    visibilityObserver.observe(shell, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    for (const target of [options, section, displayMenu])
+      visibilityObserver.observe(target, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+      });
+    // A short viewport can cut off the hint without changing any DOM flags.
+    // Capture also catches scrolling inside a containing panel.
+    window.addEventListener("scroll", markSeen, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("resize", position);
+    for (const dialog of dialogs) dialog.addEventListener("close", markSeen);
   };
   review.showToolHint = (mode) => {
     if (mode !== current) {
@@ -43,25 +84,15 @@ export function bindHints(review) {
       showing = !review.settings.get(`hint.${mode}`);
     }
     box.hidden = !showing;
-    markSeen();
-    // A menu that chose this tool closes after the choice; look again then.
-    requestAnimationFrame(markSeen);
+    watchVisibility();
+    position();
   };
   dismiss.onclick = () => {
     if (current) review.settings.set(`hint.${current}`, true);
     showing = false;
     box.hidden = true;
+    stopWatching();
   };
-  for (const dialog of document.querySelectorAll("dialog"))
-    dialog.addEventListener("close", markSeen);
-  // Menus hide the hint with `visibility`, which no ResizeObserver sees come
-  // back. Watching the classes and `hidden` flags that do it costs one early
-  // return per change once the current hint has been seen.
-  new MutationObserver(markSeen).observe(review.$(".viewer-shell"), {
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["class", "hidden"],
-  });
   review.resetToolHints = () => {
     for (const mode of ["orbit", "pan", "label", "fill", "measure", "relocate"])
       review.settings.set(`hint.${mode}`, false);
@@ -71,17 +102,15 @@ export function bindHints(review) {
   // Measure and Fill own their option contents. Observe the strip's size so a
   // translated hint clears either lane's controls without knowing their shape.
   const position = () => {
-    const shell = review.$(".viewer-shell").getBoundingClientRect();
+    const bounds = shell.getBoundingClientRect();
     let top = review.$(".toolbar").getBoundingClientRect().top;
-    const options = review.$("#tool-options");
     if (!options.hidden)
       top = Math.min(top, options.getBoundingClientRect().top);
-    box.style.bottom = `${shell.bottom - top + 8}px`;
+    box.style.bottom = `${bounds.bottom - top + 8}px`;
     // Touch-sized Advanced controls can leave no gap below Section on a
     // phone. Temporarily clear the hint, as menus do, rather than drawing its
     // words through the section controls. Keep showing intact so closing the
     // section restores the first-use hint without resetting or dismissing it.
-    const section = review.$("#section-options");
     const cut = section.getBoundingClientRect(),
       hint = box.getBoundingClientRect();
     box.style.visibility =
@@ -94,6 +123,9 @@ export function bindHints(review) {
         : "";
     markSeen();
   };
+  // Menus change CSS visibility without resizing the hint. Panel flags also
+  // need to reposition it before checking whether Section still covers it.
+  const visibilityObserver = new MutationObserver(position);
   const observer = new ResizeObserver(position);
   for (const selector of [
     ".viewer-shell",
@@ -104,5 +136,4 @@ export function bindHints(review) {
   ])
     observer.observe(review.$(selector));
   review.showToolHint(review.mode);
-  position();
 }

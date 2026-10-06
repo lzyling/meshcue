@@ -313,6 +313,123 @@ test.describe("phone hint", () => {
   });
 });
 
+test.describe("landscape phone hint", () => {
+  test.use({
+    viewport: { width: 844, height: 390 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const seen = (page) =>
+    page.evaluate(() => localStorage.getItem("meshcue.settings.hint.orbit"));
+  const extent = (page) =>
+    page.locator(".tool-hint-box").evaluate((box) => {
+      const r = box.getBoundingClientRect();
+      return {
+        top: r.top,
+        bottom: r.bottom,
+        left: r.left,
+        right: r.right,
+        width: innerWidth,
+        height: innerHeight,
+      };
+    });
+
+  test("unrelated per-frame attributes do not check an unseen hint's visibility", async ({
+    page,
+  }) => {
+    await open(page);
+    expect((await extent(page)).bottom).toBeGreaterThan(390);
+    expect(await seen(page)).not.toBe("true");
+    const counts = await page.evaluate(async () => {
+      const frame = () => new Promise(requestAnimationFrame);
+      // Drain initial positioning callbacks before spying on the visibility
+      // check's dialog query, not on elapsed time or the viewer's frame rate.
+      for (let i = 0; i < 4; i++) await frame();
+      const query = document.querySelector,
+        pivot = query.call(document, ".navigation-pivot");
+      let checks = 0,
+        mutations = 0;
+      document.querySelector = function (selector) {
+        if (selector === "dialog[open]") checks++;
+        return query.call(this, selector);
+      };
+      const observer = new MutationObserver((records) => {
+        mutations += records.length;
+      });
+      observer.observe(pivot, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+      });
+      try {
+        for (let i = 0; i < 12; i++) {
+          await frame();
+          // Even writing the same Boolean creates a real mutation record.
+          pivot.hidden = pivot.hidden;
+        }
+        await frame();
+        await frame();
+        return { checks, mutations };
+      } finally {
+        observer.disconnect();
+        document.querySelector = query;
+      }
+    });
+    expect(counts.mutations).toBeGreaterThanOrEqual(12);
+    expect(counts.checks).toBe(0);
+    expect(await seen(page)).not.toBe("true");
+  });
+
+  for (const change of ["scroll", "resize"])
+    test(`${change} counts a fully visible hint without pivot attribute writes`, async ({
+      page,
+    }) => {
+      await open(page);
+      const before = await extent(page);
+      expect(before.top).toBeGreaterThanOrEqual(0);
+      expect(before.bottom).toBeGreaterThan(before.height);
+      expect(await seen(page)).not.toBe("true");
+      await page.evaluate(() => {
+        const pivot = document.querySelector(".navigation-pivot"),
+          hidden = Object.getOwnPropertyDescriptor(
+            HTMLElement.prototype,
+            "hidden",
+          );
+        const counts = (window.__hintPivotProbe = { blocked: 0, mutations: 0 });
+        // Silence only this page's pivot writes. The renderer keeps running,
+        // but it can no longer accidentally drive the hint's seen check.
+        Object.defineProperty(pivot, "hidden", {
+          get() {
+            return hidden.get.call(this);
+          },
+          set() {
+            counts.blocked++;
+          },
+        });
+        new MutationObserver((records) => {
+          counts.mutations += records.length;
+        }).observe(pivot, { attributes: true, attributeFilter: ["hidden"] });
+      });
+      if (change === "scroll")
+        await page.evaluate(
+          (dy) => window.scrollBy(0, dy),
+          Math.ceil(before.bottom - before.height) + 8,
+        );
+      else await page.setViewportSize({ width: 844, height: 500 });
+      await expect.poll(() => seen(page)).toBe("true");
+      const after = await extent(page);
+      expect(after.top).toBeGreaterThanOrEqual(0);
+      expect(after.bottom).toBeLessThanOrEqual(after.height);
+      expect(after.left).toBeGreaterThanOrEqual(0);
+      expect(after.right).toBeLessThanOrEqual(after.width);
+      const pivot = await page.evaluate(async () => {
+        for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame);
+        return window.__hintPivotProbe;
+      });
+      expect(pivot.blocked).toBeGreaterThan(0);
+      expect(pivot.mutations).toBe(0);
+    });
+});
+
 test("Fit to window and Home use different icons", async ({ page }) => {
   await open(page);
   await page.locator("#view-menu-button").click();
