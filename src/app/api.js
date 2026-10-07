@@ -1,5 +1,7 @@
 import { t, ta } from "../i18n/index.js";
+import { createUpdatePopover } from "./update-popover.js";
 export function installApi(review) {
+  let updatePopover;
   /* The header keeps one small mark for the connection, beside Help and
    Settings, because whether the Agent can still collect is something a
    reviewer needs before they spend ten minutes marking, not after they open a
@@ -319,26 +321,9 @@ export function installApi(review) {
         });
   }
 
-  /* A mark beside the version, and nothing else. The reviewer is usually not the
-   person who installs anything — they were handed a URL — so this says what is
-   true and who to tell, and does not pretend the page can act on it. The
-   service is silent unless there is genuinely something newer than what is
-   installed, so an absent badge is the normal state, not a failed check. */
   function showUpdate(update) {
-    const badge = review.$("#app-update");
-    if (!update?.version) {
-      badge.hidden = true;
-      return;
-    }
-    const hint = ta("app.updateHint", { version: update.version });
-    badge.textContent = update.version;
-    badge.title = hint;
-    badge.setAttribute("aria-label", hint);
-    // Release notes if the upstream named them; otherwise it is only a label,
-    // and a link that goes nowhere is worse than a word that never claimed to.
-    if (update.url) badge.href = update.url;
-    else badge.removeAttribute("href");
-    badge.hidden = false;
+    updatePopover ||= createUpdatePopover(review);
+    updatePopover(update);
   }
 
   function pollState() {

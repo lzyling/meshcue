@@ -3402,3 +3402,74 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 #explode-options output {
   min-width: 3em;
 }
+
+/* Update popover: deliberately static emphasis, never flashing or animated. */
+.brand-title button.app-update {
+  cursor: pointer;
+  font-family: inherit;
+}
+.brand-title .app-update.update-unseen {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.brand-title .app-update.update-unseen::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+.update-popover {
+  position: fixed;
+  z-index: 1000;
+  width: min(390px, calc(100vw - 16px));
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: 0 8px 30px #0003;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.update-popover h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+  padding-right: 65px;
+}
+.update-close {
+  float: right;
+}
+.update-current,
+.update-explanation {
+  color: var(--ink-muted);
+}
+.update-notes {
+  white-space: pre-wrap;
+}
+.update-popover a {
+  color: var(--accent);
+}
+.update-copy {
+  cursor: pointer;
+}
+.update-popover button:focus-visible,
+.brand-title button.app-update:focus-visible,
+.update-popover a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-popover,
+  .brand-title button.app-update {
+    animation: none;
+    transition: none;
+  }
+}
+/* End update popover. */
