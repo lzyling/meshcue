@@ -13,9 +13,6 @@ export default {
   "version.earlier": "Version antérieure",
   "version.submitted": "{count} envoyés",
   "version.openElsewhere": "Ouverte dans une autre fenêtre",
-  "version.pinnedNotice":
-    "Vous regardez une version antérieure ; la plus récente est {version}.",
-  "version.goLatest": "Afficher la dernière version",
   "version.driftStopped":
     "Une autre version est arrivée ; votre brouillon est conservé et le passage automatique s'est arrêté.",
 

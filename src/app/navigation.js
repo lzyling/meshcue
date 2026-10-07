@@ -151,37 +151,36 @@ export function bindNavigation(review) {
     "projection",
     "navigation.projection",
     undefined,
-    () =>
-      viewer.setProjection(
-        viewer.camera.isOrthographicCamera ? "perspective" : "orthographic",
-      ),
+    () => review.openMenu("projection"),
     {
       menu: "view",
       menuOrder: 30,
       menuSection: "camera",
       checked: () => !!viewer.camera.isOrthographicCamera,
       captionKey: "navigation.projection",
-      icon: "plain",
+      icon: "projection",
       attributes: { id: "navigation-projection", "aria-pressed": "false" },
     },
   );
-  viewer.onProjection = (ortho) => {
-    const command = review.commands.get("navigation-projection");
-    command.captionKey = ortho
-      ? "navigation.orthographic"
-      : "navigation.perspective";
-    for (const button of document.querySelectorAll(
-      '[data-command="navigation-projection"]',
-    )) {
-      button.setAttribute("aria-pressed", String(ortho));
-      button.querySelector("span").textContent = t(command.captionKey);
-      button.title = t(
-        ortho ? "navigation.perspective" : "navigation.orthographic",
-      );
-    }
-    review.refreshCommands();
-  };
-  viewer.onProjection(!!viewer.camera.isOrthographicCamera);
+  for (const [projection, labelKey] of [
+    ["perspective", "navigation.perspective"],
+    ["orthographic", "navigation.orthographic"],
+  ]) {
+    register(
+      `projection-${projection}`,
+      labelKey,
+      undefined,
+      () => viewer.setProjection(projection),
+      {
+        menu: "view",
+        checked: () =>
+          !!viewer.camera.isOrthographicCamera ===
+          (projection === "orthographic"),
+      },
+    );
+  }
+  viewer.onProjection = () => review.refreshCommands();
+  viewer.onProjection();
 
   const sheet = document.createElement("dialog");
   sheet.id = "navigation-shortcuts";
@@ -236,12 +235,7 @@ export function bindNavigation(review) {
     if (!stage.contains(event.relatedTarget))
       stage.classList.remove("navigation-keyboard-controls");
   });
-  for (const [name, glyph] of [
-    ["Left", "◀"],
-    ["Right", "▶"],
-    ["Up", "▲"],
-    ["Down", "▼"],
-  ]) {
+  for (const name of ["Left", "Right", "Up", "Down"]) {
     const arrow = document.createElement("button");
     arrow.className = `navigation-arrow navigation-arrow-${name.toLowerCase()}`;
     arrow.dataset.command = `navigation-Shift+${name}`;
@@ -250,25 +244,8 @@ export function bindNavigation(review) {
       t(arrows.find((arrow) => arrow[0] === name)[3]),
     );
     arrow.title = arrow.getAttribute("aria-label");
-    arrow.textContent = glyph;
+    arrow.innerHTML = `<svg viewBox="0 0 40 24" aria-hidden="true" focusable="false"><path d="M5 20C5 2 35 2 35 20M30 15l5 5 3-6"/></svg>`;
     stage.append(arrow);
-  }
-  for (const [name, degrees, glyph, labelKey] of [
-    ["left", 90, "↶", "navigation.rollLeft"],
-    ["right", -90, "↷", "navigation.rollRight"],
-  ]) {
-    const id = `navigation-roll-${name}`;
-    register(`roll-${name}`, labelKey, undefined, () =>
-      viewer.rollNavigation(degrees),
-    );
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `navigation-roll navigation-roll-${name}`;
-    button.dataset.command = id;
-    button.setAttribute("aria-label", t(labelKey));
-    button.title = button.getAttribute("aria-label");
-    button.textContent = glyph;
-    stage.append(button);
   }
   let drag,
     longPress,

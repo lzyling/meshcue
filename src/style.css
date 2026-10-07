@@ -2689,10 +2689,10 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   visibility: hidden;
 }
 .viewer-bottom {
-  bottom: 70px;
+  bottom: 10px;
 }
 .viewer-shell {
-  /* The metadata row moved above the toolbar; its echo must clear it too. */
+  /* Keep the echo clear of the corner metadata. */
   --bottom-row-reach: 110px;
 }
 @media (max-width: 760px) {
@@ -2831,7 +2831,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   display: flex;
 }
 .toolbar .toolbar-command,
-.toolbar .toolbar-more,
 .toolbar .tool.small {
   width: 32px;
   height: 44px;
@@ -2839,7 +2838,7 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   padding: 4px;
   font-size: 19px;
 }
-.toolbar .toolbar-more[aria-expanded="true"] {
+.toolbar .toolbar-command[aria-expanded="true"] {
   background: var(--accent-soft);
 }
 .toolbar .toolbar-history {
@@ -2847,10 +2846,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   align-items: flex-end;
   padding: 0 3px;
   border-right: 1px solid var(--line);
-}
-.toolbar [data-toolbar-slot="reset"] {
-  display: flex;
-  align-items: flex-end;
 }
 .toolbar .reset-preview {
   min-width: 48px;
@@ -2889,7 +2884,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     padding: 0 2px;
   }
   .toolbar .toolbar-command,
-  .toolbar .toolbar-more,
   .toolbar .tool.small {
     width: 44px;
     min-width: 44px;
@@ -2942,61 +2936,67 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .navigation-touch-controls .orient-home {
   opacity: 1;
 }
-.navigation-arrow,
-.navigation-roll {
+/* Short arc arrows wrap the cube without covering its selectable faces. */
+.navigation-arrow {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 24px;
   background: none;
   color: var(--ink-muted);
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 0;
-  font-size: 12px;
-  line-height: 1;
   z-index: 10;
+  transition:
+    opacity 120ms,
+    color 120ms;
+}
+.navigation-arrow svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .orient-stage:hover .navigation-arrow,
-.orient-stage:hover .navigation-roll,
 .orient-stage:focus-visible .navigation-arrow,
-.orient-stage:focus-visible .navigation-roll,
 .orient-stage:has(:focus-visible) .navigation-arrow,
-.orient-stage:has(:focus-visible) .navigation-roll,
 .navigation-keyboard-controls .navigation-arrow,
-.navigation-keyboard-controls .navigation-roll,
-.navigation-touch-controls .navigation-arrow,
-.navigation-touch-controls .navigation-roll {
+.navigation-touch-controls .navigation-arrow {
   visibility: visible;
-  opacity: 1;
+  opacity: 0.65;
   pointer-events: auto;
 }
 .navigation-arrow:hover,
-.navigation-roll:hover,
-.orient-home:hover {
+.navigation-arrow:focus-visible,
+.orient-home:hover,
+.orient-home:focus-visible {
+  opacity: 1;
   background: var(--accent-soft);
   color: var(--accent);
 }
 .navigation-arrow-left,
 .navigation-arrow-right {
-  top: calc(50% - 13px);
+  top: calc(50% - 12px);
+}
+.navigation-arrow-left {
+  left: -8px;
+  transform: rotate(-90deg);
+}
+.navigation-arrow-right {
+  right: -8px;
+  transform: rotate(90deg);
 }
 .navigation-arrow-up,
 .navigation-arrow-down {
-  left: calc(50% - 13px);
+  left: calc(50% - 20px);
 }
-.navigation-roll {
-  position: absolute;
-  top: 0;
-  font-size: 22px;
-  cursor: pointer;
-}
-.navigation-roll-left {
-  right: 29px;
-}
-.navigation-roll-right {
-  right: 0;
+.navigation-arrow-down {
+  transform: rotate(180deg);
 }
 .navigation-triad {
   inset: 0;
@@ -3119,5 +3119,54 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   }
   .viewer-shell:has(#measure-options:not([hidden])) .toolbar-history {
     padding: 0 2px;
+  }
+}
+
+/* r4 shell: metadata hugs the preview corner; phone tool row scrolls as one. */
+.viewer-bottom {
+  bottom: 10px;
+  right: 10px;
+}
+.orient-home {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  transition:
+    opacity 120ms,
+    color 120ms;
+}
+.reset-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+#reset-dialog {
+  max-width: min(420px, calc(100vw - 32px));
+}
+#reset-dialog .danger-button {
+  background: var(--danger, #b63636);
+  color: white;
+}
+@media (max-width: 760px) {
+  .toolbar {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: flex;
+    flex: none;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+  .viewer-bottom #model-info,
+  .viewer-bottom .axis-label {
+    display: none;
   }
 }

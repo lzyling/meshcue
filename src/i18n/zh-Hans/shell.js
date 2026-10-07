@@ -1,13 +1,12 @@
 export default {
-  "shell.more": "更多{group}选项",
-  "shell.rotateMode": "旋转模式 — 点击切换平移 (H)",
-  "shell.panMode": "平移模式 — 点击切换旋转",
+  "shell.rotateMode": "旋转模式",
+  "shell.panMode": "平移模式",
   "shell.reset": "重置",
   "shell.resetTitle":
-    "重置预览：显示全部零件，清除隔离和透明，退出剖面，恢复默认显示与视角；保留标注、备注和测量",
+    "恢复显示并删除全部未提交标注、备注和测量；一次撤销可找回标注。",
   "shell.history": "历史",
   "help.p16":
-    "工具栏按查看、显示、标记和检查分组。常用工具可直接单击切换；“…”打开更多选项。查看组显示当前旋转或平移模式，点击即可切换，旁边是重置视角和适合全部。显示组显示当前样式，点击选择；显示标注开关在标注页。重置会显示全部零件、退出剖面、恢复带边线着色与原色，并回到默认视角，不更改标注、备注、草稿或测量。",
+    "工具栏按查看、标记、检查、显示分组。旋转/平移、投影和显示样式点击打开菜单，单一动作直接执行。Home 只在视角方块上。重置恢复全部零件、退出剖面、恢复默认显示与视角，并删除未提交的标注及其备注和测量。有标注时需确认，一次撤销可找回；已提交批次不受影响。",
   "shell.view": "查看",
   "shell.mark": "标记",
   "shell.inspect": "检查",
@@ -22,4 +21,9 @@ export default {
   "shell.online": "在线",
   "shell.reconnecting": "正在重连…",
   "shell.offline": "离线",
+  "shell.resetConfirm":
+    "将删除 {count} 条标注并恢复初始显示。已提交的批次不受影响。",
+  "shell.resetCancel": "取消",
+  "shell.resetReadOnly": "已恢复显示；当前草稿不可编辑，标注已保留。",
+  "shell.zoomToCursor": "滚轮缩放到鼠标位置",
 };
