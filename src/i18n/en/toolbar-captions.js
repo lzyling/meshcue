@@ -8,7 +8,6 @@ export default {
   "toolbar.caption.measure": "Measure",
   "toolbar.caption.section": "Section",
   "toolbar.caption.style": "Style",
-  "toolbar.caption.plain": "Plain",
   "toolbar.caption.marks": "Marks",
   "toolbar.caption.undo": "Undo",
   "toolbar.caption.redo": "Redo",

@@ -8,7 +8,6 @@ export default {
   "toolbar.caption.measure": "測定",
   "toolbar.caption.section": "断面",
   "toolbar.caption.style": "表示",
-  "toolbar.caption.plain": "単色",
   "toolbar.caption.marks": "注釈",
   "toolbar.caption.undo": "戻す",
   "toolbar.caption.redo": "やり直す",

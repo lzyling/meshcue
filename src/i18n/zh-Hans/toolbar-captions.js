@@ -8,7 +8,6 @@ export default {
   "toolbar.caption.measure": "测量",
   "toolbar.caption.section": "剖面",
   "toolbar.caption.style": "样式",
-  "toolbar.caption.plain": "素色",
   "toolbar.caption.marks": "标注",
   "toolbar.caption.undo": "撤销",
   "toolbar.caption.redo": "重做",

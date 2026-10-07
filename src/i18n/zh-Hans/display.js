@@ -1,4 +1,5 @@
 export default {
+  "display.plain": "素色（忽略模型颜色）",
   "display.choose": "显示：{style} — 点击选择样式",
   "display.title": "显示",
   "display.edges": "着色并显示边线",

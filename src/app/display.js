@@ -1,4 +1,4 @@
-import { positionMenu, toolbarCaption } from "./menus.js";
+import { positionMenu, toolbarCaption, menuItemContent } from "./menus.js";
 import { t } from "../i18n/index.js";
 import { DISPLAY_STYLES } from "../viewer/display-modes.js";
 import { bindPerformance } from "./perf.js";
@@ -35,13 +35,32 @@ export function bindDisplay(review) {
       "aria-checked",
       String(review.viewer.displayStyle === style),
     );
-    option.textContent = t(DISPLAY_LABELS[style]);
+    option.className = "menu-option";
+    option.innerHTML = menuItemContent(
+      review,
+      t(DISPLAY_LABELS[style]),
+      `display-${style}`,
+    );
     option.addEventListener("click", () => {
       review.setDisplayStyle(style);
       close(true);
     });
     menu.append(option);
   }
+  const separator = document.createElement("div");
+  separator.className = "menu-separator";
+  separator.setAttribute("role", "separator");
+  const plain = document.createElement("button");
+  plain.type = "button";
+  plain.className = "menu-option";
+  plain.setAttribute("role", "menuitemcheckbox");
+  plain.innerHTML = menuItemContent(review, t("display.plain"), "plain");
+  plain.addEventListener("click", () => {
+    review.commands.run("plain");
+    refreshStyle();
+    close(true);
+  });
+  menu.append(separator, plain);
   review.commands.register({
     id: "display",
     labelKey: "display.title",
@@ -80,16 +99,22 @@ export function bindDisplay(review) {
       review.icon(`display-${style}`) +
       `<span>${review.esc(toolbarCaption("display"))}</span>`;
     button.title = t("display.choose", { style: t(DISPLAY_LABELS[style]) });
+    const neutral = !!review.viewer.neutral;
+    button.classList.toggle("neutral-active", neutral);
+    if (neutral) button.title += ` · ${t("display.plain")}`;
     button.setAttribute("aria-label", button.title);
-    for (const child of menu.children)
+    plain.setAttribute("aria-checked", String(neutral));
+    plain.title = t(neutral ? "view.original" : "view.plain");
+    for (const child of menu.querySelectorAll("[data-style]"))
       child.setAttribute("aria-checked", String(child.dataset.style === style));
   }
+  review.refreshDisplay = refreshStyle;
   refreshStyle();
   document.body.append(menu);
   menu.addEventListener("keydown", (event) => {
     event.stopPropagation();
     if (event.key === "Tab") close();
-    const options = [...menu.children];
+    const options = [...menu.querySelectorAll("button")];
     const current = options.indexOf(document.activeElement);
     if (event.key === "Escape") {
       event.preventDefault();

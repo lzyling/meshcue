@@ -378,13 +378,7 @@ export function registerToolbarCommands(review) {
     attributes: { id: "neutral-view", class: "tool", "aria-pressed": "false" },
     run: () => {
       review.viewer.setNeutral(!review.viewer.neutral);
-      review.showToggle(
-        "#neutral-view",
-        review.viewer.neutral,
-        review.viewer.neutral ? "view.original" : "view.plain",
-        "plain",
-        "tool.plain",
-      );
+      review.refreshDisplay?.();
     },
   });
   review.commands.register({

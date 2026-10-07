@@ -1,4 +1,5 @@
 export default {
+  "display.plain": "Uni (ignorer les couleurs du modèle)",
   "display.choose": "Affichage : {style} — choisir le style",
   "display.title": "Affichage",
   "display.edges": "Ombré avec arêtes",

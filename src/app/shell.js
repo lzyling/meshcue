@@ -60,7 +60,7 @@ export function mountShell(review) {
   applyTheme(review.themeChoice, review.darkQuery);
 
   review.SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
-<g id="mc-brand" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2 20.4 8v8L12 20.8 3.6 16V8z"/><path d="M3.6 8 12 12.8 20.4 8M12 12.8v8" stroke-width="1.2" opacity=".55"/></g>
+<symbol id="mc-brand" viewBox="0 0 64 64"><mask id="mc-brand-cutout-r7" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M32 35C28 29.5 23 24.5 23 16.5a9 9 0 0 1 18 0C41 24.5 36 29.5 32 35Z" fill="#000" stroke="#000" stroke-width="3"/></mask><g mask="url(#mc-brand-cutout-r7)"><g fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="3.2"><path d="M32 24 50 33v18L32 60 14 51V33Z" stroke="currentColor"/><path d="M14 33 32 42 50 33M32 42v18" stroke="var(--accent)"/></g></g><path d="M32 35C28 29.5 23 24.5 23 16.5a9 9 0 0 1 18 0C41 24.5 36 29.5 32 35ZM28.6 16.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0Z" fill-rule="evenodd" fill="var(--accent)"/></symbol>
 <g id="mc-pan" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
   <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
   <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
@@ -111,7 +111,9 @@ export function mountShell(review) {
   <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
   <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
   <path d="m2 2 20 20" /></g>
-<g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></g>
+<g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></g>
+<g id="mc-settings" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.72l-.12.88a2 2 0 0 1-1.18 1.52l-.2.09a2 2 0 0 1-1.9-.18l-.71-.54a2 2 0 0 0-2.65.54l-.22.38a2 2 0 0 0 .54 2.65l.71.54a2 2 0 0 1 .72 1.78v.22a2 2 0 0 1-.72 1.78l-.71.54a2 2 0 0 0-.54 2.65l.22.38a2 2 0 0 0 2.65.54l.71-.54a2 2 0 0 1 1.9-.18l.2.09a2 2 0 0 1 1.18 1.52l.12.88a2 2 0 0 0 2 1.72h.44a2 2 0 0 0 2-1.72l.12-.88a2 2 0 0 1 1.18-1.52l.2-.09a2 2 0 0 1 1.9.18l.71.54a2 2 0 0 0 2.65-.54l.22-.39a2 2 0 0 0-.54-2.65l-.71-.53a2 2 0 0 1-.72-1.78v-.22a2 2 0 0 1 .72-1.78l.71-.54a2 2 0 0 0 .54-2.65l-.22-.38a2 2 0 0 0-2.65-.54l-.71.54a2 2 0 0 1-1.9.18l-.2-.09a2 2 0 0 1-1.18-1.52l-.12-.88A2 2 0 0 0 12.22 2z"/><circle cx="12" cy="12" r="3"/></g>
+<g id="mc-projection-ortho" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Zm0 0 8 4 8-4M12 11v10"/></g>
 <g id="mc-projection" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h8l5 15H3L8 5Z"/><path d="M12 5v15M5.4 13h13.2"/></g>
 <g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" />
   <path d="M12 18a6 6 0 0 0 0-12v12z" /></g>
@@ -124,7 +126,7 @@ export function mountShell(review) {
 </defs></svg>`;
 
   review.icon = (name) =>
-    `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
+    `<svg class="icon" viewBox="0 0 ${name === "brand" ? "64 64" : "24 24"}" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
 
   /* Catalogue text goes into markup, so it is escaped on the way in. Five
    languages of apostrophes and quotation marks are not a place to rely on
@@ -201,7 +203,7 @@ export function mountShell(review) {
     t("conn.actionFailed");
 
   review.app.innerHTML = `${review.SPRITE}
-<header class="app-header"><div class="brand-mark">${review.icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${review.T("app.version")}">${__MESHCUE_VERSION__}</span><a class="app-update" id="app-update" target="_blank" rel="noreferrer noopener" hidden></a></div><span>${review.T("app.tagline")}</span></div><div class="header-right"><span id="connection-indicator" class="connection-indicator" role="img" data-state="connecting" aria-label="${review.T("conn.connecting")}" title="${review.T("conn.connecting")}"></span><button class="quiet icon-only" id="help-button" aria-label="${review.T("help.open")}">${review.icon("help")}</button><button class="quiet icon-only" id="settings-button" aria-label="${review.T("shell.settings")}">⚙</button></div></header>
+<header class="app-header"><div class="brand-mark">${review.icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${review.T("app.version")}">${__MESHCUE_VERSION__}</span><a class="app-update" id="app-update" target="_blank" rel="noreferrer noopener" hidden></a></div><span>${review.T("app.tagline")}</span></div><div class="header-right"><span id="connection-indicator" class="connection-indicator" role="img" data-state="connecting" aria-label="${review.T("conn.connecting")}" title="${review.T("conn.connecting")}"></span><button class="quiet icon-only" id="help-button" aria-label="${review.T("help.open")}">${review.icon("help")}</button><button class="quiet icon-only" id="settings-button" aria-label="${review.T("shell.settings")}">${review.icon("settings")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${review.T("a11y.reviewPanel")}">
   <!-- The name arrived with the link, the tab strip carries the version, and a

@@ -11,13 +11,17 @@ export function toolbarCaption(id) {
     "mode-measure": "toolbar.caption.measure",
     section: "toolbar.caption.section",
     display: "toolbar.caption.style",
-    plain: "toolbar.caption.plain",
     marks: "toolbar.caption.marks",
     undo: "toolbar.caption.undo",
     redo: "toolbar.caption.redo",
     "reset-preview": "toolbar.caption.reset",
   };
   return names[id] ? t(names[id]) : null;
+}
+
+// A reserved icon slot and check slot keep every submenu aligned.
+export function menuItemContent(review, label, icon) {
+  return `<span class="menu-option-icon" aria-hidden="true">${icon ? review.icon(icon) : ""}</span><span class="menu-option-label">${review.esc(label)}</span><span class="menu-option-check" aria-hidden="true">✓</span>`;
 }
 
 // Menus live outside the clipped canvas and transformed toolbar. Clamp against
@@ -48,7 +52,7 @@ export function toolbarPlacement(command) {
     )
   )
     return { group: "view", direct: true };
-  if (["display", "plain", "marks"].includes(command.id))
+  if (["display", "marks"].includes(command.id))
     return { group: "display", direct: true };
   if (
     ["mode-label", "mode-fill", "mode-measure", "section"].includes(command.id)
@@ -161,10 +165,20 @@ export function mountMenus(review) {
     button.dataset.command = command.id;
     button.title = t(command.titleKey || command.labelKey);
     button.setAttribute("aria-label", t(command.labelKey));
-    button.innerHTML =
-      (command.icon ? review.icon(command.icon) : "") +
-      `<span>${review.esc(placement.direct ? toolbarCaption(command.id) : t(command.captionKey || command.labelKey))}</span>`;
+    button.innerHTML = placement.direct
+      ? (command.icon ? review.icon(command.icon) : "") +
+        `<span>${review.esc(toolbarCaption(command.id))}</span>`
+      : menuItemContent(
+          review,
+          t(command.captionKey || command.labelKey),
+          command.id === "navigation-projection-orthographic"
+            ? "projection-ortho"
+            : command.id === "navigation-projection-perspective"
+              ? "projection"
+              : command.icon,
+        );
     if (placement.submenu) {
+      button.classList.add("menu-option");
       button.role = "menuitemradio";
       button.tabIndex = -1;
       menus.get(placement.submenu).menu.append(button);
@@ -194,7 +208,7 @@ export function mountMenus(review) {
         if (!button.disabled && !entry) close();
       });
       const tools = groups.get(placement.group);
-      const order = ["display", "plain", "marks"];
+      const order = ["display", "marks"];
       const before =
         placement.group === "display"
           ? [...tools.children].find(

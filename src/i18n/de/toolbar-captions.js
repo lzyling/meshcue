@@ -8,7 +8,6 @@ export default {
   "toolbar.caption.measure": "Messen",
   "toolbar.caption.section": "Schnitt",
   "toolbar.caption.style": "Stil",
-  "toolbar.caption.plain": "Neutral",
   "toolbar.caption.marks": "Marken",
   "toolbar.caption.undo": "Zurück",
   "toolbar.caption.redo": "Wieder",
