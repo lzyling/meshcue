@@ -379,7 +379,8 @@ export class MarksMethods {
     if (label && visible) {
       const el = document.createElement("button");
       el.className = `model-pin ${selected ? "selected" : ""}`;
-      el.textContent = a.label;
+      el.textContent = a.show === "color" ? "" : a.label;
+      if (a.show === "label") el.classList.add("label-only");
       el.style.setProperty("--pin-color", a.color);
       el.onclick = (e) => {
         e.stopPropagation();
@@ -411,7 +412,8 @@ export class MarksMethods {
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
         if (landing && !seen.has(a.id)) el.classList.add("landing");
-        el.textContent = a.label;
+        el.textContent = a.show === "color" ? "" : a.label;
+        if (a.show === "label") el.classList.add("label-only");
         el.style.setProperty("--pin-color", a.color);
         el.setAttribute("aria-label", t("marks.one", { label: a.label }));
         el.addEventListener("click", (e) => {

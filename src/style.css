@@ -3492,3 +3492,32 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   }
 }
 /* End update popover. */
+
+#mark-show {
+  display: flex;
+  gap: 2px;
+}
+#mark-show button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+#mark-show button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+}
+.color-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+#mark-show-hint {
+  max-width: 260px;
+  font-size: 11px;
+}
+.model-pin.label-only,
+.annotation-badge.label-only {
+  color: #fff;
+}
