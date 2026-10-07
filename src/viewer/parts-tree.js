@@ -81,7 +81,7 @@ export function createParts(onChange = () => {}) {
   let groups = [],
     groupLabels = {},
     view = "file",
-    projection = { entries: [], firstAlias: new Map() },
+    projection = null,
     groupSignature = "";
   const listeners = new Set();
   const emit = (kind = "view") => {
@@ -90,6 +90,23 @@ export function createParts(onChange = () => {}) {
   };
   const meshes = (id) => byId.get(id)?.meshIds || [];
   const meshVisible = (id) => (isolated ? isolated.has(id) : !hidden.has(id));
+  let indexedRows = 0;
+  const indexProjection = () => {
+    while (indexedRows < projection.entries.length) {
+      const row = projection.entries[indexedRows++];
+      byId.set(row.id, row);
+    }
+  };
+  const ensureProjection = () => {
+    if (projection) return;
+    projection = resolvePartGroups(
+      groups,
+      tree.entries,
+      tree.identities,
+      groupLabels,
+    );
+    indexProjection();
+  };
   const api = {
     list: () =>
       tree.entries.map((p) => ({
@@ -104,20 +121,54 @@ export function createParts(onChange = () => {}) {
     meshIds: (id) => [...meshes(id)],
     view: () => view,
     hasGroups: () => groups.length > 0,
-    viewList: () =>
-      (view === "agent" && groups.length ? projection.entries : api.list()).map(
-        (p) => ({ ...p, meshIds: [...p.meshIds], childIds: [...p.childIds] }),
-      ),
-    revealId: (id) =>
-      view === "agent" && byId.get(id)?.id?.startsWith("part-")
-        ? (projection.firstAlias.get(id) ?? null)
-        : id,
+    viewList() {
+      if (view !== "agent" || !groups.length) return api.list();
+      ensureProjection();
+      return projection.entries.map((p) => ({
+        ...p,
+        childIds: [...p.childIds],
+      }));
+    },
+    expand(id) {
+      if (view !== "agent") return;
+      ensureProjection();
+      projection.expand(id);
+      indexProjection();
+      return (byId.get(id)?.childIds || []).map((child) => ({
+        ...byId.get(child),
+        childIds: [...byId.get(child).childIds],
+      }));
+    },
+    search(query) {
+      if (view !== "agent" || !query) return;
+      ensureProjection();
+      const included = new Set();
+      for (const part of tree.entries) {
+        if (!part.name.toLocaleLowerCase().includes(query)) continue;
+        for (let p = part; p; p = byId.get(p.parentId)) included.add(p.id);
+      }
+      // Only matching native paths are opened during a search; the ordinary
+      // collapsed state is owned by the panel and is restored on clearing it.
+      for (let i = 0; i < projection.entries.length; i++) {
+        const row = projection.entries[i];
+        if (included.has(row.partId)) projection.expand(row.id, included);
+      }
+      indexProjection();
+    },
+    revealId(id) {
+      if (view !== "agent" || !byId.get(id)?.id?.startsWith("part-")) return id;
+      ensureProjection();
+      const alias = projection.firstAlias.get(id) ?? null;
+      indexProjection();
+      return alias;
+    },
     setView(value) {
       const next = value === "agent" && groups.length ? "agent" : "file";
       if (view === next) return;
       if (next === "file" && selected && !selected.startsWith("part-"))
         selected = byId.get(selected)?.partId ?? null;
       view = next;
+      if (view === "agent") ensureProjection();
       emit("projection");
     },
     setGroups(value = [], labels = {}) {
@@ -126,15 +177,10 @@ export function createParts(onChange = () => {}) {
       groups = value;
       groupLabels = labels;
       groupSignature = signature;
-      projection = resolvePartGroups(
-        groups,
-        tree.entries,
-        tree.identities,
-        groupLabels,
-      );
-      byId = new Map(
-        [...tree.entries, ...projection.entries].map((p) => [p.id, p]),
-      );
+      projection = null;
+      indexedRows = 0;
+      byId = new Map(tree.entries.map((p) => [p.id, p]));
+      if (view === "agent" && groups.length) ensureProjection();
       if (selected && !byId.has(selected)) selected = null;
       if (!groups.length) view = "file";
       emit("projection");
@@ -219,7 +265,8 @@ export function createParts(onChange = () => {}) {
       tree = next || { entries: [], objects: new Map(), meshParts: new Map() };
       groups = [];
       groupSignature = "";
-      projection = { entries: [], firstAlias: new Map() };
+      projection = null;
+      indexedRows = 0;
       byId = new Map(tree.entries.map((p) => [p.id, p]));
       hidden = new Set();
       transparent = new Set();

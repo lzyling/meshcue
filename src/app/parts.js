@@ -6,7 +6,8 @@ export function bindParts(review) {
     byId = new Map(),
     rows = [],
     previousSelected = null;
-  const collapsed = new Set();
+  const collapsed = new Set(),
+    initialized = new Set();
   let query = "",
     preferredView = "file";
   try {
@@ -100,7 +101,19 @@ export function bindParts(review) {
     viewer.parts.isolate(null);
     previousRun();
   };
+  function refreshEntries() {
+    entries = viewer.parts.viewList();
+    byId = new Map(entries.map((part) => [part.id, part]));
+    for (const part of entries) {
+      if (!initialized.has(part.id)) {
+        initialized.add(part.id);
+        if (part.collapsedByDefault) collapsed.add(part.id);
+      }
+    }
+  }
   function flatten() {
+    viewer.parts.search(query);
+    refreshEntries();
     rows = [];
     // Search keeps ancestors of matching names, never invents name-based
     // assemblies. During a query that path is expanded without changing the
@@ -115,8 +128,20 @@ export function bindParts(review) {
     const visit = (part, depth) => {
       if (query && !included.has(part.id)) return;
       rows.push({ part, depth });
-      if (query || !collapsed.has(part.id))
+      if (query || !collapsed.has(part.id)) {
+        const children = query ? undefined : viewer.parts.expand(part.id);
+        if (children) {
+          part.childIds = children.map((child) => child.id);
+          for (const child of children) {
+            byId.set(child.id, child);
+            if (!initialized.has(child.id)) {
+              initialized.add(child.id);
+              if (child.collapsedByDefault) collapsed.add(child.id);
+            }
+          }
+        }
         for (const id of part.childIds) visit(byId.get(id), depth + 1);
+      }
     };
     for (const part of entries) if (part.parentId === null) visit(part, 0);
   }
@@ -140,7 +165,7 @@ export function bindParts(review) {
       row.setAttribute("role", "treeitem");
       row.setAttribute("aria-level", String(depth + 1));
       row.setAttribute("aria-selected", String(selected() === part.id));
-      if (part.childIds.length)
+      if (part.hasChildren || part.childIds.length)
         row.setAttribute("aria-expanded", String(expanded));
       row.style.top = `${i * rowHeight}px`;
       row.style.paddingLeft = `${4 + depth * 14}px`;
@@ -154,9 +179,9 @@ export function bindParts(review) {
         "part-transparent",
         viewer.parts.isTransparent(part.id),
       );
-      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(expanded ? "parts.collapse" : "parts.expand")}" ${part.childIds.length ? "" : "disabled"}>${part.childIds.length ? (expanded ? "▾" : "▸") : ""}</button><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(viewer.parts.isVisible(part.id) ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${viewer.parts.isVisible(part.id)}">${review.icon(viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button>`;
+      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(expanded ? "parts.collapse" : "parts.expand")}" ${part.hasChildren || part.childIds.length ? "" : "disabled"}>${part.hasChildren || part.childIds.length ? (expanded ? "▾" : "▸") : ""}</button><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(viewer.parts.isVisible(part.id) ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${viewer.parts.isVisible(part.id)}">${review.icon(viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button>`;
       row.querySelector(".parts-expand").disabled =
-        !!query || !part.childIds.length;
+        !!query || !(part.hasChildren || part.childIds.length);
       row.querySelector(".parts-expand").onclick = () => {
         collapsed.has(part.id)
           ? collapsed.delete(part.id)
@@ -188,6 +213,7 @@ export function bindParts(review) {
     }
   }
   function reveal(id) {
+    refreshEntries();
     if (!query)
       for (let p = byId.get(id); p?.parentId; p = byId.get(p.parentId))
         collapsed.delete(p.parentId);
@@ -228,14 +254,22 @@ export function bindParts(review) {
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "ArrowLeft") {
-        if (!query && part.childIds.length && !collapsed.has(part.id)) {
+        if (
+          !query &&
+          (part.hasChildren || part.childIds.length) &&
+          !collapsed.has(part.id)
+        ) {
           collapsed.add(part.id);
           flatten();
           render();
           return;
         }
         next = rows.findIndex(({ part: p }) => p.id === part.parentId);
-      } else if (!query && part.childIds.length && collapsed.has(part.id)) {
+      } else if (
+        !query &&
+        (part.hasChildren || part.childIds.length) &&
+        collapsed.has(part.id)
+      ) {
         collapsed.delete(part.id);
         flatten();
         render();
@@ -261,6 +295,7 @@ export function bindParts(review) {
       );
     if (entries.length && !next.length) {
       collapsed.clear();
+      initialized.clear();
       query = "";
       panel.querySelector("#parts-search").value = "";
       tree.scrollTop = 0;

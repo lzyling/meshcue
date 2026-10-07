@@ -24,11 +24,13 @@ export function resolvePartGroups(
   const entries = [],
     covered = new Set(),
     firstAlias = new Map(),
-    issues = [];
+    issues = [],
+    aliases = new Map(),
+    roots = new Map();
   function alias(part, prefix, parentId, residual = null, member = undefined) {
     const meshIds = residual
       ? part.meshIds.filter((id) => residual.has(id))
-      : [...part.meshIds];
+      : part.meshIds;
     if (!meshIds.length) return null;
     const row = {
       ...part,
@@ -40,12 +42,15 @@ export function resolvePartGroups(
       kind: member ? "member" : "part",
       ...(member ? { member } : {}),
     };
+    // Descendants are allocated only on expansion/reveal. In particular, a
+    // repeated assembly member shares its mesh collection with the file tree;
+    // metadata limits must not multiply the native subtree into browser memory.
+    row.hasChildren = part.childIds.some((id) =>
+      residual ? byId.get(id).meshIds.some((mesh) => residual.has(mesh)) : true,
+    );
+    row.collapsedByDefault = row.hasChildren;
     entries.push(row);
-    if (!firstAlias.has(part.id)) firstAlias.set(part.id, row.id);
-    for (const id of part.childIds) {
-      const child = alias(byId.get(id), prefix, row.id, residual);
-      if (child) row.childIds.push(child.id);
-    }
+    aliases.set(row.id, { row, part, prefix, residual, expanded: false });
     return row;
   }
   function visit(group, parentId) {
@@ -95,7 +100,10 @@ export function resolvePartGroups(
         null,
         member,
       );
+      if (!child) return;
       row.childIds.push(child.id);
+      if (!roots.has(part.id))
+        roots.set(part.id, { child, order: entries.length, residual: null });
       for (const id of part.meshIds) {
         union.add(id);
         covered.add(id);
@@ -112,7 +120,10 @@ export function resolvePartGroups(
   }
   for (const group of groups) visit(group, null);
   const residual = new Set(
-    native.flatMap((p) => p.meshIds).filter((id) => !covered.has(id)),
+    native
+      .filter((p) => p.parentId === null)
+      .flatMap((p) => p.meshIds)
+      .filter((id) => !covered.has(id)),
   );
   if (residual.size) {
     const other = {
@@ -127,8 +138,63 @@ export function resolvePartGroups(
     for (const part of native)
       if (part.parentId === null) {
         const child = alias(part, "agent-other", other.id, residual);
-        if (child) other.childIds.push(child.id);
+        if (child) {
+          other.childIds.push(child.id);
+          if (!roots.has(part.id))
+            roots.set(part.id, { child, order: entries.length, residual });
+        }
       }
   }
-  return { entries, firstAlias, issues };
+  function expand(id, included = null) {
+    const item = aliases.get(id);
+    if (!item || item.expanded) return;
+    if (!included) item.expanded = true;
+    const existing = new Set(
+      item.row.childIds.map((child) => aliases.get(child).part.id),
+    );
+    for (const childId of item.part.childIds) {
+      if (existing.has(childId) || (included && !included.has(childId)))
+        continue;
+      const child = alias(byId.get(childId), item.prefix, id, item.residual);
+      if (child) item.row.childIds.push(child.id);
+    }
+    const order = new Map(item.part.childIds.map((child, i) => [child, i]));
+    item.row.childIds.sort(
+      (a, b) =>
+        order.get(aliases.get(a).part.id) - order.get(aliases.get(b).part.id),
+    );
+  }
+  // Find the earliest declared member among this part's native ancestors,
+  // without pre-indexing every descendant once per duplicate member. Picking
+  // materializes just the navigation path, not any sibling subtrees.
+  firstAlias.get = (id) => {
+    let best = null;
+    const path = [];
+    for (let part = byId.get(id); part; part = byId.get(part.parentId)) {
+      path.push(part);
+      const root = roots.get(part.id);
+      if (
+        root &&
+        (!root.residual || part.meshIds.some((m) => root.residual.has(m))) &&
+        (!best || root.order < best.root.order)
+      )
+        best = { root, length: path.length };
+    }
+    if (!best) return undefined;
+    let row = best.root.child;
+    for (let i = best.length - 2; i >= 0; i--) {
+      expand(row.id, new Set([path[i].id]));
+      row = entriesById(
+        row.childIds.find(
+          (child) => aliases.get(child)?.part.id === path[i].id,
+        ),
+      );
+      if (!row) return undefined;
+    }
+    return row.id;
+  };
+  function entriesById(id) {
+    return aliases.get(id)?.row;
+  }
+  return { entries, firstAlias, issues, expand };
 }

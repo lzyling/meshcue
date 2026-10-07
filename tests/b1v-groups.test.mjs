@@ -887,3 +887,86 @@ test("selected middle scenes retain parser clone indices and duplicate occurrenc
     ["ambiguous", "ambiguous"],
   );
 });
+
+test("4096 repeated assemblies allocate roots only, defer File projection and share native meshes", () => {
+  for (const childCount of [64, 4096]) {
+    const meshIds = Array.from({ length: childCount }, (_, i) => `m${i}`);
+    const native = [
+      {
+        id: "part-0",
+        name: "Assembly",
+        parentId: null,
+        meshIds,
+        childIds: meshIds.map((_, i) => `part-0.${i}`),
+      },
+      ...meshIds.map((mesh, i) => ({
+        id: `part-0.${i}`,
+        name: `Child ${i}`,
+        parentId: "part-0",
+        meshIds: [mesh],
+        childIds: [],
+      })),
+    ];
+    const groups = normalizePartGroups(
+      doc({
+        members: Array.from({ length: 4096 }, () => ({ partId: "part-0" })),
+      }),
+    );
+    const result = resolvePartGroups(groups, native);
+    assert.equal(result.entries.length, 4097);
+    assert.equal(result.entries[1].meshIds, meshIds);
+    assert.equal(result.entries[1].childIds.length, 0);
+    result.expand(result.entries[1].id);
+    assert.equal(result.entries.length, 4097 + childCount);
+    result.expand(result.entries[1].id);
+    assert.equal(result.entries.length, 4097 + childCount);
+    assert.equal(
+      result.firstAlias.get(`part-0.${childCount - 1}`),
+      `agent-member:a:0:part-0.${childCount - 1}`,
+    );
+    assert.equal(result.entries[0].meshIds.length, childCount);
+
+    let reads = 0;
+    const parts = createParts();
+    parts.reset({
+      entries: native,
+      objects: new Map(),
+      meshParts: new Map(),
+      identities: {
+        get() {
+          reads++;
+          return undefined;
+        },
+      },
+    });
+    parts.setGroups(groups);
+    assert.equal(parts.view(), "file");
+    assert.equal(parts.viewList().length, childCount + 1);
+    assert.equal(reads, 0, "File view never invokes the Agent resolver");
+    parts.setView("agent");
+    assert.equal(reads, childCount + 1);
+    assert.equal(parts.viewList().length, 4097);
+    assert.equal(parts.viewList()[1].meshIds, meshIds);
+    parts.setView("file");
+    parts.setView("agent");
+    assert.equal(reads, childCount + 1, "switching back reuses the projection");
+    parts.setVisible("agent-group:a", false);
+    assert.equal(parts.meshVisible(meshIds[0]), false);
+    const picked = parts.revealId(`part-0.${childCount - 1}`);
+    assert.equal(picked, `agent-member:a:0:part-0.${childCount - 1}`);
+    assert.equal(
+      parts.viewList().length,
+      4098,
+      "reveal allocates only its path",
+    );
+    parts.search(`child ${childCount - 1}`);
+    assert.equal(
+      parts.viewList().length,
+      8193,
+      "search allocates only matching paths",
+    );
+    parts.select(picked);
+    parts.setView("file");
+    assert.equal(parts.selected(), `part-0.${childCount - 1}`);
+  }
+});
