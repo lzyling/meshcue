@@ -37,8 +37,8 @@ project and one originating session.
 ## 3. Measuring before publishing
 
 Run `precheck` on a GLB, glTF or STL before every `open`; it only reads and starts no
-instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MB, and they are the only ones
-— a dense model marks exactly as precisely as a sparse one.
+instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MB, with separate texture budgets and optional grouping metadata bounds in
+AGENT-INTERFACE.md — a dense model marks exactly as precisely as a sparse one.
 
 `verdict: "ok"` publishes as is. On `reject`, simplify first and say in the
 conversation that you simplified, at what ratio, and from how many faces to how
@@ -108,6 +108,24 @@ being open on the user's. When reopening or upgrading an instance, compare the
 receipt from after this reopen, against the current model, is evidence that the
 viewer loaded it. A retained receipt is not re-verification. Done means the
 right project entry was delivered and its end-device state described accurately.
+
+**Optional grouping.** You can attach a `partGroups` array to an `open` with a
+file to offer your own named, nested view alongside the unchanged file hierarchy.
+Leaving it out preserves normal review; MeshCue has no grouping policy and does
+not auto-group from names. Members identify a displayed GLB node by index, an
+exact unique original node name, or an existing native `part-` ID. A member
+includes its descendants; a multi-material node remains one part. Unlisted
+geometry stays available under Other parts.
+
+The publish response confirms only the document's shape: membership is resolved
+in the reviewer's browser. Missing or ambiguous members appear there as disabled
+rows; no first-match guess is made. You can replace groups by opening the same
+bytes with a complete `partGroups` array; `[]` clears them and omission keeps
+existing groups. Reuse adds `PART_GROUPS_REPLACED` when supplied, without
+changing geometry, marks or drafts. Group names do not extend the reviewer's
+request beyond actual marks, notes and conversation. Exact shapes, optional
+metadata limits, CLI `--part-groups` and `features.partGroups: 1` are in
+AGENT-INTERFACE.md; this is a capability you can use, never a required step.
 
 ## 5. Controlling which version is shown
 

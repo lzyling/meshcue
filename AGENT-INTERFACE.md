@@ -70,7 +70,7 @@ someone sends marks into nothing.
 | Action     | Does                                                                                                                                       | Notes                                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
-| `open`     | publishes a model and **shows it**                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
+| `open`     | publishes a model and **shows it** (optional `partGroups`)                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
 | `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
 | `status`   | every version with its mark count, unsubmitted flag, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
 | `read`     | describes a submission, and writes your read receipt                                                                                       | `geometry: true` returns its polygons too; needed to echo or measure, never to understand                             |
@@ -124,6 +124,98 @@ latest-version comparison. Deliberate manual tab browsing also restores it;
 a later activating reuse starts a fresh exception. Events saved by older
 runtimes without this optional field retain the normal comparison.
 
+## Optional part groups
+
+MeshCue shows the hierarchy supplied by the model. You can also attach your own
+named, nested groups with optional `partGroups` on `open` (Agent HTTP
+`POST /publish`). Leaving it out adds no Agent grouping. MeshCue does not infer
+groups from names or prescribe how to organize a model. The reviewer can switch
+between **File** (the default) and **Agent groups**; unlisted geometry remains
+available under **Other parts**. Both views share visibility, and groups never
+rewrite model bytes, SHA, marks or drafts.
+
+`partGroups` is an ordered array of groups `{id, name, members?, children?}`:
+
+| Field | Shape |
+| --- | --- |
+| `id` | Unique across the entire tree; ASCII `[A-Za-z0-9_-]{1,64}` |
+| `name` | One-line plain text, 1–96 UTF-16 code units, not all whitespace; no line breaks, control or bidi-control characters; spelling is preserved |
+| `members` | Optional array of selectors; omitted means empty |
+| `children` | Optional array of groups; omitted means empty |
+
+Each member is exactly one of `{nodeIndex}`, `{nodeName}` or `{partId}`;
+unknown keys, combined selectors and bare strings are rejected. `nodeIndex` is
+a nonnegative integer into `nodes[]` of the GLB actually displayed (the packed
+GLB for glTF or the retained converted GLB for STEP). `nodeName` is the exact,
+case-sensitive original node name, 1–256 UTF-16 code units, with no trimming or
+fallback-label matching. `partId` is an existing `part-` ID followed by
+dot-separated nonnegative decimal indices, at most 512 UTF-16 code units; an
+STL has just `part-0`. An unnamed node's localized “Part N” is not an identifier.
+Duplicate names need an unambiguous index or part ID. References are
+version-scoped, not transferable CAD identifiers; review `mesh-*` IDs and raw
+glTF mesh indices are not selectors.
+
+A member includes that native part and its retained descendants; a
+multi-material node remains one part. Overlaps and duplicates union meshes
+without duplicating geometry. Empty groups and duplicate display names are
+allowed. Limits are 256 groups total, depth 8 (root = 1), 4,096 members total,
+and 256 KiB of compact UTF-8 JSON after omitted arrays are normalized to empty
+arrays. Root/children arrays have the group ceiling; members arrays have the
+member ceiling. These are optional metadata bounds, not a grouping policy or
+new geometry limits. Shape/limit failures use `ERROR` before import/publication.
+
+Membership is resolved **in the reviewer's browser**, against the native tree
+it already loads. The Agent's publish response confirms only the document's
+shape, not that members exist. Zero matches is missing; multiple matches is
+ambiguous. These members bind nothing and appear to the reviewer as disabled
+rows showing the selector and reason. Valid members remain usable, and no
+geometry is lost. There is no server-side membership report or discovery action.
+Group names never become annotation targets or extend the reviewer's request
+beyond the actual marks, notes and conversation.
+
+You can replace an existing version's groups by opening the **same bytes** with
+a complete `partGroups` array. This reuses that version and adds
+`PART_GROUPS_REPLACED` (“groups of <label> replaced”) alongside the unchanged
+`SAME_CONTENT_REUSED` notice. `[]` clears groups; omission keeps existing groups.
+This also works with `activate: false`, without changing the displayed version.
+`partGroups` on an `open` without `file` is rejected with `ERROR`; reopening a
+page alone is not an implicit metadata edit. Groups survive server restart.
+
+```json
+{
+  "action": "open",
+  "project": "projects/lamp",
+  "file": "projects/lamp/lamp.glb",
+  "name": "Lamp",
+  "version": "v3",
+  "partGroups": [
+    {
+      "id": "enclosure",
+      "name": "Enclosure",
+      "members": [{"nodeIndex": 7}],
+      "children": [{"id": "fasteners", "name": "Fasteners", "members": [{"nodeName": "Mounting bolt"}]}]
+    },
+    {"id": "service", "name": "Service access", "members": [{"nodeIndex": 7}, {"nodeIndex": 12}]}
+  ]
+}
+```
+
+MCP and the native OpenClaw tool accept this inline array. CLI `open` accepts
+`--part-groups <workspace-relative JSON file>` whose top-level value is the
+array, with the same realpath containment as model inputs and a 256 KiB file
+size check before parsing. Malformed JSON/usage uses `BAD_USAGE`; escaping the
+workspace, including through a symlink, uses `PATH_SCOPE`.
+
+```sh
+meshcue open --owner demo --project projects/lamp --file projects/lamp/lamp.glb --part-groups projects/lamp/groups.json
+```
+
+Support is advertised as `features.partGroups: 1` by installed `inspect`, running
+`status`/health and browser state. Installed support is not running support:
+a new manager against an old running server refuses grouped publication with
+`OLD_RUNTIME` before publishing, rather than silently dropping the field.
+The integration API version is unchanged.
+
 ## CLI flags and tool fields
 
 CLI and MCP default new reviews to loopback (`127.0.0.1`). Opt into LAN with
@@ -142,6 +234,7 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | `--owner <id>` | CLI originating session; required except for help, inspect and precheck |
 | `--project <projects/name>` | `project` |
 | `--file <path>` | `file`, relative to the workspace |
+| `--part-groups <path>` | `open` only, with `file`: workspace-relative JSON array transported as optional `partGroups` |
 | `--name <text>`, `--version <text>`, `--units <text>`, `--label <text>` | Same-named publication fields |
 | `--agent-name <text>` | `agentName` |
 | `--client-address <IPv4>` | `confirmedClientAddress`, the verified browser device address |
@@ -323,7 +416,8 @@ also includes the notice when applicable. Reopening a published model keeps
 its notice; publishing without activating reports the newly published model's
 notice.
 
-These are the only limits. Nothing degrades quietly under them: a mark names a
+These are the geometry limits; optional part-group metadata has separate bounds
+above. Nothing degrades quietly under them: a mark names a
 source face, and the review mesh's own tessellation never enters the answer.
 
 Whatever its size, a GLB that moves — skins, morph targets or
@@ -495,15 +589,18 @@ mark, then say what to change."
   is still. Copy report copies device and rendering statistics only, without
   model content or file names.
 
-- Parts is always available beside Marks, even for a single part. It follows
-  the file’s assembly hierarchy; search by name keeps each result’s parent path.
-  Expand or collapse groups, hover to highlight, click to select, or
-  double-click a part or group to fit it. In View, click a surface to select its
-  part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or
-  Esc exits); Shift+T makes it transparent so you can mark behind it. Group
-  actions affect every contained part. Switching to Marks keeps hidden parts
-  hidden; hand-over and notes appear only on Marks. Viewing choices reset when
-  you load a model or version and are never sent to the Agent.
+- You can switch to Agent groups when the Agent supplies them; ungrouped
+  geometry stays under Other parts. Missing or ambiguous references are
+  disabled. Both views share visibility. Parts is always available beside Marks,
+  even for a single part. It follows the file’s assembly hierarchy; search by
+  name keeps each result’s parent path. Expand or collapse groups, hover to
+  highlight, click to select, or double-click a part or group to fit it. In
+  View, click a surface to select its part. Y hides the selection; Shift+Y shows
+  all; Shift+I isolates it (again or Esc exits); Shift+T makes it transparent so
+  you can mark behind it. Group actions affect every contained part. Switching
+  to Marks keeps hidden parts hidden; hand-over and notes appear only on Marks.
+  Viewing choices reset when you load a model or version and are never sent to
+  the Agent.
 
 - The toolbar groups View, Display, Mark and Inspect. Common tools work in one
   click; “…” opens extra options. View shows Rotate or Pan: click to switch,
