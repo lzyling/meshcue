@@ -2811,7 +2811,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   display: flex;
   align-items: flex-end;
   padding: 0 3px;
-  border-right: 1px solid var(--line);
 }
 .toolbar .reset-preview {
   min-width: 48px;
