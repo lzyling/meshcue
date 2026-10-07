@@ -1,4 +1,6 @@
 export default {
+  "marks2.edgeTooDetailed":
+    "Cette arête courbe comporte plus de 512 points et ne peut pas être marquée sans modifier sa forme.",
   "marks2.edge": "Marquer une arête",
   "marks2.part": "Marquer une pièce",
   "marks2.markPart": "Marquer cette pièce",

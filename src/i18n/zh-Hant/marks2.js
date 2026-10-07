@@ -1,4 +1,6 @@
 export default {
+  "marks2.edgeTooDetailed":
+    "這條曲邊超過 512 個點，無法在保持原形狀的情況下標記。",
   "marks2.edge": "標邊",
   "marks2.part": "標零件",
   "marks2.markPart": "標記這個零件",

@@ -151,3 +151,188 @@ test("marks2 reload preserves part bounds while dropping derived region bounds",
     [{ type: "region" }],
   );
 });
+
+test("marks2 rejects finite edge coordinates whose derived length overflows", async (t) => {
+  const { save } = await ready(t);
+  const r = await save([
+    edge({
+      points: [
+        [-1e308, 0, 0],
+        [1e308, 0, 0],
+      ],
+      length: 0,
+    }),
+  ]);
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, "BAD_GEOMETRY");
+});
+
+test("marks2 rejects overflowing and unordered part bounds", async (t) => {
+  const { save } = await ready(t);
+  for (const bounds of [
+    {
+      space: "model",
+      min: [-1e308, 0, 0],
+      max: [1e308, 0, 0],
+      centroid: [0, 0, 0],
+    },
+    { space: "model", min: [1, 0, 0], max: [-1, 0, 0], centroid: [0, 0, 0] },
+    { space: "model", min: [-1, 0, 0], max: [1, 0, 0], centroid: [2, 0, 0] },
+  ])
+    assert.equal((await save([part({ bounds })])).status, 400);
+});
+
+test("marks2 bounds names by UTF-16 units without splitting surrogate pairs", async () => {
+  const { boundedMarkName } = await import("../src/viewer/marks.js");
+  assert.equal(boundedMarkName("a".repeat(256)), "a".repeat(256));
+  assert.equal(boundedMarkName("a".repeat(257)), "a".repeat(255) + "…");
+  assert.equal(
+    boundedMarkName("a".repeat(254) + "😀tail"),
+    "a".repeat(254) + "…",
+  );
+  assert.equal(
+    boundedMarkName("a".repeat(253) + "😀tail"),
+    "a".repeat(253) + "😀…",
+  );
+});
+
+test("marks2 generated long part and group names pass the service schema", async (t) => {
+  const { MarksMethods } = await import("../src/viewer/marks.js");
+  const THREE = await import("three");
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2));
+  const entry = {
+    id: "part-0.3",
+    name: "a".repeat(254) + "😀tail",
+    meshIds: ["mesh-0"],
+  };
+  const viewer = {
+    parts: {
+      meshIds: () => ["mesh-0"],
+      list: () => [entry],
+      partOfMesh: () => entry.id,
+      viewList: () => [
+        {
+          id: "agent-group:group-a",
+          kind: "group",
+          name: "g".repeat(95) + "😀tail",
+        },
+      ],
+    },
+    meshMap: new Map([["mesh-0", mesh]]),
+    modelFrame: () => new THREE.Matrix4(),
+  };
+  const generated = MarksMethods.prototype.partMark.call(
+    viewer,
+    "agent-group:group-a",
+  );
+  assert.equal(generated.names[0], "a".repeat(254) + "…");
+  assert.equal(generated.group.name, "g".repeat(95) + "…");
+  const { save } = await ready(t);
+  assert.equal((await save([part(generated)])).status, 200);
+});
+
+test("marks2 rejects group names beyond the partGroups limit", async (t) => {
+  const { save } = await ready(t);
+  assert.equal(
+    (await save([part({ group: { id: "group-a", name: "g".repeat(97) } })]))
+      .status,
+    400,
+  );
+});
+
+test("marks2 accepts a highly subdivided straight edge as two endpoints", async (t) => {
+  const { MarksMethods } = await import("../src/viewer/marks.js");
+  const { Vector3 } = await import("three");
+  const points = Array.from({ length: 513 }, (_, i) => new Vector3(i, 0, 0));
+  const generated = MarksMethods.prototype.edgeMark.call(
+    {},
+    {
+      meshId: "mesh-0",
+      sourceFaceIndex: 0,
+      curved: false,
+      points,
+      ends: [points[0], points.at(-1)],
+    },
+  );
+  assert.deepEqual(generated.points, [
+    [0, 0, 0],
+    [512, 0, 0],
+  ]);
+  assert.equal(generated.length, 512);
+  const { save } = await ready(t);
+  assert.equal((await save([edge(generated)])).status, 200);
+});
+
+test("marks2 refuses oversized curved edges visibly on click but not hover", async () => {
+  const { MarksMethods } = await import("../src/viewer/marks.js");
+  const { Vector3 } = await import("three");
+  const points = Array.from(
+    { length: 513 },
+    (_, i) =>
+      new Vector3(
+        Math.cos((i / 512) * Math.PI * 2),
+        Math.sin((i / 512) * Math.PI * 2),
+        0,
+      ),
+  );
+  points[512] = points[0].clone();
+  const feature = {
+    meshId: "mesh-0",
+    sourceFaceIndex: 0,
+    curved: true,
+    closed: true,
+    points,
+  };
+  const refusals = [],
+    viewer = { onMarkRefused: (why) => refusals.push(why) };
+  assert.equal(
+    MarksMethods.prototype.edgeMark.call(viewer, feature, false),
+    null,
+  );
+  assert.deepEqual(refusals, []);
+  assert.equal(MarksMethods.prototype.edgeMark.call(viewer, feature), null);
+  assert.deepEqual(refusals, ["edgeTooDetailed"]);
+  assert.equal(feature.points.length, 513);
+  assert.equal(feature.closed, true);
+});
+
+test("marks2 curved-edge refusal is localized and wired to the page toast", async () => {
+  const { bindMeasure } = await import("../src/app/measure.js");
+  const { CATALOGUES, LOCALES, setLocale, currentLocale } =
+    await import("../src/i18n/index.js");
+  const noop = () => {},
+    element = { addEventListener: noop, open: false };
+  const messages = [],
+    review = {
+      MEASURE_KINDS: {},
+      MEASURE_HINTS: {},
+      MEASURE_NEXT: {},
+      MEASURE_REFUSALS: {},
+      viewer: { setMeasureKind: noop },
+      $: () => element,
+      toast: (text) => messages.push(text),
+    };
+  const previousWindow = globalThis.window,
+    previousDocument = globalThis.document;
+  const previous = currentLocale();
+  try {
+    globalThis.window = { addEventListener: noop };
+    globalThis.document = { querySelectorAll: () => [] };
+    bindMeasure(review);
+    for (const locale of LOCALES) {
+      setLocale(locale);
+      review.viewer.onMarkRefused("edgeTooDetailed");
+      assert.equal(
+        messages.at(-1),
+        CATALOGUES[locale]["marks2.edgeTooDetailed"],
+      );
+      assert.match(messages.at(-1), /512/);
+    }
+  } finally {
+    setLocale(previous);
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});

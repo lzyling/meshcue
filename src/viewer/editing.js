@@ -43,7 +43,7 @@ export class EditingMethods {
         if (edge)
           this.drawObjectMark(
             this.previewOverlay,
-            this.edgeMark(edge),
+            this.edgeMark(edge, false),
             false,
             false,
           );

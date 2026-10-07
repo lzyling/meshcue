@@ -1,4 +1,6 @@
 export default {
+  "marks2.edgeTooDetailed":
+    "This curved edge has more than 512 points and cannot be marked without changing its shape.",
   "marks2.edge": "Mark edge",
   "marks2.part": "Mark part",
   "marks2.markPart": "Mark this part",

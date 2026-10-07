@@ -416,7 +416,7 @@ const annotation = z.discriminatedUnion("type", [
       names: z.array(z.string().min(1).max(256)).min(1).max(256),
       meshIds: z.array(id).min(1).max(4096),
       group: z
-        .object({ id, name: z.string().min(1).max(256) })
+        .object({ id, name: z.string().min(1).max(96) })
         .strict()
         .optional(),
       bounds: z
@@ -727,11 +727,14 @@ function validateAnnotations(versionId, annotations) {
             sum + Math.hypot(...p.map((v, j) => v - a.points[i][j])),
           0,
         );
+      const difference = length - a.length;
+      const tolerance = 1e-6 * Math.max(length, a.length, Number.EPSILON);
       if (
+        !Number.isFinite(length) ||
+        !Number.isFinite(difference) ||
         !meshes.has(a.meshId) ||
         a.sourceFaceIndex >= meshes.get(a.meshId).sourceTriangles ||
-        Math.abs(length - a.length) >
-          1e-6 * Math.max(length, a.length, Number.EPSILON)
+        !(Math.abs(difference) <= tolerance)
       )
         throw new ReviewError(
           "An edge does not match its geometry.",
@@ -742,7 +745,16 @@ function validateAnnotations(versionId, annotations) {
     if (
       a.type === "part" &&
       (a.names.length !== a.partIds.length ||
-        a.meshIds.some((id) => !meshes.has(id)))
+        a.meshIds.some((id) => !meshes.has(id)) ||
+        a.bounds.min.some((min, i) => {
+          const max = a.bounds.max[i],
+            centroid = a.bounds.centroid[i];
+          // Finite endpoints alone do not guarantee a finite span. Compare
+          // directly for ordering/containment rather than overflow-prone sums.
+          return (
+            !Number.isFinite(max - min) || !(min <= centroid && centroid <= max)
+          );
+        }))
     )
       throw new ReviewError(
         "A part does not match the model.",

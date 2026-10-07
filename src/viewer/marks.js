@@ -44,6 +44,19 @@ const ECHO_LIFT = 0.002;
 
 // How far toward the eye every stroke is drawn, as a share of its distance.
 const ECHO_TOWARD_EYE = 0.001;
+// API limits count UTF-16 code units, not code points. Leave room for the
+// ellipsis without splitting a surrogate pair at the truncation boundary.
+export function boundedMarkName(name, limit = 256) {
+  if (name.length <= limit) return name;
+  let end = limit - 1;
+  if (
+    /[\uD800-\uDBFF]/.test(name[end - 1]) &&
+    /[\uDC00-\uDFFF]/.test(name[end])
+  )
+    end--;
+  return name.slice(0, end) + "…";
+}
+
 export class MarksMethods {
   /* Where a mark is and how much of the model it covers, in the model's own
      units, so that the agent can be told without being handed the geometry.
@@ -201,9 +214,16 @@ export class MarksMethods {
           },
     );
   }
-  edgeMark(edge) {
-    if (!edge || edge.points.length > 512) return null;
+  edgeMark(edge, notify = true) {
+    if (!edge) return null;
     const points = edge.curved ? edge.points : edge.ends;
+    // Do not silently simplify a feature edge: retaining its exact shape is
+    // more important than accepting an approximation. Hover stays quiet;
+    // clicking explains why this particular edge cannot be kept.
+    if (points.length > 512) {
+      if (notify) this.onMarkRefused?.("edgeTooDetailed");
+      return null;
+    }
     return {
       type: "edge",
       meshId: edge.meshId,
@@ -242,10 +262,15 @@ export class MarksMethods {
     return {
       type: "part",
       partIds: entries.map((p) => p.id),
-      names: entries.map((p) => p.name),
+      names: entries.map((p) => boundedMarkName(p.name)),
       meshIds,
       ...(row?.kind === "group"
-        ? { group: { id: row.id.replace(/^agent-group:/, ""), name: row.name } }
+        ? {
+            group: {
+              id: row.id.replace(/^agent-group:/, ""),
+              name: boundedMarkName(row.name, 96),
+            },
+          }
         : {}),
       bounds: {
         space: "model",
