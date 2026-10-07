@@ -107,20 +107,24 @@ export function bindHints(review) {
     if (!options.hidden)
       top = Math.min(top, options.getBoundingClientRect().top);
     box.style.bottom = `${bounds.bottom - top + 8}px`;
-    // Touch-sized Advanced controls can leave no gap below Section on a
-    // phone. Temporarily clear the hint, as menus do, rather than drawing its
-    // words through the section controls. Keep showing intact so closing the
-    // section restores the first-use hint without resetting or dismissing it.
-    const cut = section.getBoundingClientRect(),
-      hint = box.getBoundingClientRect();
+    // A phone's top-edge hint can share space with Section or a deliberately
+    // expanded Advanced chooser. Temporarily clear it, as menus do, rather
+    // than drawing words through controls or counting a covered hint as seen.
+    // Keep showing intact so closing the panel restores the same first-use
+    // hint without resetting or dismissing it.
+    const hint = box.getBoundingClientRect();
+    const overlaps = (panel) => {
+      const r = panel.getBoundingClientRect();
+      return (
+        !panel.hidden &&
+        hint.left < r.right &&
+        hint.right > r.left &&
+        hint.top < r.bottom &&
+        hint.bottom > r.top
+      );
+    };
     box.style.visibility =
-      !section.hidden &&
-      hint.left < cut.right &&
-      hint.right > cut.left &&
-      hint.top < cut.bottom &&
-      hint.bottom > cut.top
-        ? "hidden"
-        : "";
+      overlaps(section) || overlaps(options) ? "hidden" : "";
     markSeen();
   };
   // Menus change CSS visibility without resizing the hint. Panel flags also

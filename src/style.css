@@ -3038,3 +3038,72 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   opacity: 0.65;
   white-space: nowrap;
 }
+
+/* === b1v CI: stable phone measurement controls, clear of the next pick === */
+@media (max-width: 760px) {
+  /* A shrink-to-fit strip wrapped differently when the first pick added its
+     status. Bottom anchoring then lifted the whole panel into the second tap.
+     Use the phone's width and reserve the reading before any pick; even a
+     longer translated reading scrolls in that slot instead of moving targets.
+     Advanced still expands deliberately, not as a side effect of measuring. */
+  .tool-options:has(#measure-options:not([hidden])) {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+    padding: 6px 8px;
+    /* An intentionally expanded chooser wins over the cube, just as menus
+       do; otherwise its right-hand choices can be visible but untappable. */
+    z-index: 5;
+  }
+  #measure-options {
+    width: 100%;
+    gap: 4px 8px;
+  }
+  #measure-options > [data-measure="smart"],
+  #measure-advanced {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  #measure-advanced[open] {
+    flex-basis: 100%;
+    order: 1;
+  }
+  #keep-measure {
+    min-height: 44px;
+    padding: 5px 9px;
+  }
+  #measure-reading {
+    order: 2;
+    flex: 0 0 100%;
+    min-width: 0;
+    height: 32px;
+    line-height: 16px;
+    overflow: auto;
+    overflow-wrap: anywhere;
+  }
+  /* Hints belong at an edge, not stacked above a growing panel in the model's
+     centre. The upper-left strip clears the cube on the right; the existing
+     visibility check still hides it when Section needs the same space. */
+  .viewer-shell:has(#measure-options:not([hidden])) .tool-hint-box {
+    top: 50px;
+    bottom: auto !important;
+    max-width: calc(100% - var(--orient-reach) - 80px);
+  }
+}
+@media (max-width: 380px) {
+  /* At 360px, group chrome pushed Reset onto a third toolbar row, lifting the
+     dock into the model centre. Reclaim that chrome and the strip's vertical
+     padding, not its 44px targets or reserved reading, while measuring. */
+  .tool-options:has(#measure-options:not([hidden])) {
+    padding-block: 2px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar {
+    max-width: calc(100% - 8px);
+    padding: 2px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar-group {
+    padding: 0 1px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar-history {
+    padding: 0 2px;
+  }
+}
