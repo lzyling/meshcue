@@ -690,6 +690,7 @@ from any `note` they wrote on a mark.
   marks, with `space: "model"`. It is what "the top edge" or "the left of this"
   meant on their screen. A mark made before 1.4.0 has no `view`; the batch's
   `camera` is the nearest thing, and it is in the preview's frame.
+  A mark’s optional `view.explode` is `{ amount: 0–1, by: "group" | "part" }`: the reviewer was looking at an exploded assembly. Stored mark coordinates remain in the un-exploded part frame.
 - An orthographic mark additionally records `view.projection: "orthographic"`
   and `view.visibleHeight`, the visible vertical span in model units. Its
   horizontal span is `visibleHeight * aspect`; `position`, `target` and `up`

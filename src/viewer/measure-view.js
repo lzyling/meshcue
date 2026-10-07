@@ -105,6 +105,7 @@ export class MeasureViewMethods {
     const overlay = new THREE.Mesh(geometry, material);
     overlay.matrixAutoUpdate = false;
     overlay.matrix.copy(mesh.matrixWorld);
+    overlay.userData.partMeshId = mesh.userData.reviewId;
     overlay.renderOrder = 4;
     group.add(overlay);
   }
@@ -564,10 +565,48 @@ export class MeasureViewMethods {
   }
   // A kept measurement: its line, its reading at the middle of it, and when it
   // is the one selected, the faces it was taken between.
+  explodedMeasure(a) {
+    const shift = (point, i) =>
+      new V()
+        .fromArray(point)
+        .add(
+          this.explodeModelOffset(
+            a.picks[Math.min(i, a.picks.length - 1)].meshId,
+          ),
+        )
+        .toArray();
+    return {
+      ...a,
+      points: a.points.map(shift),
+      ...(a.center ? { center: shift(a.center, 0) } : {}),
+    };
+  }
+  refreshExplodeMeasures() {
+    for (const child of this.overlay.children) {
+      const a = child.userData.explodeMeasure;
+      if (!a) continue;
+      const displayed = this.explodedMeasure(a);
+      const points =
+        a.kind === "circle"
+          ? keptCircle(displayed)
+          : displayed.points.map((p) => new V().fromArray(p));
+      child.geometry.setPositions(points.flatMap((p) => p.toArray()));
+    }
+    for (const pin of this.pins)
+      if (pin.a.type === "measure") {
+        const displayed = this.explodedMeasure(pin.a);
+        pin.model = measureAnchor(displayed);
+        pin.ring = pin.a.kind === "circle" ? keptCircle(displayed) : null;
+      }
+  }
   drawKeptMeasure(a, selected) {
-    const ring = a.kind === "circle" ? keptCircle(a) : null;
-    const line = ring || a.points.map((p) => new V().fromArray(p));
+    const displayed = this.explodedMeasure(a);
+    const ring = a.kind === "circle" ? keptCircle(displayed) : null;
+    const line = ring || displayed.points.map((p) => new V().fromArray(p));
+    const start = this.overlay.children.length;
     this.addDimension(this.overlay, line, selected ? "selected" : "line");
+    for (const child of this.overlay.children.slice(start))
+      child.userData.explodeMeasure = a;
     if (selected && a.kind === "planes")
       for (const pick of a.picks) {
         const mesh = this.meshMap.get(pick.meshId);
@@ -592,6 +631,6 @@ export class MeasureViewMethods {
       this.onSelect?.(a.id);
     });
     this.labels.append(el);
-    this.pins.push({ el, a, model: measureAnchor(a), ring });
+    this.pins.push({ el, a, model: measureAnchor(displayed), ring });
   }
 }

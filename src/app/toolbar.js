@@ -163,6 +163,7 @@ export function bindToolbarOptions(review) {
     review.viewer.clearMeasure();
     review.viewer.hoverPart(null);
     review.viewer.setSection(null);
+    review.viewer.setExplode?.(0);
     if (review.viewer.neutral) review.commands.run("plain");
     review.setDisplayStyle("edges");
     review.viewer.setVisible(true);
@@ -307,7 +308,7 @@ export function registerToolbarCommands(review) {
       // Measuring changes nothing; keeping a measurement is the edit.
       enabled: () =>
         ["measure", "orbit"].includes(mode)
-          ? ready()
+          ? ready() && (mode !== "measure" || !review.viewer.explode?.amount)
           : idle() && !!review.state?.capabilities?.canEdit,
       run: () =>
         mode === "orbit" ? review.setMode(mode) : review.toggleTool(mode),

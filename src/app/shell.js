@@ -122,6 +122,7 @@ export function mountShell(review) {
 <g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" />
   <path d="M12 18a6 6 0 0 0 0-12v12z" /></g>
 <g id="mc-language" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><path d="M12 3.6a12.6 12.6 0 0 1 0 16.8a12.6 12.6 0 0 1 0-16.8z"/></g>
+<g id="mc-explode" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 9 3-2 3 2-3 2-3-2Zm0 0v4l3 2 3-2V9M12 11v4M3 7l3-2M18 5l3 2M3 17l3 2M18 19l3-2M5 3v3H2M19 3v3h3M5 21v-3H2M19 21v-3h3"/></g>
 <g id="mc-section" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v5l8 4 8-4v-5M12 16v5"/><path d="m4 12 8-4 8 4-8 4-8-4Z"/><path d="M4 9V7l8-4 8 4v2" stroke-dasharray="1.5 3"/></g>
 <g id="mc-theme" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></g>
 <g id="mc-parts-tab" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />

@@ -15,6 +15,7 @@ import { sourceVertexNormals } from "./outline.js";
 import { brepTopology } from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
+import { ExplodeMethods } from "./viewer/explode.js";
 import { PartsMethods } from "./viewer/parts.js";
 import { NavigationMethods } from "./viewer/navigation.js";
 import { CameraMethods } from "./viewer/camera.js";
@@ -549,7 +550,10 @@ export class ModelViewer {
       matrixWorld: o.matrixWorld.toArray(),
     }));
     await this.onReady({ sha256: hash, meshes: manifest });
-    if (epoch === this.loadingEpoch) this.enabled = true;
+    if (epoch === this.loadingEpoch) {
+      this.enabled = true;
+      this.onExplode?.();
+    }
     return {
       triangles: total,
       meshes: this.meshes.length,
@@ -720,4 +724,9 @@ Object.defineProperties(
       Object.getOwnPropertyDescriptors(DisplayModesMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.getOwnPropertyDescriptors(ExplodeMethods.prototype),
 );

@@ -11,6 +11,7 @@ export function toolbarCaption(id) {
     "mode-measure": "toolbar.caption.measure",
     section: "toolbar.caption.section",
     display: "toolbar.caption.style",
+    explode: "explode.title",
     marks: "toolbar.caption.marks",
     undo: "toolbar.caption.undo",
     redo: "toolbar.caption.redo",
@@ -52,7 +53,7 @@ export function toolbarPlacement(command) {
     )
   )
     return { group: "view", direct: true };
-  if (["display", "marks"].includes(command.id))
+  if (["display", "marks", "explode"].includes(command.id))
     return { group: "display", direct: true };
   if (
     ["mode-label", "mode-fill", "mode-measure", "section"].includes(command.id)

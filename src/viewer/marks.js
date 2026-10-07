@@ -84,7 +84,7 @@ export class MarksMethods {
       if (!m) {
         m = new THREE.Matrix4();
         for (let o = mesh; o && o !== this.root; o = o.parent)
-          m.premultiply(o.matrix);
+          m.premultiply(this.explodeBase?.get(o)?.matrix || o.matrix);
         frames.set(mesh, m);
       }
       return m;
@@ -279,6 +279,7 @@ export class MarksMethods {
           const overlay = new THREE.Mesh(geometry, material);
           overlay.matrixAutoUpdate = false;
           overlay.matrix.copy(mesh.matrixWorld);
+          overlay.userData.partMeshId = mesh.userData.reviewId;
           overlay.renderOrder = 3;
           this.overlay.add(overlay);
         }
@@ -535,6 +536,7 @@ export class MarksMethods {
       const overlay = new THREE.Mesh(geometry, this.markMaterial(color, true));
       overlay.matrixAutoUpdate = false;
       overlay.matrix.copy(mesh.matrixWorld);
+      overlay.userData.partMeshId = mesh.userData.reviewId;
       overlay.renderOrder = 4;
       group.add(overlay);
     }
@@ -567,13 +569,22 @@ export class MarksMethods {
      marks, but only a few pixels wide and on the edge, so where the Agent
      points at a place the reviewer also painted, their colour is still all
      there and the line still shows. */
-  drawOutline(group, a, mark) {
+  drawOutline(group, a, mark, onlyMesh = null) {
+    if (!onlyMesh) {
+      const ids = new Set([
+        ...Object.keys(a.faces || {}),
+        ...(a.surfacePatches || []).map((p) => p.meshId),
+      ]);
+      for (const id of ids) this.drawOutline(group, a, mark, id);
+      return;
+    }
     // A mark indexed against the review mesh was cut from its triangles, and
     // the edges between two of them lie inside one source face.
     const review = !["source-v1", "source-v2"].includes(a.coverage);
     const byMesh = new Map();
     for (const patch of this.expandWholeFaces(a)) {
       const mesh = this.meshMap.get(patch.meshId);
+      if (patch.meshId !== onlyMesh) continue;
       if (!mesh || this.parts?.meshVisible(patch.meshId) === false) continue;
       const carriers = [];
       const sourceFace =
@@ -657,8 +668,24 @@ export class MarksMethods {
         // Over the reviewer's marks (3) and the bucket's preview (4).
         line.renderOrder = (mark ? 4 : 5) + i;
         group.add(line);
+        line.userData.explodeOutline = {
+          id: onlyMesh,
+          offset:
+            this.meshMap.get(onlyMesh).userData.explodeOffset?.clone() ||
+            new V(),
+        };
       },
     );
+  }
+  refreshExplodeOutlines() {
+    for (const group of [this.overlay, this.agentOverlay])
+      for (const line of group?.children || []) {
+        const data = line.userData.explodeOutline;
+        if (data)
+          line.position
+            .copy(this.meshMap.get(data.id).userData.explodeOffset)
+            .sub(data.offset);
+      }
   }
   regionLineMaterial(color, selected, kind) {
     const key = `region-${color}-${selected}-${kind}`;

@@ -5,6 +5,7 @@ import "./style.css";
 import { bindOverlayLayout } from "./app/overlay-layout.js";
 import { bindPublicationNotices } from "./app/publication-notices.js";
 import { bindParts } from "./app/parts.js";
+import { bindExplode } from "./app/explode.js";
 import { bindDisplay } from "./app/display.js";
 import {
   installAnnotationsPanel,
@@ -75,6 +76,7 @@ bindSection(review);
 bindMeasure(review);
 bindSettings(review);
 bindDisplay(review);
+bindExplode(review);
 bindOrientation(review);
 bindNavigation(review);
 bindOverlayLayout(review);

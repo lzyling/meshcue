@@ -3393,3 +3393,12 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     grid-template-columns: 1fr;
   }
 }
+/* Interactive explode panel: independent of the section panel. */
+#explode-options {
+  bottom: 140px;
+  top: auto;
+  left: 16px;
+}
+#explode-options output {
+  min-width: 3em;
+}
