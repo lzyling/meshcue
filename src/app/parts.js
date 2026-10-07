@@ -7,7 +7,12 @@ export function bindParts(review) {
     rows = [],
     previousSelected = null;
   const collapsed = new Set();
-  let query = "";
+  let query = "",
+    preferredView = "file";
+  try {
+    preferredView =
+      localStorage.getItem("meshcue-parts-view") === "agent" ? "agent" : "file";
+  } catch {}
   const rowHeight = 34;
   const labels = {
     hide: "parts.hide",
@@ -16,6 +21,7 @@ export function bindParts(review) {
     transparent: "parts.transparent",
   };
   panel.innerHTML = `<div class="parts-heading"><strong>${review.T("parts.title")}</strong></div>
+    <div class="parts-view" role="group" aria-label="${review.T("parts.view")}" hidden><button class="quiet" data-parts-view="file">${review.T("parts.file")}</button><button class="quiet" data-parts-view="agent" data-agent-text="parts.agentGroups">${review.TA("parts.agentGroups")}</button></div>
     <div class="parts-actions">${["hide", "showAll", "isolate", "transparent"].map((key) => `<button class="quiet" data-command="parts-${key}" title="${review.T(labels[key])}">${review.T(labels[key])}</button>`).join("")}</div>
     <input id="parts-search" type="search" placeholder="${review.T("parts.search")}" aria-label="${review.T("parts.search")}">
     <div id="parts-tree" role="tree" aria-label="${review.T("parts.title")}" tabindex="0"><div class="parts-rows"></div></div>`;
@@ -29,7 +35,29 @@ export function bindParts(review) {
       render();
     }
   };
-  const selected = () => viewer.parts.selected();
+  const selected = () => viewer.parts.revealId(viewer.parts.selected());
+  review.updatePartGroups = (state) => {
+    if (state?.viewing !== review.loadedId) return;
+    viewer.parts.setGroups(
+      state.features?.partGroups === 1 ? state.partGroups || [] : [],
+      {
+        other: review.T("parts.other"),
+        missing: review.T("parts.missing"),
+        ambiguous: review.T("parts.ambiguous"),
+      },
+    );
+    viewer.parts.setView(preferredView);
+  };
+  for (const button of panel.querySelectorAll("[data-parts-view]"))
+    button.onclick = () => {
+      preferredView = button.dataset.partsView;
+      try {
+        localStorage.setItem("meshcue-parts-view", preferredView);
+      } catch {}
+      viewer.hoverPart(null);
+      tree.scrollTop = 0;
+      viewer.parts.setView(preferredView);
+    };
   for (const [id, shortcuts, run] of [
     ["hide", "Y", () => viewer.parts.setVisible(selected(), false)],
     ["showAll", "Shift+Y", () => viewer.parts.showAll()],
@@ -57,7 +85,7 @@ export function bindParts(review) {
       enabled: () =>
         viewer.enabled &&
         (id === "showAll" ||
-          !!selected() ||
+          viewer.parts.meshIds(selected()).length > 0 ||
           (id === "isolate" && viewer.parts.isIsolated())),
       run,
     });
@@ -116,7 +144,12 @@ export function bindParts(review) {
         row.setAttribute("aria-expanded", String(expanded));
       row.style.top = `${i * rowHeight}px`;
       row.style.paddingLeft = `${4 + depth * 14}px`;
-      row.classList.toggle("part-hidden", !viewer.parts.isVisible(part.id));
+      const actionable = part.meshIds.length > 0;
+      if (!actionable) row.setAttribute("aria-disabled", "true");
+      row.classList.toggle(
+        "part-hidden",
+        actionable && !viewer.parts.isVisible(part.id),
+      );
       row.classList.toggle(
         "part-transparent",
         viewer.parts.isTransparent(part.id),
@@ -132,6 +165,18 @@ export function bindParts(review) {
         render();
       };
       const name = row.querySelector(".parts-name");
+      if (!actionable) {
+        row.querySelector(".parts-eye").disabled = true;
+        if (part.reason) name.disabled = true;
+        else {
+          const badge = document.createElement("small");
+          badge.className = "parts-badge";
+          badge.textContent = review.T(
+            part.unresolvedMembers ? "parts.unresolved" : "parts.empty",
+          );
+          row.insertBefore(badge, row.querySelector(".parts-eye"));
+        }
+      }
       name.onclick = () => viewer.parts.select(part.id);
       name.ondblclick = () => viewer.fitPart(part.id);
       row.querySelector(".parts-eye").onclick = () =>
@@ -207,7 +252,13 @@ export function bindParts(review) {
     }
   });
   viewer.parts.onChange((kind) => {
-    const next = viewer.parts.list();
+    const next = viewer.parts.viewList();
+    panel.querySelector(".parts-view").hidden = !viewer.parts.hasGroups();
+    for (const button of panel.querySelectorAll("[data-parts-view]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.partsView === viewer.parts.view()),
+      );
     if (entries.length && !next.length) {
       collapsed.clear();
       query = "";
@@ -217,7 +268,8 @@ export function bindParts(review) {
     entries = next;
     byId = new Map(entries.map((part) => [part.id, part]));
     flatten();
-    if (selected() !== previousSelected) reveal(selected());
+    if (kind === "selection" || selected() !== previousSelected)
+      reveal(selected());
     previousSelected = selected();
     // Preserve the clicked DOM node on selection: replacing it between the
     // two clicks would prevent the browser from delivering a double-click.

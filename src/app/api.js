@@ -221,6 +221,7 @@ export function installApi(review) {
           review.$("#loading .spinner").hidden = true;
         }
       } else review.state = incoming;
+      review.updatePartGroups?.(review.state);
       if (
         recovered &&
         review.state?.owned &&

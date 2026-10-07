@@ -1,15 +1,22 @@
 import * as THREE from "three";
+import { resolvePartGroups } from "./part-groups.js";
 
 /* Paths belong to the file's object tree, never to Three's random UUIDs or its
    deduplicated display names. Empty helper nodes are omitted, but still count
    in the path so omitting a helper from the list does not renumber a sibling. */
 export function buildPartTree(
   root,
-  { names = new Map(), fallback = (n) => `Part ${n}` } = {},
+  {
+    names = new Map(),
+    sourceNodes = new Map(),
+    fallback = (n) => `Part ${n}`,
+  } = {},
 ) {
   const entries = [],
     objects = new Map(),
-    meshParts = new Map();
+    meshParts = new Map(),
+    identities = new Map(),
+    meshObjects = new Map();
   const visit = (object, path, parentId) => {
     const id = `part-${path}`;
     const entry = {
@@ -21,9 +28,12 @@ export function buildPartTree(
     };
     entries.push(entry);
     objects.set(id, object);
+    if (sourceNodes.has(object))
+      identities.set(id, { ...sourceNodes.get(object) });
     if (object.isMesh && object.userData.reviewId) {
       entry.meshIds.push(object.userData.reviewId);
       meshParts.set(object.userData.reviewId, id);
+      meshObjects.set(object.userData.reviewId, object);
     }
     object.children.forEach((child, index) => {
       // GLTFLoader splits a multi-material node into primitive meshes that do
@@ -33,6 +43,7 @@ export function buildPartTree(
         if (child.userData.reviewId) {
           entry.meshIds.push(child.userData.reviewId);
           meshParts.set(child.userData.reviewId, id);
+          meshObjects.set(child.userData.reviewId, child);
         }
         return;
       }
@@ -45,6 +56,7 @@ export function buildPartTree(
     if (!entry.meshIds.length) {
       entries.splice(entries.indexOf(entry), 1);
       objects.delete(id);
+      identities.delete(id);
       return null;
     }
     return entry;
@@ -56,7 +68,7 @@ export function buildPartTree(
   entries.forEach((entry, i) => {
     if (!entry.name?.trim()) entry.name = fallback(i + 1);
   });
-  return { entries, objects, meshParts };
+  return { entries, objects, meshParts, identities, meshObjects };
 }
 
 export function createParts(onChange = () => {}) {
@@ -66,6 +78,11 @@ export function createParts(onChange = () => {}) {
     transparent = new Set(),
     isolated = null,
     selected = null;
+  let groups = [],
+    groupLabels = {},
+    view = "file",
+    projection = { entries: [], firstAlias: new Map() },
+    groupSignature = "";
   const listeners = new Set();
   const emit = (kind = "view") => {
     onChange(kind);
@@ -80,9 +97,63 @@ export function createParts(onChange = () => {}) {
         meshIds: [...p.meshIds],
         childIds: [...p.childIds],
       })),
+    identities: () =>
+      new Map(
+        [...(tree.identities || [])].map(([id, value]) => [id, { ...value }]),
+      ),
+    meshIds: (id) => [...meshes(id)],
+    view: () => view,
+    hasGroups: () => groups.length > 0,
+    viewList: () =>
+      (view === "agent" && groups.length ? projection.entries : api.list()).map(
+        (p) => ({ ...p, meshIds: [...p.meshIds], childIds: [...p.childIds] }),
+      ),
+    revealId: (id) =>
+      view === "agent" && byId.get(id)?.id?.startsWith("part-")
+        ? (projection.firstAlias.get(id) ?? null)
+        : id,
+    setView(value) {
+      const next = value === "agent" && groups.length ? "agent" : "file";
+      if (view === next) return;
+      if (next === "file" && selected && !selected.startsWith("part-"))
+        selected = byId.get(selected)?.partId ?? null;
+      view = next;
+      emit("projection");
+    },
+    setGroups(value = [], labels = {}) {
+      const signature = JSON.stringify([value, labels]);
+      if (signature === groupSignature) return;
+      groups = value;
+      groupLabels = labels;
+      groupSignature = signature;
+      projection = resolvePartGroups(
+        groups,
+        tree.entries,
+        tree.identities,
+        groupLabels,
+      );
+      byId = new Map(
+        [...tree.entries, ...projection.entries].map((p) => [p.id, p]),
+      );
+      if (selected && !byId.has(selected)) selected = null;
+      if (!groups.length) view = "file";
+      emit("projection");
+    },
     bounds(id) {
       const object = tree.objects.get(id);
-      if (!object) return new THREE.Box3();
+      if (!object) {
+        const bounds = new THREE.Box3();
+        for (const meshId of meshes(id)) {
+          const mesh = tree.meshObjects?.get(meshId);
+          if (!mesh) continue;
+          mesh.updateWorldMatrix(true, false);
+          mesh.geometry.computeBoundingBox();
+          bounds.union(
+            mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld),
+          );
+        }
+        return bounds;
+      }
       object.updateWorldMatrix(true, true);
       return new THREE.Box3().setFromObject(object);
     },
@@ -106,7 +177,12 @@ export function createParts(onChange = () => {}) {
     },
     select(id) {
       const next = byId.has(id) ? id : null;
-      if (selected === next) return;
+      // Re-picking a selected surface can reveal an alias the reviewer has
+      // since collapsed. Selection is navigation, never a visibility reset.
+      if (selected === next) {
+        if (next) emit("selection");
+        return;
+      }
       selected = next;
       emit("selection");
     },
@@ -141,6 +217,9 @@ export function createParts(onChange = () => {}) {
     },
     reset(next) {
       tree = next || { entries: [], objects: new Map(), meshParts: new Map() };
+      groups = [];
+      groupSignature = "";
+      projection = { entries: [], firstAlias: new Map() };
       byId = new Map(tree.entries.map((p) => [p.id, p]));
       hidden = new Set();
       transparent = new Set();

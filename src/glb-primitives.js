@@ -8,7 +8,7 @@ import { Group } from "three";
    Loader caches can share geometry, materials and textures with retained
    objects. Dispose only resources no retained object uses, once each, so
    dropping a line cannot invalidate the surface beside it. */
-export function removeNonTrianglePrimitives(root) {
+export function removeNonTrianglePrimitives(root, onReplace = () => {}) {
   const removed = [];
   root.traverse((object) => {
     // Short strips/fans become an empty index. Keeping one would make the
@@ -28,6 +28,7 @@ export function removeNonTrianglePrimitives(root) {
       const parent = object.parent,
         index = parent.children.indexOf(object);
       const group = new Group().copy(object, false);
+      onReplace(object, group);
       for (const child of [...object.children]) group.add(child);
       parent.add(group);
       parent.children.splice(parent.children.indexOf(group), 1);

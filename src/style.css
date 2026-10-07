@@ -3011,3 +3011,30 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* === b1v Lane GROUPS: optional native / Agent projection switch === */
+.parts-view {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.parts-view[hidden] {
+  display: none;
+}
+.parts-view button {
+  flex: 1;
+  font-size: 12px;
+}
+.parts-view button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.parts-row[aria-disabled="true"] .parts-name {
+  opacity: 0.65;
+}
+.parts-badge {
+  font-size: 10px;
+  opacity: 0.65;
+  white-space: nowrap;
+}
