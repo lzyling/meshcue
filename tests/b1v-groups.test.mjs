@@ -18,7 +18,7 @@ import {
   inspectInstall,
   requirePartGroupsRuntime,
 } from "../integration/manager.mjs";
-import { run, parseArgs } from "../cli/meshcue.mjs";
+import { run, parseArgs, help } from "../cli/meshcue.mjs";
 import { TOOL } from "../mcp/server.mjs";
 import { startReview } from "./helpers/review-server.mjs";
 import { stopManagedReview } from "./helpers/managed-server.mjs";
@@ -488,6 +488,7 @@ test("CLI rejects malformed oversize and out-of-workspace grouping files before 
     { code: "BAD_USAGE" },
   );
   assert.equal(fs.existsSync(path.join(f.dir, "projects")), false);
+  assert.equal(help().flags["--part-groups <value>"], "partGroups");
   assert.equal(
     parseArgs(["open", "--part-groups", "groups.json"]).input.partGroupsFile,
     "groups.json",

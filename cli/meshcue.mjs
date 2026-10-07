@@ -72,7 +72,7 @@ export function help(installRoot = INSTALL_ROOT) {
     flags: Object.fromEntries(
       Object.entries(FLAGS).map(([flag, field]) => [
         `--${flag} <value>`,
-        field,
+        field === "partGroupsFile" ? "partGroups" : field,
       ]),
     ),
     switches: {
