@@ -2,7 +2,7 @@ export default {
   "onboarding.step1.title": "① 看",
   "onboarding.step1.body": "拖動旋轉，滾輪縮放",
   "onboarding.step2.title": "② 標",
-  "onboarding.step2.body": "點一下放圖釘，或填色塗一片",
+  "onboarding.step2.body": "點一下放圖釘，或標邊、標零件、填色。",
   "onboarding.step3.title": "③ 寫",
   "onboarding.step3.body": "選中標記，寫一句要怎麼改",
   "onboarding.step4.title": "④ 交",

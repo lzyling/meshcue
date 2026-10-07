@@ -2,7 +2,8 @@ export default {
   "onboarding.step1.title": "① Look",
   "onboarding.step1.body": "Drag to rotate; scroll to zoom.",
   "onboarding.step2.title": "② Mark",
-  "onboarding.step2.body": "Place a pin or fill a surface.",
+  "onboarding.step2.body":
+    "Place a pin, mark an edge or a whole part, or fill a surface.",
   "onboarding.step3.title": "③ Write",
   "onboarding.step3.body": "Select a mark and describe the change.",
   "onboarding.step4.title": "④ Send",

@@ -3402,3 +3402,18 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 #explode-options output {
   min-width: 3em;
 }
+
+/* marks2: edge and whole-part marking */
+.mark-mode-arrow {
+  min-width: 24px;
+  padding-inline: 4px;
+}
+.annotation-badge svg {
+  width: 13px;
+  height: 13px;
+  margin-left: 2px;
+}
+.part-mark-menu {
+  position: fixed;
+  z-index: 100;
+}

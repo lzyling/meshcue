@@ -31,6 +31,24 @@ export class EditingMethods {
     this.clickStart = [e.clientX, e.clientY];
   }
   pointerMove(e) {
+    if (["edge", "part"].includes(this.mode) && !e.buttons) {
+      const hit = this.rayAt(e.clientX, e.clientY);
+      this.clearOverlay(this.previewOverlay);
+      if (this.mode === "part")
+        this.hoverPart(
+          hit ? this.parts.partOfMesh(hit.object.userData.reviewId) : null,
+        );
+      else if (hit) {
+        const edge = this.edgeAt(hit, e.clientX, e.clientY);
+        if (edge)
+          this.drawObjectMark(
+            this.previewOverlay,
+            this.edgeMark(edge),
+            false,
+            false,
+          );
+      }
+    }
     if (this.mode === "fill" && !e.buttons)
       this.previewFill(e.clientX, e.clientY);
     if (this.mode === "measure" && !e.buttons)
@@ -130,6 +148,13 @@ export class EditingMethods {
       this.lastLabelAt = { time: now, x: e.clientX, y: e.clientY };
     }
     if (mode === "fill") this.previewFill(e.clientX, e.clientY);
+    const objectMark =
+      mode === "edge"
+        ? this.edgeMark(this.edgeAt(hit, e.clientX, e.clientY))
+        : mode === "part"
+          ? this.partMark(this.parts.partOfMesh(hit.object.userData.reviewId))
+          : null;
+    if (["edge", "part"].includes(mode) && !objectMark) return;
     const patches = this.fillPatches,
       pin = this.pinFromHit(hit);
     this.pinPending = true;
@@ -140,7 +165,8 @@ export class EditingMethods {
         epoch !== this.editEpoch
       )
         return;
-      if (mode === "relocate") this.onRelocate?.(pin);
+      if (objectMark) this.onObjectMark?.(objectMark);
+      else if (mode === "relocate") this.onRelocate?.(pin);
       else if (mode === "fill" && patches?.length) this.onPaint(patches);
       else if (mode === "label") {
         this.ripple(e.clientX, e.clientY);

@@ -2,7 +2,8 @@ export default {
   "onboarding.step1.title": "① Voir",
   "onboarding.step1.body": "Glisser pour tourner, défiler pour zoomer.",
   "onboarding.step2.title": "② Marquer",
-  "onboarding.step2.body": "Poser une épingle ou colorer une surface.",
+  "onboarding.step2.body":
+    "Placer une épingle, marquer une arête ou une pièce, ou colorer une surface.",
   "onboarding.step3.title": "③ Écrire",
   "onboarding.step3.body": "Sélectionner une marque et décrire le changement.",
   "onboarding.step4.title": "④ Envoyer",

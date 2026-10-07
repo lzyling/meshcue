@@ -43,6 +43,9 @@ export function positionMenu(menu, anchor) {
 
 // Presentation groups are separate from capability groups in the registry.
 export function toolbarPlacement(command) {
+  if (["mode-label", "mode-edge", "mode-part"].includes(command.id))
+    return { group: "mark", submenu: "mark-mode" };
+  if (command.id === "mark-mode") return { group: "mark", direct: true };
   if (["mode-orbit", "mode-pan"].includes(command.id))
     return { group: "view", submenu: "view-mode" };
   if (command.id.startsWith("navigation-projection-"))
@@ -84,6 +87,7 @@ export function mountMenus(review) {
   }
   for (const [name, commandId, key] of [
     ["view-mode", "view-mode", "shell.view"],
+    ["mark-mode", "mark-mode", "shell.mark"],
     ["projection", "navigation-projection", "navigation.projection"],
   ]) {
     const menu = document.createElement("div");
@@ -208,6 +212,15 @@ export function mountMenus(review) {
       button.addEventListener("click", () => {
         if (!button.disabled && !entry) close();
       });
+      if (command.id === "mark-mode") {
+        const arrow = document.createElement("button");
+        arrow.className = "tool mark-mode-arrow";
+        arrow.textContent = "▾";
+        arrow.setAttribute("aria-label", t("shell.mark"));
+        arrow.onclick = () => open("mark-mode");
+        groups.get(placement.group).append(button, arrow);
+        return;
+      }
       const tools = groups.get(placement.group);
       const order = ["display", "marks"];
       const before =
@@ -237,6 +250,21 @@ export function mountMenus(review) {
         button.classList.toggle("active", !!checked);
         button.setAttribute("aria-pressed", String(!!checked));
       }
+    }
+    const mark = review.$("#mark-mode-toggle");
+    if (mark) {
+      const mode = review.markMode || "label";
+      const caption = t(
+        mode === "label" ? "toolbar.caption.pin" : `marks2.${mode}`,
+      );
+      mark.innerHTML =
+        review.icon(mode === "label" ? "pin" : `mark-${mode}`) +
+        `<span>${review.esc(caption)}</span>`;
+      mark.setAttribute("aria-label", caption);
+      mark.classList.toggle(
+        "active",
+        ["label", "edge", "part"].includes(review.mode),
+      );
     }
     const toggle = review.$("#view-mode-toggle");
     if (toggle) {

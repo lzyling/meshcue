@@ -63,6 +63,7 @@ export function mountOnboarding(review) {
     "help.p15",
   ]);
   const paragraphs = [
+    "marks2.help",
     "help.p1",
     "help.p2",
     "help.p3",

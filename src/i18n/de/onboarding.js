@@ -2,7 +2,8 @@ export default {
   "onboarding.step1.title": "① Ansehen",
   "onboarding.step1.body": "Ziehen zum Drehen, scrollen zum Zoomen.",
   "onboarding.step2.title": "② Markieren",
-  "onboarding.step2.body": "Pin setzen oder eine Fläche färben.",
+  "onboarding.step2.body":
+    "Pin setzen, Kante oder Bauteil markieren oder Fläche färben.",
   "onboarding.step3.title": "③ Schreiben",
   "onboarding.step3.body": "Markierung wählen und Änderung beschreiben.",
   "onboarding.step4.title": "④ Senden",

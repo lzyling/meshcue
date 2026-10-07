@@ -612,6 +612,13 @@ mark, then say what to change."
 
 ## Reading marks
 
+`type: "edge"` marks an entire feature edge, not just a point. The summary gives `meshId`, `length`, `curved`, `ends` and optional `brep.face` (STEP face IDs); full `points` are available with `geometry: true`. Length is in model units.
+
+`type: "part"` marks whole parts or an Agent group. The summary gives `partIds`, `names`, `meshIds`, optional `group`, and model-space `bounds`. Interpret the note and conversation as applying to the whole part (for example “replace with M4”) or edge (for example “fillet”).
+
+For an unrecognized `type`, understand it from `label`, `note` and the conversation; do not discard it or fail the read.
+
+
 A submission is a set of positions; by itself it is not an instruction to change
 anything. What the reviewer wants comes from the conversation and, from 1.4.0,
 from any `note` they wrote on a mark.

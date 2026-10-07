@@ -220,7 +220,7 @@ export function installDraft(review) {
     review.labelCursor = Math.max(
       draft?.labelCursor || 0,
       ...review.annotations
-        .filter((a) => a.type === "pin")
+        .filter((a) => ["pin", "edge", "part"].includes(a.type))
         .map((a) => letterNumber(a.label)),
     );
     review.revision = draft?.revision || 0;
@@ -258,7 +258,7 @@ export function installDraft(review) {
       review.labelCursor = Math.max(
         draft?.labelCursor || 0,
         ...review.annotations
-          .filter((a) => a.type === "pin")
+          .filter((a) => ["pin", "edge", "part"].includes(a.type))
           .map((a) => letterNumber(a.label)),
       );
       review.revision = draft?.revision || 0;
@@ -279,7 +279,7 @@ export function installDraft(review) {
         review.labelCursor,
         cached.labelCursor || 0,
         ...review.annotations
-          .filter((a) => a.type === "pin")
+          .filter((a) => ["pin", "edge", "part"].includes(a.type))
           .map((a) => letterNumber(a.label)),
       );
       review.viewer.restoreCamera(cached.camera, { fit: true });
@@ -356,7 +356,7 @@ export function initializeDraftSerialization(review) {
   // one shape whether it just made them or just read them.
   review.withoutBounds = (list) =>
     (list || []).map((a) => {
-      if (!a?.bounds) return a;
+      if (!a?.bounds || a.type === "part") return a;
       const { bounds: _bounds, ...rest } = a;
       return rest;
     });

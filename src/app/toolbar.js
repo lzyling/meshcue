@@ -92,6 +92,8 @@ export function installToolbar(review) {
       fill: t("hint.fill"),
       relocate: t("hint.relocate"),
       label: t("hint.label"),
+      edge: t("marks2.edge"),
+      part: t("marks2.part"),
       orbit: t("hint.orbit"),
       pan: t("hint.pan"),
       measure: t(review.MEASURE_HINTS[review.viewer.measureKind]),
@@ -269,6 +271,16 @@ export function registerToolbarCommands(review) {
     enabled: ready,
     run: () => review.openMenu("view-mode"),
   });
+  review.markMode = "label";
+  review.commands.register({
+    id: "mark-mode",
+    labelKey: "tool.labelLabel",
+    icon: "pin",
+    menu: "mark",
+    attributes: { id: "mark-mode-toggle" },
+    enabled: () => idle() && !!review.state?.capabilities?.canEdit,
+    run: () => review.toggleTool(review.markMode),
+  });
   review.commands.register({
     id: "reset-preview",
     labelKey: "shell.reset",
@@ -283,6 +295,8 @@ export function registerToolbarCommands(review) {
   for (const [mode, labelKey, titleKey, captionKey, icon] of [
     ["orbit", "tool.orbitLabel", "tool.orbitTitle", "tool.orbit", "orbit"],
     ["label", "tool.labelLabel", "tool.labelTitle", "tool.label", "pin"],
+    ["edge", "marks2.edge", "marks2.edge", "marks2.edge", "mark-edge"],
+    ["part", "marks2.part", "marks2.part", "marks2.part", "mark-part"],
     ["fill", "tool.bucketLabel", "tool.bucketTitle", "tool.bucket", "fill"],
     [
       "measure",
@@ -311,7 +325,11 @@ export function registerToolbarCommands(review) {
           ? ready() && (mode !== "measure" || !review.viewer.explode?.amount)
           : idle() && !!review.state?.capabilities?.canEdit,
       run: () =>
-        mode === "orbit" ? review.setMode(mode) : review.toggleTool(mode),
+        mode === "orbit"
+          ? review.setMode(mode)
+          : ["label", "edge", "part"].includes(mode)
+            ? ((review.markMode = mode), review.setMode(mode))
+            : review.toggleTool(mode),
     });
     if (mode === "orbit") registerPanTool(review, ready);
   }

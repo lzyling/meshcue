@@ -2,7 +2,8 @@ export default {
   "onboarding.step1.title": "① 見る",
   "onboarding.step1.body": "ドラッグで回転、スクロールで拡大。",
   "onboarding.step2.title": "② 印を付ける",
-  "onboarding.step2.body": "ピンを置くか、面を塗る。",
+  "onboarding.step2.body":
+    "ピンを置く、エッジや部品をマークする、または面を塗ります。",
   "onboarding.step3.title": "③ 書く",
   "onboarding.step3.body": "印を選び、変更内容を書く。",
   "onboarding.step4.title": "④ 送る",

@@ -107,6 +107,8 @@ export function mountShell(review) {
   <path d="m11.5 9.5 2-2" />
   <path d="m8.5 6.5 2-2" />
   <path d="m17.5 15.5 2-2" /></g>
+<g id="mc-mark-edge" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18L10 6L20 10"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="10" r="2"/></g>
+<g id="mc-mark-part" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 3L21 8V18L12 23L3 18V8Z M3 8L12 13L21 8 M12 13V23"/></g>
 <g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
   <circle cx="12" cy="10" r="3" /></g>
 <g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />

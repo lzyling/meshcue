@@ -207,6 +207,12 @@ export class ModelViewer {
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
+    canvas.addEventListener("pointerleave", () => {
+      if (["edge", "part"].includes(this.mode)) {
+        this.clearOverlay(this.previewOverlay);
+        this.hoverPart(null);
+      }
+    });
     canvas.addEventListener("pointercancel", () => this.pointerUp());
     window.addEventListener("pointerup", (e) => {
       this.clickEdit(e);
@@ -245,6 +251,7 @@ export class ModelViewer {
     this.controls.enabled = true;
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
+    this.hoverPart(null);
     this.mode = mode;
     // Rotation no longer competes with the mode: it is on a button that marking
     // never uses, so the camera stays available while marking.

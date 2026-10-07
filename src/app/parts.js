@@ -198,6 +198,54 @@ export function bindParts(review) {
           part.id,
           !viewer.parts.visibilityEnabled(part.id),
         );
+      let pressTimer;
+      const showMarkMenu = (event) => {
+        event.preventDefault();
+        document.querySelector(".part-mark-menu")?.remove();
+        const menu = document.createElement("div");
+        menu.className = "shell-menu part-mark-menu";
+        menu.style.left = `${Math.min(event.clientX, innerWidth - 240)}px`;
+        menu.style.top = `${Math.min(event.clientY, innerHeight - 60)}px`;
+        const button = document.createElement("button");
+        button.className = "menu-command";
+        button.textContent = review.T(
+          part.kind === "group" ? "marks2.markGroup" : "marks2.markPart",
+        );
+        button.onclick = async () => {
+          menu.remove();
+          try {
+            if (await review.beginEdit()) {
+              const mark = viewer.partMark(part.id);
+              if (mark) {
+                viewer.onObjectMark(mark);
+                viewer.onStrokeEnd();
+              }
+            }
+          } catch (e) {
+            review.toast(e.message);
+          }
+        };
+        menu.append(button);
+        document.body.append(menu);
+        button.focus();
+        const close = (e) => {
+          if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener("pointerdown", close);
+          }
+        };
+        document.addEventListener("pointerdown", close);
+        menu.onkeydown = (e) => {
+          if (e.key === "Escape") menu.remove();
+        };
+      };
+      row.oncontextmenu = showMarkMenu;
+      row.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "touch")
+          pressTimer = setTimeout(() => showMarkMenu(e), 600);
+      });
+      for (const event of ["pointerup", "pointercancel", "pointermove"])
+        row.addEventListener(event, () => clearTimeout(pressTimer));
       row.onpointerenter = () => viewer.hoverPart(part.id);
       row.onpointerleave = () => viewer.hoverPart(null);
       content.append(row);
