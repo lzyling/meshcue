@@ -82,6 +82,9 @@ export function createUpdateWatch({
       known = isNewer(tag, installed)
         ? {
             version: String(tag).replace(/^v/, ""),
+            ...(typeof body?.body === "string"
+              ? { notes: body.body.slice(0, 2000) }
+              : {}),
             url:
               typeof body?.html_url === "string" && body.html_url.length
                 ? body.html_url

@@ -104,6 +104,8 @@ one making it.
 | How often | At most once every 6 hours, and only while somebody has the review open. An instance nobody is looking at asks nothing. A failed request waits 30 minutes, so an unreachable network cannot turn into a retry loop. |
 | Why | To tell a reviewer that the copy in front of them is behind the current release. |
 
+The same request also reads the Release body to display a plain-text summary.
+
 Turn it off with `REVIEW_UPDATE_CHECK=off` (or `updateCheck: false` in the
 instance config) and the service makes **no outbound requests at all** — which
 is what it did before this existed, and remains a supported way to run it.
