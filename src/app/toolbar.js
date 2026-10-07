@@ -45,7 +45,9 @@ export function installToolbar(review) {
         ? t("review.loadingModel")
         : review.state?.locked
           ? t("review.openElsewhere")
-          : review.blockedText(can.blocked);
+          : can.canEdit
+            ? ""
+            : review.blockedText(can.blocked);
     status.hidden = !status.textContent;
     review.updateReceipt();
     review.renderVersions();
