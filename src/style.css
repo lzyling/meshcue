@@ -1851,19 +1851,19 @@ dialog .muted {
   justify-content: space-between;
   padding: 8px 10px;
 }
-.parts-actions {
+.parts-tools {
   display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding: 0 6px 6px;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  flex-shrink: 0;
 }
-.parts-actions button {
-  font-size: 10px;
-  padding: 5px;
-}
-.parts-actions [aria-pressed="true"] {
-  background: var(--line);
+.parts-show-all {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 6px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 #parts-tree {
   flex: 1;
@@ -1900,14 +1900,47 @@ dialog .muted {
   font-size: 11px;
   padding: 6px 3px;
 }
-.parts-row .icon-only {
-  flex: 0 0 25px;
-  min-width: 25px;
-  padding: 4px;
+.parts-row button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  min-height: 32px;
 }
-.parts-row.part-hidden .parts-name {
-  opacity: 0.5;
-  text-decoration: line-through;
+.parts-row button:hover {
+  background: transparent;
+}
+.parts-row .icon-only {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 7px;
+}
+.parts-row .parts-expand {
+  font-size: 16px;
+}
+.parts-row .parts-expand:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.parts-row .parts-expand:disabled:empty {
+  visibility: hidden;
+}
+.parts-kind {
+  display: flex;
+  flex: 0 0 18px;
+  margin-right: 3px;
+}
+.parts-kind svg {
+  width: 18px;
+  height: 18px;
+}
+.parts-row.part-hidden .parts-name,
+.parts-row.part-hidden .parts-kind,
+.parts-row.part-hidden .parts-eye {
+  opacity: 0.45;
 }
 .parts-row.part-transparent .parts-name {
   font-style: italic;
@@ -2755,10 +2788,11 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   letter-spacing: 0;
 }
 #parts-search {
-  margin: 6px 8px;
-  width: calc(100% - 16px);
+  margin: 0;
+  width: 0;
+  min-width: 0;
   min-height: 36px;
-  flex: none;
+  flex: 1;
   padding: 6px 9px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -2766,9 +2800,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   color: var(--ink);
   font: inherit;
   font-size: 12px;
-}
-.parts-actions {
-  flex-shrink: 0;
 }
 .parts-row:focus-within {
   outline: 2px solid var(--accent);
@@ -3012,24 +3043,7 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   color: var(--accent);
 }
 
-/* === b1v Lane GROUPS: optional native / Agent projection switch === */
-.parts-view {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-.parts-view[hidden] {
-  display: none;
-}
-.parts-view button {
-  flex: 1;
-  font-size: 12px;
-}
-.parts-view button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
+/* Unresolved and empty browser rows remain non-actionable. */
 .parts-row[aria-disabled="true"] .parts-name {
   opacity: 0.65;
 }
