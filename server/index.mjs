@@ -29,6 +29,7 @@ import {
 } from "./receipt.mjs";
 import { matchLocale } from "../src/i18n/index.js";
 import { agentNameSchema } from "./agent-name.mjs";
+import { FEATURES, normalizePartGroups } from "../integration/part-groups.mjs";
 import { listenerConfig, privateIPv4 } from "./network.mjs";
 import { createUpdateWatch, updateCheckEnabled } from "./upstream.mjs";
 import {
@@ -500,6 +501,7 @@ function stateFor(clientId, full = false, versionId) {
     // version compiled in, but that is the build it was cut from; a reviewer
     // asking what they are looking at means the service answering them.
     version,
+    features: FEATURES,
     ...(update ? { update } : {}),
     notifier: notifierSummary(notifierCached(store.state.reviewOrigin)),
     /* The project as the Agent named it when it opened this review. A host
@@ -816,6 +818,7 @@ app.get("/api/health", (req, res) =>
     product: "MeshCue",
     version,
     integrationApi: INTEGRATION_API,
+    features: FEATURES,
     instance,
     pid: process.pid,
     accessRequired,
@@ -1392,6 +1395,7 @@ agentApp.get("/status", (req, res) => {
     origin: store.state.reviewOrigin,
     instance,
     integrationApi: INTEGRATION_API,
+    features: FEATURES,
     codeRoot: repo,
     releaseId: process.env.REVIEW_RELEASE_ID || null,
     // Installing an extension does not restart a live instance; only `open`
@@ -1473,11 +1477,14 @@ agentApp.post("/publish", async (req, res) => {
       label: z.string().max(24).optional(),
       origin: originInput.optional(),
       activate: z.boolean().optional(),
+      partGroups: z.unknown().optional(),
     })
     // Strict like every other write route: a caller that misnames a field must
     // hear about it rather than have the model published under a default.
     .strict()
     .parse(req.body);
+  const groups =
+    p.partGroups === undefined ? undefined : normalizePartGroups(p.partGroups);
   const model = await importModel(p, {
     workspace,
     mediaDir,
@@ -1486,6 +1493,7 @@ agentApp.post("/publish", async (req, res) => {
   if (p.label) model.label = p.label;
   const published = store.publish(model, p.origin, {
     activate: p.activate !== false,
+    ...(groups !== undefined ? { partGroups: groups } : {}),
   });
   const notices = [...(model.notices || []), ...(published.notices || [])];
   res.json({
