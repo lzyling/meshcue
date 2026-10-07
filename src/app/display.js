@@ -1,4 +1,4 @@
-import { positionMenu } from "./menus.js";
+import { positionMenu, toolbarCaption } from "./menus.js";
 import { t } from "../i18n/index.js";
 import { DISPLAY_STYLES } from "../viewer/display-modes.js";
 import { bindPerformance } from "./perf.js";
@@ -76,7 +76,9 @@ export function bindDisplay(review) {
   };
   function refreshStyle() {
     const style = review.viewer.displayStyle;
-    button.innerHTML = review.icon(`display-${style}`);
+    button.innerHTML =
+      review.icon(`display-${style}`) +
+      `<span>${review.esc(toolbarCaption("display"))}</span>`;
     button.title = t("display.choose", { style: t(DISPLAY_LABELS[style]) });
     button.setAttribute("aria-label", button.title);
     for (const child of menu.children)

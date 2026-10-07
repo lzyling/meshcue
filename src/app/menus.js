@@ -1,5 +1,25 @@
 import { t } from "../i18n/index.js";
 
+// Short captions are independent of the complete accessible action labels.
+export function toolbarCaption(id) {
+  const names = {
+    "view-mode": "toolbar.caption.rotate",
+    "navigation-fit": "toolbar.caption.fit",
+    "navigation-projection": "toolbar.caption.projection",
+    "mode-label": "toolbar.caption.pin",
+    "mode-fill": "toolbar.caption.fill",
+    "mode-measure": "toolbar.caption.measure",
+    section: "toolbar.caption.section",
+    display: "toolbar.caption.style",
+    plain: "toolbar.caption.plain",
+    marks: "toolbar.caption.marks",
+    undo: "toolbar.caption.undo",
+    redo: "toolbar.caption.redo",
+    "reset-preview": "toolbar.caption.reset",
+  };
+  return names[id] ? t(names[id]) : null;
+}
+
 // Menus live outside the clipped canvas and transformed toolbar. Clamp against
 // the visual viewport as well as the layout viewport (phone zoom/keyboards).
 export function positionMenu(menu, anchor) {
@@ -51,12 +71,9 @@ export function mountMenus(review) {
     group.dataset.menu = name;
     group.role = "group";
     group.setAttribute("aria-label", t(key));
-    const caption = document.createElement("span");
-    caption.className = "toolbar-group-label";
-    caption.textContent = t(key);
     const tools = document.createElement("div");
     tools.className = "toolbar-group-tools";
-    group.append(caption, tools);
+    group.append(tools);
     review.$('[data-toolbar-slot="tools"]').append(group);
     groups.set(name, tools);
   }
@@ -146,7 +163,7 @@ export function mountMenus(review) {
     button.setAttribute("aria-label", t(command.labelKey));
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
-      `<span${placement.direct ? ' class="sr-only"' : ""}>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
+      `<span>${review.esc(placement.direct ? toolbarCaption(command.id) : t(command.captionKey || command.labelKey))}</span>`;
     if (placement.submenu) {
       button.role = "menuitemradio";
       button.tabIndex = -1;
@@ -209,7 +226,9 @@ export function mountMenus(review) {
     const toggle = review.$("#view-mode-toggle");
     if (toggle) {
       const pan = review.mode === "pan";
-      toggle.innerHTML = review.icon(pan ? "pan" : "orbit");
+      toggle.innerHTML =
+        review.icon(pan ? "pan" : "orbit") +
+        `<span>${review.esc(t(pan ? "toolbar.caption.pan" : "toolbar.caption.rotate"))}</span>`;
       toggle.title = t(pan ? "shell.panMode" : "shell.rotateMode");
       toggle.setAttribute("aria-label", toggle.title);
     }

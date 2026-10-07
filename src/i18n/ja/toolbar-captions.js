@@ -1,0 +1,16 @@
+export default {
+  "toolbar.caption.rotate": "回転",
+  "toolbar.caption.pan": "移動",
+  "toolbar.caption.fit": "全体",
+  "toolbar.caption.projection": "投影",
+  "toolbar.caption.pin": "ピン",
+  "toolbar.caption.fill": "塗る",
+  "toolbar.caption.measure": "測定",
+  "toolbar.caption.section": "断面",
+  "toolbar.caption.style": "表示",
+  "toolbar.caption.plain": "単色",
+  "toolbar.caption.marks": "注釈",
+  "toolbar.caption.undo": "戻す",
+  "toolbar.caption.redo": "やり直す",
+  "toolbar.caption.reset": "リセット",
+};

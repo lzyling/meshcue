@@ -3163,3 +3163,56 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .viewer-shell:has(.navigation-triad:not([hidden])) .section-options {
   top: 88px;
 }
+
+/* r6: action captions replace redundant group headings. Keep complete labels
+   in aria-label/title, and allow long localized short names up to two lines. */
+.toolbar .toolbar-command,
+.toolbar .tool.small,
+.toolbar .reset-preview {
+  width: auto;
+  min-width: 44px;
+  height: 58px;
+  padding: 4px 6px;
+  flex: 1 0 auto;
+}
+.toolbar .tool span {
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 60px;
+  max-height: 24px;
+  overflow: hidden;
+}
+.toolbar .icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+@media (max-width: 760px) {
+  /* Preserve 44px touch targets by wrapping whole groups instead of scrolling.
+     At 390px: View 139 + Mark 95 + Inspect 95 + chrome 8 = 337px;
+     Display 139 + History 139 + chrome 8 = 286px. */
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    overflow: visible;
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-command,
+  .toolbar .tool.small,
+  .toolbar .reset-preview {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 4px;
+    flex: none;
+  }
+  .toolbar .tool span {
+    display: none;
+  }
+}

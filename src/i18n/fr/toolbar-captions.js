@@ -1,0 +1,16 @@
+export default {
+  "toolbar.caption.rotate": "Tourner",
+  "toolbar.caption.pan": "Glisser",
+  "toolbar.caption.fit": "Cadrer",
+  "toolbar.caption.projection": "Proj.",
+  "toolbar.caption.pin": "Épingle",
+  "toolbar.caption.fill": "Remplir",
+  "toolbar.caption.measure": "Mesurer",
+  "toolbar.caption.section": "Coupe",
+  "toolbar.caption.style": "Style",
+  "toolbar.caption.plain": "Neutre",
+  "toolbar.caption.marks": "Repères",
+  "toolbar.caption.undo": "Annuler",
+  "toolbar.caption.redo": "Rétablir",
+  "toolbar.caption.reset": "Réinit.",
+};

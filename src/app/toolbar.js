@@ -1,4 +1,4 @@
-import { mountMenus } from "./menus.js";
+import { mountMenus, toolbarCaption } from "./menus.js";
 import { registerPanTool } from "./pan-tool.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
@@ -123,7 +123,7 @@ export function installToolbar(review) {
     button.setAttribute("aria-pressed", String(pressed));
     button.setAttribute("aria-label", t(key));
     button.title = t(key);
-    button.innerHTML = `${review.icon(name)}<span>${review.esc(t(caption))}</span>`;
+    button.innerHTML = `${review.icon(name)}<span>${review.esc(toolbarCaption(button.dataset.command) || t(caption))}</span>`;
   }
 
   Object.assign(review, {
@@ -432,8 +432,8 @@ export function mountToolbar(review) {
     if (command.titleKey) button.title = t(command.titleKey);
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
-      (command.captionKey
-        ? `<span>${review.esc(t(command.captionKey))}</span>`
+      (toolbarCaption(command.id) || command.captionKey
+        ? `<span>${review.esc(toolbarCaption(command.id) || t(command.captionKey))}</span>`
         : "");
     slot.append(button);
   };
