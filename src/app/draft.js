@@ -1,6 +1,7 @@
 import { newId } from "../browser-crypto.js";
 import { t, ta } from "../i18n/index.js";
 import { letterLabel, letterNumber } from "../annotation-edits.js";
+import { rememberSubmittedMarks } from "../mark-target.js";
 export function installDraft(review) {
   function draftKey() {
     return `${review.DRAFT_PREFIX}${review.loadedId}-${review.loadedReviewId}`;
@@ -39,6 +40,8 @@ export function installDraft(review) {
         review.draftKey(),
         JSON.stringify({
           annotations: review.annotations,
+          submittedMarkRevision: review.submittedMarkRevision,
+          submittedMarkIds: [...(review.submittedMarkIds || [])],
           labelCursor: review.labelCursor,
           revision: review.revision,
           dirty: review.editSeq > review.savedSeq,
@@ -96,6 +99,7 @@ export function installDraft(review) {
     if (review.beginFlight) return review.beginFlight;
     review.beginFlight = (async () => {
       const result = await review.api("review/begin", review.owner());
+      rememberSubmittedMarks(review, result.draft);
       review.state = { ...review.state, ...result };
       review.historyPush();
       review.updateButtons();
@@ -216,6 +220,8 @@ export function installDraft(review) {
   }
 
   async function restoreDraft(draft) {
+    review.submittedMarkIds = null;
+    review.submittedMarkRevision = null;
     review.annotations = review.withoutBounds(review.clone(draft?.annotations));
     review.labelCursor = Math.max(
       draft?.labelCursor || 0,
@@ -265,6 +271,7 @@ export function installDraft(review) {
     } catch (e) {
       if (e.code !== "NOT_READY") throw e;
     }
+    rememberSubmittedMarks(review, draft, cached);
     if (!cached?.dirty) return;
     const uncertainWriteMatches =
       cached.pendingWrite?.revision === review.revision - 1 &&

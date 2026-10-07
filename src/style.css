@@ -3404,14 +3404,19 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 }
 
 /* marks2: edge and whole-part marking */
-.mark-mode-arrow {
-  min-width: 24px;
-  padding-inline: 4px;
+.annotation-select strong.annotation-type-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.annotation-badge svg {
-  width: 13px;
-  height: 13px;
-  margin-left: 2px;
+.annotation-type-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  color: inherit;
+}
+.annotation-type-icon svg {
+  width: 14px;
+  height: 14px;
 }
 .part-mark-menu {
   position: fixed;

@@ -212,15 +212,6 @@ export function mountMenus(review) {
       button.addEventListener("click", () => {
         if (!button.disabled && !entry) close();
       });
-      if (command.id === "mark-mode") {
-        const arrow = document.createElement("button");
-        arrow.className = "tool mark-mode-arrow";
-        arrow.textContent = "▾";
-        arrow.setAttribute("aria-label", t("shell.mark"));
-        arrow.onclick = () => open("mark-mode");
-        groups.get(placement.group).append(button, arrow);
-        return;
-      }
       const tools = groups.get(placement.group);
       const order = ["display", "marks"];
       const before =

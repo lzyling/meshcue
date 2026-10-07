@@ -336,3 +336,213 @@ test("marks2 curved-edge refusal is localized and wired to the page toast", asyn
     else globalThis.document = previousDocument;
   }
 });
+
+test("marks2 target matching distinguishes sets, groups, edges and non-object marks", async () => {
+  const { sameMarkTarget } = await import("../src/mark-target.js");
+  assert.equal(
+    sameMarkTarget(
+      part({ partIds: ["a", "b"] }),
+      part({ partIds: ["b", "a"] }),
+    ),
+    true,
+  );
+  assert.equal(sameMarkTarget(part(), part({ partIds: ["other"] })), false);
+  assert.equal(
+    sameMarkTarget(
+      part({ group: { id: "g" } }),
+      part({ group: { id: "g" }, partIds: ["other"] }),
+    ),
+    true,
+  );
+  assert.equal(
+    sameMarkTarget(part({ group: { id: "g" } }), part({ group: { id: "h" } })),
+    false,
+  );
+  assert.equal(sameMarkTarget(part({ group: { id: "g" } }), part()), false);
+  assert.equal(sameMarkTarget(edge(), edge()), true);
+  assert.equal(sameMarkTarget(edge(), edge({ meshId: "other" })), false);
+  assert.equal(
+    sameMarkTarget(
+      edge(),
+      edge({
+        points: [
+          [3, 4, 0],
+          [0, 0, 0.0000001],
+        ],
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    sameMarkTarget(
+      edge(),
+      edge({
+        points: [
+          [0, 0, 0],
+          [3, 4.01, 0],
+        ],
+      }),
+    ),
+    false,
+  );
+  assert.equal(
+    sameMarkTarget(
+      edge(),
+      edge({
+        points: [
+          [0, 0, 0],
+          [1, 1, 0],
+          [3, 4, 0],
+        ],
+      }),
+    ),
+    false,
+  );
+  const closed = edge({
+    points: [
+      [0, 0, 0],
+      [1, 0, 0],
+      [0, 0, 0],
+    ],
+  });
+  assert.equal(
+    sameMarkTarget(
+      closed,
+      edge({
+        points: [
+          [0, 0, 0],
+          [0, 1, 0],
+          [0, 0, 0],
+        ],
+      }),
+    ),
+    false,
+  );
+  for (const type of ["pin", "region", "measure"])
+    assert.equal(sameMarkTarget({ type }, { type }), false);
+});
+
+test("marks2 replaces draft object color, preserves identity, and undo restores it", async () => {
+  const { installAnnotationsPanel } =
+    await import("../src/app/annotations-panel.js");
+  const { installDraft } = await import("../src/app/draft.js");
+  const { rememberSubmittedMarks } = await import("../src/mark-target.js");
+  const candidate = (extra) => {
+    const { id, label, color, ...mark } = part(extra);
+    return mark;
+  };
+  const original = part({ note: "keep", view: { camera: "keep" } });
+  const review = {
+    annotations: [structuredClone(original)],
+    color: "#00ff00",
+    labelCursor: 2,
+    undoStack: [],
+    redoStack: [],
+    loadedId: "v",
+    submittedMarkIds: new Set(),
+    state: {},
+    owner: () => ({}),
+    api: async () => ({ draft: { submittedRevision: null } }),
+    viewer: {
+      enabled: true,
+      markView: () => ({ explode: { amount: 0.6, mode: "part" } }),
+    },
+    updateButtons() {},
+    toast(message) {
+      throw new Error(message);
+    },
+    draftBytes: () => 0,
+    markBytes: () => 0,
+    MAX_MARK_BYTES: 10000,
+  };
+  installDraft(review);
+  installAnnotationsPanel(review);
+  let changes = 0;
+  review.changed = () => changes++;
+  review.flushDraft = async () => {};
+  // The actual click path takes its undo snapshot before handing over a mark.
+  assert.equal(await review.beginEdit(), true);
+  review.onPin(candidate());
+  assert.equal(review.annotations.length, 1);
+  assert.equal(review.annotations[0].color, "#00ff00");
+  assert.equal(review.annotations[0].label, original.label);
+  assert.equal(review.annotations[0].note, original.note);
+  assert.deepEqual(review.annotations[0].bounds, original.bounds);
+  assert.equal(review.annotations[0].view.camera, "keep");
+  assert.equal(review.annotations[0].view.explode.amount, 0.6);
+  assert.equal(review.selectedId, original.id);
+  await review.travelHistory();
+  assert.deepEqual(review.annotations, [original]);
+  review.submittedMarkIds.add(original.id);
+  await review.beginEdit();
+  review.onPin(candidate());
+  assert.equal(review.annotations.length, 2);
+  assert.equal(review.annotations[0].color, original.color);
+  assert.notEqual(review.annotations[1].id, original.id);
+  // Future repetitions update only the unsubmitted new mark.
+  review.color = "#0000ff";
+  await review.beginEdit();
+  review.onPin(candidate());
+  assert.equal(review.annotations.length, 2);
+  assert.equal(review.annotations[1].color, "#0000ff");
+  await review.beginEdit();
+  review.onPin(candidate({ partIds: ["other"] }));
+  assert.equal(review.annotations.length, 3);
+  review.annotations = [edge()];
+  review.submittedMarkIds.clear();
+  await review.beginEdit();
+  review.onPin(edge());
+  assert.equal(review.annotations.length, 1);
+  assert.equal(review.annotations[0].color, "#0000ff");
+  await review.travelHistory();
+  assert.equal(review.annotations[0].color, "#ff0000");
+  rememberSubmittedMarks(review, { submittedRevision: 5 });
+  assert.equal(review.submittedMarkIds.has("edge-a"), true);
+  rememberSubmittedMarks(
+    review,
+    { submittedRevision: 5 },
+    { submittedMarkRevision: 5, submittedMarkIds: ["already-sent"] },
+  );
+  assert.deepEqual([...review.submittedMarkIds], ["already-sent"]);
+  assert.ok(changes >= 7);
+});
+
+test("marks2 mark button opens its menu and checked item toggles the tool off", async () => {
+  const { registerToolbarCommands } = await import("../src/app/toolbar.js");
+  const { createCommandRegistry } = await import("../src/app/commands.js");
+  const { toolbarPlacement } = await import("../src/app/menus.js");
+  const { readFileSync } = await import("node:fs");
+  const calls = [];
+  const review = {
+    commands: createCommandRegistry(),
+    viewer: { enabled: true },
+    loadedId: "v",
+    state: { capabilities: { canEdit: true } },
+    mode: "orbit",
+    openMenu: (name) => calls.push(name),
+    toggleTool(mode) {
+      this.mode = this.mode === mode ? "orbit" : mode;
+    },
+  };
+  registerToolbarCommands(review);
+  assert.deepEqual(toolbarPlacement(review.commands.get("mark-mode")), {
+    group: "mark",
+    direct: true,
+  });
+  review.commands.run("mark-mode");
+  assert.deepEqual(calls, ["mark-mode"]);
+  assert.equal(review.commands.get("mode-label").checked(), true);
+  review.commands.run("mode-part");
+  assert.equal(review.mode, "part");
+  assert.equal(review.commands.get("mode-part").checked(), true);
+  review.commands.run("mode-part");
+  assert.equal(review.mode, "orbit");
+  assert.equal(review.commands.get("mode-part").checked(), true);
+  const menus = readFileSync(
+    new URL("../src/app/menus.js", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(menus, /mark-mode-arrow/);
+  assert.match(menus, /button.setAttribute\("aria-haspopup", "menu"\)/);
+  assert.match(menus, /\["ArrowUp", "ArrowDown"\]/);
+});

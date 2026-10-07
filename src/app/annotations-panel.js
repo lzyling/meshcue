@@ -1,8 +1,20 @@
 import { newId } from "../browser-crypto.js";
 import { t, currentLocale } from "../i18n/index.js";
 import { paintIndex, addPatches } from "../annotation-edits.js";
+import { sameMarkTarget } from "../mark-target.js";
 export function installAnnotationsPanel(review) {
   function onPin(pin) {
+    const previous = review.annotations.find(
+      (a) => !review.submittedMarkIds?.has(a.id) && sameMarkTarget(a, pin),
+    );
+    if (previous) {
+      previous.color = review.color;
+      const explode = review.viewer.markView()?.explode;
+      if (explode?.amount > 0) previous.view = { ...previous.view, explode };
+      review.selectedId = previous.id;
+      review.changed();
+      return;
+    }
     if (review.annotations.length >= 200) return review.toast(t("marks.limit"));
     const item = {
       id: newId(),
@@ -178,8 +190,6 @@ export function installAnnotationsPanel(review) {
         if (a.type === "measure") badge.classList.add("measure-badge");
         else badge.style.background = a.color;
         badge.textContent = a.type === "region" ? "" : a.label;
-        if (["edge", "part"].includes(a.type))
-          badge.insertAdjacentHTML("beforeend", review.icon(`mark-${a.type}`));
         const text = document.createElement("span");
         const title = document.createElement("strong");
         // A measurement is named by what it read.
@@ -190,6 +200,14 @@ export function installAnnotationsPanel(review) {
             : a.type === "measure"
               ? review.formatMeasure(a)
               : review.regionName(a);
+        if (["edge", "part"].includes(a.type)) {
+          title.className = "annotation-type-title";
+          const icon = document.createElement("span");
+          icon.className = "annotation-type-icon";
+          icon.setAttribute("aria-hidden", "true");
+          icon.innerHTML = review.icon(`mark-${a.type}`);
+          title.prepend(icon);
+        }
         const detail = document.createElement("small");
         // What the reviewer wrote says more about a mark than how it was made.
         if (a.note) detail.className = "annotation-note";

@@ -174,6 +174,9 @@ export function bindSubmission(review) {
         ...review.state.draft,
         submittedRevision: review.revision,
       };
+      review.submittedMarkRevision = review.revision;
+      review.submittedMarkIds = new Set(review.annotations.map((a) => a.id));
+      review.cacheDraft();
       review.state.submissions = [
         ...(review.state.submissions || []).filter((s) => s.id !== result.id),
         result,

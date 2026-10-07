@@ -279,7 +279,7 @@ export function registerToolbarCommands(review) {
     menu: "mark",
     attributes: { id: "mark-mode-toggle" },
     enabled: () => idle() && !!review.state?.capabilities?.canEdit,
-    run: () => review.toggleTool(review.markMode),
+    run: () => review.openMenu("mark-mode"),
   });
   review.commands.register({
     id: "reset-preview",
@@ -319,6 +319,9 @@ export function registerToolbarCommands(review) {
         "data-mode": mode,
         class: `tool${mode === "orbit" ? " active" : ""}`,
       },
+      checked: ["label", "edge", "part"].includes(mode)
+        ? () => review.markMode === mode
+        : undefined,
       // Measuring changes nothing; keeping a measurement is the edit.
       enabled: () =>
         ["measure", "orbit"].includes(mode)
@@ -328,7 +331,7 @@ export function registerToolbarCommands(review) {
         mode === "orbit"
           ? review.setMode(mode)
           : ["label", "edge", "part"].includes(mode)
-            ? ((review.markMode = mode), review.setMode(mode))
+            ? ((review.markMode = mode), review.toggleTool(mode))
             : review.toggleTool(mode),
     });
     if (mode === "orbit") registerPanTool(review, ready);
