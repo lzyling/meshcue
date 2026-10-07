@@ -19,6 +19,7 @@ import {
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { agentNameSchema, AGENT_NAME_RULE } from "../server/agent-name.mjs";
+import { FEATURES, normalizePartGroups } from "./part-groups.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import { summarizeSubmission, readReceipt } from "./summarize.mjs";
 import {
@@ -229,6 +230,7 @@ export function docPaths(root) {
 export function inspectInstall(context, root) {
   return {
     product: "MeshCue",
+    features: FEATURES,
     integrationVersion: runningVersion(root),
     // Derived from the same table the guards read, so the probe cannot report a
     // field the guards no longer look at, or stay silent about one they added.
@@ -248,6 +250,13 @@ export function instanceVerdict(result, instance, projectId) {
     return "foreign";
   if (result.integrationApi !== INTEGRATION_API) return "outdated";
   return "ok";
+}
+export function requirePartGroupsRuntime(state) {
+  if (state?.features?.partGroups !== 1)
+    fail(
+      "OLD_RUNTIME",
+      "This running server does not support partGroups; reopen/update the project before publishing groups. Nothing was published.",
+    );
 }
 export class InstanceManager {
   constructor(
@@ -643,6 +652,15 @@ export class InstanceManager {
         );
       agentName = named.data;
     }
+    let groups;
+    if (input.partGroups !== undefined) {
+      if (!opens || !input.file)
+        fail(
+          "ERROR",
+          "partGroups is optional metadata for open with a file; reopening alone does not edit groups.",
+        );
+      groups = normalizePartGroups(input.partGroups);
+    }
     // No empty viewer on first use: a source model must exist before a new instance.
     if (opens && input.file) {
       const source = scopedPath(this.workspace, input.file);
@@ -733,6 +751,7 @@ export class InstanceManager {
           }
         }
       }
+      if (groups !== undefined) requirePartGroupsRuntime(state);
       if (!isDeepStrictEqual(state.origin, origin)) {
         if (!opens || !input.resume)
           fail(
@@ -766,6 +785,7 @@ export class InstanceManager {
             "/publish",
             {
               file: input.file,
+              ...(groups !== undefined ? { partGroups: groups } : {}),
               name: input.name,
               version: input.version,
               units: input.units,

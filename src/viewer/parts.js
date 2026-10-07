@@ -11,7 +11,7 @@ export class PartsMethods {
     // View pointer selection is owned by navigation, so face and tree
     // selection share the same drag threshold and multi-touch cancellation.
   }
-  buildParts(object, names) {
+  buildParts(object, names, sourceNodes) {
     // glTF commonly shares one material across hundreds of instances. A part's
     // opacity must not change its neighbours, so give each mesh its own copy.
     const originals = new Set();
@@ -28,13 +28,14 @@ export class PartsMethods {
     this.parts?.reset(
       buildPartTree(object, {
         names,
+        sourceNodes,
         fallback: (n) => t("parts.fallback", { n }),
       }),
     );
   }
   updateParts(kind) {
     if (!this.parts) return;
-    if (kind === "selection") {
+    if (kind === "selection" || kind === "projection") {
       this.highlightPart(this.partHover || this.parts.selected());
       return;
     }
@@ -131,8 +132,7 @@ export class PartsMethods {
     // hover would stall the pointer. A light surface tint follows the exact part.
     for (const child of this.partsHighlight.children) child.material.dispose();
     this.partsHighlight.clear();
-    const part = this.parts?.list().find((p) => p.id === id);
-    for (const meshId of part?.meshIds || []) {
+    for (const meshId of this.parts?.meshIds(id) || []) {
       const mesh = this.meshMap.get(meshId);
       if (!mesh || !this.parts.meshVisible(meshId)) continue;
       const material = this.clipMaterial(

@@ -334,17 +334,71 @@ export class ModelViewer {
     }
     if (epoch !== this.loadingEpoch) return;
     let object;
-    const partNames = new Map();
+    const partNames = new Map(),
+      sourceNodes = new Map();
     if (shown.format === "glb") {
-      const gltf = await createGltfLoader().parseAsync(data, "");
+      const loader = createGltfLoader();
+      const originalClones = new Map();
+      // GLTFLoader reduces associations once per scene, and SkeletonUtils
+      // scene clones do not copy that map at all. Capture parser node identity
+      // before pruning, and copy it through the loader's exact clone operation
+      // (not names/extras or guessed paths). Restore clone methods after parse;
+      // native geometry, names, paths and loading order stay unchanged.
+      loader.register((parser) => ({
+        name: "MESHCUE_part_identity",
+        loadNode(index) {
+          return parser.loadNode(index).then((node) => {
+            sourceNodes.set(node, {
+              nodeIndex: index,
+              nodeName: parser.json.nodes[index].name || "",
+            });
+            if (!originalClones.has(node)) {
+              const descriptor = Object.getOwnPropertyDescriptor(node, "clone");
+              const clone = node.clone;
+              originalClones.set(node, descriptor);
+              node.clone = function (...args) {
+                const next = clone.apply(this, args);
+                const copyIdentity = (source, target) => {
+                  if (sourceNodes.has(source))
+                    sourceNodes.set(target, sourceNodes.get(source));
+                  source.children.forEach((child, i) => {
+                    if (target.children[i])
+                      copyIdentity(child, target.children[i]);
+                  });
+                };
+                copyIdentity(this, next);
+                return next;
+              };
+            }
+            return node;
+          });
+        },
+      }));
+      let gltf;
+      try {
+        gltf = await loader.parseAsync(data, "");
+      } finally {
+        for (const [node, descriptor] of originalClones) {
+          if (descriptor) Object.defineProperty(node, "clone", descriptor);
+          else delete node.clone;
+        }
+      }
       object = gltf.scene;
       object.userData.partsScene = true;
       object.traverse((node) => {
         const index = gltf.parser.associations.get(node)?.nodes;
-        if (index !== undefined)
-          partNames.set(node, gltf.parser.json.nodes[index].name || "");
+        if (index !== undefined) {
+          const nodeName = gltf.parser.json.nodes[index].name || "";
+          partNames.set(node, nodeName);
+          sourceNodes.set(node, { nodeIndex: index, nodeName });
+        }
       });
-      removeNonTrianglePrimitives(object);
+      removeNonTrianglePrimitives(object, (previous, next) => {
+        // Construction parents may become helpers. Preserve source identity
+        // separately without changing native names, paths or primitive ownership.
+        if (sourceNodes.has(previous))
+          sourceNodes.set(next, sourceNodes.get(previous));
+      });
       if (declaresNoMaterials(data)) {
         const grey = reviewGrey();
         object.traverse((o) => {
@@ -479,7 +533,7 @@ export class ModelViewer {
     // the generic schema rejection and leaves the viewer with no explanation.
     if (total > MAX_REVIEW_TRIANGLES)
       throw refusal(t("model.meshOverBudget"), "MODEL_LIMIT");
-    this.buildParts(object, partNames);
+    this.buildParts(object, partNames, sourceNodes);
     this.model = model;
     this.onSection?.();
     this.grid.position.y = floor - 0.025;

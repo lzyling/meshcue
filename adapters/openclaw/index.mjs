@@ -9,6 +9,7 @@ import {
   inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../../integration/precheck.mjs";
+import { partGroupsSchema } from "../../integration/part-groups.mjs";
 import { MAX_AGENT_NAME } from "../../server/agent-name.mjs";
 
 const parameters = {
@@ -38,8 +39,9 @@ const parameters = {
     file: {
       type: "string",
       description:
-        "Existing GLB, STL or STEP source, relative to this workspace. open imports/publishes it; precheck only measures it. A STEP needs no conversion first: it is tessellated once on import, the reviewer marks that mesh, and download still returns the STEP. Hard limits are 600000 triangles and 80 MB, and they are the only limits: marking is as precise on a dense model as on a sparse one.",
+        "Existing GLB, STL or STEP source, relative to this workspace. open imports/publishes it; precheck only measures it. A STEP needs no conversion first: it is tessellated once on import, the reviewer marks that mesh, and download still returns the STEP. Hard limits are 600000 triangles and 80 MB, with separate texture and optional metadata bounds: marking is as precise on a dense model as on a sparse one.",
     },
+    partGroups: partGroupsSchema,
     name: { type: "string" },
     version: { type: "string" },
     units: { type: "string" },

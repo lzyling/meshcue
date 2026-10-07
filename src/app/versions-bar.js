@@ -222,6 +222,7 @@ export function installVersionsBar(review) {
         },
       );
       if (!stats) return;
+      review.updatePartGroups?.(fullState);
       review.$("#model-info").textContent = t("model.summary", {
         count: model.triangles.toLocaleString(),
         format: model.format.toUpperCase(),

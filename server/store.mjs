@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { normalizeOrigin } from "./origin.mjs";
 import { log, errorDetail } from "./log.mjs";
+import { normalizePartGroups } from "../integration/part-groups.mjs";
 
 export class ReviewError extends Error {
   constructor(message, status = 409, code = "CONFLICT") {
@@ -393,6 +394,9 @@ export class ReviewStore {
         ? { sameContentReuse: s.sameContentReuse }
         : {}),
       viewing,
+      ...(viewing && s.partGroups?.[viewing] !== undefined
+        ? { partGroups: structuredClone(s.partGroups[viewing]) }
+        : {}),
       // The complete record for the version being looked at, which is not
       // always the one the Agent is showing. The page loads this one.
       model: viewing ? s.models[viewing] : null,
@@ -648,7 +652,14 @@ export class ReviewStore {
     }
     return this.state.active;
   }
-  publish(model, value = this.state.reviewOrigin, { activate = true } = {}) {
+  publish(
+    model,
+    value = this.state.reviewOrigin,
+    { activate = true, partGroups } = {},
+  ) {
+    // Validate before activation, imports or any durable publication mutation.
+    const groups =
+      partGroups === undefined ? undefined : normalizePartGroups(partGroups);
     const s = this.state;
     const origin = normalizeOrigin(value);
     const known = s.models[model.id];
@@ -662,6 +673,10 @@ export class ReviewStore {
           "ORIGIN_BUSY",
         );
       if (activate) this.activate(model.id);
+      if (groups !== undefined) {
+        (s.partGroups ||= {})[model.id] = groups;
+        this.save();
+      }
       const label = known.label || known.version || known.name;
       // Reuse is a publication event, not a property of these bytes. A fresh
       // event id lets an open page explain repeated publication of the active
@@ -687,11 +702,20 @@ export class ReviewStore {
             code: "SAME_CONTENT_REUSED",
             message: `Content identical to ${label}; ${activate ? `${label} reopened` : `${label} reused; displayed version not changed`}. Requested version/label were not applied.`,
           },
+          ...(groups !== undefined
+            ? [
+                {
+                  code: "PART_GROUPS_REPLACED",
+                  message: `groups of ${label} replaced`,
+                },
+              ]
+            : []),
         ],
       };
     }
     const mine = isDeepStrictEqual(origin, s.reviewOrigin);
     s.models[model.id] = structuredClone(model);
+    if (groups !== undefined) (s.partGroups ||= {})[model.id] = groups;
     s.modelOrigins[model.id] = origin;
     this.registerModelBinding(
       model.id,

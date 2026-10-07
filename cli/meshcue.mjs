@@ -18,7 +18,8 @@ import {
 } from "../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
-import { IntegrationError } from "../integration/context.mjs";
+import { IntegrationError, scopedPath } from "../integration/context.mjs";
+import { PART_GROUP_LIMITS } from "../integration/part-groups.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const INSTALL_ROOT = path.resolve(HERE, "..");
@@ -42,6 +43,7 @@ const FLAGS = {
   owner: "owner",
   project: "project",
   file: "file",
+  "part-groups": "partGroupsFile",
   name: "name",
   version: "version",
   units: "units",
@@ -70,7 +72,7 @@ export function help(installRoot = INSTALL_ROOT) {
     flags: Object.fromEntries(
       Object.entries(FLAGS).map(([flag, field]) => [
         `--${flag} <value>`,
-        field,
+        field === "partGroupsFile" ? "partGroups" : field,
       ]),
     ),
     switches: {
@@ -78,6 +80,8 @@ export function help(installRoot = INSTALL_ROOT) {
       "--no-activate": "activate: false",
     },
     help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
+    partGroups:
+      "open --part-groups <workspace-relative JSON file>: optional array; 256 KiB maximum. Membership is resolved in the reviewer browser, not confirmed by publication.",
     limits:
       "CLI read returns summaries; full geometry and region echoes require MCP or the host tool.",
     network:
@@ -159,6 +163,29 @@ export async function run(
       `Usage: meshcue <${ACTIONS.join("|")}> [--option value]… — run "meshcue help" for the documentation paths.`,
     );
   const workspace = fs.realpathSync(input.workspace || cwd);
+  if (input.partGroupsFile !== undefined) {
+    if (action !== "open" || !input.file)
+      throw new IntegrationError(
+        "BAD_USAGE",
+        "--part-groups is valid only for open with --file.",
+      );
+    const file = scopedPath(workspace, input.partGroupsFile);
+    const stat = fs.statSync(file);
+    if (!stat.isFile() || stat.size > PART_GROUP_LIMITS.bytes)
+      throw new IntegrationError(
+        "BAD_USAGE",
+        "--part-groups needs a JSON file of at most 256 KiB.",
+      );
+    try {
+      input.partGroups = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      throw new IntegrationError(
+        "BAD_USAGE",
+        "--part-groups contains malformed JSON.",
+      );
+    }
+    delete input.partGroupsFile;
+  }
   // Orientation comes before ownership: an agent calls this to find out where it
   // is, and demanding --owner first would make the answer conditional on
   // knowing it.

@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
+import { partGroupsSchema } from "../integration/part-groups.mjs";
 import { MAX_AGENT_NAME } from "../server/agent-name.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -97,6 +98,7 @@ export const TOOL = {
       },
       project: { type: "string" },
       file: { type: "string" },
+      partGroups: partGroupsSchema,
       name: { type: "string" },
       version: { type: "string" },
       label: { type: "string" },
