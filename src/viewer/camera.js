@@ -148,6 +148,7 @@ export class CameraMethods {
       .toArray()
       .map((v) => (Math.abs(v) < 1e-9 ? 0 : Number(v.toPrecision(6))));
     return {
+      ...(this.explode?.amount ? { explode: { ...this.explode } } : {}),
       space: "model",
       position: at(this.camera.position),
       target: at(this.controls.target),

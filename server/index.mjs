@@ -355,6 +355,13 @@ const markView = z
     aspect: z.number().finite().positive(),
     projection: z.literal("orthographic").optional(),
     visibleHeight: z.number().finite().positive().optional(),
+    explode: z
+      .object({
+        amount: z.number().finite().min(0).max(1),
+        by: z.enum(["group", "part"]),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .optional();

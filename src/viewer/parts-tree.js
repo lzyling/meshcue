@@ -139,6 +139,12 @@ export function createParts(onChange = () => {}) {
     meshIds: (id) => [...meshes(id)],
     view: () => view,
     hasGroups: () => groups.length > 0,
+    groupList() {
+      ensureProjection();
+      return projection.entries.filter(
+        (p) => p.kind === "group" && p.parentId === null,
+      );
+    },
     viewList() {
       if (view !== "agent" || !groups.length) return api.list();
       ensureProjection();

@@ -83,7 +83,7 @@ export class PickingMethods {
   modelFrame(mesh) {
     const frame = new THREE.Matrix4();
     for (let o = mesh; o && o !== this.root; o = o.parent)
-      frame.premultiply(o.matrix);
+      frame.premultiply(this.explodeBase?.get(o)?.matrix || o.matrix);
     return frame;
   }
   toScreen(world) {
