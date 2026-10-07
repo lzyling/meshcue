@@ -64,7 +64,8 @@ export function resolvePartGroups(
     };
     entries.push(row);
     const issueStart = issues.length;
-    const union = new Set();
+    const union = new Set(),
+      memberParts = new Set();
     (group.members || []).forEach((member, i) => {
       const matches =
         member.partId !== undefined
@@ -104,9 +105,14 @@ export function resolvePartGroups(
       row.childIds.push(child.id);
       if (!roots.has(part.id))
         roots.set(part.id, { child, order: entries.length, residual: null });
-      for (const id of part.meshIds) {
-        union.add(id);
-        covered.add(id);
+      // Repeated selectors remain separate navigation rows, but their mesh
+      // union is computed once per native part rather than once per member.
+      if (!memberParts.has(part.id)) {
+        memberParts.add(part.id);
+        for (const id of part.meshIds) {
+          union.add(id);
+          covered.add(id);
+        }
       }
     });
     for (const child of group.children || []) {
