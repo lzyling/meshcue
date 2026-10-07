@@ -571,14 +571,13 @@ mark, then say what to change."
   Front, Back, Left, Right, Top, Bottom and Isometric. Arrows rotate 15°,
   Ctrl+arrows 5°, Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z
   zooms in. N looks straight at the face under the pointer; N again reverses the
-  side. Drag the view cube to rotate. Hover over it to show small triangles for
-  adjacent views and curved arrows for 90° rolls. On touch, tap the cube to
-  reveal these controls; tap elsewhere to hide them. Right-click or hold the
-  cube to set or reset the default view, saved only in this browser for this
-  review and never sent to the Agent. The faint house always returns home; axes
-  grow from the cube’s corner. Shift+/ lists all shortcuts. View changes animate
-  briefly unless reduced motion is preferred; any navigation input interrupts
-  them.
+  side. Drag the view cube to rotate. Hover over it to show curved arrows for
+  90° adjacent-view turns. On touch, tap the cube to reveal these controls; tap
+  elsewhere to hide them. Right-click or hold the cube to set or reset the
+  default view, saved only in this browser for this review and never sent to the
+  Agent. The faint house always returns home; axes grow from the cube’s corner.
+  Shift+/ lists all shortcuts. View changes animate briefly unless reduced
+  motion is preferred; any navigation input interrupts them.
 
 - Display styles change only how you see the model: shaded with edges (the
   default), shaded, wireframe, hidden line, or translucent (X-ray). The choice
@@ -589,25 +588,25 @@ mark, then say what to change."
   is still. Copy report copies device and rendering statistics only, without
   model content or file names.
 
-- You can switch to Agent groups when the Agent supplies them; ungrouped
-  geometry stays under Other parts. Missing or ambiguous references are
-  disabled. Both views share visibility. Parts is always available beside Marks,
-  even for a single part. It follows the file’s assembly hierarchy; search by
-  name keeps each result’s parent path. Expand or collapse groups, hover to
-  highlight, click to select, or double-click a part or group to fit it. In
-  View, click a surface to select its part. Y hides the selection; Shift+Y shows
-  all; Shift+I isolates it (again or Esc exits); Shift+T makes it transparent so
-  you can mark behind it. Group actions affect every contained part. Switching
-  to Marks keeps hidden parts hidden; hand-over and notes appear only on Marks.
-  Viewing choices reset when you load a model or version and are never sent to
-  the Agent.
+- Agent groups appear automatically when supplied; otherwise the file tree is
+  shown. Ungrouped geometry stays under Other parts; unresolved references are
+  disabled. Use the triangle to expand or collapse without selecting, and the
+  eye to hide or show a part or entire group. Hiding a parent dims descendants
+  and preserves their own switches; showing it restores those choices. Search
+  keeps parent paths. Hover highlights, click selects, and double-click fits a
+  part or group. In View, a surface click selects its part. Show all restores
+  visibility. Shortcuts remain: Y hides the selection, Shift+Y shows all,
+  Shift+I isolates (again or Esc exits), and Shift+T toggles transparency. Parts
+  stays beside Marks; switching tabs keeps visibility. Hand-over and notes are
+  on Marks. Viewing choices reset on model or version load and are never sent to
+  Agent.
 
-- The toolbar groups View, Display, Mark and Inspect. Common tools work in one
-  click; “…” opens extra options. View shows Rotate or Pan: click to switch,
-  with Reset view and Fit all beside it. Display shows the current style; click
-  to choose. Show marks is on the Marks tab. Reset restores all parts, exits
-  Section, restores shaded-with-edges and original colours, and calls the
-  default view without changing marks, notes, drafts or measurements.
+- The toolbar groups View, Mark, Inspect and Display. Rotate/Pan, projection
+  and display style open menus; single actions execute immediately. Home is on
+  the view cube. Reset restores all parts, exits Section, restores the default
+  display and view, and deletes unsubmitted marks with their notes and
+  measurements. When marks exist, confirmation is required; one Undo restores
+  them. Submitted batches are not affected.
 
 <!-- reviewer-help:end -->
 
