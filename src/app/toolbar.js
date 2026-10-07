@@ -56,11 +56,6 @@ export function installToolbar(review) {
     review.updateReceipt();
     review.renderVersions();
     review.updatePublicationNotices();
-    review.$("#pending-banner").hidden = !behind;
-    if (behind)
-      review.$("#pending-text").textContent = t("version.pinnedNotice", {
-        version: latest.version || latest.name,
-      });
     review.$("#resume-banner").hidden =
       !review.state?.locked || review.accessBlocked;
     document
@@ -148,6 +143,88 @@ export function bindToolbarOptions(review) {
     review.$(".palette").append(b);
   }
 
+  const dialog = document.createElement("dialog");
+  dialog.id = "reset-dialog";
+  dialog.setAttribute("aria-labelledby", "reset-dialog-title");
+  dialog.setAttribute("aria-describedby", "reset-dialog-message");
+  dialog.innerHTML = `<h2 id="reset-dialog-title">${review.esc(t("shell.reset"))}</h2><p id="reset-dialog-message"></p><div class="reset-dialog-actions"><button id="reset-cancel" autofocus>${review.esc(t("shell.resetCancel"))}</button><button id="reset-confirm" class="danger-button">${review.esc(t("shell.reset"))}</button></div>`;
+  document.body.append(dialog);
+  const restoreDisplay = () => {
+    review.viewer.parts.restoreAll({ preserveMeasure: false });
+    review.viewer.clearMeasure();
+    review.viewer.hoverPart(null);
+    review.viewer.setSection(null);
+    if (review.viewer.neutral) review.commands.run("plain");
+    review.setDisplayStyle("edges");
+    review.viewer.setVisible(true);
+    review.showMarksToggle();
+    review.viewer.home();
+  };
+  let version;
+  const performReset = async () => {
+    const resetVersion = version;
+    // A modal may outlive a version/permission refresh; never clear another draft.
+    if (version !== review.loadedId || review.submitting) return;
+    if (
+      !review.state?.capabilities?.canEdit ||
+      review.recoveryBlocked ||
+      review.accessBlocked
+    ) {
+      restoreDisplay();
+      review.toast(t("shell.resetReadOnly"));
+      return;
+    }
+    if (review.annotations.length) {
+      let cleared = false;
+      try {
+        // beginEdit is the authority for locks and pushes exactly one history entry.
+        if (!(await review.beginEdit())) {
+          restoreDisplay();
+          review.toast(t("shell.resetReadOnly"));
+          return;
+        }
+        if (resetVersion !== review.loadedId) return;
+        review.annotations = [];
+        cleared = true;
+        review.selectedId = null;
+        review.relocatingId = null;
+        restoreDisplay();
+        review.changed();
+        await review.flushDraft();
+      } catch (error) {
+        restoreDisplay();
+        review.toast(cleared ? error.message : t("shell.resetReadOnly"));
+      }
+    } else restoreDisplay();
+  };
+  const reset = async () => {
+    if (review.resettingPreview) return;
+    review.resettingPreview = true;
+    review.refreshCommands();
+    try {
+      await performReset();
+    } finally {
+      review.resettingPreview = false;
+      review.refreshCommands();
+    }
+  };
+  review.$("#reset-cancel").onclick = () => dialog.close();
+  review.$("#reset-confirm").onclick = () => {
+    dialog.close();
+    void reset();
+  };
+  review.resetPreview = () => {
+    if (review.resettingPreview) return;
+    version = review.loadedId;
+    if (!review.annotations.length || !review.state?.capabilities?.canEdit)
+      return reset();
+    review.$("#reset-dialog-message").textContent = t("shell.resetConfirm", {
+      count: review.annotations.length,
+    });
+    dialog.showModal();
+    review.$("#reset-cancel").focus();
+  };
+
   review.updatePalette();
 
   review
@@ -180,7 +257,7 @@ export function registerToolbarCommands(review) {
     menu: "view",
     attributes: { id: "view-mode-toggle" },
     enabled: ready,
-    run: () => review.setMode(review.mode === "pan" ? "orbit" : "pan"),
+    run: () => review.openMenu("view-mode"),
   });
   review.commands.register({
     id: "reset-preview",
@@ -188,22 +265,10 @@ export function registerToolbarCommands(review) {
     titleKey: "shell.resetTitle",
     captionKey: "shell.reset",
     icon: "reset",
-    group: "reset",
+    group: "history",
     attributes: { id: "reset-preview", class: "tool reset-preview" },
-    enabled: ready,
-    run: () => {
-      // These are viewer-only switches: never call changed(), setMode(), or
-      // touch annotations/history/drafts. The camera belongs to home(), which
-      // also owns a reviewer's saved default rather than the shell guessing it.
-      review.viewer.parts.restoreAll({ preserveMeasure: true });
-      review.viewer.hoverPart(null);
-      review.viewer.setSection(null);
-      if (review.viewer.neutral) review.commands.run("plain");
-      review.setDisplayStyle("edges");
-      review.viewer.setVisible(true);
-      review.showMarksToggle();
-      review.viewer.home();
-    },
+    enabled: () => ready() && !review.resettingPreview,
+    run: () => review.resetPreview(),
   });
   for (const [mode, labelKey, titleKey, captionKey, icon] of [
     ["orbit", "tool.orbitLabel", "tool.orbitTitle", "tool.orbit", "orbit"],
@@ -232,7 +297,7 @@ export function registerToolbarCommands(review) {
       },
       // Measuring changes nothing; keeping a measurement is the edit.
       enabled: () =>
-        mode === "measure"
+        ["measure", "orbit"].includes(mode)
           ? ready()
           : idle() && !!review.state?.capabilities?.canEdit,
       run: () => review.setMode(mode),
@@ -282,7 +347,7 @@ export function registerToolbarCommands(review) {
     titleKey: "marks.hide",
     captionKey: "tool.marks",
     icon: "eye",
-    group: "marks-panel",
+    menu: "view",
     checked: () => !!review.viewer?.annotationsVisible,
     attributes: { id: "toggle-marks", class: "tool", "aria-pressed": "false" },
     run: () => {
@@ -314,7 +379,6 @@ export function registerToolbarCommands(review) {
   });
   review.commands.register({
     id: "home",
-    menu: "view",
     menuOrder: 20,
     menuSection: "camera",
     labelKey: "cube.homeLabel",
@@ -363,7 +427,11 @@ export function mountToolbar(review) {
         : "");
     slot.append(button);
   };
-  review.commands.list().forEach(mount);
+  review.commands
+    .list()
+    .filter((c) => c.id !== "reset-preview")
+    .forEach(mount);
+  mount(review.commands.get("reset-preview"));
   review.commands.onRegister((command) => {
     mount(command);
     review.refreshCommands();

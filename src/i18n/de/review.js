@@ -12,9 +12,6 @@ export default {
   "version.earlier": "Frühere Version",
   "version.submitted": "{count} gesendet",
   "version.openElsewhere": "In einem anderen Fenster geöffnet",
-  "version.pinnedNotice":
-    "Sie sehen eine frühere Version; die neueste ist {version}.",
-  "version.goLatest": "Neueste Version anzeigen",
   "version.driftStopped":
     "Eine andere Version ist eingetroffen; Ihr Entwurf bleibt erhalten und der automatische Wechsel wurde gestoppt.",
 

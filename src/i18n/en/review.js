@@ -11,9 +11,6 @@ export default {
   "version.earlier": "Earlier version",
   "version.submitted": "{count} submitted",
   "version.openElsewhere": "Open in another window",
-  "version.pinnedNotice":
-    "You are looking at an earlier version; the newest is {version}.",
-  "version.goLatest": "Show the latest version",
   "version.driftStopped":
     "A different version arrived; your draft is kept and automatic switching has stopped.",
 
