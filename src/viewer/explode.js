@@ -42,7 +42,9 @@ export class ExplodeMethods {
   prepareExplode() {
     this.explode = { amount: 0, by: "group" };
     this.explodeBase = new Map();
-    this.root.updateMatrixWorld(true);
+    // A viewer without a scene root (unit stubs) still has meshes to record.
+    if (this.root) this.root.updateMatrixWorld(true);
+    else for (const mesh of this.meshes) mesh.updateMatrixWorld(true);
     for (const mesh of this.meshes)
       this.explodeBase.set(mesh, {
         matrix: mesh.matrix.clone(),
