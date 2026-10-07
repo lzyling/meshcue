@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "モデルを読み込み中",
-  "review.earlierVersion": "以前のバージョン · 印は付けられます",
   "review.openElsewhere": "別のウィンドウがこの版を開いています",
-  "review.current": "現在のバージョン · 印を付けられます",
   "review.notInReview": "このバージョンは現在のレビューに含まれていません。",
   "review.notMarked": "このバージョンにはまだ印がありません。",
   "review.roundClosed":

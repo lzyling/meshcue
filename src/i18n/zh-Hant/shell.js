@@ -25,5 +25,6 @@ export default {
     "將刪除 {count} 條標註並恢復初始顯示。已提交的批次不受影響。",
   "shell.resetCancel": "取消",
   "shell.resetReadOnly": "已恢復顯示；目前草稿不可編輯，標註已保留。",
+  "shell.axes": "顯示座標軸",
   "shell.zoomToCursor": "滾輪縮放到滑鼠位置",
 };

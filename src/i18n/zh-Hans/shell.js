@@ -25,5 +25,6 @@ export default {
     "将删除 {count} 条标注并恢复初始显示。已提交的批次不受影响。",
   "shell.resetCancel": "取消",
   "shell.resetReadOnly": "已恢复显示；当前草稿不可编辑，标注已保留。",
+  "shell.axes": "显示坐标轴",
   "shell.zoomToCursor": "滚轮缩放到鼠标位置",
 };

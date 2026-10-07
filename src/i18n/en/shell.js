@@ -26,5 +26,6 @@ export default {
   "shell.resetCancel": "Cancel",
   "shell.resetReadOnly":
     "Display restored. Marks were kept because this draft cannot be edited.",
+  "shell.axes": "Show coordinate axes",
   "shell.zoomToCursor": "Wheel zoom to pointer",
 };

@@ -26,5 +26,6 @@ export default {
   "shell.resetCancel": "Annuler",
   "shell.resetReadOnly":
     "Affichage rétabli. Les annotations sont conservées car ce brouillon ne peut pas être modifié.",
+  "shell.axes": "Afficher les axes de coordonnées",
   "shell.zoomToCursor": "Zoom à la molette vers le pointeur",
 };

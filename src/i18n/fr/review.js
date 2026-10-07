@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "Chargement du modèle",
-  "review.earlierVersion": "Version antérieure · marquage toujours possible",
   "review.openElsewhere": "Une autre fenêtre a cette version ouverte",
-  "review.current": "Version actuelle · prête à marquer",
   "review.notInReview":
     "Cette version ne fait pas partie de la revue en cours.",
   "review.notMarked": "Rien n'est encore marqué sur cette version.",

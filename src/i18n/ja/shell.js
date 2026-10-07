@@ -26,5 +26,6 @@ export default {
   "shell.resetCancel": "キャンセル",
   "shell.resetReadOnly":
     "表示を復元しました。この下書きは編集できないため、注釈は保持しました。",
+  "shell.axes": "座標軸を表示",
   "shell.zoomToCursor": "ホイールでポインター位置にズーム",
 };

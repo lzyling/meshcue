@@ -2002,46 +2002,20 @@ dialog .muted {
   width: calc(var(--orient-reach) + 48px);
   height: calc(var(--orient-reach) + 48px);
 }
-.navigation-arrow {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  color: var(--ink);
-  background: var(--surface-raised);
-  font-size: 22px;
-  line-height: 18px;
-  cursor: pointer;
-}
-.navigation-arrow-left {
-  left: 0;
-  top: calc(50% - 11px);
-}
-.navigation-arrow-right {
-  right: 0;
-  top: calc(50% - 11px);
-}
-.navigation-arrow-up {
-  top: 0;
-  left: calc(50% - 11px);
-}
-.navigation-arrow-down {
-  bottom: 0;
-  left: calc(50% - 11px);
-}
 .navigation-projection {
   font-size: 11px;
   padding: 4px 7px;
 }
 .navigation-triad {
   position: absolute;
-  right: 100%;
-  top: 25px;
-  width: 75px;
-  height: 75px;
+  left: 10px;
+  top: 8px;
+  width: 72px;
+  height: 72px;
   pointer-events: none;
+}
+.navigation-triad[hidden] {
+  display: none;
 }
 .navigation-triad line {
   stroke-width: 2;
@@ -2192,14 +2166,6 @@ dialog .muted {
   .section-options {
     max-width: calc(100% - var(--orient-reach) - 90px);
     padding: 8px;
-  }
-  /* The triad normally sits left of the cube, exactly where the expanded cut
-     controls need to wrap. Keep it beneath the cube while those are open. */
-  .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
-    right: 0;
-    top: 220px;
-    width: 60px;
-    height: 60px;
   }
 }
 
@@ -2936,80 +2902,65 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .navigation-touch-controls .orient-home {
   opacity: 1;
 }
-/* Short arc arrows wrap the cube without covering its selectable faces. */
+/* Small outward triangles; 24px targets stay outside the cube reach. */
 .navigation-arrow {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  width: 40px;
+  position: absolute;
+  width: 24px;
   height: 24px;
-  background: none;
-  color: var(--ink-muted);
-  border: 0;
-  border-radius: 8px;
+  display: grid;
+  place-items: center;
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  opacity: 0.45;
+  cursor: pointer;
   z-index: 10;
   transition:
     opacity 120ms,
     color 120ms;
 }
 .navigation-arrow svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  width: 10px;
+  height: 8px;
+  fill: currentColor;
 }
 .orient-stage:hover .navigation-arrow,
-.orient-stage:focus-visible .navigation-arrow,
-.orient-stage:has(:focus-visible) .navigation-arrow,
 .navigation-keyboard-controls .navigation-arrow,
 .navigation-touch-controls .navigation-arrow {
-  visibility: visible;
-  opacity: 0.65;
-  pointer-events: auto;
+  opacity: 0.85;
 }
 .navigation-arrow:hover,
-.navigation-arrow:focus-visible,
+.navigation-arrow:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+  background: none;
+}
 .orient-home:hover,
 .orient-home:focus-visible {
   opacity: 1;
   background: var(--accent-soft);
   color: var(--accent);
 }
-.navigation-arrow-left,
-.navigation-arrow-right {
-  top: calc(50% - 12px);
-}
 .navigation-arrow-left {
-  left: -8px;
+  left: -4px;
+  top: calc(50% - 12px);
   transform: rotate(-90deg);
 }
 .navigation-arrow-right {
-  right: -8px;
+  right: -4px;
+  top: calc(50% - 12px);
   transform: rotate(90deg);
 }
-.navigation-arrow-up,
-.navigation-arrow-down {
-  left: calc(50% - 20px);
+.navigation-arrow-up {
+  top: -4px;
+  left: calc(50% - 12px);
 }
 .navigation-arrow-down {
+  bottom: -4px;
+  left: calc(50% - 12px);
   transform: rotate(180deg);
-}
-.navigation-triad {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-/* Section controls reserve --orient-reach, so integrated axes no longer need
-   the old narrow-layout exception that hid the floating panel. */
-.viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
-  display: block;
-  inset: 0;
-  width: 100%;
-  height: 100%;
 }
 .orient-menu {
   position: absolute;
@@ -3140,7 +3091,11 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .reset-dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 14px;
+}
+.reset-dialog-actions button {
+  min-height: 36px;
+  padding: 8px 18px;
 }
 #reset-dialog {
   max-width: min(420px, calc(100vw - 32px));
@@ -3169,4 +3124,42 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   .viewer-bottom .axis-label {
     display: none;
   }
+}
+
+/* Picked-up marking tools are distinct from passive display switches. */
+.tool.active:is(
+    [data-mode="label"],
+    [data-mode="fill"],
+    [data-mode="measure"]
+  ) {
+  background: var(--accent);
+  color: white;
+}
+.viewer-top {
+  justify-content: center;
+  padding-right: 0;
+  z-index: 3;
+}
+#review-status {
+  max-width: min(420px, 60%);
+  text-align: center;
+}
+#section-flip,
+#section-off {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#section-flip svg,
+#section-off svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+/* Keep the optional axes clear of the section panel on desktop and phones. */
+.viewer-shell:has(.navigation-triad:not([hidden])) .section-options {
+  top: 88px;
 }

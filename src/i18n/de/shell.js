@@ -26,5 +26,6 @@ export default {
   "shell.resetCancel": "Abbrechen",
   "shell.resetReadOnly":
     "Anzeige wiederhergestellt. Markierungen bleiben erhalten, da dieser Entwurf nicht bearbeitet werden kann.",
+  "shell.axes": "Koordinatenachsen anzeigen",
   "shell.zoomToCursor": "Mausrad-Zoom zur Zeigerposition",
 };

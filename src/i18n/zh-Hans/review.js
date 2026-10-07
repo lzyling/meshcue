@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "加载模型",
-  "review.earlierVersion": "较早版本 · 仍可标记",
   "review.openElsewhere": "另一个窗口已打开这一版",
-  "review.current": "当前版本 · 可以标记",
   "review.notInReview": "此版本不属于当前审阅。",
   "review.notMarked": "这一版尚未有标记。",
   "review.roundClosed": "这一版已结束；再标记即可重新开始。",

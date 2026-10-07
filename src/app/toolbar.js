@@ -1,7 +1,5 @@
 import { mountMenus } from "./menus.js";
-import { latestVersion, viewingBehindLatest } from "../versions.js";
 import { registerPanTool } from "./pan-tool.js";
-import { reusedVersionIsCurrent } from "./reuse-version.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
   function updateFillControl() {
@@ -17,10 +15,6 @@ export function installToolbar(review) {
     // The server decides what is permitted and says why when it is not. The page
     // only adds what the server cannot know: whether this tab has finished saving.
     const can = review.state?.capabilities || {};
-    const latest = latestVersion(review.state?.versions),
-      behind =
-        viewingBehindLatest(review.state?.versions, review.viewingId) &&
-        !reusedVersionIsCurrent(review, latest);
     const ready =
         !!review.loadedId &&
         review.viewer.enabled &&
@@ -42,17 +36,17 @@ export function installToolbar(review) {
     // Read-only rather than disabled: a note that cannot be changed right now
     // can still be read, scrolled and copied.
     review.noteBox().readOnly = busy || !can.canEdit;
-    review.$("#review-status").textContent = review.accessBlocked
+    const status = review.$("#review-status");
+    status.textContent = review.accessBlocked
       ? review.loadedId && review.initialDraftRestored
         ? t("conn.accessExpired")
         : t("conn.noAccess")
       : !ready
         ? t("review.loadingModel")
-        : behind
-          ? t("review.earlierVersion")
-          : review.state?.locked
-            ? t("review.openElsewhere")
-            : review.blockedText(can.blocked) || t("review.current");
+        : review.state?.locked
+          ? t("review.openElsewhere")
+          : review.blockedText(can.blocked);
+    status.hidden = !status.textContent;
     review.updateReceipt();
     review.renderVersions();
     review.updatePublicationNotices();
@@ -64,7 +58,9 @@ export function installToolbar(review) {
     review.showMeasure();
   }
 
+  let viewingMode = "orbit";
   function setMode(next) {
+    if (["orbit", "pan"].includes(next)) viewingMode = next;
     review.mode = next;
     if (next !== "relocate") review.relocatingId = null;
     review.viewer.setVisible(true);
@@ -101,6 +97,11 @@ export function installToolbar(review) {
     review.showToolHint?.(next);
   }
 
+  function toggleTool(mode) {
+    // Viewer.setMode uses the same clearMeasure path as Escape; saved marks stay.
+    setMode(review.mode === mode ? viewingMode : mode);
+  }
+
   function updatePalette() {
     document
       .querySelectorAll(".color-button")
@@ -123,7 +124,13 @@ export function installToolbar(review) {
     button.innerHTML = `${review.icon(name)}<span>${review.esc(t(caption))}</span>`;
   }
 
-  Object.assign(review, { updateButtons, setMode, updatePalette, showToggle });
+  Object.assign(review, {
+    updateButtons,
+    setMode,
+    toggleTool,
+    updatePalette,
+    showToggle,
+  });
 }
 
 export function bindToolbarOptions(review) {
@@ -300,7 +307,8 @@ export function registerToolbarCommands(review) {
         ["measure", "orbit"].includes(mode)
           ? ready()
           : idle() && !!review.state?.capabilities?.canEdit,
-      run: () => review.setMode(mode),
+      run: () =>
+        mode === "orbit" ? review.setMode(mode) : review.toggleTool(mode),
     });
     if (mode === "orbit") registerPanTool(review, ready);
   }

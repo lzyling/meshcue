@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { boxCorners } from "../viewer/navigation-math.js";
 import { t } from "../i18n/index.js";
-import { CUBE_GEOMETRY } from "../orient-cube.js";
 
 export function bindNavigation(review) {
   const viewer = review.viewer;
@@ -244,7 +243,7 @@ export function bindNavigation(review) {
       t(arrows.find((arrow) => arrow[0] === name)[3]),
     );
     arrow.title = arrow.getAttribute("aria-label");
-    arrow.innerHTML = `<svg viewBox="0 0 40 24" aria-hidden="true" focusable="false"><path d="M5 20C5 2 35 2 35 20M30 15l5 5 3-6"/></svg>`;
+    arrow.innerHTML = `<svg viewBox="0 0 10 8" aria-hidden="true" focusable="false"><path d="M0 8 5 0 10 8Z"/></svg>`;
     stage.append(arrow);
   }
   let drag,
@@ -363,27 +362,16 @@ export function bindNavigation(review) {
     triad.append(group);
     return { line, text, direction: new THREE.Vector3().setComponent(i, 1) };
   });
-  stage.append(triad);
+  review.$(".viewer-shell").append(triad);
+  const showAxes = (value) => {
+    triad.toggleAttribute("hidden", !value);
+  };
+  review.settings.on("axes", showAxes);
+  showAxes(review.settings.get("axes"));
   viewer.addFrameHook(() => {
-    // The origin is a bottom corner of this same cube, projected in the same
-    // 400px perspective, rather than a free-floating axes panel to its left.
-    // The axes themselves name file coordinates after the model's up rotation.
-    const size = stage.clientWidth || 156;
-    triad.setAttribute("viewBox", `0 0 ${size} ${size}`);
+    if (triad.hasAttribute("hidden")) return;
     const inverse = viewer.camera.quaternion.clone().invert();
-    const corner = new THREE.Vector3(
-      -CUBE_GEOMETRY.HALF + CUBE_GEOMETRY.CHAMFER,
-      -CUBE_GEOMETRY.HALF,
-      CUBE_GEOMETRY.HALF - CUBE_GEOMETRY.CHAMFER,
-    ).applyQuaternion(inverse);
-    const perspective = 400 / (400 - corner.z);
-    const x = size / 2 + corner.x * perspective;
-    const y = size / 2 - corner.y * perspective;
     for (const { line, text, direction } of axes) {
-      line.parentNode.setAttribute(
-        "transform",
-        `translate(${x - 45 * 0.65} ${y - 45 * 0.65}) scale(0.65)`,
-      );
       const d = direction
         .clone()
         .applyQuaternion(viewer.root.quaternion)
