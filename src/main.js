@@ -1,3 +1,4 @@
+import { mountOnboarding } from "./app/onboarding.js";
 import { bindHints } from "./app/hints.js";
 import { bindSidebar } from "./app/sidebar.js";
 import "./style.css";
@@ -61,6 +62,7 @@ installReceipt(review);
 review.commands = createCommandRegistry();
 registerToolbarCommands(review);
 mountShell(review);
+mountOnboarding(review);
 mountToolbar(review);
 initializeState(review);
 bindPublicationNotices(review);

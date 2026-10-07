@@ -4,7 +4,7 @@
 
 Toolbar icons and the Parts tab use SVG paths from [Lucide](https://lucide.dev),
 source: https://github.com/lucide-icons/lucide/tree/main/icons.
-Names: hand, orbit, paint-bucket, undo-2, redo-2, scan, rotate-ccw, ruler, map-pin, eye, eye-off, box, contrast, layers, circle-help, settings.
+Names: hand, orbit, paint-bucket, undo-2, redo-2, scan, house, rotate-ccw, ruler, map-pin, eye, eye-off, box, contrast, layers, circle-help, settings.
 Paths are embedded in `src/app/shell.js`; stroke width is customized to 1.75.
 Section and display-style icons are original drawings. No runtime dependency is added.
 

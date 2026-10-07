@@ -239,6 +239,7 @@ export function installApi(review) {
       review.updateOutbox(incoming);
       review.updateClosing(incoming);
       review.updateButtons();
+      review.maybeShowOnboarding?.();
     } catch (e) {
       // A service that announced its own reclaim and then stopped answering did
       // not fail. Saying "offline" here would describe a crash, and would leave

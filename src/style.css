@@ -3287,3 +3287,109 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     display: none;
   }
 }
+
+/* r8 onboarding and visibility polish: isolated for parallel feature merges. */
+#toggle-marks.tool[aria-pressed] {
+  background: transparent;
+  color: var(--ink-muted);
+}
+#toggle-marks.tool[aria-pressed]:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.orient-home {
+  width: 32px;
+  height: 32px;
+  padding: 5px;
+  opacity: 0.7;
+}
+.orient-home .icon {
+  width: 20px;
+  height: 20px;
+}
+.orient-stage:hover .orient-home,
+.orient-stage:focus-within .orient-home,
+.navigation-touch-controls .orient-home {
+  opacity: 0.7;
+}
+.orient-stage .orient-home:hover,
+.orient-stage .orient-home:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+}
+#help-dialog {
+  max-width: 940px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+.onboarding-steps li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-sunken);
+}
+.onboarding-steps svg {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 8px;
+}
+.onboarding-steps h3 {
+  font-size: 14px;
+}
+.onboarding-steps p {
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.onboarding-table-scroll {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+.onboarding-reference {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.onboarding-reference caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.onboarding-reference th,
+.onboarding-reference td {
+  padding: 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+  min-width: 80px;
+}
+.onboarding-reference th {
+  background: var(--surface-sunken);
+}
+.onboarding-more {
+  margin-top: 20px;
+}
+.onboarding-more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 800px) {
+  .onboarding-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  #help-dialog {
+    padding: 24px 16px;
+  }
+  .onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+}
