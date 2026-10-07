@@ -1,3 +1,4 @@
+import { markReference } from "../integration/summarize.mjs";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -382,6 +383,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("edge"),
+      show: z.enum(["color", "label"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       note,
@@ -405,6 +407,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("part"),
+      show: z.enum(["color", "label"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       note,
@@ -452,6 +455,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("pin"),
+      show: z.enum(["color", "label"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       meshId: id,
@@ -1232,9 +1236,9 @@ function deliverFeedback(item) {
         const summary = item.annotations
           .map((a) =>
             a.type === "part"
-              ? `${a.label}: part '${a.names.join("', '")}'${noted(a)}`
+              ? `${markReference(a)}: part '${a.names.join("', '")}'${noted(a)}`
               : a.type === "edge"
-                ? `${a.label}: edge (length ${a.length.toFixed(2)} ${units === "unspecified" ? "unit unspecified" : units})${noted(a)}`
+                ? `${markReference(a)}: edge (length ${a.length.toFixed(2)} ${units === "unspecified" ? "unit unspecified" : units})${noted(a)}`
                 : a.type === "measure"
                   ? `${a.label}: measurement, ${describeMeasure(a, units)}${noted(a)}`
                   : a.type === "pin"
@@ -1245,7 +1249,7 @@ function deliverFeedback(item) {
                    in both. Two different integers for one pin, neither saying
                    which mesh it counts in, is a discrepancy an agent has to
                    stop and resolve before it can trust either. */
-                      `${a.label}: pin on ${a.meshId}, source face ${a.sourceFaceIndex ?? a.faceIndex}${noted(a)}`
+                      `${markReference(a)}: pin on ${a.meshId}, source face ${a.sourceFaceIndex ?? a.faceIndex}${noted(a)}`
                     : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1", "source-v2"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position${noted(a)}`,
           )
           .join("\n");

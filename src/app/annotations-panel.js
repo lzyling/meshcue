@@ -1,3 +1,4 @@
+import { markAppearance } from "../mark-show.js";
 import { newId } from "../browser-crypto.js";
 import { t, currentLocale } from "../i18n/index.js";
 import { paintIndex, addPatches } from "../annotation-edits.js";
@@ -8,7 +9,8 @@ export function installAnnotationsPanel(review) {
       (a) => !review.submittedMarkIds?.has(a.id) && sameMarkTarget(a, pin),
     );
     if (previous) {
-      previous.color = review.color;
+      // Recolouring is still the same mark: retain its original display mode.
+      previous.color = markAppearance(previous.show, review.color).color;
       const explode = review.viewer.markView()?.explode;
       if (explode?.amount > 0) previous.view = { ...previous.view, explode };
       review.selectedId = previous.id;
@@ -20,8 +22,8 @@ export function installAnnotationsPanel(review) {
       id: newId(),
       type: "pin",
       label: review.nextLabel(),
-      color: review.color,
       ...pin,
+      ...markAppearance(review.markShow, review.color),
       view: review.viewer.markView(),
     };
     if (review.draftBytes() + review.markBytes(item) > review.MAX_MARK_BYTES)
@@ -189,7 +191,9 @@ export function installAnnotationsPanel(review) {
         badge.className = "annotation-badge";
         if (a.type === "measure") badge.classList.add("measure-badge");
         else badge.style.background = a.color;
-        badge.textContent = a.type === "region" ? "" : a.label;
+        badge.textContent =
+          a.type === "region" || a.show === "color" ? "" : a.label;
+        if (a.show === "label") badge.classList.add("label-only");
         const text = document.createElement("span");
         const title = document.createElement("strong");
         // A measurement is named by what it read.
@@ -227,8 +231,8 @@ export function installAnnotationsPanel(review) {
         select.append(badge, text);
         select.addEventListener("click", () => {
           review.selectedId = a.id;
-          // A measurement has no colour to hand the palette.
-          if (a.color) {
+          // Measurements and neutral letter-only marks have no palette colour.
+          if (a.color && a.show !== "label") {
             review.color = a.color;
             review.updatePalette();
           }

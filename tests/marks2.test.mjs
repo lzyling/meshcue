@@ -546,3 +546,169 @@ test("marks2 mark button opens its menu and checked item toggles the tool off", 
   assert.match(menus, /button.setAttribute\("aria-haspopup", "menu"\)/);
   assert.match(menus, /\["ArrowUp", "ArrowDown"\]/);
 });
+
+for (const show of [undefined, "color", "label"]) {
+  test(`mark-show draft roundtrip and summary: ${show ?? "legacy"}`, async (t) => {
+    const { f, owner, save } = await ready(t);
+    const pin = {
+      id: "pin-c",
+      type: "pin",
+      label: "C",
+      color: "#8a9399",
+      meshId: "mesh-0",
+      faceIndex: 0,
+      position: [0, 0, 0],
+      normal: [0, 0, 1],
+      barycentric: [1, 0, 0],
+    };
+    const annotations = [edge(), part(), pin].map((a) => ({
+      ...a,
+      ...(show ? { show } : {}),
+    }));
+    const saved = await save(annotations);
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const restored = await f.api(
+      `state?full=1&versionId=${owner.versionId}&clientId=${owner.clientId}`,
+    );
+    assert.equal(restored.status, 200);
+    assert.deepEqual(restored.body.draft.annotations, annotations);
+    const submitted = await f.api("feedback", {
+      method: "POST",
+      body: {
+        ...owner,
+        revision: saved.body.revision,
+        submissionId: "show-submission",
+      },
+    });
+    assert.equal(submitted.status, 200);
+    const fs = await import("node:fs"),
+      path = await import("node:path");
+    const message = JSON.parse(
+      fs.readFileSync(path.join(f.dir, "fake-gateway.json"), "utf8"),
+    ).calls.find((c) => c.method === "chat.send").params.message;
+    assert.ok(
+      message.includes(
+        show === "color"
+          ? "A (color-only mark, #ff0000): edge"
+          : show === "label"
+            ? "A (label-only mark): edge"
+            : "A: edge",
+      ),
+    );
+    const read = await f.ipc("/read", {
+      submissionId: "show-submission",
+      versionId: owner.versionId,
+    });
+    assert.equal(read.status, 200);
+    assert.deepEqual(read.body.annotations, annotations);
+    const summary = summarizeSubmission({ annotations });
+    for (const a of summary.annotations) assert.equal(a.show, show);
+    const { markReference } = await import("../integration/summarize.mjs");
+    assert.equal(
+      markReference(annotations[0]),
+      show === "color"
+        ? "A (color-only mark, #ff0000)"
+        : show === "label"
+          ? "A (label-only mark)"
+          : "A",
+    );
+  });
+}
+test("mark-show rejects illegal display modes on all object mark types", async (t) => {
+  const { save } = await ready(t);
+  for (const mark of [
+    edge(),
+    part(),
+    {
+      id: "pin-c",
+      type: "pin",
+      label: "C",
+      color: "#8a9399",
+      meshId: "mesh-0",
+      faceIndex: 0,
+      position: [0, 0, 0],
+      normal: [0, 0, 1],
+      barycentric: [1, 0, 0],
+    },
+  ]) {
+    assert.equal((await save([{ ...mark, show: "both" }])).status, 400);
+  }
+});
+test("mark-show creation allocates letters and replacement retains creation display", async () => {
+  const { installAnnotationsPanel } =
+    await import("../src/app/annotations-panel.js");
+  const { markAppearance, LABEL_ONLY_COLOR } =
+    await import("../src/mark-show.js");
+  assert.deepEqual(markAppearance("label", "#e76d5c"), {
+    color: LABEL_ONLY_COLOR,
+    show: "label",
+  });
+  let cursor = 0;
+  const review = {
+    annotations: [],
+    markShow: "color",
+    color: "#e76d5c",
+    nextLabel: () => String.fromCharCode(65 + cursor++),
+    viewer: { markView: () => ({}) },
+    draftBytes: () => 0,
+    markBytes: () => 0,
+    MAX_MARK_BYTES: 10000,
+    changed() {},
+  };
+  installAnnotationsPanel(review);
+  review.onPin({ type: "pin" });
+  review.markShow = "label";
+  review.onPin({ type: "pin" });
+  assert.equal(review.annotations[0].show, "color");
+  assert.equal(review.annotations[0].label, "A");
+  assert.equal(review.annotations[1].label, "B");
+  assert.equal(review.annotations[1].color, LABEL_ONLY_COLOR);
+  review.onPin(part());
+  review.markShow = "color";
+  review.onPin(part());
+  assert.equal(review.annotations.at(-1).show, "label");
+  assert.equal(review.annotations.at(-1).color, LABEL_ONLY_COLOR);
+});
+
+test("mark-show survives history and offline cache without changing paint", async () => {
+  const { installDraft } = await import("../src/app/draft.js");
+  const cache = new Map();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = { setItem: (k, v) => cache.set(k, v) };
+  try {
+    const review = {
+      annotations: [part({ show: "label", color: "#8a9399" })],
+      undoStack: [],
+      redoStack: [],
+      loadedId: "v",
+      DRAFT_PREFIX: "test-",
+      editSeq: 1,
+      savedSeq: 0,
+      viewer: { enabled: true, cameraState: () => null },
+      owner: () => ({}),
+      api: async () => ({ draft: {} }),
+      updateButtons() {},
+      toast: (m) => {
+        throw Error(m);
+      },
+    };
+    installDraft(review);
+    review.historyPush();
+    review.annotations = [
+      edge({ show: "color" }),
+      { type: "region", color: "#e76d5c", faces: {} },
+    ];
+    const latest = structuredClone(review.annotations);
+    review.changed = () => {};
+    review.flushDraft = async () => {};
+    assert.equal(review.cacheDraft(), true);
+    assert.deepEqual(JSON.parse([...cache.values()][0]).annotations, latest);
+    await review.travelHistory();
+    assert.equal(review.annotations[0].show, "label");
+    await review.travelHistory(true);
+    assert.deepEqual(review.annotations, latest);
+    assert.equal(review.annotations[1].show, undefined);
+  } finally {
+    globalThis.localStorage = previous;
+  }
+});

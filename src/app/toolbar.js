@@ -1,3 +1,4 @@
+import { MARK_SHOW_KEY } from "../mark-show.js";
 import { mountMenus, toolbarCaption } from "./menus.js";
 import { registerPanTool } from "./pan-tool.js";
 import { t } from "../i18n/index.js";
@@ -81,6 +82,10 @@ export function installToolbar(review) {
       "relocate",
       "measure",
     ].includes(next);
+    review.$("#mark-show").hidden = !["label", "edge", "part", "fill"].includes(
+      next,
+    );
+    updatePalette();
     review.$("#new-region").hidden = next !== "fill";
     review.$("#measure-options").hidden = next !== "measure";
     // Once every option inside it is gone the frame is all that is left, and an
@@ -107,6 +112,18 @@ export function installToolbar(review) {
   }
 
   function updatePalette() {
+    const disabled = review.markShow === "label" && review.mode !== "fill";
+    review.$("#mark-show-hint").hidden =
+      !disabled || review.$(".palette").hidden;
+    document.querySelectorAll("[data-mark-show]").forEach((b) => {
+      b.setAttribute(
+        "aria-pressed",
+        String(b.dataset.markShow === review.markShow),
+      );
+    });
+    document.querySelectorAll(".color-button").forEach((b) => {
+      b.disabled = disabled;
+    });
     document
       .querySelectorAll(".color-button")
       .forEach((b) =>
@@ -138,6 +155,26 @@ export function installToolbar(review) {
 }
 
 export function bindToolbarOptions(review) {
+  for (const show of ["both", "color", "label"]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.markShow = show;
+    b.textContent = t(
+      {
+        both: "markShow.both",
+        color: "markShow.color",
+        label: "markShow.label",
+      }[show],
+    );
+    b.addEventListener("click", () => {
+      review.markShow = show;
+      try {
+        localStorage.setItem(MARK_SHOW_KEY, show);
+      } catch {}
+      review.updatePalette();
+    });
+    review.$("#mark-show").append(b);
+  }
   for (const c of review.colors) {
     const b = document.createElement("button");
     b.className = "color-button";

@@ -612,6 +612,8 @@ mark, then say what to change."
 
 ## Reading marks
 
+Pins, edges and parts may have optional `show: "color" | "label"`. Absent means colour + letter. With `show: "color"`, only colour is visible: treat same-colour marks as one class; the stored letter is only for precise reference. With `show: "label"`, only the letter distinguishes marks and the neutral grey colour has no meaning. `label` and `color` remain required; painted regions are unaffected.
+
 `type: "edge"` marks an entire feature edge, not just a point. The summary gives `meshId`, `length`, `curved`, `ends` and optional `brep.face` (STEP face IDs); full `points` are available with `geometry: true`. Length is in model units.
 
 `type: "part"` marks whole parts or an Agent group. The summary gives `partIds`, `names`, `meshIds`, optional `group`, and model-space `bounds`. Interpret the note and conversation as applying to the whole part (for example “replace with M4”) or edge (for example “fillet”).

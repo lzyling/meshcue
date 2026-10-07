@@ -1,3 +1,7 @@
+export function markReference(a) {
+  return `${a.label}${a.show === "color" ? ` (color-only mark, ${a.color})` : a.show === "label" ? " (label-only mark)" : ""}`;
+}
+
 /* What `read` hands the agent.
 
    It used to hand over the batch exactly as stored — the comment above it said
@@ -43,6 +47,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       type: a.type,
       label: a.label,
       color: a.color,
+      ...(a.show ? { show: a.show } : {}),
       meshId: a.meshId,
       space: a.space,
       length: a.length,
@@ -58,6 +63,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       type: a.type,
       label: a.label,
       color: a.color,
+      ...(a.show ? { show: a.show } : {}),
       partIds: a.partIds,
       names: a.names,
       meshIds: a.meshIds,
@@ -87,6 +93,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       type: "pin",
       label: a.label,
       color: a.color,
+      ...(a.show ? { show: a.show } : {}),
       meshId: a.meshId,
       sourceFaceIndex: a.sourceFaceIndex ?? a.faceIndex,
       position: (a.position || []).map(round),

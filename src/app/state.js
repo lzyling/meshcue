@@ -1,3 +1,4 @@
+import { MARK_SHOW_KEY } from "../mark-show.js";
 import { newId } from "../browser-crypto.js";
 
 export function initializeState(review) {
@@ -12,6 +13,11 @@ export function initializeState(review) {
   review.colors = ["#e76d5c", "#e6b64b", "#6ab398", "#629bd8", "#ae82ce"];
 
   review.color = review.colors[0];
+  review.markShow = "both";
+  try {
+    const stored = localStorage.getItem(MARK_SHOW_KEY);
+    if (["color", "label"].includes(stored)) review.markShow = stored;
+  } catch {}
 
   review.state = null;
 
