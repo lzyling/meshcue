@@ -76,8 +76,75 @@ async function chooseTouchTool(page, mode) {
   await page.touchscreen.tap(r.x + r.width / 2, r.y + r.height - 4);
   await expect(button).toHaveClass(/active/);
 }
-for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
-  test(`R2 bug 1: deliberate taps mark and touch gestures only navigate (${device})`, async ({
+async function measureLayout(page) {
+  // Drain the disclosure's queued toggle and the layout observers before
+  // comparing rectangles, rather than depending on this machine's fonts.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  return page.evaluate(() => {
+    const rect = (selector) => {
+      const r = document.querySelector(selector).getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    return {
+      panel: rect("#tool-options"),
+      hint: rect(".tool-hint-box"),
+      reading: rect("#measure-reading"),
+    };
+  });
+}
+async function expectCanvasTap(page, point) {
+  expect(
+    await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.tagName,
+      point,
+    ),
+  ).toBe("CANVAS");
+}
+function expectPhoneMeasureClear(layout, points) {
+  // Thirty-two CSS pixels of breathing room rules out a font-specific pass
+  // by one or two pixels. The hint is at the top edge, controls at the bottom.
+  expect(layout.panel.y).toBeGreaterThanOrEqual(
+    Math.max(...points.map((p) => p.y)) + 32,
+  );
+  expect(layout.hint.y + layout.hint.height).toBeLessThanOrEqual(
+    Math.min(...points.map((p) => p.y)) - 32,
+  );
+}
+async function boxFacePoints(page) {
+  const d = await diag(page),
+    r = await page.locator("#viewer canvas").boundingBox();
+  const camera = new THREE.PerspectiveCamera(
+    d.camera.fov || 38,
+    r.width / r.height,
+    0.01,
+    100,
+  );
+  camera.up.fromArray(d.screenUp);
+  camera.position.fromArray(d.camera.position);
+  camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
+  camera.updateMatrixWorld();
+  // The centred 20 × 16 × 10 STL is scaled by 3/20 and stood +Z up.
+  // Aim at two known points on its front face: overlay-aware fitting can put
+  // empty space at the canvas centre, especially with a narrow toolbar.
+  return [-4, 4].map((x) => {
+    const p = new THREE.Vector3(0.15 * x, -0.3, 1.2).project(camera);
+    return {
+      x: r.x + ((p.x + 1) * r.width) / 2,
+      y: r.y + ((1 - p.y) * r.height) / 2,
+    };
+  });
+}
+for (const [device, locale] of [
+  ["iPhone 13", "en"],
+  ["iPhone 13", "de"],
+  ["iPad (gen 7) landscape", "en"],
+]) {
+  test(`R2 bug 1: deliberate taps mark and touch gestures only navigate (${device}${locale === "en" ? "" : `, ${locale}`})`, async ({
     browser,
   }) => {
     test.setTimeout(100000);
@@ -87,7 +154,12 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
     });
     try {
       const page = await context.newPage();
+      await page.addInitScript(
+        (locale) => localStorage.setItem("meshcue-locale", locale),
+        locale,
+      );
       await open(page);
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
       await page.locator("#toggle-annotations").tap();
       const r = await page.locator("#viewer canvas").boundingBox();
       const x = r.x + r.width / 2,
@@ -110,11 +182,41 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
       await page.locator("#measure-advanced summary").tap();
       await page.locator('[data-measure="points"]').tap();
       await page.locator("#measure-advanced summary").tap();
-      await page.touchscreen.tap(x - 45, y + 50);
-      await page.touchscreen.tap(x + 35, y + 50);
+      const taps = [
+        { x: x - 45, y: y + 50 },
+        { x: x + 35, y: y + 50 },
+      ];
+      const beforePick = await measureLayout(page);
+      if (device === "iPhone 13") expectPhoneMeasureClear(beforePick, taps);
+      await expectCanvasTap(page, taps[0]);
+      await page.touchscreen.tap(taps[0].x, taps[0].y);
+      expect((await diag(page)).measuring?.picks).toBe(1);
+      const afterFirstPick = await measureLayout(page);
+      if (device === "iPhone 13") {
+        expect(afterFirstPick).toEqual(beforePick);
+        expectPhoneMeasureClear(afterFirstPick, taps);
+      }
+      await expectCanvasTap(page, taps[1]);
+      await page.touchscreen.tap(taps[1].x, taps[1].y);
       await expect.soft
         .poll(async () => (await diag(page)).measuring?.result?.value)
         .toBeGreaterThan(0);
+      if (device === "iPhone 13") {
+        const afterSecondPick = await measureLayout(page);
+        expect(afterSecondPick).toEqual(beforePick);
+        fs.mkdirSync("tmp/b1v-ci/evidence", { recursive: true });
+        fs.writeFileSync(
+          `tmp/b1v-ci/evidence/r2-${locale}-geometry.json`,
+          JSON.stringify(
+            { taps, beforePick, afterFirstPick, afterSecondPick },
+            null,
+            2,
+          ),
+        );
+        await page.screenshot({
+          path: `tmp/b1v-ci/evidence/r2-${locale}-two-picks.png`,
+        });
+      }
       const session = await context.newCDPSession(page);
       for (const mode of ["label", "fill", "measure"]) {
         await chooseTouchTool(page, mode);
@@ -160,6 +262,71 @@ for (const device of ["iPhone 13", "iPad (gen 7) landscape"]) {
       await context.close();
     }
   });
+}
+
+for (const locale of ["en", "de"]) {
+  for (const viewport of [
+    { width: 360, height: 640 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`phone measurement layout stays put across kinds and larger reading fonts (${locale}, ${viewport.width}×${viewport.height})`, async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        ...devices["iPhone 13"],
+        viewport,
+        defaultBrowserType: undefined,
+      });
+      try {
+        const page = await context.newPage();
+        await page.addInitScript(
+          (locale) => localStorage.setItem("meshcue-locale", locale),
+          locale,
+        );
+        await open(page);
+        await page.locator("#toggle-annotations").tap();
+        await chooseTouchTool(page, "measure");
+        // Deliberately exaggerate font metrics beyond either host's defaults.
+        // The next-point text must wrap/scroll without growing the panel.
+        await page.addStyleTag({
+          content: "#measure-reading { font-size: 18px; letter-spacing: 1px; }",
+        });
+        const layouts = [];
+        for (const kind of ["smart", "points", "edge", "planes", "circle"]) {
+          if (kind === "smart")
+            await page.locator('[data-measure="smart"]').tap();
+          else {
+            await page.locator("#measure-advanced summary").tap();
+            await page.locator(`[data-measure="${kind}"]`).tap();
+            await page.locator("#measure-advanced summary").tap();
+          }
+          const before = await measureLayout(page);
+          const points = await boxFacePoints(page);
+          expectPhoneMeasureClear(before, points);
+          for (const point of points) {
+            await expectCanvasTap(page, point);
+            await page.touchscreen.tap(point.x, point.y);
+            expect(await measureLayout(page)).toEqual(before);
+          }
+          if (["points", "circle"].includes(kind))
+            expect((await diag(page)).measuring?.picks).toBe(2);
+          layouts.push({
+            kind,
+            points,
+            before,
+            after: await measureLayout(page),
+          });
+        }
+        fs.mkdirSync("tmp/b1v-ci/evidence", { recursive: true });
+        fs.writeFileSync(
+          `tmp/b1v-ci/evidence/kinds-${locale}-${viewport.width}-${viewport.height}.json`,
+          JSON.stringify(layouts, null, 2),
+        );
+      } finally {
+        await context.close();
+      }
+    });
+  }
 }
 
 for (const [width, height] of [

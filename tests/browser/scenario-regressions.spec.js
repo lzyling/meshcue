@@ -99,6 +99,20 @@ for (const locale of ["en", "zh-Hant", "de"]) {
         .toBe(true);
       await page.locator(".navigation-arrow-left").tap({ timeout: 3000 });
       await page.locator("#section-off").tap();
+      await clickControl(page, '[data-mode="measure"]', "tap");
+      await page.locator("#measure-advanced summary").tap();
+      // A full-width measurement strip must also leave its own controls and
+      // both toolbar rows tappable, including the longest German captions.
+      for (const control of await page
+        .locator(
+          "#measure-options button, #measure-advanced summary, .toolbar button:visible",
+        )
+        .all()) {
+        await expect(control).toBeVisible();
+        expect.soft(await unobscured(control)).toBe(true);
+      }
+      await screenshot(page, `bug1-${locale}-measure-expanded`);
+      await page.locator("#measure-advanced summary").tap();
       await clickControl(page, "#display-toggle", "tap");
       await expect(page.locator("#display-menu")).toBeVisible();
       await clickControl(page, "#display-toggle", "tap");
