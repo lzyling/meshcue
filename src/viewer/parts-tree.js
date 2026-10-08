@@ -204,14 +204,28 @@ export function createParts(onChange = () => {}) {
       projection = null;
       indexedRows = 0;
       let visibilityChanged = false;
-      for (const id of hiddenContainers.keys())
-        if (!id.startsWith("part-")) {
+      byId = new Map(tree.entries.map((p) => [p.id, p]));
+      const groupGates = [...hiddenContainers.keys()].filter(
+        (id) => !id.startsWith("part-"),
+      );
+      if (groups.length && (view === "agent" || groupGates.length))
+        ensureProjection();
+      for (const id of groupGates) {
+        const previous = hiddenContainers.get(id);
+        if (!byId.has(id)) {
           hiddenContainers.delete(id);
           visibilityChanged = true;
+        } else {
+          const current = meshes(id);
+          hiddenContainers.set(id, current);
+          if (
+            previous.length !== current.length ||
+            previous.some((mesh) => !current.includes(mesh))
+          )
+            visibilityChanged = true;
         }
+      }
       rebuildBlocked();
-      byId = new Map(tree.entries.map((p) => [p.id, p]));
-      if (view === "agent" && groups.length) ensureProjection();
       if (selected && !byId.has(selected)) selected = null;
       if (!groups.length) view = "file";
       emit(visibilityChanged ? "view" : "projection");
