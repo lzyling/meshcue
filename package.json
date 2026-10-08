@@ -60,7 +60,7 @@
     "@playwright/test": "^1.55.0",
     "esbuild": "0.28.2",
     "prettier": "^3.9.9",
-    "vite": "^8.3.1"
+    "vite": "^8.3.2"
   },
   "description": "Browser-based 3D review and annotation for agent-assisted modeling."
 }
