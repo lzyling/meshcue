@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures.mjs";
-import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
+import { clickControl, showParts } from "./r12-shell-helpers.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
@@ -8,6 +8,14 @@ const evidence = "tmp/b1v-view/evidence";
 let environment;
 const nav = (page) => page.evaluate(() => window.__navigationDiagnostics());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());
+const faded = (button) =>
+  expect
+    .poll(() => button.evaluate((el) => Number(getComputedStyle(el).opacity)))
+    .toBeCloseTo(0.45, 2);
+const bright = (button) =>
+  expect
+    .poll(() => button.evaluate((el) => Number(getComputedStyle(el).opacity)))
+    .toBeGreaterThanOrEqual(0.85);
 const settled = (page) =>
   expect.poll(async () => (await nav(page)).animating).toBe(false);
 test.afterEach(async () => environment?.stop());
@@ -24,6 +32,7 @@ async function open(page) {
 async function cube(page) {
   await page.locator("#settings-button").click();
   await page.locator("#setting-viewCube").check();
+  await page.locator("#setting-axes").check();
   await page.locator("#close-settings").click();
   await settled(page);
 }
@@ -65,7 +74,7 @@ test("view widget and fill evidence at desktop and phone sizes", async ({
   await shot(page, "phone-fill");
 });
 
-test("cube keeps Home visible, hides arrows until hover and embeds rotating axes", async ({
+test("cube keeps Home visible, exposes four triangle arrows and rotates optional top-left axes", async ({
   page,
 }) => {
   await open(page);
@@ -78,22 +87,30 @@ test("cube keeps Home visible, hides arrows until hover and embeds rotating axes
         .locator("#home-view")
         .evaluate((el) => getComputedStyle(el).opacity),
     ),
-  ).toBeLessThan(1);
-  await expect(page.locator(".navigation-arrow").first()).toBeHidden();
-  await expect(page.locator(".navigation-roll").first()).toBeHidden();
-  await expect(page.locator(".orient-stage > .navigation-triad")).toHaveCount(
+  ).toBeCloseTo(0.7, 2);
+  await expect(page.locator(".navigation-arrow").first()).toBeVisible();
+  await faded(page.locator(".navigation-arrow").first());
+  await expect(page.locator(".navigation-roll")).toHaveCount(0);
+  await expect(page.locator(".viewer-shell > .navigation-triad")).toHaveCount(
     1,
   );
   await page.locator(".orient-stage").hover();
-  for (const selector of [".navigation-arrow", ".navigation-roll"])
-    for (const button of await page.locator(selector).all())
-      await expect(button).toBeVisible();
-  expect(await page.locator(".navigation-arrow").allTextContents()).toEqual([
-    "◀",
-    "▶",
-    "▲",
-    "▼",
-  ]);
+  for (const button of await page.locator(".navigation-arrow").all())
+    await bright(button);
+  await expect(page.locator(".navigation-arrow")).toHaveCount(4);
+  for (const arrow of await page.locator(".navigation-arrow").all()) {
+    await expect(arrow).toHaveAccessibleName(/.+/);
+    await expect(arrow.locator("svg")).toHaveCount(1);
+  }
+  // r8 brightens Home itself, not every part of the surrounding widget.
+  await expect
+    .poll(() =>
+      page
+        .locator("#home-view")
+        .evaluate((el) => Number(getComputedStyle(el).opacity)),
+    )
+    .toBeCloseTo(0.7, 2);
+  await page.locator("#home-view").hover();
   await expect
     .poll(() =>
       page
@@ -103,50 +120,45 @@ test("cube keeps Home visible, hides arrows until hover and embeds rotating axes
     .toBe(1);
   const axes = await page.locator(".navigation-triad").innerHTML();
   const before = (await diag(page)).camera;
-  await page.locator(".navigation-roll-left").click();
+  await page.locator(".navigation-arrow-left").click();
+  await settled(page);
   const after = (await diag(page)).camera;
-  after.position.forEach((v, i) =>
-    expect(v).toBeCloseTo(before.position[i], 7),
-  );
+  expect(after.position).not.toEqual(before.position);
   after.target.forEach((v, i) => expect(v).toBeCloseTo(before.target[i], 7));
   await expect
     .poll(() => page.locator(".navigation-triad").innerHTML())
     .not.toBe(axes);
-  await expect(page.locator("#orient-cube")).toHaveAttribute(
-    "style",
-    /rotateZ/,
-  );
-  await shot(page, "desktop-rolled");
+  expect((await diag(page)).cameraUp).toEqual([0, 1, 0]);
+  await shot(page, "desktop-turned");
   await page.keyboard.press("f");
   await settled(page);
   for (const corner of (await nav(page)).bounds)
     expect(Math.max(Math.abs(corner[0]), Math.abs(corner[1]))).toBeLessThan(1);
-  await shot(page, "desktop-rolled-fit");
+  await shot(page, "desktop-turned-fit");
 });
 
-test("mouse-clicked cube arrows hide on leave while keyboard focus keeps them accessible", async ({
+test("mouse-clicked cube arrows fade on leave while keyboard focus keeps them bright and accessible", async ({
   page,
 }) => {
   await open(page);
   await cube(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const selector of [".navigation-arrow-left", ".navigation-roll-left"]) {
+  for (const selector of [
+    ".navigation-arrow-left",
+    ".navigation-arrow-right",
+  ]) {
     await page.locator(".orient-stage").hover();
     await page.locator(selector).click();
     await expect(page.locator(selector)).toBeFocused();
     await page.mouse.move(10, 10);
-    for (const button of await page
-      .locator(".navigation-arrow, .navigation-roll")
-      .all())
-      await expect(button).toBeHidden();
+    for (const button of await page.locator(".navigation-arrow").all())
+      await faded(button);
   }
   await page.locator(".orient-stage").focus();
   await page.keyboard.press("Tab");
   await expect(page.locator("#home-view")).toBeFocused();
-  for (const button of await page
-    .locator(".navigation-arrow, .navigation-roll")
-    .all())
-    await expect(button).toBeVisible();
+  for (const button of await page.locator(".navigation-arrow").all())
+    await bright(button);
   await page.keyboard.press("Tab");
   await expect(page.locator(".navigation-arrow-left")).toBeFocused();
   const before = (await diag(page)).camera;
@@ -154,15 +166,14 @@ test("mouse-clicked cube arrows hide on leave while keyboard focus keeps them ac
   await settled(page);
   expect((await diag(page)).camera.position).not.toEqual(before.position);
   await expect(page.locator(".navigation-arrow-left")).toBeVisible();
-  await page.locator(".navigation-roll-left").click();
+  await page.locator(".navigation-arrow-right").click();
+  await settled(page);
   await page.mouse.move(10, 10);
-  for (const button of await page
-    .locator(".navigation-arrow, .navigation-roll")
-    .all())
-    await expect(button).toBeHidden();
+  for (const button of await page.locator(".navigation-arrow").all())
+    await faded(button);
 });
 
-test("phone Section keeps the axes the same size and position as the cube stage", async ({
+test("phone Section clears the fixed-size top-left axes, independently of the cube", async ({
   page,
 }) => {
   await open(page);
@@ -177,13 +188,19 @@ test("phone Section keeps the axes the same size and position as the cube stage"
     const stage = await page.locator(".orient-stage").boundingBox();
     const triad = await page.locator(".navigation-triad").boundingBox();
     expect(triad).not.toBeNull();
-    for (const key of ["x", "y", "width", "height"])
-      expect(triad[key]).toBeCloseTo(stage[key], 5);
+    const shell = await page.locator(".viewer-shell").boundingBox();
+    expect(triad.x).toBeGreaterThanOrEqual(shell.x);
+    expect(triad.x + triad.width).toBeLessThan(stage.x);
+    expect(triad.y).toBeGreaterThanOrEqual(shell.y);
+    expect(triad.width).toBe(72);
+    expect(triad.height).toBe(72);
+    const section = await page.locator("#section-options").boundingBox();
+    expect(section.y).toBeGreaterThanOrEqual(triad.y + triad.height - 4);
     await shot(page, `phone-section-${width}`);
   }
 });
 
-test("saved review default includes framing, projection and roll, survives reload, and can be reset", async ({
+test("saved review default includes framing and projection, stays upright, survives reload, and can be reset", async ({
   page,
 }) => {
   await open(page);
@@ -195,7 +212,8 @@ test("saved review default includes framing, projection and roll, survives reloa
   await page.keyboard.press("Control+Shift+ArrowRight");
   await page.keyboard.press("Shift+z");
   await page.locator(".orient-stage").hover();
-  await page.locator(".navigation-roll-left").click();
+  await page.locator(".navigation-arrow-left").click();
+  await settled(page);
   const saved = await diag(page);
   const sent = [];
   page.on("request", (request) => {
@@ -206,7 +224,7 @@ test("saved review default includes framing, projection and roll, survives reloa
   await expect(page.locator(".orient-menu")).toBeVisible();
   await shot(page, "desktop-default-menu");
   await page.locator('[data-command="navigation-default-set"]').click();
-  expect((await nav(page)).defaultView.up).toBeTruthy();
+  expect((await diag(page)).cameraUp).toEqual([0, 1, 0]);
   expect(sent.join("\n")).not.toContain("meshcue-default-view");
   await page.keyboard.press("Shift+2");
   await page.locator("#home-view").click();
@@ -217,12 +235,7 @@ test("saved review default includes framing, projection and roll, survives reloa
         expect(v).toBeCloseTo(saved.camera[key][i], 6),
       );
     expect((await nav(page)).projection).toBe("orthographic");
-    const offset = current.camera.position.map(
-      (v, i) => v - current.camera.target[i],
-    );
-    expect(
-      Math.abs(current.cameraUp.reduce((sum, v, i) => sum + v * offset[i], 0)),
-    ).toBeLessThan(1e-6);
+    expect(current.cameraUp).toEqual([0, 1, 0]);
   };
   await equal();
   await page.reload();
@@ -328,7 +341,8 @@ test("touch reveals compact controls, long-press opens defaults, and a drag does
     await expect(page.locator(".orient-stage")).toHaveClass(
       /navigation-touch-controls/,
     );
-    await expect(page.locator(".navigation-roll-left")).toBeVisible();
+    await expect(page.locator(".navigation-arrow-left")).toBeVisible();
+    await expect(page.locator(".navigation-roll")).toHaveCount(0);
     await shot(page, "phone-touch-controls");
     await page.evaluate(() => {
       window.__cubeTouchEvents = [];

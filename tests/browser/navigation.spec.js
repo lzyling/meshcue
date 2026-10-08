@@ -1,4 +1,4 @@
-import { clickControl } from "./b1u-shell-helpers.mjs";
+import { clickControl } from "./r12-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
@@ -77,6 +77,25 @@ test("navigation wheel and trackpad pinch keep the surface point within three pi
   page,
 }) => {
   await open(page);
+  await front(page);
+  const centred = await state(page);
+  const offCentre = await project(page, [0.45, 0.2, 1.2]);
+  await page.mouse.move(offCentre.x, offCentre.y);
+  await page.mouse.wheel(0, -80);
+  await page.waitForTimeout(80);
+  const zoomed = await state(page);
+  zoomed.camera.target.forEach((value, i) =>
+    expect(value).toBeCloseTo(centred.camera.target[i], 8),
+  );
+  expect(zoomed.navigation.visibleHeight).toBeLessThan(
+    centred.navigation.visibleHeight,
+  );
+  await page.keyboard.press("f");
+  await settled(page);
+  await page.locator("#settings-button").click();
+  await expect(page.locator("#setting-zoomToCursor")).not.toBeChecked();
+  await page.locator("#setting-zoomToCursor").check();
+  await page.locator("#close-settings").click();
   await front(page);
   for (const projection of ["perspective", "orthographic"]) {
     if (projection === "orthographic")
@@ -380,6 +399,11 @@ test("navigation cube drags and arrows turn without roll and the triad follows S
           ]),
         ),
       );
+  await page.locator("#settings-button").click();
+  await expect(page.locator("#setting-axes")).not.toBeChecked();
+  await page.locator("#setting-axes").check();
+  await page.locator("#close-settings").click();
+  await expect(page.locator(".navigation-triad")).toBeVisible();
   let axes = await labels();
   expect(axes.X[0]).toBeCloseTo(80, 2);
   expect(axes.Z[1]).toBeCloseTo(14, 2);
@@ -408,6 +432,10 @@ test("navigation cube drags and arrows turn without roll and the triad follows S
   });
   await open(page);
   await front(page);
+  await page.locator("#settings-button").click();
+  await page.locator("#setting-axes").check();
+  await page.locator("#close-settings").click();
+  await expect(page.locator(".navigation-triad")).toBeVisible();
   axes = await labels();
   expect(axes.Y[1]).toBeCloseTo(14, 2);
   expect(axes.Z[1]).toBeCloseTo(49, 2);
