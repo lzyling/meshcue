@@ -6,15 +6,13 @@ import { test, expect } from "./fixtures.mjs";
 import { startReview } from "../helpers/review-server.mjs";
 import { browserOrigin } from "../helpers/browser-server.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
+import { clickControl, showParts } from "./r12-b-helpers.mjs";
 
 const evidence = path.resolve("tmp/b1v-groups/evidence");
 let fixture, cleanup, file, groups;
 const diagnostics = (page) => page.evaluate(() => window.__reviewDiagnostics());
 const row = (page, id) => page.locator(`[data-part-id="${id}"]`);
 const groupRow = (page) => row(page, "agent-group:service");
-const switchView = (page, view) =>
-  page.locator(`[data-parts-view="${view}"]`).click();
 
 test.beforeEach(async () => {
   cleanup = [];
@@ -108,11 +106,7 @@ test("optional groups show nested native aliases Other parts and disabled refere
   page,
 }) => {
   const kit = await open(page, groups);
-  await expect(page.locator('[data-parts-view="file"]')).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await switchView(page, "agent");
+  await expect(page.locator("[data-parts-view]")).toHaveCount(0);
   await expect(groupRow(page)).toHaveAttribute("aria-level", "1");
   await expect(row(page, "agent-group:fasteners")).toHaveAttribute(
     "aria-level",
@@ -154,7 +148,6 @@ test("group hide isolate transparency and fit act on the member and child-group 
   page,
 }) => {
   await open(page, groups);
-  await switchView(page, "agent");
   await groupRow(page).locator(".parts-name").click();
   await page.keyboard.press("y");
   await expect(row(page, "agent-member:service:0:part-0.0.0")).toHaveClass(
@@ -187,33 +180,52 @@ test("group hide isolate transparency and fit act on the member and child-group 
   expect(Math.abs(target[0])).toBeLessThan(0.05);
 });
 
-test("switching views shares visibility and Reset restores all parts without altering marks", async ({
+test("parent gates retain child switches and Reset restores all parts and clears marks", async ({
   page,
 }) => {
-  await open(page, groups);
-  await switchView(page, "agent");
-  await groupRow(page).locator(".parts-name").click();
-  await clickControl(page, '[data-command="parts-hide"]');
-  await switchView(page, "file");
-  await expect(row(page, "part-0.0.0")).toHaveClass(/part-hidden/);
-  await switchView(page, "agent");
-  await expect(groupRow(page)).toHaveClass(/part-hidden/);
+  const kit = await open(page, groups);
+  await page.locator("#sidebar-marks").click();
+  await clickControl(page, '[data-mode="label"]');
+  await kit.clickModelPoint([0, 0, 0.5], { meshId: "mesh-1" });
+  await expect
+    .poll(async () => (await diagnostics(page)).annotationCount)
+    .toBe(1);
+  await clickControl(page, '[data-mode="orbit"]');
+  await showParts(page);
+  await groupRow(page).locator(".parts-eye").click();
+  const child = row(page, "agent-member:service:0:part-0.0.0");
+  await expect(child).toHaveClass(/part-hidden/);
+  await expect(child.locator(".parts-eye")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await child.locator(".parts-eye").click();
+  await expect(child.locator(".parts-eye")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await child.locator(".parts-eye").click();
+  await expect(child).toHaveClass(/part-hidden/);
+  await groupRow(page).locator(".parts-eye").click();
+  await expect(child).not.toHaveClass(/part-hidden/);
+  await groupRow(page).locator(".parts-eye").click();
   await row(page, "agent-other").locator(".parts-name").click();
-  await clickControl(page, '[data-command="parts-hide"]');
-  const before = await diagnostics(page);
+  await clickControl(page, '[data-command="parts-transparent"]');
+  await expect(row(page, "agent-other")).toHaveClass(/part-transparent/);
   await clickControl(page, '[data-command="reset-preview"]');
+  await expect(page.locator("#reset-dialog")).toBeVisible();
+  await page.locator("#reset-confirm").click();
   await expect(page.locator(".parts-row.part-hidden")).toHaveCount(0);
   await expect(page.locator(".parts-row.part-transparent")).toHaveCount(0);
-  expect((await diagnostics(page)).annotations).toEqual(before.annotations);
-  await switchView(page, "file");
-  await expect(page.locator(".parts-row.part-hidden")).toHaveCount(0);
+  await expect
+    .poll(async () => (await diagnostics(page)).annotations)
+    .toEqual([]);
 });
 
 test("search keyboard and surface picking reveal the first declared alias without grouping the pick", async ({
   page,
 }) => {
   const kit = await open(page, groups);
-  await switchView(page, "agent");
   await page.locator("#parts-search").fill("Front");
   await expect(groupRow(page)).toBeVisible();
   await expect(row(page, "agent-group:invalid")).toHaveCount(0);
@@ -238,11 +250,10 @@ test("search keyboard and surface picking reveal the first declared alias withou
   expect((await diagnostics(page)).annotationCount).toBe(0);
 });
 
-test("same-content metadata updates keep visibility and geometry loaded and remember the local view", async ({
+test("same-content metadata updates keep visibility and geometry loaded and use automatic grouping", async ({
   page,
 }) => {
   await open(page, groups);
-  await switchView(page, "agent");
   await groupRow(page).locator(".parts-eye").click();
   const original = await diagnostics(page);
   const replace = await fixture.ipc("/publish", {
@@ -262,10 +273,8 @@ test("same-content metadata updates keep visibility and geometry loaded and reme
   await page.reload();
   await page.locator("#loading").waitFor({ state: "hidden" });
   await showParts(page);
-  await expect(page.locator('[data-parts-view="agent"]')).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(page.locator("[data-parts-view]")).toHaveCount(0);
+  await expect(groupRow(page)).toBeVisible();
   await fixture.ipc("/publish", {
     file: path.relative(process.cwd(), file),
     activate: false,
@@ -275,7 +284,7 @@ test("same-content metadata updates keep visibility and geometry loaded and reme
   await expect(row(page, "part-0.0.0")).toBeVisible();
 });
 
-test("phone portrait has a localized usable grouping switch and nested rows", async ({
+test("phone portrait has localized automatic groups and usable nested rows", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -283,10 +292,11 @@ test("phone portrait has a localized usable grouping switch and nested rows", as
     localStorage.setItem("meshcue-locale", "zh-Hans"),
   );
   const kit = await open(page, groups);
-  await switchView(page, "agent");
-  await expect(page.locator('[data-parts-view="file"]')).toHaveText("文件");
-  await expect(page.locator('[data-parts-view="agent"]')).toHaveText(
-    "Agent 分组",
+  await expect(page.locator("[data-parts-view]")).toHaveCount(0);
+  await expect(page.locator(".parts-heading")).toHaveText("零件");
+  await expect(row(page, "agent-group:fasteners")).toHaveAttribute(
+    "aria-level",
+    "2",
   );
   await expect(row(page, "agent-other").locator(".parts-name")).toHaveText(
     "其他零件",
@@ -295,7 +305,9 @@ test("phone portrait has a localized usable grouping switch and nested rows", as
     () => document.documentElement.scrollWidth - innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(1);
-  const button = await page.locator('[data-parts-view="agent"]').boundingBox();
+  const button = await groupRow(page).locator(".parts-name").boundingBox();
   expect(button.width).toBeGreaterThan(45);
+  await groupRow(page).locator(".parts-eye").click();
+  await expect(groupRow(page)).toHaveClass(/part-hidden/);
   await kit.screenshot("after-phone-agent-zh-Hans");
 });

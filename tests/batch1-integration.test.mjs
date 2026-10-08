@@ -18,10 +18,15 @@ function assembly() {
   return { root, parent, child, parts };
 }
 
-test("parts framing uses navigation fit and Fit all excludes hidden parent surfaces in both projections", () => {
+test("parts framing respects parent gates and Fit all frames an isolated child in both projections", () => {
   const { root, parent, child, parts } = assembly();
   parts.setVisible(parts.partOfMesh("parent"), false);
   parts.setVisible(parts.partOfMesh("child"), true);
+  // A child switch cannot reopen a hidden parent (r4 Fusion-style gates).
+  assert.equal(parts.isVisible(parts.partOfMesh("parent")), false);
+  assert.equal(parts.meshVisible("child"), false);
+  // Isolation explicitly overrides gates and keeps the parent traversable.
+  parts.isolate([parts.partOfMesh("child")]);
   // The parent must remain traversable so Three can draw its visible child.
   // Its own much larger geometry must not influence the requested framing.
   assert.equal(parts.isVisible(parts.partOfMesh("parent")), true);
@@ -126,6 +131,8 @@ test("display styles keep a hidden parent surface and its edges hidden while dra
   const child = viewer.parts.partOfMesh("child");
   viewer.parts.setVisible(parent, false);
   viewer.parts.setVisible(child, true);
+  assert.equal(viewer.parts.meshVisible("child"), false);
+  viewer.parts.isolate([child]);
   for (const style of ["edges", "hidden", "wireframe", "xray", "shaded"]) {
     viewer.setDisplayStyle(style);
     assert.equal(viewer.parent.visible, true);

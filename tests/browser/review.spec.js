@@ -1,4 +1,4 @@
-import { clickControl, selectSetting } from "./b1u-shell-helpers.mjs";
+import { clickControl, selectSetting } from "./r12-b-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
@@ -250,7 +250,8 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
     .toBe(original);
-  await expect(page.locator("#pending-banner")).toBeVisible();
+  await expect(page.locator("#pending-banner")).toBeHidden();
+  await expect(page.locator("#review-status")).toBeHidden();
   expect(
     await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
   ).toBe(1);
@@ -273,8 +274,11 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   // does: he hands the batch over and walks onto whatever the Agent publishes
   // next. The submission below was made by handing over, not by finishing.
   await expect(page.locator("#loading")).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Show the latest version", exact: true }),
+  ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Show the latest version", exact: true })
+    .locator(`.version-tab[data-version-id="${next.model.id}"]`)
     .click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
@@ -735,10 +739,7 @@ test("the looking tool places nothing while either left or right drag rotates", 
   const moved = await page.evaluate(() => window.__reviewDiagnostics());
   expect(moved.annotationCount).toBe(0);
   expect(moved.camera).not.toEqual(dragged.camera);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
@@ -1093,10 +1094,7 @@ test("marking never has to stop to turn the model, and does not consume point la
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations).toEqual(before.annotations);
   expect(after.camera).not.toEqual(before.camera);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(p.x, p.y);
   await expect
@@ -1153,10 +1151,7 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.mouse.move(p.x + 40, p.y + 20, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(600);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
@@ -1430,13 +1425,13 @@ test("iteration: the orientation cube sits in the corner it is read from", async
   expect(cube.y - shell.y).toBeLessThan(16);
   expect(shell.x + shell.width - (cube.x + cube.width)).toBeLessThan(16);
 });
-test("iteration: marks live on Marks and plain view lives in Display options", async ({
+test("iteration: marks visibility lives in Display toolbar and plain colour in Style menu", async ({
   page,
 }) => {
   await ready(page);
-  const marks = page.locator("#marks-controls #toggle-marks");
-  await page.locator("#display-menu-button").click();
-  const plain = page.locator("#display-options #neutral-view");
+  const marks = page.locator('.toolbar [data-menu="display"] #toggle-marks');
+  await page.locator("#display-toggle").click();
+  const plain = page.locator('#display-menu [role="menuitemcheckbox"]');
   // They used to float over the model in a corner of their own, which is the
   // one place on the page that is meant to be the model.
   await expect(marks).toBeVisible();
@@ -1447,20 +1442,23 @@ test("iteration: marks live on Marks and plain view lives in Display options", a
   // Named on the face like every other button in the row. The caption is what
   // the switch is about; the icon is which way it is set.
   await expect(marks.locator("span")).toHaveText("Marks");
-  await expect(plain.locator("span")).toHaveText("Plain");
+  await expect(plain.locator(".menu-option-label")).toHaveText(
+    "Plain colour (ignore model colours)",
+  );
   await clickControl(page, "#toggle-marks");
   expect(await iconOf(marks)).toBe("#mc-eye-off");
   // Redrawing the icon must not take the caption with it.
   await expect(marks.locator("span")).toHaveText("Marks");
-  await expect(marks).toHaveAttribute("aria-pressed", "true");
+  await expect(marks).toHaveAttribute("aria-pressed", "false");
   await expect(marks).toHaveAttribute("aria-label", "Show marks");
   await clickControl(page, "#neutral-view");
-  await expect(plain).toHaveAttribute("aria-pressed", "true");
-  await expect(plain).toHaveAttribute("aria-label", "Original colours");
+  await expect(plain).toHaveAttribute("aria-checked", "true");
+  await expect(plain).toHaveAttribute("title", "Original colours");
+  await expect(page.locator("#display-toggle")).toHaveClass(/neutral-active/);
   // Picking a tool brings the marks back, so the switch has to admit it.
   await clickControl(page, '[data-mode="label"]');
   expect(await iconOf(marks)).toBe("#mc-eye");
-  await expect(marks).toHaveAttribute("aria-pressed", "false");
+  await expect(marks).toHaveAttribute("aria-pressed", "true");
 });
 test("iteration: the options panel is gone whenever the tool has no options", async ({
   page,

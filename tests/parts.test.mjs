@@ -338,7 +338,7 @@ test("part opacity restores source alpha through plain view and updates existing
   assert.equal(counter.visible, true);
 });
 
-test("showing a child of a hidden mesh node draws only the child", () => {
+test("child switches preserve a hidden parent gate; isolation draws only the child", () => {
   const parent = new THREE.Mesh(
     new THREE.BoxGeometry(),
     new THREE.MeshBasicMaterial(),
@@ -362,6 +362,14 @@ test("showing a child of a hidden mesh node draws only the child", () => {
   viewer.parts.setVisible(viewer.parts.partOfMesh("mesh-0"), false);
   assert.equal(parent.visible, false);
   viewer.parts.setVisible(viewer.parts.partOfMesh("mesh-1"), true);
+  assert.equal(parent.visible, false);
+  assert.equal(child.material.visible, false);
+  assert.equal(viewer.parts.meshPickable("mesh-1"), false);
+  assert.equal(
+    viewer.parts.visibilityEnabled(viewer.parts.partOfMesh("mesh-1")),
+    true,
+  );
+  viewer.parts.isolate([viewer.parts.partOfMesh("mesh-1")]);
   assert.equal(parent.visible, true);
   assert.equal(parent.material.visible, false);
   assert.equal(child.visible, true);

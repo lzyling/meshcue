@@ -1,11 +1,7 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import {
-  clickControl,
-  selectSetting,
-  showParts,
-} from "./b1u-shell-helpers.mjs";
+import { clickControl, selectSetting, showParts } from "./r12-b-helpers.mjs";
 import fs from "node:fs";
 import * as THREE from "three";
 
@@ -433,7 +429,8 @@ test("Fit to window and Home use different icons", async ({ page }) => {
       .locator(`.toolbar [data-command="${command}"] use`)
       .getAttribute("href");
   const fit = await icon("navigation-fit"),
-    home = await icon("home");
+    home = await page.locator("#home-view use").getAttribute("href");
+  await expect(page.locator('.toolbar [data-command="home"]')).toHaveCount(0);
   expect(home).toBe("#mc-home");
   expect(fit).not.toBe(home);
   // The icon it names is drawn from the bundle's own sprite, not left blank.
