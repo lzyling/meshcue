@@ -161,6 +161,9 @@ for (const [device, locale] of [
       await open(page);
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
       await page.locator("#toggle-annotations").tap();
+      // The renderer resizes in a ResizeObserver after the sidebar folds.
+      // Use the final canvas, not the old pre-fold backing element size.
+      await measureLayout(page);
       const r = await page.locator("#viewer canvas").boundingBox();
       const x = r.x + r.width / 2,
         y = r.y + r.height / 2;
@@ -172,6 +175,7 @@ for (const [device, locale] of [
         .poll(async () => (await diag(page)).annotationCount)
         .toBe(1);
       await chooseTouchTool(page, "fill");
+      await expectCanvasTap(page, { x: x - 45, y: y + 35 });
       await page.touchscreen.tap(x - 45, y + 35);
       await expect.soft
         .poll(async () => (await diag(page)).annotationCount)

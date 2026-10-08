@@ -3344,8 +3344,9 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 
 /* Captioned tools must also fit tablet views with the sidebar still open.
    Wrap intact groups within the canvas rather than overflowing the viewport;
-   desktop captions and 44px targets remain unchanged. */
-@media (min-width: 761px) and (max-width: 1000px) {
+   desktop captions and 44px targets remain unchanged. Short landscape phones
+   retain their existing single-row layout rather than acquiring tablet rows. */
+@media (min-width: 761px) and (max-width: 1000px) and (min-height: 500px) {
   .toolbar {
     flex-wrap: wrap !important;
     justify-content: center;
@@ -3358,6 +3359,30 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   }
   .toolbar .toolbar-history {
     flex: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* A shrink-to-fit translated fill dock added a separate row for New area,
+     covering centre-face taps after the folded sidebar's canvas resized. */
+  .tool-options:has(#fill-control:not([hidden])) {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+  }
+  /* Keep the closed chooser and its reserved reading on one stable row.
+     The full-width reading row lifted the dock into the next-pick clearance
+     on a 390x664 phone. Its 32px scroll slot and 44px controls stay intact;
+     deliberately opening Advanced retains the existing expanded layout. */
+  #measure-options:has(#measure-advanced:not([open])) > [data-measure="smart"] {
+    flex: 0 0 72px;
+    overflow-wrap: anywhere;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-advanced {
+    flex: 0 0 64px;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-reading {
+    order: 0;
+    flex: 1 1 0;
   }
 }
 
