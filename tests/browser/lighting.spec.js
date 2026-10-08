@@ -1,4 +1,4 @@
-import { clickControl } from "./b1u-shell-helpers.mjs";
+import { clickControl } from "./r12-shell-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
