@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { clickControl } from "./b1u-shell-helpers.mjs";
+import { clickControl } from "./r12-shell-helpers.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -29,10 +29,12 @@ test("overflow menus navigate and close; direct tools keep stable faces", async 
   page,
 }) => {
   await open(page);
-  for (const menu of ["view", "display"]) {
-    const arrow = page.locator(`#${menu}-menu-button`),
+  for (const menu of ["view-mode", "display"]) {
+    const arrow = page.locator(
+        menu === "display" ? "#display-toggle" : "#view-mode-toggle",
+      ),
       popup = page.locator(
-        menu === "display" ? "#display-options" : `#${menu}-menu`,
+        menu === "display" ? "#display-menu" : `#${menu}-menu`,
       );
     await arrow.click();
     await expect(popup).toBeVisible();
@@ -55,23 +57,27 @@ test("overflow menus navigate and close; direct tools keep stable faces", async 
     await page.locator(".brand").click();
     await expect(popup).toBeHidden();
   }
-  await page.locator("#view-mode-toggle").click();
-  await expect(page.locator("#view-mode-toggle")).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await choose(page, "view", '[data-mode="pan"]');
+  await expect(page.locator("#view-mode-toggle use")).toHaveAttribute(
+    "href",
+    "#mc-pan",
   );
   await page.reload();
   await page.waitForFunction(
     () => window.__reviewDiagnostics?.().viewer.meshes > 0,
   );
   // No remembered last-action face: reset view/fit remain directly available.
-  await expect(page.locator("#view-mode-toggle")).toHaveAttribute(
-    "aria-pressed",
-    "false",
+  await expect(page.locator("#view-mode-toggle use")).toHaveAttribute(
+    "href",
+    "#mc-orbit",
   );
-  await expect(page.locator('.toolbar [data-command="home"]')).toBeVisible();
-  await page.locator("#view-mode-toggle").click();
-  await expect(page.locator('[data-mode="pan"]')).toHaveClass(/active/);
+  await expect(page.locator('.toolbar [data-command="home"]')).toHaveCount(0);
+  await expect(page.locator("#home-view")).toBeVisible();
+  await choose(page, "view", '[data-mode="pan"]');
+  await expect(page.locator('[data-mode="pan"]')).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   await choose(page, "mark", '[data-mode="fill"]');
   await expect(page.locator("#fill-control")).toBeVisible();
   await choose(page, "inspect", "#section-toggle");
@@ -105,8 +111,10 @@ test("settings persist, Parts hides hand-over and hints can be restored", async 
   await page.locator("#setting-viewCube").uncheck();
   await page.locator("#setting-performance").check();
   await page.locator("#reset-tool-hints").click();
-  await page.locator("#settings-features summary").click();
-  await expect(page.locator("#settings-features dl")).toContainText("Ctrl/⌘+Z");
+  await page.locator("#settings-features details summary").click();
+  await expect(page.locator("#settings-features details dl")).toContainText(
+    "Ctrl/⌘+Z",
+  );
   await closeSettings(page);
   await expect(page.locator(".tool-hint-box")).toBeVisible();
   await expect(page.locator(".orient")).toBeHidden();
@@ -114,7 +122,7 @@ test("settings persist, Parts hides hand-over and hints can be restored", async 
   await expect(page.locator("#perf-details")).toBeHidden();
   await page.locator("#perf-summary").click();
   await expect(page.locator("#perf-copy")).toBeVisible();
-  await page.locator("#view-menu-button").click();
+  await page.locator("#view-mode-toggle").click();
   await expect(page.locator("#perf-panel")).toBeHidden();
   await expect(page.locator(".tool-hint-box")).toBeHidden();
   await page.keyboard.press("Escape");
@@ -195,7 +203,7 @@ test("the sidebar strip expands Marks to submit and settings switch back off", a
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
 });
 
-test("single-version tabs stay hidden and earlier-version banners survive multiple versions", async ({
+test("single-version tabs stay hidden and multiple pages remain reachable without obsolete banners", async ({
   page,
 }) => {
   await open(page);
@@ -214,9 +222,16 @@ test("single-version tabs stay hidden and earlier-version banners survive multip
   });
   await expect(page.locator(".version-tab")).toHaveCount(2);
   await page.locator(`[data-version-id="${first}"]`).click();
-  await expect(page.locator("#pending-banner")).toBeVisible();
-  await page.locator("#go-latest").click();
-  await expect(page.locator("#pending-banner")).toBeHidden();
+  await expect(page.locator("#pending-banner, #go-latest")).toHaveCount(0);
+  await expect(page.locator(`[data-version-id="${first}"]`)).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.locator(".version-tab").last().click();
+  await expect(page.locator(".version-tab").last()).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   for (const theme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: theme });
     await page.screenshot({
@@ -241,8 +256,10 @@ for (const theme of ["light", "dark"]) {
     await page.locator("#reset-tool-hints").click();
     await closeSettings(page);
     await shot("hints-restored");
-    for (const menu of ["view", "display"]) {
-      await page.locator(`#${menu}-menu-button`).click();
+    for (const menu of ["view-mode", "display"]) {
+      await page
+        .locator(menu === "display" ? "#display-toggle" : "#view-mode-toggle")
+        .click();
       await shot(`${menu}-menu`);
       await page.keyboard.press("Escape");
     }
@@ -319,7 +336,7 @@ for (const [width, height] of [
                 return { x: b.x, y: b.y, width: b.width, height: b.height };
               }),
             );
-          expect(controls).toHaveLength(6);
+          expect(controls).toHaveLength(5);
           for (const button of await page
             .locator(".toolbar button:visible")
             .all()) {
@@ -332,12 +349,21 @@ for (const [width, height] of [
             expect(controls[i].x + controls[i].width).toBeLessThanOrEqual(
               width,
             );
-            if (width > 760)
+            if (width >= 1024)
               expect(Math.abs(controls[i].y - controls[0].y)).toBeLessThan(2);
             if (i) expect(noOverlap(controls[i - 1], controls[i])).toBe(true);
           }
-          await page.locator("#view-menu-button").click();
-          const menu = await page.locator("#view-menu").boundingBox();
+          if (width === 768) {
+            expect(new Set(controls.map((box) => Math.round(box.y))).size).toBe(
+              2,
+            );
+            for (const caption of await page
+              .locator(".toolbar .tool span")
+              .all())
+              await expect(caption).toBeVisible();
+          }
+          await page.locator("#view-mode-toggle").click();
+          const menu = await page.locator("#view-mode-menu").boundingBox();
           expect(menu.x).toBeGreaterThanOrEqual(0);
           expect(menu.y).toBeGreaterThanOrEqual(0);
           expect(menu.x + menu.width).toBeLessThanOrEqual(width);

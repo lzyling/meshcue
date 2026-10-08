@@ -3342,6 +3342,25 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   }
 }
 
+/* Captioned tools must also fit tablet views with the sidebar still open.
+   Wrap intact groups within the canvas rather than overflowing the viewport;
+   desktop captions and 44px targets remain unchanged. */
+@media (min-width: 761px) and (max-width: 1000px) {
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+}
+
 /* r8 onboarding and visibility polish: isolated for parallel feature merges. */
 #toggle-marks.tool[aria-pressed] {
   background: transparent;

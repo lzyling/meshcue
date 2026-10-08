@@ -84,6 +84,24 @@ export function bindDisplay(review) {
     },
   });
   button = review.$("#display-toggle");
+  // A menu button follows the same bare-arrow contract as mode menus. Leave
+  // modified arrows to the camera registry rather than swallowing shortcuts.
+  button.addEventListener("keydown", (event) => {
+    if (
+      button.disabled ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.metaKey ||
+      event.altKey ||
+      !["ArrowUp", "ArrowDown"].includes(event.key)
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (menu.hidden) review.commands.run("display");
+    const options = [...menu.querySelectorAll("button")];
+    (event.key === "ArrowUp" ? options.at(-1) : options[0])?.focus();
+  });
   review.setDisplayStyle = (style) => {
     review.viewer.setDisplayStyle(style);
     try {
