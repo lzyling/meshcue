@@ -23,7 +23,7 @@ async function selected(page, id) {
   await expect(page.locator("#loading")).toBeHidden();
 }
 for (const theme of ["light", "dark"]) {
-  test(`Reuse: prompt stays hidden through reload, newer content and manual browsing restore it (${theme})`, async ({
+  test(`Reuse: removed notices stay absent through reload, publication and manual browsing (${theme})`, async ({
     page,
   }) => {
     test.setTimeout(100000);
@@ -44,7 +44,7 @@ for (const theme of ["light", "dark"]) {
     await selected(page, second);
     await publish("tmp/samples/parametric-bracket.glb", "v3");
     await selected(page, first);
-    await expect(page.locator("#reuse-notice")).toBeVisible();
+    await expect(page.locator("#reuse-notice")).toBeHidden();
     await page.screenshot({
       path: `${evidence}/reuse-${theme}-${process.env.DECISIONS_EVIDENCE || "green"}.png`,
     });
@@ -63,23 +63,24 @@ for (const theme of ["light", "dark"]) {
     await selected(page, second);
     await page.locator(`[data-version-id="${first}"]`).click();
     await selected(page, first);
-    await expect(page.locator("#pending-banner")).toBeVisible();
+    await expect(page.locator("#pending-banner")).toBeHidden();
     await page.reload();
     await selected(page, first);
-    await expect(page.locator("#pending-banner")).toBeVisible();
-    await publish("tmp/samples/parametric-bracket.glb", "v4");
-    await expect(page.locator("#reuse-notice")).toBeVisible();
     await expect(page.locator("#pending-banner")).toBeHidden();
-    // Passive delivery leaves the reused version open but must now offer the
-    // newly published different content, even if the page is then refreshed.
+    await publish("tmp/samples/parametric-bracket.glb", "v4");
+    await expect(page.locator("#reuse-notice")).toBeHidden();
+    await expect(page.locator("#pending-banner")).toBeHidden();
+    // r4 removed the banner; the latest version remains reachable via its tab,
+    // while passive delivery and reload preserve the reviewer's selection.
     const third = (
       await publish("tmp/samples/bunny-figurine.glb", "v5", { activate: false })
     ).model.id;
-    await expect(page.locator("#pending-banner")).toBeVisible();
+    await expect(page.locator("#pending-banner")).toBeHidden();
     await page.reload();
     await selected(page, first);
-    await expect(page.locator("#pending-banner")).toBeVisible();
-    await page.locator("#go-latest").click();
+    await expect(page.locator("#pending-banner")).toBeHidden();
+    await expect(page.locator("#go-latest")).toHaveCount(0);
+    await page.locator(`[data-version-id="${third}"]`).click();
     await selected(page, third);
     await expect(page.locator("#pending-banner")).toBeHidden();
     await publish("tmp/samples/parametric-bracket.glb", "v6");
@@ -90,6 +91,6 @@ for (const theme of ["light", "dark"]) {
     await selected(page, fourth);
     await page.locator(`[data-version-id="${first}"]`).click();
     await selected(page, first);
-    await expect(page.locator("#pending-banner")).toBeVisible();
+    await expect(page.locator("#pending-banner")).toBeHidden();
   });
 }
