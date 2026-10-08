@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
+import { clickControl, showParts } from "./r12-b-helpers.mjs";
 import fs from "node:fs";
 
 let environment;
@@ -140,11 +140,17 @@ for (const [name, viewport] of [
       await page.screenshot({
         path: `${evidence}/${name}-smart-advanced-section.png`,
       });
-      for (const menu of ["view", "display"]) {
-        await page.locator(`#${menu}-menu-button`).click();
-        const popup = page.locator(
-          menu === "display" ? "#display-options" : `#${menu}-menu`,
-        );
+      for (const menu of ["view-mode", "display", "projection"]) {
+        await page
+          .locator(
+            {
+              "view-mode": "#view-mode-toggle",
+              display: "#display-toggle",
+              projection: '[data-command="navigation-projection"]',
+            }[menu],
+          )
+          .click();
+        const popup = page.locator(`#${menu}-menu`);
         await expect(popup).toBeVisible();
         expect(
           noOverlap(
@@ -153,13 +159,21 @@ for (const [name, viewport] of [
           ),
         ).toBe(true);
         const commands = {
-          view: ["mode-orbit", "mode-pan"],
-          display: ["navigation-projection", "plain"],
+          "view-mode": ["mode-orbit", "mode-pan"],
+          projection: [
+            "navigation-projection-perspective",
+            "navigation-projection-orthographic",
+          ],
+          display: [],
         }[menu];
         for (const command of commands)
           await expect(
             popup.locator(`[data-command="${command}"]`),
           ).toBeVisible();
+        if (menu === "display") {
+          await expect(popup.locator("[data-style]")).toHaveCount(5);
+          await expect(popup.getByRole("menuitemcheckbox")).toBeVisible();
+        }
         const items = popup.locator("button:visible");
         for (let i = 0; i < (await items.count()); i++)
           await items.nth(i).click({ trial: true });

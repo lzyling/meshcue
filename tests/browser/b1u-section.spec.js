@@ -1,8 +1,4 @@
-import {
-  clickControl,
-  selectSetting,
-  showParts,
-} from "./b1u-shell-helpers.mjs";
+import { clickControl, selectSetting, showParts } from "./r12-b-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
