@@ -29,7 +29,7 @@ async function shot(page, name) {
   });
 }
 
-test("A: reuse is dismissible once per publication, never on switching or reload", async ({
+test("A: reuse activates the identical page without obsolete notices on publication, switching or reload", async ({
   page,
 }) => {
   await open(page);
@@ -45,13 +45,11 @@ test("A: reuse is dismissible once per publication, never on switching or reload
   );
   await shot(page, "A-reuse");
   const notice = page.locator("#reuse-notice");
-  await expect(notice).toContainText(
-    "Content identical to fixture — fixture reopened.",
-  );
-  await page.locator("#reuse-notice button").click();
-  await expect(notice).toBeHidden();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
   await page.waitForTimeout(2500);
-  await expect(notice).toBeHidden();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
   await page.locator(`[data-version-id="${second.model.id}"]`).click();
   await expect(
     page.locator(`[data-version-id="${second.model.id}"]`),
@@ -61,17 +59,25 @@ test("A: reuse is dismissible once per publication, never on switching or reload
     "aria-selected",
     "true",
   );
-  await expect(notice).toBeHidden();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(notice).toBeHidden();
-  // Reusing the already active SHA still creates a new event; its id cannot
-  // just be the active model id or the notice would silently disappear here.
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
+  // Repeated same-content publications activate the existing page rather
+  // than adding a tab or restoring the removed reviewer notice (r6 §3).
   await publish("tmp/samples/parametric-bracket.glb", "v4");
-  await expect(notice).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
+  await expect(page.locator(`[data-version-id="${first.id}"]`)).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
-  await expect(notice).toBeHidden();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
   await page.locator(`[data-version-id="${second.model.id}"]`).click();
   await expect(
     page.locator(`[data-version-id="${second.model.id}"]`),
@@ -81,10 +87,16 @@ test("A: reuse is dismissible once per publication, never on switching or reload
     "aria-selected",
     "true",
   );
-  await expect(notice).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
+  await expect(page.locator(`[data-version-id="${first.id}"]`)).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await environment.ipc("/activate", { versionId: second.model.id });
   await expect(
     page.locator(`[data-version-id="${second.model.id}"]`),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(notice).toBeHidden();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".version-tab")).toHaveCount(2);
 });

@@ -107,10 +107,20 @@ test("a newer release shows up beside the running version, and links to it", asy
   // The reviewer is not usually the person who installs anything, so the badge
   // says who to tell rather than offering a button that cannot do it.
   await expect(badge).toHaveAttribute("title", /ask your agent/i);
-  await expect(badge).toHaveAttribute(
+  await expect(badge).toHaveAttribute("aria-haspopup", "dialog");
+  await badge.click();
+  const popover = page.locator("#update-popover");
+  await expect(popover).toBeVisible();
+  await expect(badge).toHaveAttribute("aria-expanded", "true");
+  await expect(popover.locator("a")).toHaveAttribute(
     "href",
     "https://example.test/releases/v99.0.0",
   );
+  await expect(popover.locator("a")).toHaveAttribute("target", "_blank");
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  await expect(badge).toBeFocused();
+  await expect(badge).toHaveAttribute("aria-expanded", "false");
   // It sits with the version it is about, not somewhere else in the header.
   expect(
     await page.locator(".brand-title #app-update").count(),
