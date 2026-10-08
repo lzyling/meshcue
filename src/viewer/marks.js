@@ -8,6 +8,27 @@ import { chainSegments, faceNormal, outlineSegments } from "../outline.js";
 import { t } from "../i18n/index.js";
 import { V, measureAnchor } from "./shared.js";
 
+// Choose ink from luminance, not a palette slot: custom bright colors need
+// the same legibility as yellow. THREE.Color also accepts CSS color values.
+export function pinInk(color) {
+  const c = new THREE.Color(color || "#6b7378");
+  const luminance = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  return luminance > 0.42 ? "#302700" : "#fff";
+}
+
+function decoratePin(el, a) {
+  el.type = "button";
+  const tag = document.createElement("span");
+  tag.className = "pin-tag";
+  tag.textContent = a.show === "color" ? "" : a.label;
+  el.append(tag);
+  if (a.show === "color") el.classList.add("color-only");
+  if (a.show === "label") el.classList.add("label-only");
+  el.style.setProperty("--pin-color", a.color);
+  el.style.setProperty("--pin-text", pinInk(a.color));
+  el.setAttribute("aria-label", t("marks.one", { label: a.label }));
+}
+
 /* Coverage is stored as the clipped polygon; WebGL wants triangles. Fanning at
    draw time costs nothing and keeps the stored form free of the sixty-odd
    repetitions a stored fan carried. Three vertices fan to themselves.
@@ -379,9 +400,7 @@ export class MarksMethods {
     if (label && visible) {
       const el = document.createElement("button");
       el.className = `model-pin ${selected ? "selected" : ""}`;
-      el.textContent = a.show === "color" ? "" : a.label;
-      if (a.show === "label") el.classList.add("label-only");
-      el.style.setProperty("--pin-color", a.color);
+      decoratePin(el, a);
       el.onclick = (e) => {
         e.stopPropagation();
         this.onSelect?.(a.id);
@@ -412,10 +431,7 @@ export class MarksMethods {
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
         if (landing && !seen.has(a.id)) el.classList.add("landing");
-        el.textContent = a.show === "color" ? "" : a.label;
-        if (a.show === "label") el.classList.add("label-only");
-        el.style.setProperty("--pin-color", a.color);
-        el.setAttribute("aria-label", t("marks.one", { label: a.label }));
+        decoratePin(el, a);
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           this.onSelect?.(a.id);
@@ -545,10 +561,8 @@ export class MarksMethods {
         !pin.unoccluded ||
         !this.annotationsVisible ||
         !this.sectionContains(world);
-      // The tail is what marks the spot, so the tail is what sits on it. The
-      // label used to be centred above the point with a near-square corner
-      // hinting at a direction it was not actually anchored in, which left the
-      // exact surface a mark referred to unreadable.
+      // The label wrapper is centred on the surface dot. Its
+      // capsule grows upwards without moving the surface point.
       // Position belongs in `translate`, not `transform`: individual transform
       // properties compose translate → rotate → scale → transform, so a scale
       // written alongside a position in `transform` is applied to the position
@@ -558,7 +572,7 @@ export class MarksMethods {
       // A measurement's reading is set down with the others, in
       // `placeReadings`.
       if (!pin.model)
-        pin.el.style.translate = `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
+        pin.el.style.translate = `${((projected.x + 1) * rect.width) / 2}px ${((-projected.y + 1) * rect.height) / 2}px`;
     }
   }
   /* Every measurement's reading, kept or being taken, set down together:

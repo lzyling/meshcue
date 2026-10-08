@@ -1039,44 +1039,79 @@ a {
   pointer-events: none;
   overflow: hidden;
 }
-/* A mark has to say which point it is about. The old shape was a rounded block
-   floating above that point, with one near-square corner implying a direction
-   it was not anchored in — so the label was visible and its subject was not.
-   It is a bubble with a tail now, and the tail's tip is the anchor. */
+/* The wrapper is centred on the surface dot, also the landing scale origin.
+   Only the capsule handles input: the leader and dot leave the model usable. */
 .model-pin {
   position: absolute;
   left: 0;
   top: 0;
-  min-width: 26px;
-  height: 27px;
-  padding: 0 7px;
-  background: var(--pin-color);
-  color: var(--pin-ink);
-  border: 2px solid var(--pin-ring);
-  border-radius: 13px;
-  font-size: 11px;
-  font-weight: 700;
-  box-shadow: var(--shadow-1);
-  pointer-events: auto;
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  transform-origin: 3.5px 3.5px;
+  outline: none;
+  pointer-events: none;
   z-index: 3;
+}
+.model-pin::before {
+  content: "";
+  position: absolute;
+  left: 2.75px;
+  bottom: 3.5px;
+  width: 1.5px;
+  height: 16px;
+  background: var(--pin-color);
+  pointer-events: none;
 }
 .model-pin::after {
   content: "";
   position: absolute;
-  left: 50%;
-  top: 100%;
-  width: 9px;
-  height: 9px;
-  margin: -5px 0 0 -4.5px;
-  background: inherit;
-  border: 2px solid var(--pin-ring);
-  border-top: 0;
-  border-left: 0;
-  /* Drawn as the corner of the bubble rotated into a point, so the tip carries
-     the same fill and ring as the body and lands on the surface below it. */
-  transform: rotate(45deg);
-  border-bottom-right-radius: 2px;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pin-color);
+  box-shadow: 0 0 0 1.5px #fff;
   pointer-events: none;
+}
+.model-pin .pin-tag {
+  position: absolute;
+  left: 3.5px;
+  bottom: 19.5px;
+  transform: translateX(-50%);
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--pin-color);
+  color: var(--pin-text, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 0 1px 1px #0003;
+  box-shadow:
+    0 0 0 1.5px #ffffffd9,
+    0 2px 6px #0004;
+  pointer-events: auto;
+}
+.model-pin.color-only .pin-tag {
+  min-width: 14px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+}
+.model-pin.label-only {
+  --pin-color: #6b7378 !important;
+  --pin-text: #fff !important;
 }
 .model-pin.landing {
   animation: pin-land 170ms ease-out;
@@ -1126,9 +1161,12 @@ a {
     display: none;
   }
 }
-.model-pin.selected {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.model-pin.selected .pin-tag,
+.model-pin:focus-visible .pin-tag {
+  box-shadow:
+    0 0 0 1.5px #fff,
+    0 0 0 3.5px var(--focus),
+    0 2px 6px #0004;
 }
 /* A measurement is read, not pointed at: its reading sits on the middle of its
    line, dark on a pale ring like the line itself, so it reads on any model
@@ -1681,11 +1719,9 @@ dialog .muted {
 .delete-annotation {
   padding: 6px 4px;
 }
-.model-pin {
-  color: var(--pin-ink);
-  box-shadow:
-    0 0 0 1px var(--line-strong),
-    var(--shadow-1);
+/* Capsules retain their geometry and contrast on narrow screens. */
+.model-pin .pin-tag {
+  font-size: 11px;
 }
 .panel-actions {
   padding: 6px;
@@ -2280,6 +2316,7 @@ dialog .muted {
 /* Let drags begin over an existing label or reading as well as bare canvas.
    The list remains available for deliberate annotation editing. */
 .pan-tool .model-pin,
+.pan-tool .model-pin .pin-tag,
 .pan-tool .measure-label {
   pointer-events: none;
 }
@@ -3517,7 +3554,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   max-width: 260px;
   font-size: 11px;
 }
-.model-pin.label-only,
 .annotation-badge.label-only {
   color: #fff;
 }

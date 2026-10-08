@@ -239,7 +239,7 @@ test("display X-ray keeps surface labels visible and selectable and bucket picki
   await kit.clickModelPoint([-0.35, 0, 0.2]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await expect(page.locator(".model-pin")).toBeVisible();
-  await page.locator(".model-pin").click();
+  await page.locator(".model-pin .pin-tag").click();
   await expect(page.locator("#mark-note")).toBeVisible();
   const mark = (await diagnostics(page)).annotations[0];
   expect(mark.position.every(Number.isFinite)).toBe(true);

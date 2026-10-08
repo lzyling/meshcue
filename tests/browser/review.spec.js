@@ -2312,41 +2312,83 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   // Placing a mark used to happen in silence, which reads as a double click
   // that missed rather than one that was taken.
   await expect(page.locator(".model-pin.landing")).toHaveCount(1);
-  // The old shape hinted at a direction with one squared-off corner while being
-  // anchored by its bottom edge instead, so the point it referred to could not
-  // be read off the screen. The tip is the anchor now — assert it against the
-  // pixel that was actually struck, not against the label's own box.
-  // Poll anyway: the label follows the camera, and the view may still be
-  // settling from the click.
+  // The dot, not the floating capsule's box, is the surface anchor.
   const measure = () =>
     page.evaluate(
       ([x, y]) => {
         const pin = document.querySelector(".model-pin");
         const box = pin.getBoundingClientRect();
-        const tail = getComputedStyle(pin, "::after");
+        const dot = getComputedStyle(pin, "::after");
+        const tag = pin.querySelector(".pin-tag").getBoundingClientRect();
         return {
-          dx: Math.abs(box.left + box.width / 2 - x),
-          below: box.bottom <= y,
-          tipGap: Math.abs(y - box.bottom),
-          hasTail: tail.content !== "none",
+          dx: Math.abs(
+            box.left + parseFloat(dot.left) + parseFloat(dot.width) / 2 - x,
+          ),
+          dy: Math.abs(
+            box.top + parseFloat(dot.top) + parseFloat(dot.height) / 2 - y,
+          ),
+          below: tag.bottom < y,
+          tipGap: y - tag.bottom,
+          hasDot: dot.content !== "none" && dot.borderRadius === "50%",
         };
       },
       [spot.x, spot.y],
     );
   await expect.poll(async () => (await measure()).dx).toBeLessThan(3);
+  await expect.poll(async () => (await measure()).dy).toBeLessThan(3);
   const gap = await measure();
-  expect(gap.hasTail).toBe(true);
-  // Horizontally the tail sits on the point; vertically the body clears it so
-  // the label never covers what it is labelling.
-  expect(gap.dx).toBeLessThan(3);
+  expect(gap.hasDot).toBe(true);
   expect(gap.below).toBe(true);
-  expect(gap.tipGap).toBeLessThan(12);
+  expect(gap.tipGap).toBeGreaterThan(13);
+  expect(gap.tipGap).toBeLessThan(19);
   // Redrawing is not placing: a refresh must not make every existing mark
   // re-enact its own arrival.
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator(".model-pin")).toHaveCount(1);
   await expect(page.locator(".model-pin.landing")).toHaveCount(0);
+});
+
+test("pin capsules retain display modes, selection, and pan passthrough", async ({
+  page,
+}) => {
+  await ready(page);
+  await clickControl(page, '[data-mode="label"]');
+  await page.locator('.color-button[data-color="#e6b64b"]').click();
+  const spot = await point(page);
+  await page.mouse.click(spot.x, spot.y);
+  await expect(page.locator(".model-pin")).toHaveCount(1);
+  const pin = page.locator(".model-pin").first();
+  await expect(pin).toHaveText("A");
+  await expect(pin.locator(".pin-tag")).toHaveCSS("color", "rgb(48, 39, 0)");
+  await page.locator('[data-mark-show="color"]').click();
+  await page.mouse.click(spot.x + 20, spot.y + 20);
+  await expect(page.locator(".model-pin.color-only")).toHaveCount(1);
+  await expect(page.locator(".model-pin.color-only")).toHaveText("");
+  await expect(page.locator(".model-pin.color-only .pin-tag")).toHaveCSS(
+    "width",
+    "14px",
+  );
+  await page.locator('[data-mark-show="label"]').click();
+  await page.mouse.click(spot.x - 20, spot.y + 20);
+  await expect(page.locator(".model-pin.label-only")).toHaveCount(1);
+  await expect(page.locator(".model-pin.label-only .pin-tag")).toHaveCSS(
+    "background-color",
+    "rgb(107, 115, 120)",
+  );
+  await expect(page.locator(".model-pin.label-only .pin-tag")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)",
+  );
+  await pin.locator(".pin-tag").click();
+  await expect(pin).toHaveClass(/selected/);
+  expect(
+    await pin
+      .locator(".pin-tag")
+      .evaluate((el) => getComputedStyle(el).boxShadow),
+  ).not.toBe("none");
+  await clickControl(page, '[data-mode="pan"]');
+  await expect(pin.locator(".pin-tag")).toHaveCSS("pointer-events", "none");
 });
 
 test("a mark arrives at its point instead of flying in from the corner", async ({
@@ -2379,7 +2421,10 @@ test("a mark arrives at its point instead of flying in from the corner", async (
         .querySelector(".pin-ripple")
         ?.getBoundingClientRect();
       return {
-        pin: Math.abs(box.left + box.width / 2 - x),
+        pin: Math.hypot(
+          box.left + box.width / 2 - x,
+          box.top + box.height / 2 - y,
+        ),
         ripple: ripple
           ? Math.hypot(
               ripple.left + ripple.width / 2 - x,
