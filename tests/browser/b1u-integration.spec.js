@@ -75,6 +75,7 @@ test("integrated View selects parts with the permanent Parts tab, without a face
 for (const [name, viewport] of [
   ["desktop", { width: 1440, height: 900 }],
   ["compact", { width: 1024, height: 768 }],
+  ["tablet", { width: 768, height: 1024 }],
   ["iphone13", { width: 390, height: 844 }],
 ])
   test.describe(name, () => {
@@ -140,11 +141,12 @@ for (const [name, viewport] of [
       await page.screenshot({
         path: `${evidence}/${name}-smart-advanced-section.png`,
       });
-      for (const menu of ["view-mode", "display", "projection"]) {
+      for (const menu of ["view-mode", "mark-mode", "display", "projection"]) {
         await page
           .locator(
             {
               "view-mode": "#view-mode-toggle",
+              "mark-mode": '[data-command="mark-mode"]',
               display: "#display-toggle",
               projection: '[data-command="navigation-projection"]',
             }[menu],
@@ -154,12 +156,20 @@ for (const [name, viewport] of [
         await expect(popup).toBeVisible();
         const popupBox = await popup.boundingBox();
         const toolbarBox = await page.locator(".toolbar").boundingBox();
+        console.log(
+          "MENU_COORDS",
+          JSON.stringify({ name, menu, popupBox, toolbarBox }),
+        );
         expect(
           noOverlap(popupBox, toolbarBox),
           JSON.stringify({ menu, popupBox, toolbarBox }),
         ).toBe(true);
+        expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(
+          toolbarBox.y + 1,
+        );
         const commands = {
           "view-mode": ["mode-orbit", "mode-pan"],
+          "mark-mode": ["mode-label", "mode-edge", "mode-part"],
           projection: [
             "navigation-projection-perspective",
             "navigation-projection-orthographic",

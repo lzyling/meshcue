@@ -34,11 +34,16 @@ export function positionMenu(menu, anchor) {
   const width = viewport?.width || innerWidth,
     height = viewport?.height || innerHeight;
   const box = anchor.getBoundingClientRect();
-  menu.style.maxHeight = `${Math.max(44, Math.min(box.top - top - 16, height - 16))}px`;
+  // A wrapped toolbar's second-row anchor is not the obstacle's top edge.
+  // Keep the existing 8px anchor gap on a single row, but cap the bottom at
+  // the whole toolbar so every caller (including Style's group anchor) fits.
+  const toolbar = anchor.closest(".toolbar")?.getBoundingClientRect();
+  const bottom = Math.min(box.top - 8, toolbar?.top ?? box.top - 8);
+  menu.style.maxHeight = `${Math.max(0, Math.min(bottom - top - 8, height - 16))}px`;
   menu.style.maxWidth = `${width - 16}px`;
   const size = menu.getBoundingClientRect();
   menu.style.left = `${Math.max(left + 8, Math.min(box.left, left + width - size.width - 8))}px`;
-  menu.style.top = `${Math.max(top + 8, Math.min(box.top - size.height - 8, top + height - size.height - 8))}px`;
+  menu.style.top = `${Math.max(top + 8, Math.min(bottom - size.height, top + height - size.height - 8))}px`;
 }
 
 // Presentation groups are separate from capability groups in the registry.
