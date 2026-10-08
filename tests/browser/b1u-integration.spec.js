@@ -152,11 +152,11 @@ for (const [name, viewport] of [
           .click();
         const popup = page.locator(`#${menu}-menu`);
         await expect(popup).toBeVisible();
+        const popupBox = await popup.boundingBox();
+        const toolbarBox = await page.locator(".toolbar").boundingBox();
         expect(
-          noOverlap(
-            await popup.boundingBox(),
-            await page.locator(".toolbar").boundingBox(),
-          ),
+          noOverlap(popupBox, toolbarBox),
+          JSON.stringify({ menu, popupBox, toolbarBox }),
         ).toBe(true);
         const commands = {
           "view-mode": ["mode-orbit", "mode-pan"],
