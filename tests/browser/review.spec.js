@@ -252,9 +252,13 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
     .toBe(original);
   await expect(page.locator("#pending-banner")).toBeHidden();
   await expect(page.locator("#review-status")).toBeHidden();
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
-  ).toBe(1);
+  // versionId is assigned before mesh loading and async draft restoration.
+  // Hidden status banners do not mean that restoration has completed.
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
   await page.getByRole("button", { name: /Send to Agent/ }).click();
   await expect(page.locator("#feedback-status")).toContainText(
     "delivered to the original conversation",
