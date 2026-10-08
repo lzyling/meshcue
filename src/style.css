@@ -790,16 +790,26 @@ a {
   flex: 1;
   min-width: 0;
 }
+.annotation-badge-column {
+  width: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
 .annotation-badge {
+  flex-shrink: 0;
+}
+.annotation-badge.region-badge,
+.annotation-badge.measure-badge {
   width: 24px;
-  height: 24px;
-  border-radius: 7px;
+  height: 20px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  color: var(--pin-ink);
+  background: var(--pin-color);
   font-weight: 750;
-  font-size: 10px;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 .annotation-select strong {
   display: block;
@@ -1085,6 +1095,12 @@ a {
   left: 3.5px;
   bottom: 19.5px;
   transform: translateX(-50%);
+  pointer-events: auto;
+}
+/* List marks share the capsule body, never the model's leader or selection halo. */
+.model-pin .pin-tag,
+.annotation-badge:not(.region-badge):not(.measure-badge) {
+  display: inline-block;
   min-width: 22px;
   height: 20px;
   padding: 0 6px;
@@ -1100,16 +1116,17 @@ a {
   box-shadow:
     0 0 0 1.5px #ffffffd9,
     0 2px 6px #0004;
-  pointer-events: auto;
 }
-.model-pin.color-only .pin-tag {
+.model-pin.color-only .pin-tag,
+.annotation-badge.color-only:not(.region-badge):not(.measure-badge) {
   min-width: 14px;
   width: 14px;
   height: 14px;
   padding: 0;
   border-radius: 50%;
 }
-.model-pin.label-only {
+.model-pin.label-only,
+.annotation-badge.label-only {
   --pin-color: #6b7378 !important;
   --pin-text: #fff !important;
 }
@@ -1224,6 +1241,7 @@ button.measure-label {
   background: var(--accent);
 }
 .annotation-badge.measure-badge {
+  border-radius: 7px;
   background: #14202a;
   color: #ffffff;
   font-size: 9px;
@@ -1711,10 +1729,9 @@ dialog .muted {
   font-size: 9px;
   padding: 6px 3px;
 }
-.annotation-badge {
+.annotation-badge.measure-badge {
   border: 1px solid var(--pin-ring);
   outline: 1px solid var(--line-strong);
-  color: var(--pin-ink);
 }
 .delete-annotation {
   padding: 6px 4px;
@@ -3553,7 +3570,4 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 #mark-show-hint {
   max-width: 260px;
   font-size: 11px;
-}
-.annotation-badge.label-only {
-  color: #fff;
 }

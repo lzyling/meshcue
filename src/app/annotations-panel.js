@@ -1,3 +1,4 @@
+import { pinInk } from "../viewer/marks.js";
 import { markAppearance } from "../mark-show.js";
 import { newId } from "../browser-crypto.js";
 import { t, currentLocale } from "../i18n/index.js";
@@ -190,7 +191,12 @@ export function installAnnotationsPanel(review) {
         const badge = document.createElement("span");
         badge.className = "annotation-badge";
         if (a.type === "measure") badge.classList.add("measure-badge");
-        else badge.style.background = a.color;
+        else {
+          badge.style.setProperty("--pin-color", a.color);
+          badge.style.setProperty("--pin-text", pinInk(a.color));
+        }
+        if (a.type === "region") badge.classList.add("region-badge");
+        else if (a.show === "color") badge.classList.add("color-only");
         badge.textContent =
           a.type === "region" || a.show === "color" ? "" : a.label;
         if (a.show === "label") badge.classList.add("label-only");
@@ -228,7 +234,10 @@ export function installAnnotationsPanel(review) {
                   ? t("marks.alongSurface")
                   : t("marks.legacyFace"));
         text.append(title, detail);
-        select.append(badge, text);
+        const badgeColumn = document.createElement("span");
+        badgeColumn.className = "annotation-badge-column";
+        badgeColumn.append(badge);
+        select.append(badgeColumn, text);
         select.addEventListener("click", () => {
           review.selectedId = a.id;
           // Measurements and neutral letter-only marks have no palette colour.

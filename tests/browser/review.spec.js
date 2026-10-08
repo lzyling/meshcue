@@ -1017,11 +1017,12 @@ test("legacy pins and paint fixture restore unchanged alongside a new fill", asy
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(legacy.annotations);
   await expect(page.locator(".model-pin")).toHaveCount(2);
-  await expect(page.locator(".annotation-badge").nth(2)).toHaveText("");
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  const regionBadge = page.locator(".annotation-badge").nth(2);
+  await expect(regionBadge).toHaveText("");
+  await expect(regionBadge).toHaveClass(/region-badge/);
+  await expect(regionBadge).toHaveCSS("height", "20px");
+  await expect(regionBadge).toHaveCSS("border-radius", "10px");
+  await page.locator("#home-view").click();
   await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
@@ -2389,6 +2390,132 @@ test("pin capsules retain display modes, selection, and pan passthrough", async 
   ).not.toBe("none");
   await clickControl(page, '[data-mode="pan"]');
   await expect(pin.locator(".pin-tag")).toHaveCSS("pointer-events", "none");
+});
+
+test("annotation-badge capsules match model tags across themes and narrow screens", async ({
+  page,
+}) => {
+  await ready(page);
+  await pin(page);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  const d = await page.evaluate(() => window.__reviewDiagnostics());
+  const clientId = await page.evaluate(() =>
+    sessionStorage.getItem("3d-review-client"),
+  );
+  const base = d.annotations[0];
+  const annotations = [
+    { ...base, id: "badge-af", label: "AF", color: "#e6b64b" },
+    { ...base, id: "badge-ag", label: "AG", color: "#d15a45" },
+    { ...base, id: "badge-color", label: "AH", show: "color" },
+    { ...base, id: "badge-label", label: "AI", show: "label" },
+    {
+      id: "badge-edge",
+      type: "edge",
+      label: "AJ",
+      color: "#e6b64b",
+      meshId: base.meshId,
+      space: "model",
+      points: [
+        [0, 0, 0],
+        [1, 0, 0],
+      ],
+      length: 1,
+      curved: false,
+      sourceFaceIndex: 0,
+    },
+    {
+      id: "badge-part",
+      type: "part",
+      label: "AK",
+      color: "#d15a45",
+      partIds: ["part-0"],
+      meshIds: [base.meshId],
+      names: ["Part"],
+      bounds: {
+        space: "model",
+        centroid: [0, 0, 0],
+        min: [-1, -1, -1],
+        max: [1, 1, 1],
+      },
+    },
+  ];
+  expect(
+    (
+      await request("PUT", "draft", {
+        versionId: d.versionId,
+        clientId,
+        revision: d.revision,
+        annotations,
+        camera: d.camera,
+      })
+    ).status,
+  ).toBe(200);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  for (const theme of ["light", "dark"]) {
+    await selectSetting(page, "#theme-choice", theme);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const badge = page.locator(".annotation-badge");
+      await expect(badge.nth(0)).toHaveText("AF");
+      await expect(badge.nth(1)).toHaveText("AG");
+      await expect(badge.nth(0)).toHaveCSS("color", "rgb(48, 39, 0)");
+      await expect(badge.nth(1)).toHaveCSS("color", "rgb(255, 255, 255)");
+      await expect(badge.nth(2)).toHaveText("");
+      await expect(badge.nth(2)).toHaveCSS("width", "14px");
+      await expect(badge.nth(2)).toHaveCSS("height", "14px");
+      await expect(badge.nth(3)).toHaveCSS(
+        "background-color",
+        "rgb(107, 115, 120)",
+      );
+      await expect(badge.nth(3)).toHaveCSS("color", "rgb(255, 255, 255)");
+      const layout = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll(".annotation-select")];
+        const props = [
+          "height",
+          "borderRadius",
+          "padding",
+          "minWidth",
+          "boxShadow",
+          "fontSize",
+          "fontWeight",
+          "whiteSpace",
+        ];
+        const tag = getComputedStyle(
+          document.querySelector(".model-pin:not(.selected) .pin-tag"),
+        );
+        return rows.map((row) => {
+          const b = row.querySelector(".annotation-badge");
+          const r = b.getBoundingClientRect();
+          const column = b.parentElement.getBoundingClientRect();
+          const style = getComputedStyle(b);
+          return {
+            left: row.lastElementChild.getBoundingClientRect().left,
+            centered:
+              Math.abs(r.top + r.height / 2 - column.top - column.height / 2) <
+              1,
+            fits: b.scrollWidth <= b.clientWidth,
+            matches: props.every((p) => style[p] === tag[p]),
+            colorOnly: b.classList.contains("color-only"),
+          };
+        });
+      });
+      expect(new Set(layout.map((r) => r.left)).size).toBe(1);
+      expect(layout.every((r) => r.centered && r.fits)).toBe(true);
+      expect(layout.filter((r) => !r.colorOnly).every((r) => r.matches)).toBe(
+        true,
+      );
+      await badge.nth(0).click();
+      await expect(page.locator('[data-annotation-id="badge-af"]')).toHaveClass(
+        /selected/,
+      );
+      // List selection belongs to the row, not a second 3D-style halo.
+      await expect(badge.nth(0)).toHaveCSS(
+        "box-shadow",
+        await badge.nth(1).evaluate((el) => getComputedStyle(el).boxShadow),
+      );
+    }
+  }
 });
 
 test("a mark arrives at its point instead of flying in from the corner", async ({
