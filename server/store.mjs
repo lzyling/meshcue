@@ -535,7 +535,10 @@ export class ReviewStore {
         "STALE_DRAFT",
       );
     const letters = annotations
-      .filter((a) => a.type === "pin" && /^[A-Z]+$/.test(a.label))
+      .filter(
+        (a) =>
+          ["pin", "edge", "part"].includes(a.type) && /^[A-Z]+$/.test(a.label),
+      )
       .map((a) =>
         [...a.label].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0),
       );

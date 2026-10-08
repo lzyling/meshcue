@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "載入模型",
-  "review.earlierVersion": "較早版本 · 仍可標記",
   "review.openElsewhere": "另一個視窗已開啟這一版",
-  "review.current": "目前版本 · 可以標記",
   "review.notInReview": "此版本不屬於目前審閱。",
   "review.notMarked": "這一版尚未有標記。",
   "review.roundClosed": "這一版已結束；再標記即可重新開始。",
@@ -11,8 +9,6 @@ export default {
   "version.earlier": "較早版本",
   "version.submitted": "已交 {count} 批",
   "version.openElsewhere": "另一視窗開啟中",
-  "version.pinnedNotice": "你正在看較早的版本；最新的是 {version}。",
-  "version.goLatest": "查看最新版本",
   "version.driftStopped": "有新版本送到，草稿已保留，並已停止自動切換。",
 
   "resume.text": "另一個視窗也開著這一版。",

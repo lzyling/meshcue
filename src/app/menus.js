@@ -1,5 +1,30 @@
 import { t } from "../i18n/index.js";
 
+// Short captions are independent of the complete accessible action labels.
+export function toolbarCaption(id) {
+  const names = {
+    "view-mode": "toolbar.caption.rotate",
+    "navigation-fit": "toolbar.caption.fit",
+    "navigation-projection": "toolbar.caption.projection",
+    "mode-label": "toolbar.caption.pin",
+    "mode-fill": "toolbar.caption.fill",
+    "mode-measure": "toolbar.caption.measure",
+    section: "toolbar.caption.section",
+    display: "toolbar.caption.style",
+    explode: "explode.title",
+    marks: "toolbar.caption.marks",
+    undo: "toolbar.caption.undo",
+    redo: "toolbar.caption.redo",
+    "reset-preview": "toolbar.caption.reset",
+  };
+  return names[id] ? t(names[id]) : null;
+}
+
+// A reserved icon slot and check slot keep every submenu aligned.
+export function menuItemContent(review, label, icon) {
+  return `<span class="menu-option-icon" aria-hidden="true">${icon ? review.icon(icon) : ""}</span><span class="menu-option-label">${review.esc(label)}</span><span class="menu-option-check" aria-hidden="true">✓</span>`;
+}
+
 // Menus live outside the clipped canvas and transformed toolbar. Clamp against
 // the visual viewport as well as the layout viewport (phone zoom/keyboards).
 export function positionMenu(menu, anchor) {
@@ -9,133 +34,130 @@ export function positionMenu(menu, anchor) {
   const width = viewport?.width || innerWidth,
     height = viewport?.height || innerHeight;
   const box = anchor.getBoundingClientRect();
-  menu.style.maxHeight = `${Math.max(44, Math.min(box.top - top - 16, height - 16))}px`;
+  // A wrapped toolbar's second-row anchor is not the obstacle's top edge.
+  // Keep the existing 8px anchor gap on a single row, but cap the bottom at
+  // the whole toolbar so every caller (including Style's group anchor) fits.
+  const toolbar = anchor.closest(".toolbar")?.getBoundingClientRect();
+  const bottom = Math.min(box.top - 8, toolbar?.top ?? box.top - 8);
+  menu.style.maxHeight = `${Math.max(0, Math.min(bottom - top - 8, height - 16))}px`;
   menu.style.maxWidth = `${width - 16}px`;
   const size = menu.getBoundingClientRect();
   menu.style.left = `${Math.max(left + 8, Math.min(box.left, left + width - size.width - 8))}px`;
-  menu.style.top = `${Math.max(top + 8, Math.min(box.top - size.height - 8, top + height - size.height - 8))}px`;
+  menu.style.top = `${Math.max(top + 8, Math.min(bottom - size.height, top + height - size.height - 8))}px`;
 }
 
-// The registry's menu remains a capability grouping, not a promise that every
-// command needs a second click. Fit is registered later by navigation; routing
-// its stable id here avoids coupling that module to the shell's presentation.
+// Presentation groups are separate from capability groups in the registry.
 export function toolbarPlacement(command) {
-  if (command.id === "navigation-fit") return { group: "view", direct: true };
-  if (["navigation-projection", "plain"].includes(command.id))
-    return { group: "display", direct: false };
-  if (command.id === "display") return { group: "display", direct: true };
-  if (["home", "view-mode"].includes(command.id))
+  if (["mode-label", "mode-edge", "mode-part"].includes(command.id))
+    return { group: "mark", submenu: "mark-mode" };
+  if (command.id === "mark-mode") return { group: "mark", direct: true };
+  if (["mode-orbit", "mode-pan"].includes(command.id))
+    return { group: "view", submenu: "view-mode" };
+  if (command.id.startsWith("navigation-projection-"))
+    return { group: "view", submenu: "projection" };
+  if (
+    ["view-mode", "navigation-fit", "navigation-projection"].includes(
+      command.id,
+    )
+  )
     return { group: "view", direct: true };
+  if (["display", "marks", "explode"].includes(command.id))
+    return { group: "display", direct: true };
   if (
     ["mode-label", "mode-fill", "mode-measure", "section"].includes(command.id)
   )
     return { group: command.menu, direct: true };
-  return command.menu ? { group: command.menu, direct: false } : null;
+  return null;
 }
 
 export function mountMenus(review) {
-  const menus = new Map();
-  const labels = {
-    view: "shell.view",
-    display: "display.title",
-    mark: "shell.mark",
-    inspect: "shell.inspect",
-  };
-  function close(focus = false) {
-    for (const { menu, more } of menus.values()) {
-      if (menu.hidden) continue;
-      menu.hidden = true;
-      more.setAttribute("aria-expanded", "false");
-      if (focus) more.focus();
-    }
-    review.$(".viewer-shell").classList.remove("menu-open");
-  }
-  const options = (menu) =>
-    [...menu.querySelectorAll('[role^="menuitem"]')].filter(
-      (b) => !b.disabled && !b.hidden,
-    );
-  function open(name, last = false) {
-    close();
-    const { menu, more } = menus.get(name);
-    review.refreshCommands();
-    if (!options(menu).length) return;
-    menu.hidden = false;
-    more.setAttribute("aria-expanded", "true");
-    review.$(".viewer-shell").classList.add("menu-open");
-    positionMenu(menu, more.closest(".toolbar-group"));
-    const items = options(menu);
-    (last ? items.at(-1) : items[0])?.focus();
-  }
-  for (const [name, label] of Object.entries(labels)) {
+  const groups = new Map(),
+    menus = new Map();
+  for (const [name, key] of [
+    ["view", "shell.view"],
+    ["mark", "shell.mark"],
+    ["inspect", "shell.inspect"],
+    ["display", "display.title"],
+  ]) {
     const group = document.createElement("div");
     group.className = "toolbar-group";
     group.dataset.menu = name;
     group.role = "group";
-    group.setAttribute("aria-label", t(label));
-    const caption = document.createElement("span");
-    caption.className = "toolbar-group-label";
-    caption.textContent = t(label);
+    group.setAttribute("aria-label", t(key));
     const tools = document.createElement("div");
     tools.className = "toolbar-group-tools";
-    const more = document.createElement("button");
-    more.className = "tool toolbar-more";
-    more.id = `${name}-menu-button`;
-    more.textContent = "…";
-    more.title = t("shell.more", { group: t(label) });
-    more.setAttribute("aria-label", more.title);
-    more.setAttribute("aria-haspopup", "menu");
-    more.setAttribute("aria-expanded", "false");
-    more.setAttribute(
-      "aria-controls",
-      `${name === "display" ? "display-options" : name + "-menu"}`,
-    );
+    group.append(tools);
+    review.$('[data-toolbar-slot="tools"]').append(group);
+    groups.set(name, tools);
+  }
+  for (const [name, commandId, key] of [
+    ["view-mode", "view-mode", "shell.view"],
+    ["mark-mode", "mark-mode", "shell.mark"],
+    ["projection", "navigation-projection", "navigation.projection"],
+  ]) {
     const menu = document.createElement("div");
-    menu.id = `${name === "display" ? "display-options" : name + "-menu"}`;
+    menu.id = `${name}-menu`;
     menu.className = "shell-menu";
     menu.role = "menu";
-    menu.setAttribute("aria-label", t(label));
+    menu.setAttribute("aria-label", t(key));
     menu.hidden = true;
     document.body.append(menu);
-    tools.append(more);
-    group.append(caption, tools);
-    review.$('[data-toolbar-slot="tools"]').append(group);
-    menus.set(name, { tools, more, menu });
-    more.onclick = () => (menu.hidden ? open(name) : close(true));
-    group.onkeydown = (e) => {
-      // Modified arrows belong to the camera's command-registry shortcuts.
-      if (e.ctrlKey || e.shiftKey || e.metaKey || e.altKey) return;
-      if (!more.hidden && ["ArrowUp", "ArrowDown"].includes(e.key)) {
-        e.preventDefault();
-        e.stopPropagation();
-        open(name, e.key === "ArrowUp");
-      }
-    };
-    menu.addEventListener("click", (event) => {
+    menus.set(name, { menu, commandId });
+  }
+  const anchor = (entry) =>
+    document.querySelector(`[data-command="${entry.commandId}"]`);
+  const options = (menu) =>
+    [...menu.children].filter((b) => !b.disabled && !b.hidden);
+  function close(focus = false) {
+    for (const entry of menus.values()) {
+      if (entry.menu.hidden) continue;
+      entry.menu.hidden = true;
+      anchor(entry)?.setAttribute("aria-expanded", "false");
+      if (focus) anchor(entry)?.focus();
+    }
+    review.$(".viewer-shell").classList.remove("menu-open");
+  }
+  function open(name, last = false) {
+    const entry = menus.get(name);
+    if (!entry || !entry.menu.hidden) return close(true);
+    close();
+    review.refreshCommands();
+    const items = options(entry.menu);
+    if (!items.length) return;
+    entry.menu.hidden = false;
+    anchor(entry).setAttribute("aria-expanded", "true");
+    review.$(".viewer-shell").classList.add("menu-open");
+    positionMenu(entry.menu, anchor(entry));
+    (last
+      ? items.at(-1)
+      : items.find((b) => b.getAttribute("aria-checked") === "true") || items[0]
+    ).focus();
+  }
+  for (const [name, entry] of menus) {
+    entry.menu.addEventListener("click", (event) => {
       const button = event.target.closest("[data-command]");
       if (!button || button.disabled) return;
-      // The shared click handler owns the command; only close after it ran.
       queueMicrotask(() => {
-        close();
+        close(true);
         review.refreshCommands();
-        if (document.activeElement === button) more.focus();
       });
     });
-    menu.onkeydown = (e) => {
-      e.stopPropagation();
-      const items = options(menu),
+    entry.menu.onkeydown = (event) => {
+      event.stopPropagation();
+      const items = options(entry.menu),
         index = items.indexOf(document.activeElement);
-      if (e.key === "Escape") {
-        e.preventDefault();
+      if (event.key === "Escape") {
+        event.preventDefault();
         close(true);
-      } else if (e.key === "Tab") close();
-      else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
-        e.preventDefault();
+      } else if (event.key === "Tab") close();
+      else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
         const next =
-          e.key === "Home"
+          event.key === "Home"
             ? 0
-            : e.key === "End"
+            : event.key === "End"
               ? items.length - 1
-              : (index + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
+              : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
                 items.length;
         items[next]?.focus();
       }
@@ -144,7 +166,6 @@ export function mountMenus(review) {
   function mount(command) {
     const placement = toolbarPlacement(command);
     if (!placement) return;
-    const { menu, more, tools } = menus.get(placement.group);
     const button = document.createElement("button");
     for (const [key, value] of Object.entries(command.attributes || {}))
       button.setAttribute(key, value);
@@ -152,75 +173,103 @@ export function mountMenus(review) {
       ? "tool toolbar-command"
       : "menu-command";
     button.dataset.command = command.id;
-    if (!placement.direct) {
-      button.role = command.checked
-        ? "menuitemcheckbox"
-        : command.attributes?.["data-mode"]
-          ? "menuitemradio"
-          : "menuitem";
-      button.tabIndex = -1;
-    }
     button.title = t(command.titleKey || command.labelKey);
     button.setAttribute("aria-label", t(command.labelKey));
-    button.innerHTML =
-      (command.icon ? review.icon(command.icon) : "") +
-      // Direct tools are flat icons, not captions squeezed into icon-sized
-      // buttons. Keep their localized text explicitly screen-reader-only;
-      // overflow menus still draw the same words as visible choices.
-      `<span${placement.direct ? ' class="sr-only"' : ""}>${review.esc(t(command.captionKey || command.labelKey))}</span>`;
-    if (placement.direct) {
-      // Toolbar groups keep focus/pointer entry inside an open menu session.
-      // A direct action ends that session before the shared command handler
-      // runs, without returning focus to the old overflow button.
+    button.innerHTML = placement.direct
+      ? (command.icon ? review.icon(command.icon) : "") +
+        `<span>${review.esc(toolbarCaption(command.id))}</span>`
+      : menuItemContent(
+          review,
+          t(command.captionKey || command.labelKey),
+          command.id === "navigation-projection-orthographic"
+            ? "projection-ortho"
+            : command.id === "navigation-projection-perspective"
+              ? "projection"
+              : command.icon,
+        );
+    if (placement.submenu) {
+      button.classList.add("menu-option");
+      button.role = "menuitemradio";
+      button.tabIndex = -1;
+      menus.get(placement.submenu).menu.append(button);
+    } else {
+      const entry = [...menus.entries()].find(
+        ([, e]) => e.commandId === command.id,
+      );
+      if (entry) {
+        button.setAttribute("aria-haspopup", "menu");
+        button.setAttribute("aria-expanded", "false");
+        button.setAttribute("aria-controls", entry[1].menu.id);
+        button.onkeydown = (e) => {
+          if (
+            !e.ctrlKey &&
+            !e.shiftKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            ["ArrowUp", "ArrowDown"].includes(e.key)
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            open(entry[0], e.key === "ArrowUp");
+          }
+        };
+      }
       button.addEventListener("click", () => {
-        if (!button.disabled) close();
+        if (!button.disabled && !entry) close();
       });
-      tools.insertBefore(button, more);
-    } else menu.append(button);
+      const tools = groups.get(placement.group);
+      const order = ["display", "marks"];
+      const before =
+        placement.group === "display"
+          ? [...tools.children].find(
+              (b) =>
+                order.indexOf(b.dataset.command) > order.indexOf(command.id),
+            )
+          : null;
+      tools.insertBefore(button, before || null);
+    }
   }
   review.commands.list().forEach(mount);
   review.commands.onRegister(mount);
   review.refreshMenus = () => {
-    for (const { menu, more, tools } of menus.values()) {
-      let previousSection;
-      for (const button of [
-        ...menu.children,
-        ...tools.querySelectorAll("[data-command]"),
-      ]) {
-        const command = review.commands.get(button.dataset.command);
-        button.hidden = command.visible ? !command.visible() : false;
-        const checked = command.checked
-          ? command.checked()
-          : command.attributes?.["data-mode"] === review.mode;
-        if (
-          button.closest(".shell-menu") &&
-          (command.checked || command.attributes?.["data-mode"])
-        )
-          button.setAttribute("aria-checked", String(checked));
-        if (!button.closest(".shell-menu")) {
-          button.classList.toggle("active", !!checked);
-          if (command.checked || command.attributes?.["data-mode"])
-            button.setAttribute("aria-pressed", String(!!checked));
-        }
-        if (button.parentElement === menu) {
-          button.classList.toggle(
-            "menu-separator",
-            !button.hidden &&
-              previousSection !== undefined &&
-              previousSection !== command.menuSection,
-          );
-          if (!button.hidden) previousSection = command.menuSection;
-        }
+    for (const button of document.querySelectorAll(
+      ".shell-menu [data-command], .toolbar-group [data-command]",
+    )) {
+      const command = review.commands.get(button.dataset.command);
+      button.hidden = command.visible ? !command.visible() : false;
+      const checked = command.checked
+        ? command.checked()
+        : command.attributes?.["data-mode"] === review.mode;
+      if (button.closest(".shell-menu"))
+        button.setAttribute("aria-checked", String(!!checked));
+      else if (command.checked || command.attributes?.["data-mode"]) {
+        button.classList.toggle("active", !!checked);
+        button.setAttribute("aria-pressed", String(!!checked));
       }
-      more.hidden = ![...menu.children].some((button) => !button.hidden);
+    }
+    const mark = review.$("#mark-mode-toggle");
+    if (mark) {
+      const mode = review.markMode || "label";
+      const caption = t(
+        mode === "label" ? "toolbar.caption.pin" : `marks2.${mode}`,
+      );
+      mark.innerHTML =
+        review.icon(mode === "label" ? "pin" : `mark-${mode}`) +
+        `<span>${review.esc(caption)}</span>`;
+      mark.setAttribute("aria-label", caption);
+      mark.classList.toggle(
+        "active",
+        ["label", "edge", "part"].includes(review.mode),
+      );
     }
     const toggle = review.$("#view-mode-toggle");
     if (toggle) {
       const pan = review.mode === "pan";
-      toggle.innerHTML = review.icon(pan ? "pan" : "orbit");
+      toggle.innerHTML =
+        review.icon(pan ? "pan" : "orbit") +
+        `<span>${review.esc(t(pan ? "toolbar.caption.pan" : "toolbar.caption.rotate"))}</span>`;
       toggle.title = t(pan ? "shell.panMode" : "shell.rotateMode");
       toggle.setAttribute("aria-label", toggle.title);
-      toggle.setAttribute("aria-pressed", String(pan));
     }
   };
   document.addEventListener("pointerdown", (e) => {

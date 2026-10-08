@@ -1,0 +1,15 @@
+export default {
+  "toolbar.caption.rotate": "旋转",
+  "toolbar.caption.pan": "平移",
+  "toolbar.caption.fit": "适合",
+  "toolbar.caption.projection": "投影",
+  "toolbar.caption.pin": "图钉",
+  "toolbar.caption.fill": "填色",
+  "toolbar.caption.measure": "测量",
+  "toolbar.caption.section": "剖面",
+  "toolbar.caption.style": "样式",
+  "toolbar.caption.marks": "标注",
+  "toolbar.caption.undo": "撤销",
+  "toolbar.caption.redo": "重做",
+  "toolbar.caption.reset": "重置",
+};

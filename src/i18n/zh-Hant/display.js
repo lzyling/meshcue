@@ -1,4 +1,5 @@
 export default {
+  "display.plain": "素色（忽略模型顏色）",
   "display.choose": "顯示：{style} — 按一下選擇樣式",
   "display.title": "顯示",
   "display.edges": "著色並顯示邊線",

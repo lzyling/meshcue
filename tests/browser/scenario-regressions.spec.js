@@ -68,6 +68,13 @@ for (const locale of ["en", "zh-Hant", "de"]) {
         locale,
       );
       await open(page);
+      // r5 makes model axes optional and hidden by default. Enable them as a
+      // reader would, then retain the original Section/axes clearance checks.
+      await expect(page.locator(".navigation-triad")).toBeHidden();
+      await page.locator("#settings-button").tap();
+      await page.locator("#setting-axes").check();
+      await page.locator("#close-settings").tap();
+      await expect(page.locator(".navigation-triad")).toBeVisible();
       await screenshot(page, `bug1-${locale}-toolbar`);
       for (const button of await page
         .locator(".toolbar button:visible")

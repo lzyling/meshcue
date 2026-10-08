@@ -60,20 +60,40 @@ export function mountShell(review) {
   applyTheme(review.themeChoice, review.darkQuery);
 
   review.SPRITE = `<svg class="sprite" aria-hidden="true" focusable="false"><defs>
-<g id="mc-brand" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2 20.4 8v8L12 20.8 3.6 16V8z"/><path d="M3.6 8 12 12.8 20.4 8M12 12.8v8" stroke-width="1.2" opacity=".55"/></g>
-<g id="mc-pan" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></g>
-<g id="mc-orbit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7" stroke-width="1.2" opacity=".55"/></g>
-<g id="mc-fill" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M11 2.6 20 11.6a1.6 1.6 0 0 1 0 2.3l-6 6a1.6 1.6 0 0 1-2.3 0l-6-6a1.6 1.6 0 0 1 0-2.3l6-6"/><path d="M5.6 13.2h14.2l-5.8 5.8a1.6 1.6 0 0 1-2.3 0z" fill="currentColor" stroke="none" opacity=".32"/><path d="M21.4 15.6c.9 1.2 1.4 2.1 1.4 2.8a1.4 1.4 0 1 1-2.8 0c0-.7.5-1.6 1.4-2.8z" fill="currentColor" stroke="none"/></g>
-<g id="mc-undo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h9a5 5 0 0 1 0 10H9"/><path d="M7.5 6 3.5 10l4 4"/></g>
-<g id="mc-redo" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-9a5 5 0 0 0 0 10h4"/><path d="M16.5 6l4 4-4 4"/></g>
-<g id="mc-home" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 11 12 4l8.4 7"/><path d="M5.8 12.2V20h12.4v-7.8"/></g>
-<g id="mc-fit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8.5" y="8.5" width="7" height="7" rx="1" stroke-width="1.2" opacity=".55"/></g>
-<g id="mc-reset" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 8 0 1 1 1.7 8.2M4 4v6h6"/></g>
-<g id="mc-display-edges" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8 12 4l8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"/><path d="M12 12l8-4v8l-8 4z" fill="currentColor" opacity=".2"/></g>
-<g id="mc-display-shaded" fill="currentColor"><path d="M4 8 12 4l8 4v8l-8 4-8-4z" opacity=".7"/><path d="M12 12l8-4v8l-8 4z" opacity=".3"/></g>
-<g id="mc-display-wireframe" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 8 12 4l8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8M4 16l8-4 8 4M12 4v8"/></g>
-<g id="mc-display-hidden" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8 12 4l8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"/><path d="M4 16l8-4 8 4M12 4v8" stroke-dasharray="2 2" opacity=".4"/></g>
-<g id="mc-display-xray" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8 12 4l8 4v8l-8 4-8-4z" fill="currentColor" opacity=".2"/><path d="M4 8l8 4 8-4M12 12v8M4 16l8-4 8 4M12 4v8" opacity=".6"/></g>
+<symbol id="mc-brand" viewBox="0 0 64 64"><mask id="mc-brand-cutout-r7" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M32 35C28 29.5 23 24.5 23 16.5a9 9 0 0 1 18 0C41 24.5 36 29.5 32 35Z" fill="#000" stroke="#000" stroke-width="3"/></mask><g mask="url(#mc-brand-cutout-r7)"><g fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="3.2"><path d="M32 24 50 33v18L32 60 14 51V33Z" stroke="currentColor"/><path d="M14 33 32 42 50 33M32 42v18" stroke="var(--accent)"/></g></g><path d="M32 35C28 29.5 23 24.5 23 16.5a9 9 0 0 1 18 0C41 24.5 36 29.5 32 35ZM28.6 16.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0Z" fill-rule="evenodd" fill="var(--accent)"/></symbol>
+<g id="mc-pan" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+  <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+  <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+  <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></g>
+<g id="mc-orbit" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.341 6.484A10 10 0 0 1 10.266 21.85" />
+  <path d="M3.659 17.516A10 10 0 0 1 13.74 2.152" />
+  <circle cx="12" cy="12" r="3" />
+  <circle cx="19" cy="5" r="2" />
+  <circle cx="5" cy="19" r="2" /></g>
+<g id="mc-fill" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 7 6 2" />
+  <path d="M18.992 12H2.041" />
+  <path d="M21.145 18.38A3.34 3.34 0 0 1 20 16.5a3.3 3.3 0 0 1-1.145 1.88c-.575.46-.855 1.02-.855 1.595A2 2 0 0 0 20 22a2 2 0 0 0 2-2.025c0-.58-.285-1.13-.855-1.595" />
+  <path d="m8.5 4.5 2.148-2.148a1.205 1.205 0 0 1 1.704 0l7.296 7.296a1.205 1.205 0 0 1 0 1.704l-7.592 7.592a3.615 3.615 0 0 1-5.112 0l-3.888-3.888a3.615 3.615 0 0 1 0-5.112L5.67 7.33" /></g>
+<g id="mc-undo" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5" />
+  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></g>
+<g id="mc-redo" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5" />
+  <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" /></g>
+<symbol id="mc-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 22 .001-8a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="mc-help-step-1" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m22 22 10-6 10 6v16l-10 6-10-6zM22 22l10 6 10-6M32 28v16"/><path stroke="var(--accent)" d="M16 32a20 20 0 1 1 32 16M48 41v7h7"/></symbol>
+<symbol id="mc-help-step-2" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m14 22 14-8 14 8v22l-14 8-14-8zM14 22l14 8 14-8M28 30v22"/><path stroke="var(--accent)" d="M44 36s-8-9-8-14a8 8 0 0 1 16 0c0 5-8 14-8 14Z"/><circle cx="44" cy="22" r="2" stroke="var(--accent)"/></symbol>
+<symbol id="mc-help-step-3" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M24 26h30v24H24zM30 33h17M30 40h11"/><path stroke="var(--accent)" d="M16 34S8 25 8 20a8 8 0 0 1 16 0c0 5-8 14-8 14Z"/><circle cx="16" cy="20" r="2" stroke="var(--accent)"/></symbol>
+<symbol id="mc-help-step-4" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path stroke="var(--accent)" d="m10 10 38 8-22 12-5 14-3-20-8-14ZM18 24l30-6"/><rect x="33" y="37" width="24" height="16" rx="3"/><path d="M39 45h12M47 41l4 4-4 4"/></symbol>
+<g id="mc-fit" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2" />
+  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+  <path d="M7 21H5a2 2 0 0 1-2-2v-2" /></g>
+<g id="mc-reset" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+  <path d="M3 3v5h5" /></g>
+<g id="mc-display-edges" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Zm0 0 8 4 8-4M12 11v10"/></g>
+<g id="mc-display-shaded" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7ZM4 7l8 4 8-4M12 11v10M15 12v5M18 10v5"/></g>
+<g id="mc-display-wireframe" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Zm0 0 8 4 8-4M12 11v10M4 17l8-6 8 6M12 3v8"/></g>
+<g id="mc-display-hidden" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Zm0 0 8 4 8-4M12 11v10"/><path d="M4 17l8-6 8 6M12 3v8" stroke-dasharray="2 3"/></g>
+<g id="mc-display-xray" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Zm0 0 8 4 8-4M12 11v10"/><path d="M4 17l8-6 8 6M12 3v8" opacity=".45"/></g>
 <g id="mc-send" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M21 3 10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8z"/></g>
 <g id="mc-trash" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M9.5 6.5V4.2h5v2.3"/><path d="M6.3 6.5 7.2 20h9.6l.9-13.5"/><path d="M10.3 10v6.4M13.7 10v6.4" stroke-width="1.3" opacity=".6"/></g>
 <g id="mc-close" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></g>
@@ -82,19 +102,38 @@ export function mountShell(review) {
 <g id="mc-collapse-left" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5 9 12l5.5 5.5"/><path d="M19 5.5v13"/></g>
 <g id="mc-expand-right" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5 15 12l-5.5 5.5"/><path d="M5 5.5v13"/></g>
 <g id="mc-echo" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 6.8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7.4a2 2 0 0 1-2 2h-6.6L7 19.8v-3.6H6a2 2 0 0 1-2-2z"/></g>
-<g id="mc-measure" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="M5.9 13.1l1.6 1.6M8.3 10.7l2.3 2.3M10.7 8.3l1.6 1.6M13.1 5.9l2.3 2.3" stroke-width="1.3"/></g>
-<g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21.2s6.4-6.3 6.4-11a6.4 6.4 0 1 0-12.8 0c0 4.7 6.4 11 6.4 11z"/><circle cx="12" cy="10" r="2.4"/></g>
-<g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 12S5.6 5.8 12 5.8 22.2 12 22.2 12 18.4 18.2 12 18.2 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></g>
-<g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.6 6.2A9.6 9.6 0 0 1 12 5.8c6.4 0 10.2 6.2 10.2 6.2a17 17 0 0 1-3.2 3.8M6.1 8.2A17 17 0 0 0 1.8 12S5.6 18.2 12 18.2c1.2 0 2.2-.2 3.2-.5"/><path d="M10 10a2.8 2.8 0 0 0 3.9 3.9"/><path d="M3.5 3.5l17 17"/></g>
-<g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></g>
-<g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 0 0 16.8z" fill="currentColor" stroke="none"/></g>
+<g id="mc-measure" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" />
+  <path d="m14.5 12.5 2-2" />
+  <path d="m11.5 9.5 2-2" />
+  <path d="m8.5 6.5 2-2" />
+  <path d="m17.5 15.5 2-2" /></g>
+<g id="mc-mark-edge" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18L10 6L20 10"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="10" r="2"/></g>
+<g id="mc-mark-part" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 3L21 8V18L12 23L3 18V8Z M3 8L12 13L21 8 M12 13V23"/></g>
+<g id="mc-pin" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+  <circle cx="12" cy="10" r="3" /></g>
+<g id="mc-eye" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+  <circle cx="12" cy="12" r="3" /></g>
+<g id="mc-eye-off" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+  <path d="m2 2 20 20" /></g>
+<g id="mc-help" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></g>
+<g id="mc-settings" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.72l-.12.88a2 2 0 0 1-1.18 1.52l-.2.09a2 2 0 0 1-1.9-.18l-.71-.54a2 2 0 0 0-2.65.54l-.22.38a2 2 0 0 0 .54 2.65l.71.54a2 2 0 0 1 .72 1.78v.22a2 2 0 0 1-.72 1.78l-.71.54a2 2 0 0 0-.54 2.65l.22.38a2 2 0 0 0 2.65.54l.71-.54a2 2 0 0 1 1.9-.18l.2.09a2 2 0 0 1 1.18 1.52l.12.88a2 2 0 0 0 2 1.72h.44a2 2 0 0 0 2-1.72l.12-.88a2 2 0 0 1 1.18-1.52l.2-.09a2 2 0 0 1 1.9.18l.71.54a2 2 0 0 0 2.65-.54l.22-.39a2 2 0 0 0-.54-2.65l-.71-.53a2 2 0 0 1-.72-1.78v-.22a2 2 0 0 1 .72-1.78l.71-.54a2 2 0 0 0 .54-2.65l-.22-.38a2 2 0 0 0-2.65-.54l-.71.54a2 2 0 0 1-1.9.18l-.2-.09a2 2 0 0 1-1.18-1.52l-.12-.88A2 2 0 0 0 12.22 2z"/><circle cx="12" cy="12" r="3"/></g>
+<g id="mc-projection-ortho" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h12v12H3Z"/><path d="M3 9l6-6h12l-6 6M21 3v12l-6 6"/></g>
+<g id="mc-projection" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h8l5 15H3L8 5Z"/><path d="M12 5v15M5.4 13h13.2"/></g>
+<g id="mc-plain" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" />
+  <path d="M12 18a6 6 0 0 0 0-12v12z" /></g>
 <g id="mc-language" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><path d="M12 3.6a12.6 12.6 0 0 1 0 16.8a12.6 12.6 0 0 1 0-16.8z"/></g>
-<g id="mc-section" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10M2 12h20"/></g>
+<g id="mc-explode" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 9 3-2 3 2-3 2-3-2Zm0 0v4l3 2 3-2V9M12 11v4M3 7l3-2M18 5l3 2M3 17l3 2M18 19l3-2M5 3v3H2M19 3v3h3M5 21v-3H2M19 21v-3h3"/></g>
+<g id="mc-section" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v5l8 4 8-4v-5M12 16v5"/><path d="m4 12 8-4 8 4-8 4-8-4Z"/><path d="M4 9V7l8-4 8 4v2" stroke-dasharray="1.5 3"/></g>
 <g id="mc-theme" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></g>
+<g id="mc-parts-tab" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />
+  <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" />
+  <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></g>
 </defs></svg>`;
 
   review.icon = (name) =>
-    `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
+    `<svg class="icon" viewBox="0 0 ${name === "brand" ? "64 64" : "24 24"}" aria-hidden="true" focusable="false"><use href="#mc-${name}"/></svg>`;
 
   /* Catalogue text goes into markup, so it is escaped on the way in. Five
    languages of apostrophes and quotation marks are not a place to rely on
@@ -171,7 +210,7 @@ export function mountShell(review) {
     t("conn.actionFailed");
 
   review.app.innerHTML = `${review.SPRITE}
-<header class="app-header"><div class="brand-mark">${review.icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${review.T("app.version")}">${__MESHCUE_VERSION__}</span><a class="app-update" id="app-update" target="_blank" rel="noreferrer noopener" hidden></a></div><span>${review.T("app.tagline")}</span></div><div class="header-right"><span id="connection-indicator" class="connection-indicator" role="img" data-state="connecting" aria-label="${review.T("conn.connecting")}" title="${review.T("conn.connecting")}"></span><button class="quiet icon-only" id="help-button" aria-label="${review.T("help.open")}">${review.icon("help")}</button><button class="quiet icon-only" id="settings-button" aria-label="${review.T("shell.settings")}">⚙</button></div></header>
+<header class="app-header"><div class="brand-mark">${review.icon("brand")}</div><div class="brand"><div class="brand-title"><strong>MeshCue</strong><span class="app-version" id="app-version" title="${review.T("app.version")}">${__MESHCUE_VERSION__}</span><button type="button" class="app-update" id="app-update" aria-expanded="false" aria-haspopup="dialog" hidden></button></div><span>${review.T("app.tagline")}</span></div><div class="header-right"><span id="connection-indicator" class="connection-indicator" role="img" data-state="connecting" aria-label="${review.T("conn.connecting")}" title="${review.T("conn.connecting")}"></span><button class="quiet icon-only" id="help-button" aria-label="${review.T("help.open")}">${review.icon("help")}</button><button class="quiet icon-only" id="settings-button" aria-label="${review.T("shell.settings")}">${review.icon("settings")}</button></div></header>
 <main class="workspace">
  <section class="review-panel" aria-label="${review.T("a11y.reviewPanel")}">
   <!-- The name arrived with the link, the tab strip carries the version, and a
@@ -186,23 +225,22 @@ export function mountShell(review) {
   <aside id="parts-panel" hidden></aside>
   <div class="viewer-shell">
    <div id="viewer"></div>
-   <div class="viewer-top"><span class="scene-pill" id="review-status">${review.T("review.loadingModel")}</span></div>
+   <div class="viewer-top"><span class="scene-pill" role="status" id="review-status">${review.T("review.loadingModel")}</span></div>
    <div class="orient">
     <div class="orient-stage" tabindex="0" role="group" aria-label="${review.T("cube.widgetLabel")}"><div class="orient-cube" id="orient-cube" aria-hidden="true"></div>
      <button class="orient-home quiet-dark" id="home-view" data-command="home" title="${review.T("cube.homeTitle")}" aria-label="${review.T("cube.homeLabel")}">${review.icon("home")}</button>
     </div>
    </div>
    <div class="toolbar" role="toolbar" aria-label="${review.T("a11y.toolbar")}">
-    <div data-toolbar-slot="tools"></div><div data-toolbar-slot="history" class="toolbar-history" role="group" aria-label="${review.T("shell.history")}"></div><div data-toolbar-slot="reset"></div>
+    <div data-toolbar-slot="tools"></div><div data-toolbar-slot="history" class="toolbar-history" role="group" aria-label="${review.T("shell.history")}"></div>
    </div>
-   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${review.T("a11y.palette")}" hidden></div><label id="fill-control" hidden>${review.T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${review.T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${review.icon("plus")}${review.T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><button class="measure-kind active" data-measure="smart" aria-pressed="true">${review.T("measure.smart")}</button><details id="measure-advanced"><summary>${review.T("measure.advanced")}</summary><div class="measure-kinds" role="group" aria-label="${review.T("measure.kinds")}"><button class="measure-kind" data-measure="points" aria-pressed="false">${review.T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${review.T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${review.T("measure.planes")}</button><button class="measure-kind" data-measure="circle" aria-pressed="false">${review.T("measure.circle")}</button></div></details><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${review.T("measure.keepTitle")}" disabled>${review.icon("check")}${review.T("measure.keep")}</button></div></div>
-   <div id="section-options" class="section-options" role="group" aria-label="${review.T("section.title")}" hidden><label>${review.T("section.axis")} <select id="section-axis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label><label for="section-offset">${review.T("section.offset")} <span id="section-units"></span></label><input id="section-range" type="range" aria-label="${review.T("section.offset")}"><input id="section-offset" type="number" step="any"><button id="section-flip" class="quiet-dark" aria-pressed="false">${review.T("section.flip")}</button><button id="section-off" class="quiet-dark">${review.T("section.off")}</button><small>${review.T("section.hint")}</small></div>
+   <div id="tool-options" class="tool-options" hidden><div class="palette" role="group" aria-label="${review.T("a11y.palette")}" hidden></div><div id="mark-show" role="group" aria-label="${review.T("markShow.title")}" hidden></div><small id="mark-show-hint" hidden>${review.T("markShow.hint")}</small><label id="fill-control" hidden>${review.T("tool.spread")} <input id="fill-range" type="range" min="1" max="30" value="6" aria-label="${review.T("tool.bucketSpread")}"></label><button class="quiet-dark" id="new-region" hidden>${review.icon("plus")}${review.T("tool.newRegion")}</button><div id="measure-options" class="measure-options" hidden><button class="measure-kind active" data-measure="smart" aria-pressed="true">${review.T("measure.smart")}</button><details id="measure-advanced"><summary>${review.T("measure.advanced")}</summary><div class="measure-kinds" role="group" aria-label="${review.T("measure.kinds")}"><button class="measure-kind" data-measure="points" aria-pressed="false">${review.T("measure.points")}</button><button class="measure-kind" data-measure="edge" aria-pressed="false">${review.T("measure.edge")}</button><button class="measure-kind" data-measure="planes" aria-pressed="false">${review.T("measure.planes")}</button><button class="measure-kind" data-measure="circle" aria-pressed="false">${review.T("measure.circle")}</button></div></details><output id="measure-reading" aria-live="polite"></output><button class="quiet-dark" id="keep-measure" title="${review.T("measure.keepTitle")}" disabled>${review.icon("check")}${review.T("measure.keep")}</button></div></div>
+   <div id="section-options" class="section-options" role="group" aria-label="${review.T("section.title")}" hidden><label>${review.T("section.axis")} <select id="section-axis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label><label for="section-offset">${review.T("section.offset")} <span id="section-units"></span></label><input id="section-range" type="range" aria-label="${review.T("section.offset")}"><input id="section-offset" type="number" step="any"><button id="section-flip" class="quiet-dark" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/></svg>${review.T("section.flip")}</button><button id="section-off" class="quiet-dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>${review.T("section.off")}</button><small>${review.T("section.hint")}</small></div>
    <div id="echo-dock"><div id="echo-panel" hidden><span class="echo-swatch" aria-hidden="true"></span><span id="echo-summary"></span><span id="echo-stale" hidden>${review.T("echo.stale")}</span></div><button id="echo-recall" hidden aria-expanded="false" aria-label="${review.TA("echo.recall")}">${review.icon("echo")}</button></div>
    <div id="loading" class="loading-overlay"><div class="spinner"></div><strong id="loading-text">${review.T("loading.preparing")}</strong><span id="loading-hint">${review.T("loading.hint")}</span></div>
    <div class="viewer-bottom"><span id="tool-hint">${review.T("hint.orbit")}</span><span class="scene-pill subtle" id="model-info"></span><span class="axis-label">3D SPACE</span></div>
   </div>
   </div>
-  <div id="pending-banner" class="pending-banner" hidden><span id="pending-text"></span><button id="go-latest" class="quiet">${review.T("version.goLatest")}</button></div>
   <div id="resume-banner" class="pending-banner" hidden><span>${review.T("resume.text")}</span><button id="resume-review" class="quiet">${review.T("resume.action")}</button></div>
   <div id="recovery-banner" class="pending-banner" hidden><span>${review.T("recovery.text")}</span><a id="download-recovery">${review.T("recovery.download")}</a></div>
   <div id="outbox-banner" class="pending-banner warn" hidden><span id="outbox-text"></span></div>
@@ -210,7 +248,7 @@ export function mountShell(review) {
  </section>
 </main><div id="toast" role="status" hidden></div>
 <dialog id="settings-dialog" aria-labelledby="settings-title"><button id="close-settings" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><h2 id="settings-title">${review.T("shell.settings")}</h2><span class="connection-dot"></span><span id="connection-status">${review.T("conn.connecting")}</span><label class="setting">${review.icon("language")}<select class="quiet" id="locale-choice" aria-label="${review.T("settings.language")}"></select></label><label class="setting">${review.icon("theme")}<select class="quiet" id="theme-choice" aria-label="${review.T("settings.theme")}"><option value="system">${review.T("settings.themeSystem")}</option><option value="light">${review.T("settings.themeLight")}</option><option value="dark">${review.T("settings.themeDark")}</option></select></label><div id="settings-features"></div></dialog>
-<dialog id="help-dialog"><button id="close-help" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><span class="eyebrow">${review.T("help.eyebrow")}</span><h2>${review.T("help.title")}</h2><p>${review.T("help.p1")}</p><p>${review.T("help.p2")}</p><p>${review.T("help.p3")}</p><p>${review.T("help.p4")}</p><p>${review.T("help.p10")}</p><p data-agent-text="help.p5">${review.TA("help.p5")}</p><p data-agent-text="help.p6">${review.TA("help.p6")}</p><p data-agent-text="help.p7">${review.TA("help.p7")}</p><p data-agent-text="help.p8">${review.TA("help.p8")}</p><p data-agent-text="help.p11">${review.TA("help.p11")}</p><p data-agent-text="help.p12">${review.TA("help.p12")}</p><p data-agent-text="help.p13">${review.TA("help.p13")}</p><p>${review.T("help.p14")}</p><p>${review.T("help.p16")}</p><p data-agent-text="help.p15">${review.TA("help.p15")}</p><p class="muted">${review.T("help.p9")}</p></dialog>`;
+<dialog id="help-dialog" aria-labelledby="help-title"><button id="close-help" class="dialog-close icon-only" aria-label="${review.T("common.close")}">${review.icon("close")}</button><span class="eyebrow">${review.T("help.eyebrow")}</span><h2 id="help-title">${review.T("help.title")}</h2><div id="onboarding-content"></div></dialog>`;
 }
 
 export function bindHelp(review) {

@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "Modell wird geladen",
-  "review.earlierVersion": "Frühere Version · weiterhin markierbar",
   "review.openElsewhere": "Ein anderes Fenster hat diese Version geöffnet",
-  "review.current": "Aktuelle Version · bereit zum Markieren",
   "review.notInReview": "Diese Version gehört nicht zur laufenden Prüfung.",
   "review.notMarked": "Auf dieser Version ist noch nichts markiert.",
   "review.roundClosed":
@@ -12,9 +10,6 @@ export default {
   "version.earlier": "Frühere Version",
   "version.submitted": "{count} gesendet",
   "version.openElsewhere": "In einem anderen Fenster geöffnet",
-  "version.pinnedNotice":
-    "Sie sehen eine frühere Version; die neueste ist {version}.",
-  "version.goLatest": "Neueste Version anzeigen",
   "version.driftStopped":
     "Eine andere Version ist eingetroffen; Ihr Entwurf bleibt erhalten und der automatische Wechsel wurde gestoppt.",
 

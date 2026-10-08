@@ -8,6 +8,27 @@ import { chainSegments, faceNormal, outlineSegments } from "../outline.js";
 import { t } from "../i18n/index.js";
 import { V, measureAnchor } from "./shared.js";
 
+// Choose ink from luminance, not a palette slot: custom bright colors need
+// the same legibility as yellow. THREE.Color also accepts CSS color values.
+export function pinInk(color) {
+  const c = new THREE.Color(color || "#6b7378");
+  const luminance = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  return luminance > 0.42 ? "#302700" : "#fff";
+}
+
+function decoratePin(el, a) {
+  el.type = "button";
+  const tag = document.createElement("span");
+  tag.className = "pin-tag";
+  tag.textContent = a.show === "color" ? "" : a.label;
+  el.append(tag);
+  if (a.show === "color") el.classList.add("color-only");
+  if (a.show === "label") el.classList.add("label-only");
+  el.style.setProperty("--pin-color", a.color);
+  el.style.setProperty("--pin-text", pinInk(a.color));
+  el.setAttribute("aria-label", t("marks.one", { label: a.label }));
+}
+
 /* Coverage is stored as the clipped polygon; WebGL wants triangles. Fanning at
    draw time costs nothing and keeps the stored form free of the sixty-odd
    repetitions a stored fan carried. Three vertices fan to themselves.
@@ -44,6 +65,19 @@ const ECHO_LIFT = 0.002;
 
 // How far toward the eye every stroke is drawn, as a share of its distance.
 const ECHO_TOWARD_EYE = 0.001;
+// API limits count UTF-16 code units, not code points. Leave room for the
+// ellipsis without splitting a surrogate pair at the truncation boundary.
+export function boundedMarkName(name, limit = 256) {
+  if (name.length <= limit) return name;
+  let end = limit - 1;
+  if (
+    /[\uD800-\uDBFF]/.test(name[end - 1]) &&
+    /[\uDC00-\uDFFF]/.test(name[end])
+  )
+    end--;
+  return name.slice(0, end) + "…";
+}
+
 export class MarksMethods {
   /* Where a mark is and how much of the model it covers, in the model's own
      units, so that the agent can be told without being handed the geometry.
@@ -84,7 +118,7 @@ export class MarksMethods {
       if (!m) {
         m = new THREE.Matrix4();
         for (let o = mesh; o && o !== this.root; o = o.parent)
-          m.premultiply(o.matrix);
+          m.premultiply(this.explodeBase?.get(o)?.matrix || o.matrix);
         frames.set(mesh, m);
       }
       return m;
@@ -201,6 +235,180 @@ export class MarksMethods {
           },
     );
   }
+  edgeMark(edge, notify = true) {
+    if (!edge) return null;
+    const points = edge.curved ? edge.points : edge.ends;
+    // Do not silently simplify a feature edge: retaining its exact shape is
+    // more important than accepting an approximation. Hover stays quiet;
+    // clicking explains why this particular edge cannot be kept.
+    if (points.length > 512) {
+      if (notify) this.onMarkRefused?.("edgeTooDetailed");
+      return null;
+    }
+    return {
+      type: "edge",
+      meshId: edge.meshId,
+      space: "model",
+      points: points.map((p) => p.toArray()),
+      length: points
+        .slice(1)
+        .reduce((n, p, i) => n + p.distanceTo(points[i]), 0),
+      curved: edge.curved,
+      sourceFaceIndex: edge.sourceFaceIndex,
+      ...(edge.closed ? { closed: true } : {}),
+      ...(edge.brep ? { brep: edge.brep } : {}),
+    };
+  }
+  partMark(id) {
+    const meshIds = this.parts.meshIds(id);
+    const entries = this.parts
+      .list()
+      .filter(
+        (p) =>
+          p.meshIds.some((m) => meshIds.includes(m)) &&
+          meshIds.some((m) => this.parts.partOfMesh(m) === p.id),
+      );
+    if (!meshIds.length || !entries.length || entries.length > 256) return null;
+    const bounds = new THREE.Box3();
+    for (const meshId of meshIds) {
+      const mesh = this.meshMap.get(meshId);
+      if (mesh) {
+        mesh.geometry.computeBoundingBox();
+        bounds.union(
+          mesh.geometry.boundingBox.clone().applyMatrix4(this.modelFrame(mesh)),
+        );
+      }
+    }
+    const row = this.parts.viewList().find((p) => p.id === id);
+    return {
+      type: "part",
+      partIds: entries.map((p) => p.id),
+      names: entries.map((p) => boundedMarkName(p.name)),
+      meshIds,
+      ...(row?.kind === "group"
+        ? {
+            group: {
+              id: row.id.replace(/^agent-group:/, ""),
+              name: boundedMarkName(row.name, 96),
+            },
+          }
+        : {}),
+      bounds: {
+        space: "model",
+        centroid: bounds.getCenter(new V()).toArray(),
+        min: bounds.min.toArray(),
+        max: bounds.max.toArray(),
+      },
+    };
+  }
+  objectMarkWorld(a) {
+    if (a.type === "edge") {
+      const mesh = this.meshMap.get(a.meshId);
+      let remaining = a.length / 2;
+      let anchor = new V().fromArray(a.points[0]);
+      for (let i = 1; i < a.points.length; i++) {
+        const next = new V().fromArray(a.points[i]);
+        const distance = anchor.distanceTo(next);
+        if (remaining <= distance) {
+          anchor.lerp(next, distance ? remaining / distance : 0);
+          break;
+        }
+        remaining -= distance;
+        anchor = next;
+      }
+      return anchor
+        .applyMatrix4(this.modelFrame(mesh).invert())
+        .applyMatrix4(mesh.matrixWorld);
+    }
+    const box = new THREE.Box3();
+    for (const id of a.meshIds) {
+      const mesh = this.meshMap.get(id);
+      if (mesh && this.parts.meshVisible(id))
+        box.union(
+          mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld),
+        );
+    }
+    return box.getCenter(new V());
+  }
+  drawObjectMark(group, a, selected = false, label = true) {
+    if (!a) return;
+    const ids = a.type === "edge" ? [a.meshId] : a.meshIds;
+    let visible = false;
+    for (const id of ids) {
+      const mesh = this.meshMap.get(id);
+      if (!mesh || !this.parts.meshVisible(id)) continue;
+      visible = true;
+      if (a.type === "edge") {
+        const inverse = this.modelFrame(mesh).invert();
+        const geometry = new LineSegmentsGeometry();
+        const points = a.points.map((p) =>
+          new V().fromArray(p).applyMatrix4(inverse),
+        );
+        geometry.setPositions(
+          points
+            .slice(1)
+            .flatMap((p, i) => [...points[i].toArray(), ...p.toArray()]),
+        );
+        const key = `mark:${a.color || "#2e9e78"}`;
+        let material = this.lineMaterials.get(key);
+        if (!material) {
+          material = new LineMaterial({
+            color: a.color || "#2e9e78",
+            linewidth: 4,
+            depthTest: false,
+            depthWrite: false,
+          });
+          const r = this.container.getBoundingClientRect();
+          material.resolution.set(r.width, r.height);
+          this.clipMaterial(material);
+          this.lineMaterials.set(key, material);
+        }
+        const line = new LineSegments2(geometry, material);
+        line.matrixAutoUpdate = false;
+        line.matrix.copy(mesh.matrixWorld);
+        line.userData.partMeshId = id;
+        line.renderOrder = 8;
+        group.add(line);
+      } else {
+        const overlay = new THREE.Mesh(
+          mesh.geometry.clone(),
+          this.markMaterial(a.color, selected),
+        );
+        overlay.matrixAutoUpdate = false;
+        overlay.matrix.copy(mesh.matrixWorld);
+        overlay.userData.partMeshId = id;
+        overlay.renderOrder = 3;
+        group.add(overlay);
+        const outline = new THREE.LineSegments(
+          new THREE.EdgesGeometry(mesh.geometry, 30),
+          new THREE.LineBasicMaterial({
+            color: a.color,
+            transparent: true,
+            opacity: 0.9,
+            depthTest: false,
+          }),
+        );
+        this.clipMaterial(outline.material);
+        outline.matrixAutoUpdate = false;
+        outline.matrix.copy(mesh.matrixWorld);
+        outline.userData.partMeshId = id;
+        outline.renderOrder = 4;
+        outline.userData.ownedMarkMaterial = true;
+        group.add(outline);
+      }
+    }
+    if (label && visible) {
+      const el = document.createElement("button");
+      el.className = `model-pin ${selected ? "selected" : ""}`;
+      decoratePin(el, a);
+      el.onclick = (e) => {
+        e.stopPropagation();
+        this.onSelect?.(a.id);
+      };
+      this.labels.append(el);
+      this.pins.push({ el, a, objectMark: true });
+    }
+  }
   setAnnotations(annotations, selectedId) {
     this.partAnnotations = [annotations, selectedId];
     this.clearOverlay(this.overlay);
@@ -214,16 +422,16 @@ export class MarksMethods {
     const landing = this.placing;
     this.placing = false;
     for (const a of annotations) {
-      if (a.type === "pin") {
+      if (["edge", "part"].includes(a.type)) {
+        this.drawObjectMark(this.overlay, a, a.id === selectedId);
+      } else if (a.type === "pin") {
         const mesh = this.meshMap.get(a.meshId);
         if (!mesh || this.parts?.meshVisible(a.meshId) === false) continue;
         const el = document.createElement("button");
         el.type = "button";
         el.className = `model-pin ${a.id === selectedId ? "selected" : ""}`;
         if (landing && !seen.has(a.id)) el.classList.add("landing");
-        el.textContent = a.label;
-        el.style.setProperty("--pin-color", a.color);
-        el.setAttribute("aria-label", t("marks.one", { label: a.label }));
+        decoratePin(el, a);
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           this.onSelect?.(a.id);
@@ -279,6 +487,7 @@ export class MarksMethods {
           const overlay = new THREE.Mesh(geometry, material);
           overlay.matrixAutoUpdate = false;
           overlay.matrix.copy(mesh.matrixWorld);
+          overlay.userData.partMeshId = mesh.userData.reviewId;
           overlay.renderOrder = 3;
           this.overlay.add(overlay);
         }
@@ -316,9 +525,13 @@ export class MarksMethods {
     for (const pin of this.pins) {
       // A kept measurement's reading hangs at the middle of its line, which is
       // in the model's frame rather than any one mesh's.
-      const world = pin.model
-        ? this.scratch.world.copy(pin.model).applyMatrix4(this.root.matrixWorld)
-        : pin.mesh.localToWorld(this.scratch.world.fromArray(pin.a.position));
+      const world = pin.objectMark
+        ? this.objectMarkWorld(pin.a)
+        : pin.model
+          ? this.scratch.world
+              .copy(pin.model)
+              .applyMatrix4(this.root.matrixWorld)
+          : pin.mesh.localToWorld(this.scratch.world.fromArray(pin.a.position));
       const projected = this.scratch.projected.copy(world).project(this.camera);
       const inView =
         projected.z >= -1 &&
@@ -327,7 +540,7 @@ export class MarksMethods {
         Math.abs(projected.y) < 1;
       // A measurement is drawn over the model, so its reading is never behind
       // it.
-      if (moved && pin.model) pin.unoccluded = true;
+      if (moved && (pin.model || pin.objectMark)) pin.unoccluded = true;
       else if (moved) {
         pin.unoccluded = false;
         if (inView) {
@@ -348,10 +561,8 @@ export class MarksMethods {
         !pin.unoccluded ||
         !this.annotationsVisible ||
         !this.sectionContains(world);
-      // The tail is what marks the spot, so the tail is what sits on it. The
-      // label used to be centred above the point with a near-square corner
-      // hinting at a direction it was not actually anchored in, which left the
-      // exact surface a mark referred to unreadable.
+      // The label wrapper is centred on the surface dot. Its
+      // capsule grows upwards without moving the surface point.
       // Position belongs in `translate`, not `transform`: individual transform
       // properties compose translate → rotate → scale → transform, so a scale
       // written alongside a position in `transform` is applied to the position
@@ -361,7 +572,7 @@ export class MarksMethods {
       // A measurement's reading is set down with the others, in
       // `placeReadings`.
       if (!pin.model)
-        pin.el.style.translate = `calc(${((projected.x + 1) * rect.width) / 2}px - 50%) calc(${((-projected.y + 1) * rect.height) / 2}px - 100% - 7px)`;
+        pin.el.style.translate = `${((projected.x + 1) * rect.width) / 2}px ${((-projected.y + 1) * rect.height) / 2}px`;
     }
   }
   /* Every measurement's reading, kept or being taken, set down together:
@@ -448,8 +659,10 @@ export class MarksMethods {
     this.effects.append(mark);
   }
   focusAnnotation(a) {
-    if (a.type === "measure") {
-      const p = measureAnchor(a).applyMatrix4(this.root.matrixWorld);
+    if (["edge", "part", "measure"].includes(a.type)) {
+      const p = ["edge", "part"].includes(a.type)
+        ? this.objectMarkWorld(a)
+        : measureAnchor(a).applyMatrix4(this.root.matrixWorld);
       const offset = this.camera.position.clone().sub(this.controls.target);
       this.camera.position.copy(p).add(offset);
       this.controls.target.copy(p);
@@ -484,6 +697,7 @@ export class MarksMethods {
     for (const o of [...group.children]) {
       // Geometry is per stroke; the material is shared and outlives the group.
       o.geometry.dispose();
+      if (o.userData.ownedMarkMaterial) o.material.dispose();
       group.remove(o);
     }
   }
@@ -535,6 +749,7 @@ export class MarksMethods {
       const overlay = new THREE.Mesh(geometry, this.markMaterial(color, true));
       overlay.matrixAutoUpdate = false;
       overlay.matrix.copy(mesh.matrixWorld);
+      overlay.userData.partMeshId = mesh.userData.reviewId;
       overlay.renderOrder = 4;
       group.add(overlay);
     }
@@ -567,13 +782,22 @@ export class MarksMethods {
      marks, but only a few pixels wide and on the edge, so where the Agent
      points at a place the reviewer also painted, their colour is still all
      there and the line still shows. */
-  drawOutline(group, a, mark) {
+  drawOutline(group, a, mark, onlyMesh = null) {
+    if (!onlyMesh) {
+      const ids = new Set([
+        ...Object.keys(a.faces || {}),
+        ...(a.surfacePatches || []).map((p) => p.meshId),
+      ]);
+      for (const id of ids) this.drawOutline(group, a, mark, id);
+      return;
+    }
     // A mark indexed against the review mesh was cut from its triangles, and
     // the edges between two of them lie inside one source face.
     const review = !["source-v1", "source-v2"].includes(a.coverage);
     const byMesh = new Map();
     for (const patch of this.expandWholeFaces(a)) {
       const mesh = this.meshMap.get(patch.meshId);
+      if (patch.meshId !== onlyMesh) continue;
       if (!mesh || this.parts?.meshVisible(patch.meshId) === false) continue;
       const carriers = [];
       const sourceFace =
@@ -657,8 +881,24 @@ export class MarksMethods {
         // Over the reviewer's marks (3) and the bucket's preview (4).
         line.renderOrder = (mark ? 4 : 5) + i;
         group.add(line);
+        line.userData.explodeOutline = {
+          id: onlyMesh,
+          offset:
+            this.meshMap.get(onlyMesh).userData.explodeOffset?.clone() ||
+            new V(),
+        };
       },
     );
+  }
+  refreshExplodeOutlines() {
+    for (const group of [this.overlay, this.agentOverlay])
+      for (const line of group?.children || []) {
+        const data = line.userData.explodeOutline;
+        if (data)
+          line.position
+            .copy(this.meshMap.get(data.id).userData.explodeOffset)
+            .sub(data.offset);
+      }
   }
   regionLineMaterial(color, selected, kind) {
     const key = `region-${color}-${selected}-${kind}`;

@@ -75,6 +75,8 @@ export function createParts(onChange = () => {}) {
   let tree = { entries: [], objects: new Map(), meshParts: new Map() };
   let byId = new Map(),
     hidden = new Set(),
+    hiddenContainers = new Map(),
+    blocked = new Set(),
     transparent = new Set(),
     isolated = null,
     selected = null;
@@ -89,7 +91,23 @@ export function createParts(onChange = () => {}) {
     for (const fn of listeners) fn(kind);
   };
   const meshes = (id) => byId.get(id)?.meshIds || [];
-  const meshVisible = (id) => (isolated ? isolated.has(id) : !hidden.has(id));
+  // Container switches are gates, not writes to descendant switches. Isolation
+  // remains a temporary override, restoring the gates unchanged on exit.
+  const meshVisible = (id) =>
+    isolated ? isolated.has(id) : !hidden.has(id) && !blocked.has(id);
+  const containerKey = (id) => byId.get(id)?.partId || id;
+  const rebuildBlocked = () => {
+    blocked = new Set([...hiddenContainers.values()].flat());
+  };
+  const isContainer = (id) => {
+    const row = byId.get(id);
+    return (
+      row &&
+      (row.hasChildren ||
+        row.childIds.length ||
+        ["group", "other"].includes(row.kind))
+    );
+  };
   let indexedRows = 0;
   const indexProjection = () => {
     while (indexedRows < projection.entries.length) {
@@ -121,6 +139,12 @@ export function createParts(onChange = () => {}) {
     meshIds: (id) => [...meshes(id)],
     view: () => view,
     hasGroups: () => groups.length > 0,
+    groupList() {
+      ensureProjection();
+      return projection.entries.filter(
+        (p) => p.kind === "group" && p.parentId === null,
+      );
+    },
     viewList() {
       if (view !== "agent" || !groups.length) return api.list();
       ensureProjection();
@@ -179,11 +203,32 @@ export function createParts(onChange = () => {}) {
       groupSignature = signature;
       projection = null;
       indexedRows = 0;
+      let visibilityChanged = false;
       byId = new Map(tree.entries.map((p) => [p.id, p]));
-      if (view === "agent" && groups.length) ensureProjection();
+      const groupGates = [...hiddenContainers.keys()].filter(
+        (id) => !id.startsWith("part-"),
+      );
+      if (groups.length && (view === "agent" || groupGates.length))
+        ensureProjection();
+      for (const id of groupGates) {
+        const previous = hiddenContainers.get(id);
+        if (!byId.has(id)) {
+          hiddenContainers.delete(id);
+          visibilityChanged = true;
+        } else {
+          const current = meshes(id);
+          hiddenContainers.set(id, current);
+          if (
+            previous.length !== current.length ||
+            previous.some((mesh) => !current.includes(mesh))
+          )
+            visibilityChanged = true;
+        }
+      }
+      rebuildBlocked();
       if (selected && !byId.has(selected)) selected = null;
       if (!groups.length) view = "file";
-      emit("projection");
+      emit(visibilityChanged ? "view" : "projection");
     },
     bounds(id) {
       const object = tree.objects.get(id);
@@ -205,13 +250,30 @@ export function createParts(onChange = () => {}) {
     },
     object: (id) => tree.objects.get(id) ?? null,
     setVisible(id, value) {
-      for (const mesh of meshes(id)) {
-        value ? hidden.delete(mesh) : hidden.add(mesh);
-        if (isolated) value ? isolated.add(mesh) : isolated.delete(mesh);
+      if (isContainer(id)) {
+        const key = containerKey(id);
+        value
+          ? hiddenContainers.delete(key)
+          : hiddenContainers.set(key, meshes(id));
+        rebuildBlocked();
+      } else {
+        for (const mesh of meshes(id))
+          value ? hidden.delete(mesh) : hidden.add(mesh);
       }
+      if (isolated)
+        for (const mesh of meshes(id))
+          value ? isolated.add(mesh) : isolated.delete(mesh);
       emit();
     },
     isVisible: (id) => meshes(id).some(meshVisible),
+    // Own switch state for the browser eye; effective visibility additionally
+    // includes parent gates. A child can be changed without reopening its parent.
+    visibilityEnabled: (id) =>
+      isolated
+        ? meshes(id).some(meshVisible)
+        : isContainer(id)
+          ? !hiddenContainers.has(containerKey(id))
+          : meshes(id).some((mesh) => !hidden.has(mesh)),
     isolate(ids) {
       isolated = ids === null ? null : new Set(ids.flatMap(meshes));
       emit();
@@ -248,6 +310,8 @@ export function createParts(onChange = () => {}) {
     isIsolated: () => isolated !== null,
     showAll() {
       hidden.clear();
+      hiddenContainers.clear();
+      blocked.clear();
       isolated = null;
       emit();
     },
@@ -256,6 +320,8 @@ export function createParts(onChange = () => {}) {
        stale picks when they expose a different surface. */
     restoreAll({ preserveMeasure = false } = {}) {
       hidden.clear();
+      hiddenContainers.clear();
+      blocked.clear();
       transparent.clear();
       isolated = null;
       selected = null;
@@ -269,6 +335,8 @@ export function createParts(onChange = () => {}) {
       indexedRows = 0;
       byId = new Map(tree.entries.map((p) => [p.id, p]));
       hidden = new Set();
+      hiddenContainers = new Map();
+      blocked = new Set();
       transparent = new Set();
       isolated = null;
       selected = null;

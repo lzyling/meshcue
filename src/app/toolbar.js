@@ -1,7 +1,6 @@
-import { mountMenus } from "./menus.js";
-import { latestVersion, viewingBehindLatest } from "../versions.js";
+import { MARK_SHOW_KEY } from "../mark-show.js";
+import { mountMenus, toolbarCaption } from "./menus.js";
 import { registerPanTool } from "./pan-tool.js";
-import { reusedVersionIsCurrent } from "./reuse-version.js";
 import { t } from "../i18n/index.js";
 export function installToolbar(review) {
   function updateFillControl() {
@@ -17,10 +16,6 @@ export function installToolbar(review) {
     // The server decides what is permitted and says why when it is not. The page
     // only adds what the server cannot know: whether this tab has finished saving.
     const can = review.state?.capabilities || {};
-    const latest = latestVersion(review.state?.versions),
-      behind =
-        viewingBehindLatest(review.state?.versions, review.viewingId) &&
-        !reusedVersionIsCurrent(review, latest);
     const ready =
         !!review.loadedId &&
         review.viewer.enabled &&
@@ -42,25 +37,22 @@ export function installToolbar(review) {
     // Read-only rather than disabled: a note that cannot be changed right now
     // can still be read, scrolled and copied.
     review.noteBox().readOnly = busy || !can.canEdit;
-    review.$("#review-status").textContent = review.accessBlocked
+    const status = review.$("#review-status");
+    status.textContent = review.accessBlocked
       ? review.loadedId && review.initialDraftRestored
         ? t("conn.accessExpired")
         : t("conn.noAccess")
       : !ready
         ? t("review.loadingModel")
-        : behind
-          ? t("review.earlierVersion")
-          : review.state?.locked
-            ? t("review.openElsewhere")
-            : review.blockedText(can.blocked) || t("review.current");
+        : review.state?.locked
+          ? t("review.openElsewhere")
+          : can.canEdit
+            ? ""
+            : review.blockedText(can.blocked);
+    status.hidden = !status.textContent;
     review.updateReceipt();
     review.renderVersions();
     review.updatePublicationNotices();
-    review.$("#pending-banner").hidden = !behind;
-    if (behind)
-      review.$("#pending-text").textContent = t("version.pinnedNotice", {
-        version: latest.version || latest.name,
-      });
     review.$("#resume-banner").hidden =
       !review.state?.locked || review.accessBlocked;
     document
@@ -69,7 +61,9 @@ export function installToolbar(review) {
     review.showMeasure();
   }
 
+  let viewingMode = "orbit";
   function setMode(next) {
+    if (["orbit", "pan"].includes(next)) viewingMode = next;
     review.mode = next;
     if (next !== "relocate") review.relocatingId = null;
     review.viewer.setVisible(true);
@@ -88,6 +82,10 @@ export function installToolbar(review) {
       "relocate",
       "measure",
     ].includes(next);
+    review.$("#mark-show").hidden = !["label", "edge", "part", "fill"].includes(
+      next,
+    );
+    updatePalette();
     review.$("#new-region").hidden = next !== "fill";
     review.$("#measure-options").hidden = next !== "measure";
     // Once every option inside it is gone the frame is all that is left, and an
@@ -99,6 +97,8 @@ export function installToolbar(review) {
       fill: t("hint.fill"),
       relocate: t("hint.relocate"),
       label: t("hint.label"),
+      edge: t("marks2.edge"),
+      part: t("marks2.part"),
       orbit: t("hint.orbit"),
       pan: t("hint.pan"),
       measure: t(review.MEASURE_HINTS[review.viewer.measureKind]),
@@ -106,7 +106,24 @@ export function installToolbar(review) {
     review.showToolHint?.(next);
   }
 
+  function toggleTool(mode) {
+    // Viewer.setMode uses the same clearMeasure path as Escape; saved marks stay.
+    setMode(review.mode === mode ? viewingMode : mode);
+  }
+
   function updatePalette() {
+    const disabled = review.markShow === "label" && review.mode !== "fill";
+    review.$("#mark-show-hint").hidden =
+      !disabled || review.$(".palette").hidden;
+    document.querySelectorAll("[data-mark-show]").forEach((b) => {
+      b.setAttribute(
+        "aria-pressed",
+        String(b.dataset.markShow === review.markShow),
+      );
+    });
+    document.querySelectorAll(".color-button").forEach((b) => {
+      b.disabled = disabled;
+    });
     document
       .querySelectorAll(".color-button")
       .forEach((b) =>
@@ -125,13 +142,39 @@ export function installToolbar(review) {
     button.setAttribute("aria-pressed", String(pressed));
     button.setAttribute("aria-label", t(key));
     button.title = t(key);
-    button.innerHTML = `${review.icon(name)}<span>${review.esc(t(caption))}</span>`;
+    button.innerHTML = `${review.icon(name)}<span>${review.esc(toolbarCaption(button.dataset.command) || t(caption))}</span>`;
   }
 
-  Object.assign(review, { updateButtons, setMode, updatePalette, showToggle });
+  Object.assign(review, {
+    updateButtons,
+    setMode,
+    toggleTool,
+    updatePalette,
+    showToggle,
+  });
 }
 
 export function bindToolbarOptions(review) {
+  for (const show of ["both", "color", "label"]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.markShow = show;
+    b.textContent = t(
+      {
+        both: "markShow.both",
+        color: "markShow.color",
+        label: "markShow.label",
+      }[show],
+    );
+    b.addEventListener("click", () => {
+      review.markShow = show;
+      try {
+        localStorage.setItem(MARK_SHOW_KEY, show);
+      } catch {}
+      review.updatePalette();
+    });
+    review.$("#mark-show").append(b);
+  }
   for (const c of review.colors) {
     const b = document.createElement("button");
     b.className = "color-button";
@@ -147,6 +190,89 @@ export function bindToolbarOptions(review) {
     });
     review.$(".palette").append(b);
   }
+
+  const dialog = document.createElement("dialog");
+  dialog.id = "reset-dialog";
+  dialog.setAttribute("aria-labelledby", "reset-dialog-title");
+  dialog.setAttribute("aria-describedby", "reset-dialog-message");
+  dialog.innerHTML = `<h2 id="reset-dialog-title">${review.esc(t("shell.reset"))}</h2><p id="reset-dialog-message"></p><div class="reset-dialog-actions"><button id="reset-cancel" autofocus>${review.esc(t("shell.resetCancel"))}</button><button id="reset-confirm" class="danger-button">${review.esc(t("shell.reset"))}</button></div>`;
+  document.body.append(dialog);
+  const restoreDisplay = () => {
+    review.viewer.parts.restoreAll({ preserveMeasure: false });
+    review.viewer.clearMeasure();
+    review.viewer.hoverPart(null);
+    review.viewer.setSection(null);
+    review.viewer.setExplode?.(0);
+    if (review.viewer.neutral) review.commands.run("plain");
+    review.setDisplayStyle("edges");
+    review.viewer.setVisible(true);
+    review.showMarksToggle();
+    review.viewer.home();
+  };
+  let version;
+  const performReset = async () => {
+    const resetVersion = version;
+    // A modal may outlive a version/permission refresh; never clear another draft.
+    if (version !== review.loadedId || review.submitting) return;
+    if (
+      !review.state?.capabilities?.canEdit ||
+      review.recoveryBlocked ||
+      review.accessBlocked
+    ) {
+      restoreDisplay();
+      review.toast(t("shell.resetReadOnly"));
+      return;
+    }
+    if (review.annotations.length) {
+      let cleared = false;
+      try {
+        // beginEdit is the authority for locks and pushes exactly one history entry.
+        if (!(await review.beginEdit())) {
+          restoreDisplay();
+          review.toast(t("shell.resetReadOnly"));
+          return;
+        }
+        if (resetVersion !== review.loadedId) return;
+        review.annotations = [];
+        cleared = true;
+        review.selectedId = null;
+        review.relocatingId = null;
+        restoreDisplay();
+        review.changed();
+        await review.flushDraft();
+      } catch (error) {
+        restoreDisplay();
+        review.toast(cleared ? error.message : t("shell.resetReadOnly"));
+      }
+    } else restoreDisplay();
+  };
+  const reset = async () => {
+    if (review.resettingPreview) return;
+    review.resettingPreview = true;
+    review.refreshCommands();
+    try {
+      await performReset();
+    } finally {
+      review.resettingPreview = false;
+      review.refreshCommands();
+    }
+  };
+  review.$("#reset-cancel").onclick = () => dialog.close();
+  review.$("#reset-confirm").onclick = () => {
+    dialog.close();
+    void reset();
+  };
+  review.resetPreview = () => {
+    if (review.resettingPreview) return;
+    version = review.loadedId;
+    if (!review.annotations.length || !review.state?.capabilities?.canEdit)
+      return reset();
+    review.$("#reset-dialog-message").textContent = t("shell.resetConfirm", {
+      count: review.annotations.length,
+    });
+    dialog.showModal();
+    review.$("#reset-cancel").focus();
+  };
 
   review.updatePalette();
 
@@ -180,7 +306,17 @@ export function registerToolbarCommands(review) {
     menu: "view",
     attributes: { id: "view-mode-toggle" },
     enabled: ready,
-    run: () => review.setMode(review.mode === "pan" ? "orbit" : "pan"),
+    run: () => review.openMenu("view-mode"),
+  });
+  review.markMode = "label";
+  review.commands.register({
+    id: "mark-mode",
+    labelKey: "tool.labelLabel",
+    icon: "pin",
+    menu: "mark",
+    attributes: { id: "mark-mode-toggle" },
+    enabled: () => idle() && !!review.state?.capabilities?.canEdit,
+    run: () => review.openMenu("mark-mode"),
   });
   review.commands.register({
     id: "reset-preview",
@@ -188,26 +324,16 @@ export function registerToolbarCommands(review) {
     titleKey: "shell.resetTitle",
     captionKey: "shell.reset",
     icon: "reset",
-    group: "reset",
+    group: "history",
     attributes: { id: "reset-preview", class: "tool reset-preview" },
-    enabled: ready,
-    run: () => {
-      // These are viewer-only switches: never call changed(), setMode(), or
-      // touch annotations/history/drafts. The camera belongs to home(), which
-      // also owns a reviewer's saved default rather than the shell guessing it.
-      review.viewer.parts.restoreAll({ preserveMeasure: true });
-      review.viewer.hoverPart(null);
-      review.viewer.setSection(null);
-      if (review.viewer.neutral) review.commands.run("plain");
-      review.setDisplayStyle("edges");
-      review.viewer.setVisible(true);
-      review.showMarksToggle();
-      review.viewer.home();
-    },
+    enabled: () => ready() && !review.resettingPreview,
+    run: () => review.resetPreview(),
   });
   for (const [mode, labelKey, titleKey, captionKey, icon] of [
     ["orbit", "tool.orbitLabel", "tool.orbitTitle", "tool.orbit", "orbit"],
     ["label", "tool.labelLabel", "tool.labelTitle", "tool.label", "pin"],
+    ["edge", "marks2.edge", "marks2.edge", "marks2.edge", "mark-edge"],
+    ["part", "marks2.part", "marks2.part", "marks2.part", "mark-part"],
     ["fill", "tool.bucketLabel", "tool.bucketTitle", "tool.bucket", "fill"],
     [
       "measure",
@@ -230,12 +356,20 @@ export function registerToolbarCommands(review) {
         "data-mode": mode,
         class: `tool${mode === "orbit" ? " active" : ""}`,
       },
+      checked: ["label", "edge", "part"].includes(mode)
+        ? () => review.markMode === mode
+        : undefined,
       // Measuring changes nothing; keeping a measurement is the edit.
       enabled: () =>
-        mode === "measure"
-          ? ready()
+        ["measure", "orbit"].includes(mode)
+          ? ready() && (mode !== "measure" || !review.viewer.explode?.amount)
           : idle() && !!review.state?.capabilities?.canEdit,
-      run: () => review.setMode(mode),
+      run: () =>
+        mode === "orbit"
+          ? review.setMode(mode)
+          : ["label", "edge", "part"].includes(mode)
+            ? ((review.markMode = mode), review.toggleTool(mode))
+            : review.toggleTool(mode),
     });
     if (mode === "orbit") registerPanTool(review, ready);
   }
@@ -282,7 +416,7 @@ export function registerToolbarCommands(review) {
     titleKey: "marks.hide",
     captionKey: "tool.marks",
     icon: "eye",
-    group: "marks-panel",
+    menu: "view",
     checked: () => !!review.viewer?.annotationsVisible,
     attributes: { id: "toggle-marks", class: "tool", "aria-pressed": "false" },
     run: () => {
@@ -303,18 +437,11 @@ export function registerToolbarCommands(review) {
     attributes: { id: "neutral-view", class: "tool", "aria-pressed": "false" },
     run: () => {
       review.viewer.setNeutral(!review.viewer.neutral);
-      review.showToggle(
-        "#neutral-view",
-        review.viewer.neutral,
-        review.viewer.neutral ? "view.original" : "view.plain",
-        "plain",
-        "tool.plain",
-      );
+      review.refreshDisplay?.();
     },
   });
   review.commands.register({
     id: "home",
-    menu: "view",
     menuOrder: 20,
     menuSection: "camera",
     labelKey: "cube.homeLabel",
@@ -358,12 +485,16 @@ export function mountToolbar(review) {
     if (command.titleKey) button.title = t(command.titleKey);
     button.innerHTML =
       (command.icon ? review.icon(command.icon) : "") +
-      (command.captionKey
-        ? `<span>${review.esc(t(command.captionKey))}</span>`
+      (toolbarCaption(command.id) || command.captionKey
+        ? `<span>${review.esc(toolbarCaption(command.id) || t(command.captionKey))}</span>`
         : "");
     slot.append(button);
   };
-  review.commands.list().forEach(mount);
+  review.commands
+    .list()
+    .filter((c) => c.id !== "reset-preview")
+    .forEach(mount);
+  mount(review.commands.get("reset-preview"));
   review.commands.onRegister((command) => {
     mount(command);
     review.refreshCommands();

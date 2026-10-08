@@ -16,7 +16,7 @@ export function bindSidebar(review) {
     partsTab = document.createElement("button");
   for (const [button, id, label, icon] of [
     [marksTab, "marks", "tool.marks", "pin"],
-    [partsTab, "parts", "parts.title", "orbit"],
+    [partsTab, "parts", "parts.title", "parts-tab"],
   ]) {
     button.id = `sidebar-${id}`;
     button.role = "tab";

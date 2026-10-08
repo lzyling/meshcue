@@ -85,7 +85,7 @@ const READERS = [
     locale: "zh-CN",
     languages: ["zh-CN", "zh"],
     lang: "zh-Hans",
-    bucket: "填充",
+    bucket: "填色",
   },
   {
     locale: "zh-TW",
@@ -105,7 +105,7 @@ const READERS = [
     locale: "ja-JP",
     languages: ["ja-JP", "ja"],
     lang: "ja",
-    bucket: "塗りつぶし",
+    bucket: "塗る",
   },
   // Nobody has a catalogue for Icelandic, and the source language is the answer.
   { locale: "is-IS", languages: ["is-IS", "is"], lang: "en", bucket: "Fill" },
@@ -114,7 +114,7 @@ const READERS = [
     locale: "pt-BR",
     languages: ["pt-BR", "ja-JP"],
     lang: "ja",
-    bucket: "塗りつぶし",
+    bucket: "塗る",
   },
 ];
 
@@ -168,12 +168,10 @@ for (const reader of READERS) {
       expect(stray, `untranslated text on a ${reader.lang} page`).toEqual([]);
     }
 
-    /* Flat toolbar tools are icons, with localized accessible names/tooltips
-       rather than visible captions. Their explicitly screen-reader-only text
-       needs no drawn width; Reset, group names and cube faces still do. */
-    await expect(page.locator('[data-mode="fill"] span')).toHaveClass(
-      "sr-only",
-    );
+    /* Desktop tools now expose short localized captions (r6), while full
+       accessible names/tooltips remain available. Captions and cube faces
+       must still fit their drawn widths. */
+    await expect(page.locator('[data-mode="fill"] span')).toBeVisible();
     for (const button of await page.locator(".toolbar button:visible").all()) {
       await expect(button).toHaveAccessibleName(/.+/);
       await expect(button).toHaveAttribute("title", /.+/);

@@ -1,17 +1,34 @@
+import { pinInk } from "../viewer/marks.js";
+import { markAppearance } from "../mark-show.js";
 import { newId } from "../browser-crypto.js";
 import { t, currentLocale } from "../i18n/index.js";
 import { paintIndex, addPatches } from "../annotation-edits.js";
+import { sameMarkTarget } from "../mark-target.js";
 export function installAnnotationsPanel(review) {
   function onPin(pin) {
+    const previous = review.annotations.find(
+      (a) => !review.submittedMarkIds?.has(a.id) && sameMarkTarget(a, pin),
+    );
+    if (previous) {
+      // Recolouring is still the same mark: retain its original display mode.
+      previous.color = markAppearance(previous.show, review.color).color;
+      const explode = review.viewer.markView()?.explode;
+      if (explode?.amount > 0) previous.view = { ...previous.view, explode };
+      review.selectedId = previous.id;
+      review.changed();
+      return;
+    }
     if (review.annotations.length >= 200) return review.toast(t("marks.limit"));
     const item = {
       id: newId(),
       type: "pin",
       label: review.nextLabel(),
-      color: review.color,
       ...pin,
+      ...markAppearance(review.markShow, review.color),
       view: review.viewer.markView(),
     };
+    if (review.draftBytes() + review.markBytes(item) > review.MAX_MARK_BYTES)
+      return review.toast(t("marks.nearStrokeLimit"));
     review.annotations.push(item);
     review.selectedId = item.id;
     review.changed();
@@ -24,7 +41,7 @@ export function installAnnotationsPanel(review) {
   // What a mark is called wherever it is named: its letter, its colour, or its
   // number as a measurement.
   function markName(a) {
-    return a.type === "pin"
+    return ["pin", "edge", "part"].includes(a.type)
       ? a.label
       : a.type === "measure"
         ? t("measure.name", { label: a.label })
@@ -174,35 +191,57 @@ export function installAnnotationsPanel(review) {
         const badge = document.createElement("span");
         badge.className = "annotation-badge";
         if (a.type === "measure") badge.classList.add("measure-badge");
-        else badge.style.background = a.color;
-        badge.textContent = a.type === "region" ? "" : a.label;
+        else {
+          badge.style.setProperty("--pin-color", a.color);
+          badge.style.setProperty("--pin-text", pinInk(a.color));
+        }
+        if (a.type === "region") badge.classList.add("region-badge");
+        else if (a.show === "color") badge.classList.add("color-only");
+        badge.textContent =
+          a.type === "region" || a.show === "color" ? "" : a.label;
+        if (a.show === "label") badge.classList.add("label-only");
         const text = document.createElement("span");
         const title = document.createElement("strong");
         // A measurement is named by what it read.
-        title.textContent =
-          a.type === "pin"
+        title.textContent = ["edge", "part"].includes(a.type)
+          ? t(`marks2.${a.type}`)
+          : a.type === "pin"
             ? t("marks.pin")
             : a.type === "measure"
               ? review.formatMeasure(a)
               : review.regionName(a);
+        if (["edge", "part"].includes(a.type)) {
+          title.className = "annotation-type-title";
+          const icon = document.createElement("span");
+          icon.className = "annotation-type-icon";
+          icon.setAttribute("aria-hidden", "true");
+          icon.innerHTML = review.icon(`mark-${a.type}`);
+          title.prepend(icon);
+        }
         const detail = document.createElement("small");
         // What the reviewer wrote says more about a mark than how it was made.
         if (a.note) detail.className = "annotation-note";
         detail.textContent =
           a.note ||
-          (a.type === "pin"
-            ? t("marks.pinned")
-            : a.type === "measure"
-              ? t(review.MEASURE_KINDS[a.kind])
-              : ["source-v1", "source-v2"].includes(a.coverage)
-                ? t("marks.alongSurface")
-                : t("marks.legacyFace"));
+          (["edge", "part"].includes(a.type)
+            ? a.names?.join(", ") ||
+              review.formatMeasure({ value: a.length, quantity: "length" })
+            : a.type === "pin"
+              ? t("marks.pinned")
+              : a.type === "measure"
+                ? t(review.MEASURE_KINDS[a.kind])
+                : ["source-v1", "source-v2"].includes(a.coverage)
+                  ? t("marks.alongSurface")
+                  : t("marks.legacyFace"));
         text.append(title, detail);
-        select.append(badge, text);
+        const badgeColumn = document.createElement("span");
+        badgeColumn.className = "annotation-badge-column";
+        badgeColumn.append(badge);
+        select.append(badgeColumn, text);
         select.addEventListener("click", () => {
           review.selectedId = a.id;
-          // A measurement has no colour to hand the palette.
-          if (a.color) {
+          // Measurements and neutral letter-only marks have no palette colour.
+          if (a.color && a.show !== "label") {
             review.color = a.color;
             review.updatePalette();
           }
@@ -448,6 +487,9 @@ export function initializeAnnotations(review) {
     review.encoder.encode(a.note || "").length +
     (a.view ? review.VIEW_BYTES : 0) +
     (a.type === "measure" ? review.MEASURE_BYTES : 0) +
+    (["edge", "part"].includes(a.type)
+      ? review.encoder.encode(JSON.stringify(a)).length
+      : 0) +
     (a.surfacePatches || []).reduce((m, p) => m + review.patchBytes(p), 0) +
     (review.faceCountOf(a) -
       new Set((a.surfacePatches || []).map(review.faceOf)).size) *
@@ -460,6 +502,7 @@ export function initializeAnnotations(review) {
 }
 
 export function bindAnnotationEditing(review) {
+  review.viewer.onObjectMark = review.onPin;
   review.viewer.onSelect = (id) => {
     review.selectedId = id;
     review.renderAnnotations();

@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "Loading model",
-  "review.earlierVersion": "Earlier version · you can still mark it",
   "review.openElsewhere": "Another window has this version open",
-  "review.current": "Current version · ready to mark",
   "review.notInReview": "This version is not part of the current review.",
   "review.notMarked": "Nothing marked on this version yet.",
   "review.roundClosed": "This round is closed; marking again starts a new one.",
@@ -11,9 +9,6 @@ export default {
   "version.earlier": "Earlier version",
   "version.submitted": "{count} submitted",
   "version.openElsewhere": "Open in another window",
-  "version.pinnedNotice":
-    "You are looking at an earlier version; the newest is {version}.",
-  "version.goLatest": "Show the latest version",
   "version.driftStopped":
     "A different version arrived; your draft is kept and automatic switching has stopped.",
 

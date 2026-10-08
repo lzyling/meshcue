@@ -1,13 +1,12 @@
 export default {
-  "shell.more": "更多{group}選項",
-  "shell.rotateMode": "旋轉模式 — 按一下切換平移 (H)",
-  "shell.panMode": "平移模式 — 按一下切換旋轉",
+  "shell.rotateMode": "旋轉模式",
+  "shell.panMode": "平移模式",
   "shell.reset": "重設",
   "shell.resetTitle":
-    "重設預覽：顯示全部零件，清除隔離與透明，結束剖面，恢復預設顯示與視角；保留標註、備註與測量",
+    "恢復顯示並刪除全部未提交標註、備註和測量；一次復原可找回標註。",
   "shell.history": "歷史",
   "help.p16":
-    "工具列依檢視、顯示、標記與檢查分組。常用工具可直接按一下切換；「…」開啟更多選項。檢視組顯示目前的旋轉或平移模式，按一下即可切換，旁邊是重設視角與符合全部。顯示組顯示目前樣式，按一下選擇；顯示標註開關在標註頁。重設會顯示全部零件、結束剖面、恢復含邊線的著色與原色，並回到預設視角，不變更標註、備註、草稿或測量。",
+    "工具列按檢視、標記、檢查、顯示分組。旋轉/平移、投影和顯示樣式點擊開啟選單，單一動作直接執行。Home 只在視角方塊上。重置恢復全部零件、退出剖面、恢復預設顯示與視角，並刪除未提交的標註及其備註和測量。有標註時需確認，一次復原可找回；已提交批次不受影響。",
   "shell.view": "檢視",
   "shell.mark": "標記",
   "shell.inspect": "檢查",
@@ -22,4 +21,10 @@ export default {
   "shell.online": "在線",
   "shell.reconnecting": "正在重新連線…",
   "shell.offline": "離線",
+  "shell.resetConfirm":
+    "將刪除 {count} 條標註並恢復初始顯示。已提交的批次不受影響。",
+  "shell.resetCancel": "取消",
+  "shell.resetReadOnly": "已恢復顯示；目前草稿不可編輯，標註已保留。",
+  "shell.axes": "顯示座標軸",
+  "shell.zoomToCursor": "滾輪縮放到滑鼠位置",
 };

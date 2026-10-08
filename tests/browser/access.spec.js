@@ -228,14 +228,15 @@ test("protected LAN HTTP: marked region, session-routed receipt, real geometry r
   await page
     .locator(`.version-tab[data-version-id="${initial.active.id}"]`)
     .click();
-  await expect(page.locator("#pending-banner")).toBeVisible();
+  await expect(page.locator("#pending-banner, #go-latest")).toHaveCount(0);
+  await expect(
+    page.locator(`[data-version-id="${initial.active.id}"]`),
+  ).toHaveAttribute("aria-selected", "true");
   expect(sha(await fetchLoadedModel(page))).toBe(initial.active.sha256);
   // Nothing is ended here on purpose: a reviewer told the Agent what was wrong,
   // a new version arrived, and he walks onto it and keeps marking. That is the
   // whole loop, and it never passes through a control that closes a round.
-  await page
-    .getByRole("button", { name: "Show the latest version", exact: true })
-    .click();
+  await page.locator(`[data-version-id="${published.body.model.id}"]`).click();
   await expect(page.locator("#model-version")).toHaveText("v2-hole-0.28");
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator("#echo-panel")).toBeHidden();

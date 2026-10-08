@@ -1,4 +1,4 @@
-import { clickControl, selectSetting } from "./b1u-shell-helpers.mjs";
+import { clickControl, selectSetting } from "./r12-b-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { expectCameraUnchanged } from "./camera-assertions.mjs";
@@ -250,10 +250,15 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
     .toBe(original);
-  await expect(page.locator("#pending-banner")).toBeVisible();
-  expect(
-    await page.evaluate(() => window.__reviewDiagnostics().annotationCount),
-  ).toBe(1);
+  await expect(page.locator("#pending-banner")).toBeHidden();
+  await expect(page.locator("#review-status")).toBeHidden();
+  // versionId is assigned before mesh loading and async draft restoration.
+  // Hidden status banners do not mean that restoration has completed.
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__reviewDiagnostics().annotationCount),
+    )
+    .toBe(1);
   await page.getByRole("button", { name: /Send to Agent/ }).click();
   await expect(page.locator("#feedback-status")).toContainText(
     "delivered to the original conversation",
@@ -273,8 +278,11 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   // does: he hands the batch over and walks onto whatever the Agent publishes
   // next. The submission below was made by handing over, not by finishing.
   await expect(page.locator("#loading")).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Show the latest version", exact: true }),
+  ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Show the latest version", exact: true })
+    .locator(`.version-tab[data-version-id="${next.model.id}"]`)
     .click();
   await expect
     .poll(() => page.evaluate(() => window.__reviewDiagnostics().versionId))
@@ -735,10 +743,7 @@ test("the looking tool places nothing while either left or right drag rotates", 
   const moved = await page.evaluate(() => window.__reviewDiagnostics());
   expect(moved.annotationCount).toBe(0);
   expect(moved.camera).not.toEqual(dragged.camera);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
@@ -1017,11 +1022,12 @@ test("legacy pins and paint fixture restore unchanged alongside a new fill", asy
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(legacy.annotations);
   await expect(page.locator(".model-pin")).toHaveCount(2);
-  await expect(page.locator(".annotation-badge").nth(2)).toHaveText("");
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  const regionBadge = page.locator(".annotation-badge").nth(2);
+  await expect(regionBadge).toHaveText("");
+  await expect(regionBadge).toHaveClass(/region-badge/);
+  await expect(regionBadge).toHaveCSS("height", "20px");
+  await expect(regionBadge).toHaveCSS("border-radius", "10px");
+  await page.locator("#home-view").click();
   await clickControl(page, '[data-mode="fill"]');
   const p = await point(page);
   await page.mouse.click(p.x, p.y);
@@ -1092,10 +1098,7 @@ test("marking never has to stop to turn the model, and does not consume point la
   const after = await page.evaluate(() => window.__reviewDiagnostics());
   expect(after.annotations).toEqual(before.annotations);
   expect(after.camera).not.toEqual(before.camera);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await clickControl(page, '[data-mode="label"]');
   await page.mouse.click(p.x, p.y);
   await expect
@@ -1152,10 +1155,7 @@ test("iteration: stable letters, explicit focus, relocation, hide and undo prese
   await page.mouse.move(p.x + 40, p.y + 20, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(600);
-  await page
-    .locator(".toolbar")
-    .getByRole("button", { name: "Reset the view", exact: true })
-    .click();
+  await page.locator("#home-view").click();
   await expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
@@ -1429,13 +1429,13 @@ test("iteration: the orientation cube sits in the corner it is read from", async
   expect(cube.y - shell.y).toBeLessThan(16);
   expect(shell.x + shell.width - (cube.x + cube.width)).toBeLessThan(16);
 });
-test("iteration: marks live on Marks and plain view lives in Display options", async ({
+test("iteration: marks visibility lives in Display toolbar and plain colour in Style menu", async ({
   page,
 }) => {
   await ready(page);
-  const marks = page.locator("#marks-controls #toggle-marks");
-  await page.locator("#display-menu-button").click();
-  const plain = page.locator("#display-options #neutral-view");
+  const marks = page.locator('.toolbar [data-menu="display"] #toggle-marks');
+  await page.locator("#display-toggle").click();
+  const plain = page.locator('#display-menu [role="menuitemcheckbox"]');
   // They used to float over the model in a corner of their own, which is the
   // one place on the page that is meant to be the model.
   await expect(marks).toBeVisible();
@@ -1446,20 +1446,23 @@ test("iteration: marks live on Marks and plain view lives in Display options", a
   // Named on the face like every other button in the row. The caption is what
   // the switch is about; the icon is which way it is set.
   await expect(marks.locator("span")).toHaveText("Marks");
-  await expect(plain.locator("span")).toHaveText("Plain");
+  await expect(plain.locator(".menu-option-label")).toHaveText(
+    "Plain colour (ignore model colours)",
+  );
   await clickControl(page, "#toggle-marks");
   expect(await iconOf(marks)).toBe("#mc-eye-off");
   // Redrawing the icon must not take the caption with it.
   await expect(marks.locator("span")).toHaveText("Marks");
-  await expect(marks).toHaveAttribute("aria-pressed", "true");
+  await expect(marks).toHaveAttribute("aria-pressed", "false");
   await expect(marks).toHaveAttribute("aria-label", "Show marks");
   await clickControl(page, "#neutral-view");
-  await expect(plain).toHaveAttribute("aria-pressed", "true");
-  await expect(plain).toHaveAttribute("aria-label", "Original colours");
+  await expect(plain).toHaveAttribute("aria-checked", "true");
+  await expect(plain).toHaveAttribute("title", "Original colours");
+  await expect(page.locator("#display-toggle")).toHaveClass(/neutral-active/);
   // Picking a tool brings the marks back, so the switch has to admit it.
   await clickControl(page, '[data-mode="label"]');
   expect(await iconOf(marks)).toBe("#mc-eye");
-  await expect(marks).toHaveAttribute("aria-pressed", "false");
+  await expect(marks).toHaveAttribute("aria-pressed", "true");
 });
 test("iteration: the options panel is gone whenever the tool has no options", async ({
   page,
@@ -2312,41 +2315,209 @@ test("a mark points at the surface it is about, and says so when it lands", asyn
   // Placing a mark used to happen in silence, which reads as a double click
   // that missed rather than one that was taken.
   await expect(page.locator(".model-pin.landing")).toHaveCount(1);
-  // The old shape hinted at a direction with one squared-off corner while being
-  // anchored by its bottom edge instead, so the point it referred to could not
-  // be read off the screen. The tip is the anchor now — assert it against the
-  // pixel that was actually struck, not against the label's own box.
-  // Poll anyway: the label follows the camera, and the view may still be
-  // settling from the click.
+  // The dot, not the floating capsule's box, is the surface anchor.
   const measure = () =>
     page.evaluate(
       ([x, y]) => {
         const pin = document.querySelector(".model-pin");
         const box = pin.getBoundingClientRect();
-        const tail = getComputedStyle(pin, "::after");
+        const dot = getComputedStyle(pin, "::after");
+        const tag = pin.querySelector(".pin-tag").getBoundingClientRect();
         return {
-          dx: Math.abs(box.left + box.width / 2 - x),
-          below: box.bottom <= y,
-          tipGap: Math.abs(y - box.bottom),
-          hasTail: tail.content !== "none",
+          dx: Math.abs(
+            box.left + parseFloat(dot.left) + parseFloat(dot.width) / 2 - x,
+          ),
+          dy: Math.abs(
+            box.top + parseFloat(dot.top) + parseFloat(dot.height) / 2 - y,
+          ),
+          below: tag.bottom < y,
+          tipGap: y - tag.bottom,
+          hasDot: dot.content !== "none" && dot.borderRadius === "50%",
         };
       },
       [spot.x, spot.y],
     );
   await expect.poll(async () => (await measure()).dx).toBeLessThan(3);
+  await expect.poll(async () => (await measure()).dy).toBeLessThan(3);
   const gap = await measure();
-  expect(gap.hasTail).toBe(true);
-  // Horizontally the tail sits on the point; vertically the body clears it so
-  // the label never covers what it is labelling.
-  expect(gap.dx).toBeLessThan(3);
+  expect(gap.hasDot).toBe(true);
   expect(gap.below).toBe(true);
-  expect(gap.tipGap).toBeLessThan(12);
+  expect(gap.tipGap).toBeGreaterThan(13);
+  expect(gap.tipGap).toBeLessThan(19);
   // Redrawing is not placing: a refresh must not make every existing mark
   // re-enact its own arrival.
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await expect(page.locator(".model-pin")).toHaveCount(1);
   await expect(page.locator(".model-pin.landing")).toHaveCount(0);
+});
+
+test("pin capsules retain display modes, selection, and pan passthrough", async ({
+  page,
+}) => {
+  await ready(page);
+  await clickControl(page, '[data-mode="label"]');
+  await page.locator('.color-button[data-color="#e6b64b"]').click();
+  const spot = await point(page);
+  await page.mouse.click(spot.x, spot.y);
+  await expect(page.locator(".model-pin")).toHaveCount(1);
+  const pin = page.locator(".model-pin").first();
+  await expect(pin).toHaveText("A");
+  await expect(pin.locator(".pin-tag")).toHaveCSS("color", "rgb(48, 39, 0)");
+  await page.locator('[data-mark-show="color"]').click();
+  await page.mouse.click(spot.x + 20, spot.y + 20);
+  await expect(page.locator(".model-pin.color-only")).toHaveCount(1);
+  await expect(page.locator(".model-pin.color-only")).toHaveText("");
+  await expect(page.locator(".model-pin.color-only .pin-tag")).toHaveCSS(
+    "width",
+    "14px",
+  );
+  await page.locator('[data-mark-show="label"]').click();
+  await page.mouse.click(spot.x - 20, spot.y + 20);
+  await expect(page.locator(".model-pin.label-only")).toHaveCount(1);
+  await expect(page.locator(".model-pin.label-only .pin-tag")).toHaveCSS(
+    "background-color",
+    "rgb(107, 115, 120)",
+  );
+  await expect(page.locator(".model-pin.label-only .pin-tag")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)",
+  );
+  await pin.locator(".pin-tag").click();
+  await expect(pin).toHaveClass(/selected/);
+  expect(
+    await pin
+      .locator(".pin-tag")
+      .evaluate((el) => getComputedStyle(el).boxShadow),
+  ).not.toBe("none");
+  await clickControl(page, '[data-mode="pan"]');
+  await expect(pin.locator(".pin-tag")).toHaveCSS("pointer-events", "none");
+});
+
+test("annotation-badge capsules match model tags across themes and narrow screens", async ({
+  page,
+}) => {
+  await ready(page);
+  await pin(page);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
+  const d = await page.evaluate(() => window.__reviewDiagnostics());
+  const clientId = await page.evaluate(() =>
+    sessionStorage.getItem("3d-review-client"),
+  );
+  const base = d.annotations[0];
+  const annotations = [
+    { ...base, id: "badge-af", label: "AF", color: "#e6b64b" },
+    { ...base, id: "badge-ag", label: "AG", color: "#d15a45" },
+    { ...base, id: "badge-color", label: "AH", show: "color" },
+    { ...base, id: "badge-label", label: "AI", show: "label" },
+    {
+      id: "badge-edge",
+      type: "edge",
+      label: "AJ",
+      color: "#e6b64b",
+      meshId: base.meshId,
+      space: "model",
+      points: [
+        [0, 0, 0],
+        [1, 0, 0],
+      ],
+      length: 1,
+      curved: false,
+      sourceFaceIndex: 0,
+    },
+    {
+      id: "badge-part",
+      type: "part",
+      label: "AK",
+      color: "#d15a45",
+      partIds: ["part-0"],
+      meshIds: [base.meshId],
+      names: ["Part"],
+      bounds: {
+        space: "model",
+        centroid: [0, 0, 0],
+        min: [-1, -1, -1],
+        max: [1, 1, 1],
+      },
+    },
+  ];
+  expect(
+    (
+      await request("PUT", "draft", {
+        versionId: d.versionId,
+        clientId,
+        revision: d.revision,
+        annotations,
+        camera: d.camera,
+      })
+    ).status,
+  ).toBe(200);
+  await page.reload();
+  await expect(page.locator("#loading")).toBeHidden();
+  for (const theme of ["light", "dark"]) {
+    await selectSetting(page, "#theme-choice", theme);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const badge = page.locator(".annotation-badge");
+      await expect(badge.nth(0)).toHaveText("AF");
+      await expect(badge.nth(1)).toHaveText("AG");
+      await expect(badge.nth(0)).toHaveCSS("color", "rgb(48, 39, 0)");
+      await expect(badge.nth(1)).toHaveCSS("color", "rgb(255, 255, 255)");
+      await expect(badge.nth(2)).toHaveText("");
+      await expect(badge.nth(2)).toHaveCSS("width", "14px");
+      await expect(badge.nth(2)).toHaveCSS("height", "14px");
+      await expect(badge.nth(3)).toHaveCSS(
+        "background-color",
+        "rgb(107, 115, 120)",
+      );
+      await expect(badge.nth(3)).toHaveCSS("color", "rgb(255, 255, 255)");
+      const layout = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll(".annotation-select")];
+        const props = [
+          "height",
+          "borderRadius",
+          "padding",
+          "minWidth",
+          "boxShadow",
+          "fontSize",
+          "fontWeight",
+          "whiteSpace",
+        ];
+        const tag = getComputedStyle(
+          document.querySelector(".model-pin:not(.selected) .pin-tag"),
+        );
+        return rows.map((row) => {
+          const b = row.querySelector(".annotation-badge");
+          const r = b.getBoundingClientRect();
+          const column = b.parentElement.getBoundingClientRect();
+          const style = getComputedStyle(b);
+          return {
+            left: row.lastElementChild.getBoundingClientRect().left,
+            centered:
+              Math.abs(r.top + r.height / 2 - column.top - column.height / 2) <
+              1,
+            fits: b.scrollWidth <= b.clientWidth,
+            matches: props.every((p) => style[p] === tag[p]),
+            colorOnly: b.classList.contains("color-only"),
+          };
+        });
+      });
+      expect(new Set(layout.map((r) => r.left)).size).toBe(1);
+      expect(layout.every((r) => r.centered && r.fits)).toBe(true);
+      expect(layout.filter((r) => !r.colorOnly).every((r) => r.matches)).toBe(
+        true,
+      );
+      await badge.nth(0).click();
+      await expect(page.locator('[data-annotation-id="badge-af"]')).toHaveClass(
+        /selected/,
+      );
+      // List selection belongs to the row, not a second 3D-style halo.
+      await expect(badge.nth(0)).toHaveCSS(
+        "box-shadow",
+        await badge.nth(1).evaluate((el) => getComputedStyle(el).boxShadow),
+      );
+    }
+  }
 });
 
 test("a mark arrives at its point instead of flying in from the corner", async ({
@@ -2379,7 +2550,10 @@ test("a mark arrives at its point instead of flying in from the corner", async (
         .querySelector(".pin-ripple")
         ?.getBoundingClientRect();
       return {
-        pin: Math.abs(box.left + box.width / 2 - x),
+        pin: Math.hypot(
+          box.left + box.width / 2 - x,
+          box.top + box.height / 2 - y,
+        ),
         ripple: ripple
           ? Math.hypot(
               ripple.left + ripple.width / 2 - x,

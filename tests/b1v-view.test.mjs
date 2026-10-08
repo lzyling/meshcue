@@ -104,7 +104,7 @@ test("Home retains today's fitted isometric default when no review preference ex
   assert.equal(v.controls.enableDamping, false);
 });
 
-test("Home restores a saved default's exact framing and screen-up direction", () => {
+test("Home restores a saved default's exact framing with world-up rather than obsolete roll", () => {
   const v = cameraViewer();
   v.rollNavigation(90);
   const saved = { ...v.cameraState(), up: v.screenUp() };
@@ -113,7 +113,15 @@ test("Home restores a saved default's exact framing and screen-up direction", ()
   v.home();
   assert.ok(close(v.camera.position.toArray(), saved.position));
   assert.ok(close(v.controls.target.toArray(), saved.target));
-  assert.ok(close(v.screenUp(), saved.up));
+  assert.deepEqual(v.camera.up.toArray(), [0, 1, 0]);
+  const direction = v.camera.position
+    .clone()
+    .sub(v.controls.target)
+    .normalize();
+  const upright = new THREE.Vector3(0, 1, 0)
+    .addScaledVector(direction, -direction.y)
+    .normalize();
+  assert.ok(close(v.screenUp(), upright.toArray()));
 });
 
 function homeAfterSmallPart(projection) {
@@ -142,7 +150,15 @@ function homeAfterSmallPart(projection) {
   v.home();
   assert.ok(close(v.camera.position.toArray(), saved.position));
   assert.ok(close(v.controls.target.toArray(), saved.target));
-  assert.ok(close(v.screenUp(), saved.up));
+  assert.deepEqual(v.camera.up.toArray(), [0, 1, 0]);
+  const direction = v.camera.position
+    .clone()
+    .sub(v.controls.target)
+    .normalize();
+  const upright = new THREE.Vector3(0, 1, 0)
+    .addScaledVector(direction, -direction.y)
+    .normalize();
+  assert.ok(close(v.screenUp(), upright.toArray()));
   assert.ok(Math.abs(v.navigationHeight() - height) < 1e-8);
   for (const [key, value] of Object.entries(limits))
     assert.equal(

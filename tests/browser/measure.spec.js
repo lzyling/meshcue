@@ -244,6 +244,16 @@ test("a kept measurement is a mark: listed, noted, undone and sent", async ({
   await expect(row).toHaveCount(1);
   await expect(row.locator("strong")).toHaveText("20.00 mm");
   await expect(row.locator(".annotation-badge")).toHaveText("M1");
+  await expect(row.locator(".measure-badge")).toHaveCSS("height", "20px");
+  await expect(row.locator(".measure-badge")).toHaveCSS("border-radius", "7px");
+  await expect(row.locator(".measure-badge")).toHaveCSS(
+    "background-color",
+    "rgb(20, 32, 42)",
+  );
+  await expect(row.locator(".measure-badge")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)",
+  );
   await expect(page.locator(".measure-label")).toContainText("20.00 mm");
 
   await expect(page.locator("#mark-note-title")).toHaveText(

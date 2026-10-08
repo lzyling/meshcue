@@ -249,6 +249,9 @@ say("social card");
 const viewerShot = fs
   .readFileSync(path.join(out, "viewer.png"))
   .toString("base64");
+const appIcon = fs
+  .readFileSync(path.join(repo, "public/icon-512.png"))
+  .toString("base64");
 const card = await browser.newContext({
   viewport: { width: 1280, height: 640 },
   deviceScaleFactor: 1,
@@ -261,7 +264,8 @@ await cardPage.setContent(`<!doctype html><meta charset="utf-8"><style>
     font: 400 16px/1.5 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; }
   .say { flex: 0 0 47%; padding: 74px 0 74px 76px; display: flex;
     flex-direction: column; justify-content: center; }
-  .name { font-size: 62px; font-weight: 640; letter-spacing: -1.6px; }
+  .name { display: flex; align-items: center; gap: 16px; font-size: 62px; font-weight: 640; letter-spacing: -1.6px; }
+  .name img { width: 64px; height: 64px; flex: none; }
   .line { margin-top: 22px; font-size: 27px; line-height: 1.34; font-weight: 500;
     letter-spacing: -.4px; color: #2b3138; }
   .foot { margin-top: 40px; font-size: 17px; color: #5d666e; letter-spacing: .1px; }
@@ -271,7 +275,7 @@ await cardPage.setContent(`<!doctype html><meta charset="utf-8"><style>
     box-shadow: 0 18px 48px rgba(20, 32, 45, .22); }
 </style>
 <div class="say">
-  <div class="name">MeshCue</div>
+  <div class="name"><img src="data:image/png;base64,${appIcon}" alt="">MeshCue</div>
   <div class="line">Point at the model.<br>Let the Agent read what you meant.</div>
   <div class="foot">Browser 3D review for agent-assisted modelling · Apache-2.0</div>
 </div>

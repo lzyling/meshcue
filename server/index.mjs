@@ -1,3 +1,4 @@
+import { markReference } from "../integration/summarize.mjs";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -355,6 +356,13 @@ const markView = z
     aspect: z.number().finite().positive(),
     projection: z.literal("orthographic").optional(),
     visibleHeight: z.number().finite().positive().optional(),
+    explode: z
+      .object({
+        amount: z.number().finite().min(0).max(1),
+        by: z.enum(["group", "part"]),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .optional();
@@ -371,6 +379,59 @@ const measurePick = z
   .object({ meshId: id, sourceFaceIndex: z.number().int().min(0) })
   .strict();
 const annotation = z.discriminatedUnion("type", [
+  z
+    .object({
+      id,
+      type: z.literal("edge"),
+      show: z.enum(["color", "label"]).optional(),
+      label: z.string().max(12),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      note,
+      view: markView,
+      meshId: id,
+      space: z.literal("model"),
+      points: z.array(vec3).min(2).max(512),
+      closed: z.literal(true).optional(),
+      length: z.number().finite().min(0),
+      curved: z.boolean(),
+      sourceFaceIndex: z.number().int().min(0),
+      brep: z
+        .object({
+          face: z.tuple([z.number().int().min(-1), z.number().int().min(-1)]),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      id,
+      type: z.literal("part"),
+      show: z.enum(["color", "label"]).optional(),
+      label: z.string().max(12),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      note,
+      view: markView,
+      partIds: z
+        .array(z.string().regex(/^part-\d+(?:\.\d+)*$/))
+        .min(1)
+        .max(256),
+      names: z.array(z.string().min(1).max(256)).min(1).max(256),
+      meshIds: z.array(id).min(1).max(4096),
+      group: z
+        .object({ id, name: z.string().min(1).max(96) })
+        .strict()
+        .optional(),
+      bounds: z
+        .object({
+          space: z.literal("model"),
+          centroid: vec3,
+          min: vec3,
+          max: vec3,
+        })
+        .strict(),
+    })
+    .strict(),
   z
     .object({
       id,
@@ -394,6 +455,7 @@ const annotation = z.discriminatedUnion("type", [
     .object({
       id,
       type: z.literal("pin"),
+      show: z.enum(["color", "label"]).optional(),
       label: z.string().max(12),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       meshId: id,
@@ -661,12 +723,54 @@ function validateAnnotations(versionId, annotations) {
       throw new ReviewError("Duplicate annotation id.", 400);
     usedIds.add(a.id);
     if (a.type === "measure") checkMeasure(a, meshes);
+    if (a.type === "edge") {
+      const length = a.points
+        .slice(1)
+        .reduce(
+          (sum, p, i) =>
+            sum + Math.hypot(...p.map((v, j) => v - a.points[i][j])),
+          0,
+        );
+      const difference = length - a.length;
+      const tolerance = 1e-6 * Math.max(length, a.length, Number.EPSILON);
+      if (
+        !Number.isFinite(length) ||
+        !Number.isFinite(difference) ||
+        !meshes.has(a.meshId) ||
+        a.sourceFaceIndex >= meshes.get(a.meshId).sourceTriangles ||
+        !(Math.abs(difference) <= tolerance)
+      )
+        throw new ReviewError(
+          "An edge does not match its geometry.",
+          400,
+          "BAD_GEOMETRY",
+        );
+    }
+    if (
+      a.type === "part" &&
+      (a.names.length !== a.partIds.length ||
+        a.meshIds.some((id) => !meshes.has(id)) ||
+        a.bounds.min.some((min, i) => {
+          const max = a.bounds.max[i],
+            centroid = a.bounds.centroid[i];
+          // Finite endpoints alone do not guarantee a finite span. Compare
+          // directly for ordering/containment rather than overflow-prone sums.
+          return (
+            !Number.isFinite(max - min) || !(min <= centroid && centroid <= max)
+          );
+        }))
+    )
+      throw new ReviewError(
+        "A part does not match the model.",
+        400,
+        "BAD_GEOMETRY",
+      );
     const groups =
       a.type === "pin"
         ? { [a.meshId]: [a.faceIndex] }
         : a.type === "measure"
           ? {}
-          : a.faces;
+          : a.faces || {};
     for (const [meshId, faces] of Object.entries(groups)) {
       if (
         !meshes.has(meshId) ||
@@ -753,7 +857,10 @@ function validateAnnotations(versionId, annotations) {
         ? 1
         : a.type === "measure"
           ? 0
-          : Object.values(a.faces).reduce((n, list) => n + list.length, 0);
+          : Object.values(a.faces || {}).reduce(
+              (n, list) => n + list.length,
+              0,
+            );
     const onFaces = new Set(patches.map((p) => `${p.meshId}:${p.faceIndex}`))
       .size;
     markCost +=
@@ -761,6 +868,9 @@ function validateAnnotations(versionId, annotations) {
       Buffer.byteLength(a.note || "") +
       (a.view ? MARK_VIEW_BYTES : 0) +
       (a.type === "measure" ? MARK_MEASURE_BYTES : 0) +
+      (["edge", "part"].includes(a.type)
+        ? Buffer.byteLength(JSON.stringify(a))
+        : 0) +
       Math.max(0, claimed - onFaces) * MARK_WHOLE_FACE_BYTES +
       patches.reduce((n, p) => n + 64 + p.vertices.length * 26, 0);
     if (markCost > MAX_ROUND_BYTES)
@@ -1125,18 +1235,22 @@ function deliverFeedback(item) {
         const units = item.model?.units || "unspecified";
         const summary = item.annotations
           .map((a) =>
-            a.type === "measure"
-              ? `${a.label}: measurement, ${describeMeasure(a, units)}${noted(a)}`
-              : a.type === "pin"
-                ? /* The source face, and said so. A pin carries two numbers --
+            a.type === "part"
+              ? `${markReference(a)}: part '${a.names.join("', '")}'${noted(a)}`
+              : a.type === "edge"
+                ? `${markReference(a)}: edge (length ${a.length.toFixed(2)} ${units === "unspecified" ? "unit unspecified" : units})${noted(a)}`
+                : a.type === "measure"
+                  ? `${a.label}: measurement, ${describeMeasure(a, units)}${noted(a)}`
+                  : a.type === "pin"
+                    ? /* The source face, and said so. A pin carries two numbers --
                    the triangle of the review subdivision and the one it came
                    from in the model -- and this line used to print the first
                    while `read` returns the second, under the bare word "face"
                    in both. Two different integers for one pin, neither saying
                    which mesh it counts in, is a discrepancy an agent has to
                    stop and resolve before it can trust either. */
-                  `${a.label}: pin on ${a.meshId}, source face ${a.sourceFaceIndex ?? a.faceIndex}${noted(a)}`
-                : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1", "source-v2"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position${noted(a)}`,
+                      `${markReference(a)}: pin on ${a.meshId}, source face ${a.sourceFaceIndex ?? a.faceIndex}${noted(a)}`
+                    : `${a.color} painted region (id ${a.id}): ${["brush-v1", "source-v1", "source-v2"].includes(a.coverage) ? "an actual surface stroke" : "an older whole-face mark"} — not a lettered pin; identify it by colour and position${noted(a)}`,
           )
           .join("\n");
         const measured = item.annotations.some((a) => a.type === "measure")

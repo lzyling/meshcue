@@ -1,4 +1,5 @@
 export default {
+  "display.plain": "Plain colour (ignore model colours)",
   "display.choose": "Display: {style} — choose style",
   "display.title": "Display",
   "display.edges": "Shaded with edges",

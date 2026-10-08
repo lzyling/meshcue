@@ -38,7 +38,7 @@ export class CameraMethods {
   setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
-    this.controls.zoomToCursor = true;
+    this.controls.zoomToCursor = false;
     this.controls.minDistance = 0.15;
     this.controls.maxDistance = 18;
     // View mode lends the left button to the camera; marking keeps it.
@@ -87,8 +87,8 @@ export class CameraMethods {
             ),
           ),
         ),
-        e.clientX,
-        e.clientY,
+        this.controls.zoomToCursor ? e.clientX : undefined,
+        this.controls.zoomToCursor ? e.clientY : undefined,
       );
     this.render();
   }
@@ -148,6 +148,7 @@ export class CameraMethods {
       .toArray()
       .map((v) => (Math.abs(v) < 1e-9 ? 0 : Number(v.toPrecision(6))));
     return {
+      ...(this.explode?.amount ? { explode: { ...this.explode } } : {}),
       space: "model",
       position: at(this.camera.position),
       target: at(this.controls.target),
@@ -206,7 +207,7 @@ export class CameraMethods {
       // limits. Restore whole-model limits before OrbitControls updates the
       // saved frame, including when setProjection keeps the same camera.
       this.updateNavigationLimits();
-      this.restoreCamera(saved);
+      this.restoreCamera({ ...saved, up: [0, 1, 0] });
     } else {
       this.setNavigationUp(new V(0, 1, 0));
       this.fitAll({ direction: new V(4, 2.8, 5) });

@@ -1,13 +1,12 @@
 export default {
-  "shell.more": "More {group} options",
-  "shell.rotateMode": "Rotate mode — switch to Pan (H)",
-  "shell.panMode": "Pan mode — switch to Rotate",
+  "shell.rotateMode": "Rotate mode",
+  "shell.panMode": "Pan mode",
   "shell.reset": "Reset",
   "shell.resetTitle":
-    "Reset preview: show all parts, clear isolation and transparency, exit Section, restore default display and view; keep marks, notes and measurements",
+    "Reset display and delete all unsubmitted marks, notes and measurements; one Undo restores the marks.",
   "shell.history": "History",
   "help.p16":
-    "The toolbar groups View, Display, Mark and Inspect. Common tools work in one click; “…” opens extra options. View shows Rotate or Pan: click to switch, with Reset view and Fit all beside it. Display shows the current style; click to choose. Show marks is on the Marks tab. Reset restores all parts, exits Section, restores shaded-with-edges and original colours, and calls the default view without changing marks, notes, drafts or measurements.",
+    "The toolbar groups View, Mark, Inspect and Display. Rotate/Pan, projection and display style open menus; single actions execute immediately. Home is on the view cube. Reset restores all parts, exits Section, restores the default display and view, and deletes unsubmitted marks with their notes and measurements. When marks exist, confirmation is required; one Undo restores them. Submitted batches are not affected.",
   "shell.view": "View",
   "shell.mark": "Mark",
   "shell.inspect": "Inspect",
@@ -22,4 +21,11 @@ export default {
   "shell.online": "Online",
   "shell.reconnecting": "Reconnecting…",
   "shell.offline": "Offline",
+  "shell.resetConfirm":
+    "Delete {count} marks and restore the initial display? Submitted batches are not affected.",
+  "shell.resetCancel": "Cancel",
+  "shell.resetReadOnly":
+    "Display restored. Marks were kept because this draft cannot be edited.",
+  "shell.axes": "Show coordinate axes",
+  "shell.zoomToCursor": "Wheel zoom to pointer",
 };

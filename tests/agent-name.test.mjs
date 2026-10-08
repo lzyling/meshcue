@@ -246,6 +246,7 @@ const SAMPLE = {
   reason: "R",
   summary: "S",
   version: "9.9.9",
+  current: "1.5.0",
   time: "18:32",
   marks: "A",
 };

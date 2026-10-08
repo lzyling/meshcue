@@ -4,7 +4,7 @@ import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
-import { clickControl } from "./b1u-shell-helpers.mjs";
+import { clickControl } from "./r12-shell-helpers.mjs";
 
 let environment;
 const evidence = "tmp/b1v-ui/evidence";
@@ -47,7 +47,7 @@ for (const [name, viewport] of [
         )
         .toBeGreaterThanOrEqual(650);
       // A remembered Advanced disclosure must not enlarge another tool's view.
-      await page.locator('.toolbar [data-mode="label"]').click();
+      await clickControl(page, '[data-mode="label"]');
       await expect
         .poll(
           async () =>
@@ -142,7 +142,7 @@ for (const single of [true, false]) {
     );
     await expect(page.locator(".parts-name").first()).toBeVisible();
     await expect(page.locator("#submit-feedback")).toBeHidden();
-    await expect(page.locator("#toggle-marks")).toBeHidden();
+    await expect(page.locator("#toggle-marks")).toBeVisible();
     await page.locator("#sidebar-marks").click();
     await expect(page.locator("#submit-feedback")).toBeVisible();
     await expect(page.locator("#toggle-marks")).toBeVisible();
@@ -157,7 +157,7 @@ test("notes and hand-over belong only to Marks; hidden parts survive switching b
   page,
 }) => {
   const kit = await open(page, await modelFixture(true));
-  await page.locator('.toolbar [data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await page.locator("#mark-note-text").fill("Keep this note");
@@ -204,10 +204,10 @@ test("tree search retains parent paths and file groups hide, isolate, turn trans
   await expect(row(page, "Cover")).not.toHaveClass(/part-hidden/);
   await page.locator('[data-command="parts-showAll"]').click();
   await row(page, "Drive").locator(".parts-name").click();
-  await page.locator('[data-command="parts-transparent"]').click();
+  await page.keyboard.press("Shift+T");
   for (const name of ["Drive", "Screw A", "Screw B"])
     await expect(row(page, name)).toHaveClass(/part-transparent/);
-  await page.locator('[data-command="parts-isolate"]').click();
+  await page.keyboard.press("Shift+I");
   await expect(row(page, "Cover")).toHaveClass(/part-hidden/);
   const before = (await diagnostics(page)).camera;
   await row(page, "Drive").locator(".parts-name").dblclick();
@@ -218,22 +218,25 @@ test("tree search retains parent paths and file groups hide, isolate, turn trans
     path: `${evidence}/after-desktop-group-actions.png`,
   });
 });
-test("common tools switch in one click and display icon tracks the current style", async ({
+test("common tools use their direct or mode-menu entry and display icon tracks the current style", async ({
   page,
 }) => {
   await open(page);
   await expect(page.locator(".split-tool, .split-arrow")).toHaveCount(0);
   for (const mode of ["label", "fill", "measure"]) {
-    const control = page.locator(`.toolbar [data-mode="${mode}"]`);
-    await control.click();
-    await expect(control).toHaveAttribute("aria-pressed", "true");
+    const control = page.locator(`[data-mode="${mode}"]`);
+    await clickControl(page, `[data-mode="${mode}"]`);
+    await expect(control).toHaveAttribute(
+      mode === "label" ? "aria-checked" : "aria-pressed",
+      "true",
+    );
   }
-  await page.locator("#view-mode-toggle").click();
+  await clickControl(page, '[data-mode="pan"]');
   await expect(page.locator("#view-mode-toggle use")).toHaveAttribute(
     "href",
     "#mc-pan",
   );
-  await page.locator("#view-mode-toggle").click();
+  await clickControl(page, '[data-mode="orbit"]');
   await expect(page.locator("#view-mode-toggle use")).toHaveAttribute(
     "href",
     "#mc-orbit",
@@ -247,31 +250,35 @@ test("common tools switch in one click and display icon tracks the current style
     );
     await expect(page.locator("#display-toggle")).toBeFocused();
   }
-  await page.locator("#view-menu-button").click();
+  await page.locator("#view-mode-toggle").click();
   await expect(
-    page.locator('#view-menu [data-command="parts-panel"]'),
+    page.locator('#view-mode-menu [data-command="parts-panel"]'),
   ).toHaveCount(0);
-  await expect(page.locator('#view-menu [data-command="home"]')).toHaveCount(0);
+  await expect(
+    page.locator('#view-mode-menu [data-command="home"]'),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
-test("direct Label and Fill close View overflow without stealing focus or hiding hints", async ({
+test("Label mode-menu and direct Fill close View mode menu without stealing focus or hiding hints", async ({
   page,
 }) => {
   await open(page);
-  const more = page.locator("#view-menu-button"),
-    menu = page.locator("#view-menu"),
+  const more = page.locator("#view-mode-toggle"),
+    menu = page.locator("#view-mode-menu"),
     shell = page.locator(".viewer-shell");
   for (const mode of ["label", "fill"]) {
-    const tool = page.locator(`.toolbar [data-mode="${mode}"]`);
+    const tool = page.locator(
+      mode === "label" ? "#mark-mode-toggle" : '[data-mode="fill"]',
+    );
     await more.click();
     await expect(menu).toBeVisible();
     await expect(shell).toHaveClass(/menu-open/);
     await expect(page.locator(".tool-hint-box")).toBeHidden();
-    await tool.click();
+    await clickControl(page, `[data-mode="${mode}"]`);
     await expect(menu).toBeHidden();
     await expect(more).toHaveAttribute("aria-expanded", "false");
     await expect(shell).not.toHaveClass(/menu-open/);
-    await expect(tool).toHaveAttribute("aria-pressed", "true");
+    await expect(tool).toHaveClass(/active/);
     await expect(tool).toBeFocused();
     await expect(page.locator(".tool-hint-box")).toBeVisible();
     // Label/Fill have no pending Escape action. It must not revive the stale
@@ -279,7 +286,7 @@ test("direct Label and Fill close View overflow without stealing focus or hiding
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await expect(tool).toBeFocused();
-    await expect(tool).toHaveAttribute("aria-pressed", "true");
+    await expect(tool).toHaveClass(/active/);
     await expect(page.locator(".tool-hint-box")).toBeVisible();
     // A later menu session retains its own Escape focus restoration.
     await more.click();
@@ -306,12 +313,8 @@ test("modified arrows reach camera shortcuts from flat View and Display buttons"
     });
   });
   for (const [selector, popup, more] of [
-    [
-      '.toolbar [data-command="navigation-fit"]',
-      "#view-menu",
-      "#view-menu-button",
-    ],
-    ["#display-toggle", "#display-options", "#display-menu-button"],
+    ["#view-mode-toggle", "#view-mode-menu", "#view-mode-toggle"],
+    ["#display-toggle", "#display-menu", "#display-toggle"],
   ]) {
     const button = page.locator(selector),
       menu = page.locator(popup);
@@ -373,12 +376,12 @@ test("modified arrows reach camera shortcuts from flat View and Display buttons"
     }
   }
 });
-test("Reset restores parts, section, original colours, display and home without changing a noted mark or measurement", async ({
+test("Reset requires confirmation, restores Agent display and clears draft marks and measurements with undo", async ({
   page,
 }) => {
   const kit = await open(page, await modelFixture(true));
   await settle(page);
-  await page.locator('.toolbar [data-mode="label"]').click();
+  await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([0, 0, 1]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await page.locator("#mark-note-text").fill("Do not lose this");
@@ -394,10 +397,10 @@ test("Reset restores parts, section, original colours, display and home without 
   const measurement = (await diagnostics(page)).measuring;
   await page.locator("#sidebar-parts").click();
   await row(page, "Screw A").locator(".parts-name").click();
-  // Visibility changes intentionally cancel an old reading; Reset itself must
-  // not. Restore a reading after making the viewer changes below.
-  await page.locator('[data-command="parts-transparent"]').click();
-  await page.locator('[data-command="parts-isolate"]').click();
+  // Visibility changes cancel the old reading. The confirmed Reset now clears
+  // measurements too (r4 §7); undo restores the draft marks, not viewer picks.
+  await page.keyboard.press("Shift+T");
+  await page.keyboard.press("Shift+I");
   await row(page, "Screw A").locator(".parts-eye").click();
   await page.locator("#section-toggle").click();
   await page.locator("#display-toggle").click();
@@ -405,31 +408,42 @@ test("Reset restores parts, section, original colours, display and home without 
   await clickControl(page, "#neutral-view");
   const before = await diagnostics(page);
   await page.locator("#reset-preview").click();
+  await expect(page.locator("#reset-dialog")).toBeVisible();
+  await expect(page.locator("#reset-dialog-message")).toContainText("1");
+  await page.locator("#reset-cancel").click();
+  expect((await diagnostics(page)).annotations).toEqual(before.annotations);
+  await expect(row(page, "Screw A")).toHaveClass(/part-hidden/);
+  await page.locator("#reset-preview").click();
+  await page.locator("#reset-confirm").click();
   await settle(page);
+  await expect
+    .poll(async () => (await diagnostics(page)).annotationCount)
+    .toBe(0);
+  await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const after = await diagnostics(page);
-  expect(after.annotations).toEqual(before.annotations);
-  expect(after.revision).toBe(before.revision);
-  expect(after.dirty).toBe(before.dirty);
+  expect(after.annotations).toEqual([]);
+  expect(after.revision).toBeGreaterThan(before.revision);
+  expect(after.dirty).toBe(false);
   expect(after.viewer.section).toBeNull();
   expect(after.viewer.neutral).toBe(false);
   expect(after.viewer.display.style).toBe("edges");
   await expect(page.locator(".part-hidden, .part-transparent")).toHaveCount(0);
-  await expect(page.locator('[data-command="parts-isolate"]')).toHaveAttribute(
-    "aria-pressed",
-    "false",
-  );
+  await expect(page.locator('[data-command="parts-isolate"]')).toHaveCount(0);
   await expect(page.locator("#section-options")).toBeHidden();
+  await expect(page.locator("#keep-measure")).toBeDisabled();
+  await page.keyboard.press("Control+z");
+  await expect
+    .poll(async () => (await diagnostics(page)).annotations)
+    .toEqual(before.annotations);
+  await page.locator("#sidebar-marks").click();
+  await page.locator(".annotation-select").first().click();
+  await expect(page.locator("#mark-note-text")).toHaveValue("Do not lose this");
   await kit.clickModelPoint([-0.6, -0.6, 1]);
   await kit.clickModelPoint([0.6, -0.6, 1]);
   await expect(page.locator("#keep-measure")).toBeEnabled();
-  const pending = (await diagnostics(page)).measuring;
-  expect(pending.result.value).toBeCloseTo(measurement.result.value, 4);
-  await page.locator("#reset-preview").click();
-  expect((await diagnostics(page)).measuring).toEqual(pending);
-  await page.locator("#sidebar-marks").click();
-  await expect(page.locator("#mark-note-text")).toHaveValue("Do not lose this");
-  await expect(page.locator("#keep-measure")).toBeEnabled();
-  await page.screenshot({
-    path: `${evidence}/after-desktop-reset-keeps-mark-and-measure.png`,
-  });
+  expect((await diagnostics(page)).measuring.result.value).toBeCloseTo(
+    measurement.result.value,
+    4,
+  );
+  await page.screenshot({ path: `${evidence}/after-desktop-reset-undo.png` });
 });

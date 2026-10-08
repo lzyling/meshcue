@@ -8,12 +8,7 @@ export function bindParts(review) {
     previousSelected = null;
   const collapsed = new Set(),
     initialized = new Set();
-  let query = "",
-    preferredView = "file";
-  try {
-    preferredView =
-      localStorage.getItem("meshcue-parts-view") === "agent" ? "agent" : "file";
-  } catch {}
+  let query = "";
   const rowHeight = 34;
   const labels = {
     hide: "parts.hide",
@@ -22,9 +17,7 @@ export function bindParts(review) {
     transparent: "parts.transparent",
   };
   panel.innerHTML = `<div class="parts-heading"><strong>${review.T("parts.title")}</strong></div>
-    <div class="parts-view" role="group" aria-label="${review.T("parts.view")}" hidden><button class="quiet" data-parts-view="file">${review.T("parts.file")}</button><button class="quiet" data-parts-view="agent" data-agent-text="parts.agentGroups">${review.TA("parts.agentGroups")}</button></div>
-    <div class="parts-actions">${["hide", "showAll", "isolate", "transparent"].map((key) => `<button class="quiet" data-command="parts-${key}" title="${review.T(labels[key])}">${review.T(labels[key])}</button>`).join("")}</div>
-    <input id="parts-search" type="search" placeholder="${review.T("parts.search")}" aria-label="${review.T("parts.search")}">
+    <div class="parts-tools"><input id="parts-search" type="search" placeholder="${review.T("parts.search")}" aria-label="${review.T("parts.search")}"><button class="quiet parts-show-all" data-command="parts-showAll" title="${review.T(labels.showAll)}">${review.T("parts.showAllButton")}</button></div>
     <div id="parts-tree" role="tree" aria-label="${review.T("parts.title")}" tabindex="0"><div class="parts-rows"></div></div>`;
   const tree = panel.querySelector("#parts-tree"),
     content = tree.firstElementChild;
@@ -47,18 +40,8 @@ export function bindParts(review) {
         ambiguous: review.T("parts.ambiguous"),
       },
     );
-    viewer.parts.setView(preferredView);
+    viewer.parts.setView(viewer.parts.hasGroups() ? "agent" : "file");
   };
-  for (const button of panel.querySelectorAll("[data-parts-view]"))
-    button.onclick = () => {
-      preferredView = button.dataset.partsView;
-      try {
-        localStorage.setItem("meshcue-parts-view", preferredView);
-      } catch {}
-      viewer.hoverPart(null);
-      tree.scrollTop = 0;
-      viewer.parts.setView(preferredView);
-    };
   for (const [id, shortcuts, run] of [
     ["hide", "Y", () => viewer.parts.setVisible(selected(), false)],
     ["showAll", "Shift+Y", () => viewer.parts.showAll()],
@@ -179,7 +162,13 @@ export function bindParts(review) {
         "part-transparent",
         viewer.parts.isTransparent(part.id),
       );
-      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(expanded ? "parts.collapse" : "parts.expand")}" ${part.hasChildren || part.childIds.length ? "" : "disabled"}>${part.hasChildren || part.childIds.length ? (expanded ? "▾" : "▸") : ""}</button><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(viewer.parts.isVisible(part.id) ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${viewer.parts.isVisible(part.id)}">${review.icon(viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button>`;
+      const expandable = part.hasChildren || part.childIds.length;
+      const visible = viewer.parts.visibilityEnabled(part.id);
+      const group = expandable || ["group", "other"].includes(part.kind);
+      const glyph = group
+        ? '<path d="M3 6h6l2 2h10v12H3z"/>'
+        : '<path d="m12 3 9 5v9l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v9"/>';
+      row.innerHTML = `<button class="parts-expand quiet icon-only" tabindex="-1" aria-label="${review.T(expanded ? "parts.collapse" : "parts.expand")}" ${expandable ? "" : "disabled"}>${expandable ? (expanded ? "▾" : "▸") : ""}</button><button class="parts-eye quiet icon-only" aria-label="${review.T(visible ? "parts.hidePart" : "parts.showPart", { name: part.name })}" aria-pressed="${visible}">${review.icon(visible && viewer.parts.isVisible(part.id) ? "eye" : "eye-off")}</button><span class="parts-kind" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${glyph}</svg></span><button class="parts-name quiet" title="${review.esc(part.name)}">${review.esc(part.name)}</button>`;
       row.querySelector(".parts-expand").disabled =
         !!query || !(part.hasChildren || part.childIds.length);
       row.querySelector(".parts-expand").onclick = () => {
@@ -199,13 +188,64 @@ export function bindParts(review) {
           badge.textContent = review.T(
             part.unresolvedMembers ? "parts.unresolved" : "parts.empty",
           );
-          row.insertBefore(badge, row.querySelector(".parts-eye"));
+          row.append(badge);
         }
       }
       name.onclick = () => viewer.parts.select(part.id);
       name.ondblclick = () => viewer.fitPart(part.id);
       row.querySelector(".parts-eye").onclick = () =>
-        viewer.parts.setVisible(part.id, !viewer.parts.isVisible(part.id));
+        viewer.parts.setVisible(
+          part.id,
+          !viewer.parts.visibilityEnabled(part.id),
+        );
+      let pressTimer;
+      const showMarkMenu = (event) => {
+        event.preventDefault();
+        document.querySelector(".part-mark-menu")?.remove();
+        const menu = document.createElement("div");
+        menu.className = "shell-menu part-mark-menu";
+        menu.style.left = `${Math.min(event.clientX, innerWidth - 240)}px`;
+        menu.style.top = `${Math.min(event.clientY, innerHeight - 60)}px`;
+        const button = document.createElement("button");
+        button.className = "menu-command";
+        button.textContent = review.T(
+          part.kind === "group" ? "marks2.markGroup" : "marks2.markPart",
+        );
+        button.onclick = async () => {
+          menu.remove();
+          try {
+            if (await review.beginEdit()) {
+              const mark = viewer.partMark(part.id);
+              if (mark) {
+                viewer.onObjectMark(mark);
+                viewer.onStrokeEnd();
+              }
+            }
+          } catch (e) {
+            review.toast(e.message);
+          }
+        };
+        menu.append(button);
+        document.body.append(menu);
+        button.focus();
+        const close = (e) => {
+          if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener("pointerdown", close);
+          }
+        };
+        document.addEventListener("pointerdown", close);
+        menu.onkeydown = (e) => {
+          if (e.key === "Escape") menu.remove();
+        };
+      };
+      row.oncontextmenu = showMarkMenu;
+      row.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "touch")
+          pressTimer = setTimeout(() => showMarkMenu(e), 600);
+      });
+      for (const event of ["pointerup", "pointercancel", "pointermove"])
+        row.addEventListener(event, () => clearTimeout(pressTimer));
       row.onpointerenter = () => viewer.hoverPart(part.id);
       row.onpointerleave = () => viewer.hoverPart(null);
       content.append(row);
@@ -287,12 +327,6 @@ export function bindParts(review) {
   });
   viewer.parts.onChange((kind) => {
     const next = viewer.parts.viewList();
-    panel.querySelector(".parts-view").hidden = !viewer.parts.hasGroups();
-    for (const button of panel.querySelectorAll("[data-parts-view]"))
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.partsView === viewer.parts.view()),
-      );
     if (entries.length && !next.length) {
       collapsed.clear();
       initialized.clear();
@@ -318,15 +352,6 @@ export function bindParts(review) {
           String(row.dataset.partId === selected()),
         );
     } else render();
-    panel
-      .querySelector('[data-command="parts-isolate"]')
-      .setAttribute("aria-pressed", String(viewer.parts.isIsolated()));
-    panel
-      .querySelector('[data-command="parts-transparent"]')
-      .setAttribute(
-        "aria-pressed",
-        String(viewer.parts.isTransparent(selected())),
-      );
     review.refreshCommands();
   });
   new ResizeObserver(render).observe(tree);

@@ -1,4 +1,5 @@
 export default {
+  "display.plain": "単色（モデルの色を無視）",
   "display.choose": "表示：{style} — スタイルを選択",
   "display.title": "表示",
   "display.edges": "エッジ付きシェーディング",

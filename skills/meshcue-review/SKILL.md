@@ -171,6 +171,8 @@ tell the user to reload or close it.
 On a submission notice, call `meshcue`'s `read` with the `project` and
 `submissionId` from the notice to read the full 3D annotations, model version
 and camera; the tool writes the read receipt for that batch at the same time.
+
+Part marks refer to the whole part (e.g. “replace with M4”); edge marks refer to the complete edge (e.g. “fillet”). Interpret them using their note and the conversation.
 Where the host cannot push (an MCP client, the CLI), the notice is a sentence
 the reviewer pastes from the page — "I've sent my MeshCue marks (6). Please
 read them with meshcue read — project …, submissionId …", in their language:

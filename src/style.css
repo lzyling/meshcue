@@ -240,7 +240,7 @@ a {
   place-items: center;
   font-size: 26px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--ink);
 }
 .brand {
   display: flex;
@@ -355,16 +355,16 @@ a {
 .connection-indicator {
   position: relative;
   box-sizing: border-box;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   flex: none;
   border-radius: 50%;
   border: 2px solid var(--warn);
   background: transparent;
 }
 .connection-indicator[data-state="online"] {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--ink-muted));
+  background: color-mix(in srgb, var(--accent) 65%, var(--ink-muted));
 }
 .connection-indicator[data-state="connecting"],
 .connection-indicator[data-state="reconnecting"] {
@@ -790,16 +790,26 @@ a {
   flex: 1;
   min-width: 0;
 }
+.annotation-badge-column {
+  width: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
 .annotation-badge {
+  flex-shrink: 0;
+}
+.annotation-badge.region-badge,
+.annotation-badge.measure-badge {
   width: 24px;
-  height: 24px;
-  border-radius: 7px;
+  height: 20px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  color: var(--pin-ink);
+  background: var(--pin-color);
   font-weight: 750;
-  font-size: 10px;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 .annotation-select strong {
   display: block;
@@ -1039,44 +1049,86 @@ a {
   pointer-events: none;
   overflow: hidden;
 }
-/* A mark has to say which point it is about. The old shape was a rounded block
-   floating above that point, with one near-square corner implying a direction
-   it was not anchored in — so the label was visible and its subject was not.
-   It is a bubble with a tail now, and the tail's tip is the anchor. */
+/* The wrapper is centred on the surface dot, also the landing scale origin.
+   Only the capsule handles input: the leader and dot leave the model usable. */
 .model-pin {
   position: absolute;
   left: 0;
   top: 0;
-  min-width: 26px;
-  height: 27px;
-  padding: 0 7px;
-  background: var(--pin-color);
-  color: var(--pin-ink);
-  border: 2px solid var(--pin-ring);
-  border-radius: 13px;
-  font-size: 11px;
-  font-weight: 700;
-  box-shadow: var(--shadow-1);
-  pointer-events: auto;
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  transform-origin: 3.5px 3.5px;
+  outline: none;
+  pointer-events: none;
   z-index: 3;
+}
+.model-pin::before {
+  content: "";
+  position: absolute;
+  left: 2.75px;
+  bottom: 3.5px;
+  width: 1.5px;
+  height: 16px;
+  background: var(--pin-color);
+  pointer-events: none;
 }
 .model-pin::after {
   content: "";
   position: absolute;
-  left: 50%;
-  top: 100%;
-  width: 9px;
-  height: 9px;
-  margin: -5px 0 0 -4.5px;
-  background: inherit;
-  border: 2px solid var(--pin-ring);
-  border-top: 0;
-  border-left: 0;
-  /* Drawn as the corner of the bubble rotated into a point, so the tip carries
-     the same fill and ring as the body and lands on the surface below it. */
-  transform: rotate(45deg);
-  border-bottom-right-radius: 2px;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pin-color);
+  box-shadow: 0 0 0 1.5px #fff;
   pointer-events: none;
+}
+.model-pin .pin-tag {
+  position: absolute;
+  left: 3.5px;
+  bottom: 19.5px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+/* List marks share the capsule body, never the model's leader or selection halo. */
+.model-pin .pin-tag,
+.annotation-badge:not(.region-badge):not(.measure-badge) {
+  display: inline-block;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--pin-color);
+  color: var(--pin-text, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 0 1px 1px #0003;
+  box-shadow:
+    0 0 0 1.5px #ffffffd9,
+    0 2px 6px #0004;
+}
+.model-pin.color-only .pin-tag,
+.annotation-badge.color-only:not(.region-badge):not(.measure-badge) {
+  min-width: 14px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+}
+.model-pin.label-only,
+.annotation-badge.label-only {
+  --pin-color: #6b7378 !important;
+  --pin-text: #fff !important;
 }
 .model-pin.landing {
   animation: pin-land 170ms ease-out;
@@ -1126,9 +1178,12 @@ a {
     display: none;
   }
 }
-.model-pin.selected {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.model-pin.selected .pin-tag,
+.model-pin:focus-visible .pin-tag {
+  box-shadow:
+    0 0 0 1.5px #fff,
+    0 0 0 3.5px var(--focus),
+    0 2px 6px #0004;
 }
 /* A measurement is read, not pointed at: its reading sits on the middle of its
    line, dark on a pale ring like the line itself, so it reads on any model
@@ -1186,6 +1241,7 @@ button.measure-label {
   background: var(--accent);
 }
 .annotation-badge.measure-badge {
+  border-radius: 7px;
   background: #14202a;
   color: #ffffff;
   font-size: 9px;
@@ -1474,7 +1530,8 @@ dialog .muted {
 
 /* 0.3: the model owns the available height, including narrow host panels. */
 .app-header {
-  height: 38px;
+  height: 44px;
+  flex-shrink: 0;
   padding: 0 12px;
   gap: 8px;
 }
@@ -1491,7 +1548,7 @@ dialog .muted {
   display: none;
 }
 .workspace {
-  height: calc(100dvh - 38px);
+  height: calc(100dvh - 44px);
   min-height: 440px;
   display: flex;
   flex-direction: column;
@@ -1672,19 +1729,16 @@ dialog .muted {
   font-size: 9px;
   padding: 6px 3px;
 }
-.annotation-badge {
+.annotation-badge.measure-badge {
   border: 1px solid var(--pin-ring);
   outline: 1px solid var(--line-strong);
-  color: var(--pin-ink);
 }
 .delete-annotation {
   padding: 6px 4px;
 }
-.model-pin {
-  color: var(--pin-ink);
-  box-shadow:
-    0 0 0 1px var(--line-strong),
-    var(--shadow-1);
+/* Capsules retain their geometry and contrast on narrow screens. */
+.model-pin .pin-tag {
+  font-size: 11px;
 }
 .panel-actions {
   padding: 6px;
@@ -1851,19 +1905,19 @@ dialog .muted {
   justify-content: space-between;
   padding: 8px 10px;
 }
-.parts-actions {
+.parts-tools {
   display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding: 0 6px 6px;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  flex-shrink: 0;
 }
-.parts-actions button {
-  font-size: 10px;
-  padding: 5px;
-}
-.parts-actions [aria-pressed="true"] {
-  background: var(--line);
+.parts-show-all {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 6px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 #parts-tree {
   flex: 1;
@@ -1900,14 +1954,47 @@ dialog .muted {
   font-size: 11px;
   padding: 6px 3px;
 }
-.parts-row .icon-only {
-  flex: 0 0 25px;
-  min-width: 25px;
-  padding: 4px;
+.parts-row button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  min-height: 32px;
 }
-.parts-row.part-hidden .parts-name {
-  opacity: 0.5;
-  text-decoration: line-through;
+.parts-row button:hover {
+  background: transparent;
+}
+.parts-row .icon-only {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 7px;
+}
+.parts-row .parts-expand {
+  font-size: 16px;
+}
+.parts-row .parts-expand:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.parts-row .parts-expand:disabled:empty {
+  visibility: hidden;
+}
+.parts-kind {
+  display: flex;
+  flex: 0 0 18px;
+  margin-right: 3px;
+}
+.parts-kind svg {
+  width: 18px;
+  height: 18px;
+}
+.parts-row.part-hidden .parts-name,
+.parts-row.part-hidden .parts-kind,
+.parts-row.part-hidden .parts-eye {
+  opacity: 0.45;
 }
 .parts-row.part-transparent .parts-name {
   font-style: italic;
@@ -1969,46 +2056,20 @@ dialog .muted {
   width: calc(var(--orient-reach) + 48px);
   height: calc(var(--orient-reach) + 48px);
 }
-.navigation-arrow {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  color: var(--ink);
-  background: var(--surface-raised);
-  font-size: 22px;
-  line-height: 18px;
-  cursor: pointer;
-}
-.navigation-arrow-left {
-  left: 0;
-  top: calc(50% - 11px);
-}
-.navigation-arrow-right {
-  right: 0;
-  top: calc(50% - 11px);
-}
-.navigation-arrow-up {
-  top: 0;
-  left: calc(50% - 11px);
-}
-.navigation-arrow-down {
-  bottom: 0;
-  left: calc(50% - 11px);
-}
 .navigation-projection {
   font-size: 11px;
   padding: 4px 7px;
 }
 .navigation-triad {
   position: absolute;
-  right: 100%;
-  top: 25px;
-  width: 75px;
-  height: 75px;
+  left: 10px;
+  top: 8px;
+  width: 72px;
+  height: 72px;
   pointer-events: none;
+}
+.navigation-triad[hidden] {
+  display: none;
 }
 .navigation-triad line {
   stroke-width: 2;
@@ -2160,14 +2221,6 @@ dialog .muted {
     max-width: calc(100% - var(--orient-reach) - 90px);
     padding: 8px;
   }
-  /* The triad normally sits left of the cube, exactly where the expanded cut
-     controls need to wrap. Keep it beneath the cube while those are open. */
-  .viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
-    right: 0;
-    top: 220px;
-    width: 60px;
-    height: 60px;
-  }
 }
 
 /* === FIX lane: phone marks retain a readable list beside their note === */
@@ -2280,6 +2333,7 @@ dialog .muted {
 /* Let drags begin over an existing label or reading as well as bare canvas.
    The list remains available for deliberate annotation editing. */
 .pan-tool .model-pin,
+.pan-tool .model-pin .pin-tag,
 .pan-tool .measure-label {
   pointer-events: none;
 }
@@ -2394,9 +2448,50 @@ dialog .muted {
   width: 18px;
   height: 18px;
 }
-.shell-menu button[aria-checked="true"]::after {
-  content: "✓";
+/* Shared display/submenu row, including an empty icon slot when needed. */
+.shell-menu .menu-option,
+#display-menu .menu-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 13px;
+}
+.menu-option-icon {
+  display: inline-flex;
+  width: 18px;
+  flex: 0 0 18px;
+}
+.menu-option-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+.menu-option-label {
+  flex: 1;
+}
+.menu-option-check {
+  visibility: hidden;
   margin-left: auto;
+}
+.menu-option[aria-checked="true"] .menu-option-check {
+  visibility: visible;
+}
+#display-menu .menu-separator {
+  border-top: 1px solid var(--line);
+  margin: 6px 0;
+}
+#display-toggle.neutral-active {
+  position: relative;
+}
+#display-toggle.neutral-active::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .shell-menu button:focus-visible,
 #display-menu button:focus-visible {
@@ -2440,8 +2535,38 @@ dialog .muted {
   margin-right: 8px;
 }
 .header-right button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 44px;
   min-height: 44px;
+  padding: 12px;
+  margin-left: 0;
+  border: 0;
+  background: transparent;
+  /* 44px target, but the hover chip is a 32px rounded square inside it so it
+     does not fill the whole header height. */
+  position: relative;
+  isolation: isolate;
+}
+.header-right button::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  z-index: -1;
+  border-radius: 8px;
+}
+.header-right button .icon {
+  width: 20px;
+  height: 20px;
+}
+.header-right button:hover::before,
+.header-right button:focus-visible::before {
+  background: var(--surface-sunken);
+}
+.header-right button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .setting-switch {
   display: flex;
@@ -2656,10 +2781,10 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   visibility: hidden;
 }
 .viewer-bottom {
-  bottom: 70px;
+  bottom: 10px;
 }
 .viewer-shell {
-  /* The metadata row moved above the toolbar; its echo must clear it too. */
+  /* Keep the echo clear of the corner metadata. */
   --bottom-row-reach: 110px;
 }
 @media (max-width: 760px) {
@@ -2755,10 +2880,11 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   letter-spacing: 0;
 }
 #parts-search {
-  margin: 6px 8px;
-  width: calc(100% - 16px);
+  margin: 0;
+  width: 0;
+  min-width: 0;
   min-height: 36px;
-  flex: none;
+  flex: 1;
   padding: 6px 9px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -2766,9 +2892,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   color: var(--ink);
   font: inherit;
   font-size: 12px;
-}
-.parts-actions {
-  flex-shrink: 0;
 }
 .parts-row:focus-within {
   outline: 2px solid var(--accent);
@@ -2800,7 +2923,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   display: flex;
 }
 .toolbar .toolbar-command,
-.toolbar .toolbar-more,
 .toolbar .tool.small {
   width: 32px;
   height: 44px;
@@ -2808,18 +2930,13 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   padding: 4px;
   font-size: 19px;
 }
-.toolbar .toolbar-more[aria-expanded="true"] {
+.toolbar .toolbar-command[aria-expanded="true"] {
   background: var(--accent-soft);
 }
 .toolbar .toolbar-history {
   display: flex;
   align-items: flex-end;
   padding: 0 3px;
-  border-right: 1px solid var(--line);
-}
-.toolbar [data-toolbar-slot="reset"] {
-  display: flex;
-  align-items: flex-end;
 }
 .toolbar .reset-preview {
   min-width: 48px;
@@ -2858,7 +2975,6 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
     padding: 0 2px;
   }
   .toolbar .toolbar-command,
-  .toolbar .toolbar-more,
   .toolbar .tool.small {
     width: 44px;
     min-width: 44px;
@@ -2911,74 +3027,65 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
 .navigation-touch-controls .orient-home {
   opacity: 1;
 }
-.navigation-arrow,
-.navigation-roll {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  width: 26px;
-  height: 26px;
-  background: none;
-  color: var(--ink-muted);
-  border: 0;
-  border-radius: 5px;
+/* Small outward triangles; 24px targets stay outside the cube reach. */
+.navigation-arrow {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  font-size: 12px;
-  line-height: 1;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  opacity: 0.45;
+  cursor: pointer;
   z-index: 10;
+  transition:
+    opacity 120ms,
+    color 120ms;
+}
+.navigation-arrow svg {
+  width: 10px;
+  height: 8px;
+  fill: currentColor;
 }
 .orient-stage:hover .navigation-arrow,
-.orient-stage:hover .navigation-roll,
-.orient-stage:focus-visible .navigation-arrow,
-.orient-stage:focus-visible .navigation-roll,
-.orient-stage:has(:focus-visible) .navigation-arrow,
-.orient-stage:has(:focus-visible) .navigation-roll,
 .navigation-keyboard-controls .navigation-arrow,
-.navigation-keyboard-controls .navigation-roll,
-.navigation-touch-controls .navigation-arrow,
-.navigation-touch-controls .navigation-roll {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
+.navigation-touch-controls .navigation-arrow {
+  opacity: 0.85;
 }
 .navigation-arrow:hover,
-.navigation-roll:hover,
-.orient-home:hover {
+.navigation-arrow:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+  background: none;
+}
+.orient-home:hover,
+.orient-home:focus-visible {
+  opacity: 1;
   background: var(--accent-soft);
   color: var(--accent);
 }
-.navigation-arrow-left,
+.navigation-arrow-left {
+  left: -4px;
+  top: calc(50% - 12px);
+  transform: rotate(-90deg);
+}
 .navigation-arrow-right {
-  top: calc(50% - 13px);
+  right: -4px;
+  top: calc(50% - 12px);
+  transform: rotate(90deg);
 }
-.navigation-arrow-up,
+.navigation-arrow-up {
+  top: -4px;
+  left: calc(50% - 12px);
+}
 .navigation-arrow-down {
-  left: calc(50% - 13px);
-}
-.navigation-roll {
-  position: absolute;
-  top: 0;
-  font-size: 22px;
-  cursor: pointer;
-}
-.navigation-roll-left {
-  right: 29px;
-}
-.navigation-roll-right {
-  right: 0;
-}
-.navigation-triad {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-/* Section controls reserve --orient-reach, so integrated axes no longer need
-   the old narrow-layout exception that hid the floating panel. */
-.viewer-shell:has(#section-options:not([hidden])) .navigation-triad {
-  display: block;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  bottom: -4px;
+  left: calc(50% - 12px);
+  transform: rotate(180deg);
 }
 .orient-menu {
   position: absolute;
@@ -3012,24 +3119,7 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   color: var(--accent);
 }
 
-/* === b1v Lane GROUPS: optional native / Agent projection switch === */
-.parts-view {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-.parts-view[hidden] {
-  display: none;
-}
-.parts-view button {
-  flex: 1;
-  font-size: 12px;
-}
-.parts-view button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
+/* Unresolved and empty browser rows remain non-actionable. */
 .parts-row[aria-disabled="true"] .parts-name {
   opacity: 0.65;
 }
@@ -3106,4 +3196,422 @@ body:has(#display-menu:not([hidden])) .tool-hint-box {
   .viewer-shell:has(#measure-options:not([hidden])) .toolbar-history {
     padding: 0 2px;
   }
+}
+
+/* r4 shell: metadata hugs the preview corner; phone tool row scrolls as one. */
+.viewer-bottom {
+  bottom: 10px;
+  right: 10px;
+}
+.orient-home {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  transition:
+    opacity 120ms,
+    color 120ms;
+}
+.reset-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+}
+.reset-dialog-actions button {
+  min-height: 36px;
+  padding: 8px 18px;
+}
+#reset-dialog {
+  max-width: min(420px, calc(100vw - 32px));
+}
+#reset-dialog .danger-button {
+  background: var(--danger, #b63636);
+  color: white;
+}
+@media (max-width: 760px) {
+  .toolbar {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: flex;
+    flex: none;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+  .viewer-bottom #model-info,
+  .viewer-bottom .axis-label {
+    display: none;
+  }
+}
+
+/* Picked-up marking tools are distinct from passive display switches. */
+.tool.active:is(
+    [data-mode="label"],
+    [data-mode="fill"],
+    [data-mode="measure"]
+  ) {
+  background: var(--accent);
+  color: white;
+}
+.viewer-top {
+  justify-content: center;
+  padding-right: 0;
+  z-index: 3;
+}
+#review-status {
+  max-width: min(420px, 60%);
+  text-align: center;
+}
+#section-flip,
+#section-off {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#section-flip svg,
+#section-off svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+/* Keep the optional axes clear of the section panel on desktop and phones. */
+.viewer-shell:has(.navigation-triad:not([hidden])) .section-options {
+  top: 88px;
+}
+
+/* r6: action captions replace redundant group headings. Keep complete labels
+   in aria-label/title, and allow long localized short names up to two lines. */
+.toolbar .toolbar-command,
+.toolbar .tool.small,
+.toolbar .reset-preview {
+  width: auto;
+  min-width: 44px;
+  height: 58px;
+  padding: 4px 6px;
+  flex: 1 0 auto;
+}
+.toolbar .tool span {
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 60px;
+  max-height: 24px;
+  overflow: hidden;
+}
+.toolbar .icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+@media (max-width: 760px) {
+  /* Preserve 44px touch targets by wrapping whole groups instead of scrolling.
+     At 390px: View 139 + Mark 95 + Inspect 95 + chrome 8 = 337px;
+     Display 139 + History 139 + chrome 8 = 286px. */
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    overflow: visible;
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-command,
+  .toolbar .tool.small,
+  .toolbar .reset-preview {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 4px;
+    flex: none;
+  }
+  .toolbar .tool span {
+    display: none;
+  }
+}
+
+/* Captioned tools must also fit tablet views with the sidebar still open.
+   Wrap intact groups within the canvas rather than overflowing the viewport;
+   desktop captions and 44px targets remain unchanged. Short landscape phones
+   retain their existing single-row layout rather than acquiring tablet rows. */
+@media (min-width: 761px) and (max-width: 1000px) and (min-height: 500px) {
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* A shrink-to-fit translated fill dock added a separate row for New area,
+     covering centre-face taps after the folded sidebar's canvas resized. */
+  .tool-options:has(#fill-control:not([hidden])) {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+  }
+  /* Keep the closed chooser and its reserved reading on one stable row.
+     The full-width reading row lifted the dock into the next-pick clearance
+     on a 390x664 phone. Its 32px scroll slot and 44px controls stay intact;
+     deliberately opening Advanced retains the existing expanded layout. */
+  #measure-options:has(#measure-advanced:not([open])) > [data-measure="smart"] {
+    flex: 0 0 72px;
+    overflow-wrap: anywhere;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-advanced {
+    flex: 0 0 64px;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-reading {
+    order: 0;
+    flex: 1 1 0;
+  }
+}
+
+/* r8 onboarding and visibility polish: isolated for parallel feature merges. */
+#toggle-marks.tool[aria-pressed] {
+  background: transparent;
+  color: var(--ink-muted);
+}
+#toggle-marks.tool[aria-pressed]:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.orient-home {
+  width: 32px;
+  height: 32px;
+  padding: 5px;
+  opacity: 0.7;
+}
+.orient-home .icon {
+  width: 20px;
+  height: 20px;
+}
+.orient-stage:hover .orient-home,
+.orient-stage:focus-within .orient-home,
+.navigation-touch-controls .orient-home {
+  opacity: 0.7;
+}
+.orient-stage .orient-home:hover,
+.orient-stage .orient-home:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+}
+#help-dialog {
+  max-width: 940px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+.onboarding-steps li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-sunken);
+}
+.onboarding-steps svg {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 8px;
+}
+.onboarding-steps h3 {
+  font-size: 14px;
+}
+.onboarding-steps p {
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.onboarding-table-scroll {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+.onboarding-reference {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.onboarding-reference caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.onboarding-reference th,
+.onboarding-reference td {
+  padding: 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+  min-width: 80px;
+}
+.onboarding-reference th {
+  background: var(--surface-sunken);
+}
+.onboarding-more {
+  margin-top: 20px;
+}
+.onboarding-more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 800px) {
+  .onboarding-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  #help-dialog {
+    padding: 24px 16px;
+  }
+  .onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+}
+/* Interactive explode panel: independent of the section panel. */
+#explode-options {
+  bottom: 140px;
+  top: auto;
+  left: 16px;
+}
+#explode-options output {
+  min-width: 3em;
+}
+
+/* marks2: edge and whole-part marking */
+.annotation-select strong.annotation-type-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.annotation-type-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  color: inherit;
+}
+.annotation-type-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.part-mark-menu {
+  position: fixed;
+  z-index: 100;
+}
+/* Update popover: deliberately static emphasis, never flashing or animated. */
+.brand-title button.app-update {
+  cursor: pointer;
+  font-family: inherit;
+}
+.brand-title .app-update.update-unseen {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.brand-title .app-update.update-unseen::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+.update-popover {
+  position: fixed;
+  z-index: 1000;
+  width: min(390px, calc(100vw - 16px));
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: 0 8px 30px #0003;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.update-popover h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+  padding-right: 65px;
+}
+.update-close {
+  float: right;
+}
+.update-current,
+.update-explanation {
+  color: var(--ink-muted);
+}
+.update-notes {
+  white-space: pre-wrap;
+}
+.update-popover a {
+  color: var(--accent);
+}
+.update-copy {
+  cursor: pointer;
+}
+.update-popover button:focus-visible,
+.brand-title button.app-update:focus-visible,
+.update-popover a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-popover,
+  .brand-title button.app-update {
+    animation: none;
+    transition: none;
+  }
+}
+/* End update popover. */
+
+#mark-show {
+  display: flex;
+  gap: 2px;
+}
+#mark-show button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+#mark-show button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+}
+.color-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+#mark-show-hint {
+  max-width: 260px;
+  font-size: 11px;
 }

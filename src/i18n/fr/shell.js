@@ -1,13 +1,12 @@
 export default {
-  "shell.more": "Plus d’options : {group}",
-  "shell.rotateMode": "Mode rotation — passer au déplacement (H)",
-  "shell.panMode": "Mode déplacement — passer à la rotation",
+  "shell.rotateMode": "Mode rotation",
+  "shell.panMode": "Mode déplacement",
   "shell.reset": "Réinitialiser",
   "shell.resetTitle":
-    "Réinitialiser l’aperçu : afficher toutes les pièces, effacer isolation et transparence, quitter la coupe et rétablir affichage et vue par défaut ; conserver marques, notes et mesures",
+    "Rétablir l’affichage et supprimer les annotations, notes et mesures non envoyées ; une seule annulation restaure les annotations.",
   "shell.history": "Historique",
   "help.p16":
-    "La barre regroupe Vue, Affichage, Marquer et Inspecter. Les outils courants fonctionnent en un clic ; « … » ouvre les autres options. Vue indique Rotation ou Déplacement : cliquez pour changer, avec Réinitialiser la vue et Tout cadrer à côté. Affichage montre le style actuel ; cliquez pour choisir. Afficher les marques est dans l’onglet Marques. Réinitialiser affiche toutes les pièces, quitte la coupe, rétablit l’ombrage avec arêtes, les couleurs d’origine et la vue par défaut sans modifier marques, notes, brouillons ou mesures.",
+    "La barre regroupe Vue, Annotation, Inspection et Affichage. Rotation/déplacement, projection et style ouvrent des menus ; les actions simples sont immédiates. Home est sur le cube. Réinitialiser affiche toutes les pièces, quitte la coupe, rétablit l’affichage et la vue par défaut et supprime les annotations non envoyées avec leurs notes et mesures. Une confirmation est requise en présence d’annotations ; une annulation les restaure. Les lots envoyés restent inchangés.",
   "shell.view": "Vue",
   "shell.mark": "Annoter",
   "shell.inspect": "Inspecter",
@@ -22,4 +21,11 @@ export default {
   "shell.online": "En ligne",
   "shell.reconnecting": "Reconnexion…",
   "shell.offline": "Hors ligne",
+  "shell.resetConfirm":
+    "Supprimer {count} annotations et rétablir l’affichage initial ? Les lots envoyés ne sont pas affectés.",
+  "shell.resetCancel": "Annuler",
+  "shell.resetReadOnly":
+    "Affichage rétabli. Les annotations sont conservées car ce brouillon ne peut pas être modifié.",
+  "shell.axes": "Afficher les axes de coordonnées",
+  "shell.zoomToCursor": "Zoom à la molette vers le pointeur",
 };

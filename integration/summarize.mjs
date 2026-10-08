@@ -1,3 +1,7 @@
+export function markReference(a) {
+  return `${a.label}${a.show === "color" ? ` (color-only mark, ${a.color})` : a.show === "label" ? " (label-only mark)" : ""}`;
+}
+
 /* What `read` hands the agent.
 
    It used to hand over the batch exactly as stored — the comment above it said
@@ -37,6 +41,36 @@ const reviewerSide = (a) => ({
    angle. The agent should not have to find the unit somewhere else in the
    batch to read one dimension. */
 export function summarizeAnnotation(a, units = "unspecified") {
+  if (a.type === "edge")
+    return {
+      id: a.id,
+      type: a.type,
+      label: a.label,
+      color: a.color,
+      ...(a.show ? { show: a.show } : {}),
+      meshId: a.meshId,
+      space: a.space,
+      length: a.length,
+      curved: a.curved,
+      ends: [a.points[0], a.points.at(-1)],
+      ...(a.closed ? { closed: true } : {}),
+      ...(a.brep ? { brep: a.brep } : {}),
+      ...reviewerSide(a),
+    };
+  if (a.type === "part")
+    return {
+      id: a.id,
+      type: a.type,
+      label: a.label,
+      color: a.color,
+      ...(a.show ? { show: a.show } : {}),
+      partIds: a.partIds,
+      names: a.names,
+      meshIds: a.meshIds,
+      bounds: a.bounds,
+      ...(a.group ? { group: a.group } : {}),
+      ...reviewerSide(a),
+    };
   if (a.type === "measure")
     return {
       id: a.id,
@@ -59,6 +93,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       type: "pin",
       label: a.label,
       color: a.color,
+      ...(a.show ? { show: a.show } : {}),
       meshId: a.meshId,
       sourceFaceIndex: a.sourceFaceIndex ?? a.faceIndex,
       position: (a.position || []).map(round),
@@ -121,6 +156,7 @@ function manifestFor(batch, annotations) {
   const used = new Set();
   for (const a of annotations) {
     if (a.meshId) used.add(a.meshId);
+    for (const id of a.meshIds || []) used.add(id);
     for (const pick of a.picks || []) used.add(pick.meshId);
     for (const meshId of Object.keys(a.faces || {})) used.add(meshId);
     for (const patch of a.surfacePatches || []) used.add(patch.meshId);

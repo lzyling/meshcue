@@ -571,14 +571,13 @@ mark, then say what to change."
   Front, Back, Left, Right, Top, Bottom and Isometric. Arrows rotate 15°,
   Ctrl+arrows 5°, Shift+arrows 90°; Ctrl+Shift+arrows pan. Z zooms out, Shift+Z
   zooms in. N looks straight at the face under the pointer; N again reverses the
-  side. Drag the view cube to rotate. Hover over it to show small triangles for
-  adjacent views and curved arrows for 90° rolls. On touch, tap the cube to
-  reveal these controls; tap elsewhere to hide them. Right-click or hold the
-  cube to set or reset the default view, saved only in this browser for this
-  review and never sent to the Agent. The faint house always returns home; axes
-  grow from the cube’s corner. Shift+/ lists all shortcuts. View changes animate
-  briefly unless reduced motion is preferred; any navigation input interrupts
-  them.
+  side. Drag the view cube to rotate. Hover over it to show curved arrows for
+  90° adjacent-view turns. On touch, tap the cube to reveal these controls; tap
+  elsewhere to hide them. Right-click or hold the cube to set or reset the
+  default view, saved only in this browser for this review and never sent to the
+  Agent. The faint house always returns home; axes grow from the cube’s corner.
+  Shift+/ lists all shortcuts. View changes animate briefly unless reduced
+  motion is preferred; any navigation input interrupts them.
 
 - Display styles change only how you see the model: shaded with edges (the
   default), shaded, wireframe, hidden line, or translucent (X-ray). The choice
@@ -589,29 +588,38 @@ mark, then say what to change."
   is still. Copy report copies device and rendering statistics only, without
   model content or file names.
 
-- You can switch to Agent groups when the Agent supplies them; ungrouped
-  geometry stays under Other parts. Missing or ambiguous references are
-  disabled. Both views share visibility. Parts is always available beside Marks,
-  even for a single part. It follows the file’s assembly hierarchy; search by
-  name keeps each result’s parent path. Expand or collapse groups, hover to
-  highlight, click to select, or double-click a part or group to fit it. In
-  View, click a surface to select its part. Y hides the selection; Shift+Y shows
-  all; Shift+I isolates it (again or Esc exits); Shift+T makes it transparent so
-  you can mark behind it. Group actions affect every contained part. Switching
-  to Marks keeps hidden parts hidden; hand-over and notes appear only on Marks.
-  Viewing choices reset when you load a model or version and are never sent to
-  the Agent.
+- Agent groups appear automatically when supplied; otherwise the file tree is
+  shown. Ungrouped geometry stays under Other parts; unresolved references are
+  disabled. Use the triangle to expand or collapse without selecting, and the
+  eye to hide or show a part or entire group. Hiding a parent dims descendants
+  and preserves their own switches; showing it restores those choices. Search
+  keeps parent paths. Hover highlights, click selects, and double-click fits a
+  part or group. In View, a surface click selects its part. Show all restores
+  visibility. Shortcuts remain: Y hides the selection, Shift+Y shows all,
+  Shift+I isolates (again or Esc exits), and Shift+T toggles transparency. Parts
+  stays beside Marks; switching tabs keeps visibility. Hand-over and notes are
+  on Marks. Viewing choices reset on model or version load and are never sent to
+  Agent.
 
-- The toolbar groups View, Display, Mark and Inspect. Common tools work in one
-  click; “…” opens extra options. View shows Rotate or Pan: click to switch,
-  with Reset view and Fit all beside it. Display shows the current style; click
-  to choose. Show marks is on the Marks tab. Reset restores all parts, exits
-  Section, restores shaded-with-edges and original colours, and calls the
-  default view without changing marks, notes, drafts or measurements.
+- The toolbar groups View, Mark, Inspect and Display. Rotate/Pan, projection
+  and display style open menus; single actions execute immediately. Home is on
+  the view cube. Reset restores all parts, exits Section, restores the default
+  display and view, and deletes unsubmitted marks with their notes and
+  measurements. When marks exist, confirmation is required; one Undo restores
+  them. Submitted batches are not affected.
 
 <!-- reviewer-help:end -->
 
 ## Reading marks
+
+Pins, edges and parts may have optional `show: "color" | "label"`. Absent means colour + letter. With `show: "color"`, only colour is visible: treat same-colour marks as one class; the stored letter is only for precise reference. With `show: "label"`, only the letter distinguishes marks and the neutral grey colour has no meaning. `label` and `color` remain required; painted regions are unaffected.
+
+`type: "edge"` marks an entire feature edge, not just a point. The summary gives `meshId`, `length`, `curved`, `ends` and optional `brep.face` (STEP face IDs); full `points` are available with `geometry: true`. Length is in model units.
+
+`type: "part"` marks whole parts or an Agent group. The summary gives `partIds`, `names`, `meshIds`, optional `group`, and model-space `bounds`. Interpret the note and conversation as applying to the whole part (for example “replace with M4”) or edge (for example “fillet”).
+
+For an unrecognized `type`, understand it from `label`, `note` and the conversation; do not discard it or fail the read.
+
 
 A submission is a set of positions; by itself it is not an instruction to change
 anything. What the reviewer wants comes from the conversation and, from 1.4.0,
@@ -690,6 +698,7 @@ from any `note` they wrote on a mark.
   marks, with `space: "model"`. It is what "the top edge" or "the left of this"
   meant on their screen. A mark made before 1.4.0 has no `view`; the batch's
   `camera` is the nearest thing, and it is in the preview's frame.
+  A mark’s optional `view.explode` is `{ amount: 0–1, by: "group" | "part" }`: the reviewer was looking at an exploded assembly. Stored mark coordinates remain in the un-exploded part frame.
 - An orthographic mark additionally records `view.projection: "orthographic"`
   and `view.visibleHeight`, the visible vertical span in model units. Its
   horizontal span is `visibleHeight * aspect`; `position`, `target` and `up`

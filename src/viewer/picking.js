@@ -1,6 +1,12 @@
 import { sectionPick, sectionSegment } from "../section.js";
 import * as THREE from "three";
-import { faceEdges, isFeatureEdge, straightEdge, planeAt } from "../measure.js";
+import {
+  faceEdges,
+  isFeatureEdge,
+  straightEdge,
+  featureChain,
+  planeAt,
+} from "../measure.js";
 import { t } from "../i18n/index.js";
 import { V, midpoint } from "./shared.js";
 
@@ -83,7 +89,7 @@ export class PickingMethods {
   modelFrame(mesh) {
     const frame = new THREE.Matrix4();
     for (let o = mesh; o && o !== this.root; o = o.parent)
-      frame.premultiply(o.matrix);
+      frame.premultiply(this.explodeBase?.get(o)?.matrix || o.matrix);
     return frame;
   }
   toScreen(world) {
@@ -165,12 +171,12 @@ export class PickingMethods {
       }
     }
     if (!side) return null;
-    const key = `${mesh.userData.reviewId}:${[side.ka, side.kb].sort().join("|")}`;
+    const key = `${this.mode}:${mesh.userData.reviewId}:${[side.ka, side.kb].sort().join("|")}`;
     if (this.edgeCache?.key !== key)
       this.edgeCache = {
         key,
         edge: {
-          ...straightEdge(
+          ...(this.mode === "edge" ? featureChain : straightEdge)(
             topology,
             face,
             side.ka,

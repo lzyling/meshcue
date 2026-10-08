@@ -1,0 +1,15 @@
+export default {
+  "toolbar.caption.rotate": "Drehen",
+  "toolbar.caption.pan": "Schieben",
+  "toolbar.caption.fit": "Einpassen",
+  "toolbar.caption.projection": "Projekt.",
+  "toolbar.caption.pin": "Pin",
+  "toolbar.caption.fill": "Füllen",
+  "toolbar.caption.measure": "Messen",
+  "toolbar.caption.section": "Schnitt",
+  "toolbar.caption.style": "Stil",
+  "toolbar.caption.marks": "Marken",
+  "toolbar.caption.undo": "Zurück",
+  "toolbar.caption.redo": "Wieder",
+  "toolbar.caption.reset": "Reset",
+};

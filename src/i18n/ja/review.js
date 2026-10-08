@@ -1,8 +1,6 @@
 export default {
   "review.loadingModel": "モデルを読み込み中",
-  "review.earlierVersion": "以前のバージョン · 印は付けられます",
   "review.openElsewhere": "別のウィンドウがこの版を開いています",
-  "review.current": "現在のバージョン · 印を付けられます",
   "review.notInReview": "このバージョンは現在のレビューに含まれていません。",
   "review.notMarked": "このバージョンにはまだ印がありません。",
   "review.roundClosed":
@@ -12,9 +10,6 @@ export default {
   "version.earlier": "以前のバージョン",
   "version.submitted": "{count} 件送信済み",
   "version.openElsewhere": "別ウィンドウで表示中",
-  "version.pinnedNotice":
-    "以前のバージョンを見ています。最新は {version} です。",
-  "version.goLatest": "最新バージョンを見る",
   "version.driftStopped":
     "別のバージョンが届きました。下書きは保持し、自動切り替えを停止しました。",
 

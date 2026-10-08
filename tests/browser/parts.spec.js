@@ -1,8 +1,4 @@
-import {
-  clickControl,
-  selectSetting,
-  showParts,
-} from "./b1u-shell-helpers.mjs";
+import { clickControl, selectSetting, showParts } from "./r12-b-helpers.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
@@ -226,7 +222,7 @@ test("part rows, selection, fit, panel actions, shortcuts and version resets", a
   await expect(row(page, "Front")).toHaveClass(/part-hidden/);
   await page.keyboard.press("Shift+Y");
   await expect(row(page, "Front")).not.toHaveClass(/part-hidden/);
-  await page.locator('[data-command="parts-isolate"]').click();
+  await clickControl(page, '[data-command="parts-isolate"]');
   await expect(row(page, "Back")).toHaveClass(/part-hidden/);
   await kit.screenshot("isolate");
   await page.keyboard.press("Shift+I");
@@ -324,7 +320,7 @@ test("transparent parts allow marking and measuring behind them through plain vi
     "mesh-1",
     "mesh-1",
   ]);
-  await page.locator('[data-command="parts-transparent"]').click();
+  await clickControl(page, '[data-command="parts-transparent"]');
   await expect(row(page, "Front")).not.toHaveClass(/part-transparent/);
   await clickControl(page, '[data-mode="label"]');
   await kit.clickModelPoint([-0.4, 0, 1]);
@@ -381,7 +377,7 @@ test("phone parts sheet opens from its always-visible tab without covering the m
   expect(panel.x + panel.width).toBeLessThanOrEqual(390);
   await kit.screenshot("phone");
   await select(page, "Front");
-  await page.locator('[data-command="parts-hide"]').click();
+  await row(page, "Front").locator(".parts-eye").click();
   await expect(row(page, "Front")).toHaveClass(/part-hidden/);
   await page.locator("#sidebar-marks").click();
   await expect(page.locator("#parts-panel")).toBeHidden();

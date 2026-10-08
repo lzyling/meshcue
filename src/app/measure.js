@@ -91,6 +91,9 @@ export function bindMeasure(review) {
     review.showMeasure();
   };
 
+  const markRefusals = { edgeTooDetailed: "marks2.edgeTooDetailed" };
+  review.viewer.onMarkRefused = (why) => review.toast(t(markRefusals[why]));
+
   review.viewer.onMeasureRefused = (why) =>
     review.toast(t(review.MEASURE_REFUSALS[why]));
 

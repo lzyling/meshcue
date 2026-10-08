@@ -166,6 +166,62 @@ function featureEdgesAt(topology, face, vk) {
    carry on at a slight turn; measuring it would give the length of one facet
    of a hole's rim, which is a number nobody asked for and nothing on the model
    is that long. */
+export function featureChain(topology, face, ka, kb, frame) {
+  if (topology.brep) return straightEdge(topology, face, ka, kb, frame);
+  const keys = keysOf(topology, face);
+  const chain = [ka, kb].map((key) => ({
+    key,
+    face,
+    point: topology.vertices[face][keys.indexOf(key)],
+  }));
+  let closed = false;
+  const at = (v) => new Vector3().fromArray(v.point).applyMatrix4(frame);
+  const extend = () => {
+    for (let guard = 0; guard < 100000; guard++) {
+      const last = chain.at(-1),
+        prev = chain.at(-2);
+      const candidates = featureEdgesAt(topology, last.face, last.key).filter(
+        (v) => v.key !== prev.key,
+      );
+      if (candidates.length !== 1) return;
+      const next = candidates[0];
+      const turn =
+        Math.acos(
+          clampUnit(
+            at(last)
+              .sub(at(prev))
+              .normalize()
+              .dot(at(next).sub(at(last)).normalize()),
+          ),
+        ) / RAD;
+      if (turn > CURVE_TURN_DEG) return;
+      if (next.key === chain[0].key) {
+        closed = true;
+        return;
+      }
+      chain.push(next);
+    }
+  };
+  extend();
+  if (!closed) {
+    chain.reverse();
+    extend();
+  }
+  const points = chain.map(at);
+  if (closed) points.push(points[0].clone());
+  const ends = [points[0], points.at(-1)];
+  const length = points
+    .slice(1)
+    .reduce((n, p, i) => n + p.distanceTo(points[i]), 0);
+  const chord = ends[0].distanceTo(ends[1]);
+  return {
+    points,
+    ends,
+    length,
+    closed,
+    curved: closed || length - chord > length * 1e-6,
+  };
+}
 export function straightEdge(topology, face, ka, kb, frame) {
   if (topology.brep) return brepEdge(topology, face, ka, kb, frame);
   const at = (v) => new Vector3().fromArray(v.point).applyMatrix4(frame);
@@ -301,6 +357,8 @@ function brepEdge(topology, face, ka, kb, frame) {
     length,
     curved,
     points: closed ? [...points, points[0]] : points,
+    closed,
+    brep: { face: pair.split("|").map(Number) },
   };
 }
 

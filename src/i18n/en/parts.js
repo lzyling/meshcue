@@ -1,14 +1,11 @@
 export default {
   "parts.unresolved": "Unresolved",
-  "parts.view": "Part tree view",
-  "parts.file": "File",
-  "parts.agentGroups.named": "{agent} groups",
-  "parts.agentGroups": "Agent groups",
   "parts.other": "Other parts",
   "parts.missing": "Missing member",
   "parts.ambiguous": "Ambiguous member",
   "parts.empty": "Empty",
 
+  "parts.showAllButton": "Show all",
   "parts.search": "Search parts by name",
   "parts.title": "Parts",
   "parts.fallback": "Part {n}",
@@ -21,7 +18,7 @@ export default {
   "parts.expand": "Expand assembly",
   "parts.collapse": "Collapse assembly",
   "help.p15":
-    "You can switch to Agent groups when the Agent supplies them; ungrouped geometry stays under Other parts. Missing or ambiguous references are disabled. Both views share visibility. Parts is always available beside Marks, even for a single part. It follows the file’s assembly hierarchy; search by name keeps each result’s parent path. Expand or collapse groups, hover to highlight, click to select, or double-click a part or group to fit it. In View, click a surface to select its part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or Esc exits); Shift+T makes it transparent so you can mark behind it. Group actions affect every contained part. Switching to Marks keeps hidden parts hidden; hand-over and notes appear only on Marks. Viewing choices reset when you load a model or version and are never sent to the Agent.",
+    "Agent groups appear automatically when supplied; otherwise the file tree is shown. Ungrouped geometry stays under Other parts; unresolved references are disabled. Use the triangle to expand or collapse without selecting, and the eye to hide or show a part or entire group. Hiding a parent dims descendants and preserves their own switches; showing it restores those choices. Search keeps parent paths. Hover highlights, click selects, and double-click fits a part or group. In View, a surface click selects its part. Show all restores visibility. Shortcuts remain: Y hides the selection, Shift+Y shows all, Shift+I isolates (again or Esc exits), and Shift+T toggles transparency. Parts stays beside Marks; switching tabs keeps visibility. Hand-over and notes are on Marks. Viewing choices reset on model or version load and are never sent to Agent.",
   "help.p15.named":
-    "You can switch to {agent} groups when {agent} supplies them; ungrouped geometry stays under Other parts. Missing or ambiguous references are disabled. Both views share visibility. Parts is always available beside Marks, even for a single part. It follows the file’s assembly hierarchy; search by name keeps each result’s parent path. Expand or collapse groups, hover to highlight, click to select, or double-click a part or group to fit it. In View, click a surface to select its part. Y hides the selection; Shift+Y shows all; Shift+I isolates it (again or Esc exits); Shift+T makes it transparent so you can mark behind it. Group actions affect every contained part. Switching to Marks keeps hidden parts hidden; hand-over and notes appear only on Marks. Viewing choices reset when you load a model or version and are never sent to {agent}.",
+    "{agent} groups appear automatically when supplied; otherwise the file tree is shown. Ungrouped geometry stays under Other parts; unresolved references are disabled. Use the triangle to expand or collapse without selecting, and the eye to hide or show a part or entire group. Hiding a parent dims descendants and preserves their own switches; showing it restores those choices. Search keeps parent paths. Hover highlights, click selects, and double-click fits a part or group. In View, a surface click selects its part. Show all restores visibility. Shortcuts remain: Y hides the selection, Shift+Y shows all, Shift+I isolates (again or Esc exits), and Shift+T toggles transparency. Parts stays beside Marks; switching tabs keeps visibility. Hand-over and notes are on Marks. Viewing choices reset on model or version load and are never sent to {agent}.",
 };

@@ -970,3 +970,29 @@ test("4096 repeated assemblies allocate roots only, defer File projection and sh
     assert.equal(parts.selected(), `part-0.${childCount - 1}`);
   }
 });
+
+test("same-content group metadata preserves surviving visibility gates and releases removed gates", () => {
+  const { tree } = nativeFixture();
+  const parts = createParts();
+  parts.reset(tree);
+  parts.setGroups(doc({ members: [{ nodeIndex: 1 }] }));
+  parts.setView("agent");
+  parts.setVisible("agent-group:a", false);
+  assert.equal(parts.meshVisible("m1"), false);
+  parts.setGroups(doc({ name: "Renamed", members: [{ nodeIndex: 1 }] }));
+  assert.equal(parts.meshVisible("m1"), false, "renaming is not Show all");
+  assert.equal(parts.visibilityEnabled("agent-group:a"), false);
+  parts.setGroups(doc({ name: "Changed union", members: [{ nodeIndex: 2 }] }));
+  assert.equal(parts.meshVisible("m1"), true, "former member leaves the gate");
+  assert.equal(
+    parts.meshVisible("m2"),
+    false,
+    "current members inherit the gate",
+  );
+  parts.setGroups([]);
+  assert.equal(
+    parts.meshVisible("m2"),
+    true,
+    "removed groups cannot keep invisible gates",
+  );
+});

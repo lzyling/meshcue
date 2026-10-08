@@ -25,6 +25,7 @@ export class PartsMethods {
         : copy(mesh.material);
     }
     for (const material of originals) material.dispose();
+    this.explodeBase = null;
     this.parts?.reset(
       buildPartTree(object, {
         names,
@@ -35,6 +36,10 @@ export class PartsMethods {
   }
   updateParts(kind) {
     if (!this.parts) return;
+    if (kind === "projection") {
+      if (this.explode?.amount) this.setExplode(this.explode.amount);
+      this.onExplode?.();
+    }
     if (kind === "selection" || kind === "projection") {
       this.highlightPart(this.partHover || this.parts.selected());
       return;
@@ -107,6 +112,9 @@ export class PartsMethods {
       }
       if (neutral) this.setNeutral(true);
     }
+    if (!this.explodeBase && this.meshes.length) this.prepareExplode();
+    else if (this.explode?.amount) this.setExplode(this.explode.amount);
+    this.onExplode?.();
     this.syncPartCaps();
     this.occlusionValid = false;
     if (kind !== "reset-view") this.clearMeasure?.();

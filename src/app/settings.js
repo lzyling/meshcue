@@ -14,6 +14,8 @@ export function createSettings(
   defaults = {
     performance: false,
     viewCube: true,
+    axes: false,
+    zoomToCursor: false,
     sidebarCollapsed: false,
   },
 ) {
@@ -85,6 +87,8 @@ export function bindSettings(review) {
   for (const [id, key] of [
     ["performance", "shell.performance"],
     ["viewCube", "shell.cube"],
+    ["axes", "shell.axes"],
+    ["zoomToCursor", "shell.zoomToCursor"],
   ]) {
     const label = document.createElement("label");
     label.className = "setting-switch";
@@ -100,6 +104,11 @@ export function bindSettings(review) {
     label.append(input, document.createTextNode(t(key)));
     features.append(label);
   }
+  const zoom = (value) => {
+    review.viewer.controls.zoomToCursor = value;
+  };
+  review.settings.on("zoomToCursor", zoom);
+  zoom(review.settings.get("zoomToCursor"));
   const cube = (value) => {
     review.$(".orient").hidden = !value;
   };

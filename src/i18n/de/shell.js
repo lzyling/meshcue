@@ -1,13 +1,12 @@
 export default {
-  "shell.more": "Weitere Optionen: {group}",
-  "shell.rotateMode": "Drehmodus — zu Schwenken wechseln (H)",
-  "shell.panMode": "Schwenkmodus — zu Drehen wechseln",
+  "shell.rotateMode": "Drehmodus",
+  "shell.panMode": "Schwenkmodus",
   "shell.reset": "Zurücksetzen",
   "shell.resetTitle":
-    "Vorschau zurücksetzen: alle Bauteile zeigen, Isolation und Transparenz aufheben, Schnitt beenden und Standarddarstellung und Ansicht wiederherstellen; Markierungen, Notizen und Messungen bleiben",
+    "Anzeige zurücksetzen und alle nicht eingereichten Markierungen, Notizen und Messungen löschen; einmal Rückgängig stellt die Markierungen wieder her.",
   "shell.history": "Verlauf",
   "help.p16":
-    "Die Werkzeugleiste gruppiert Ansicht, Darstellung, Markieren und Prüfen. Häufige Werkzeuge reagieren auf einen Klick; „…“ öffnet weitere Optionen. Ansicht zeigt Drehen oder Schwenken: Klicken wechselt den Modus, daneben stehen Ansicht zurücksetzen und Alles einpassen. Darstellung zeigt den aktuellen Stil; Klicken öffnet die Auswahl. Markierungen anzeigen steht im Reiter Markierungen. Zurücksetzen zeigt alle Teile, beendet den Schnitt, stellt Schattierung mit Kanten und Originalfarben sowie die Standardansicht wieder her, ohne Markierungen, Notizen, Entwürfe oder Messungen zu ändern.",
+    "Die Werkzeugleiste gruppiert Ansicht, Markieren, Prüfen und Darstellung. Drehen/Schwenken, Projektion und Darstellungsstil öffnen Menüs; einzelne Aktionen werden sofort ausgeführt. Home befindet sich am Ansichtswürfel. Zurücksetzen zeigt alle Teile, beendet den Schnitt, stellt Standarddarstellung und Ansicht wieder her und löscht nicht eingereichte Markierungen samt Notizen und Messungen. Bei vorhandenen Markierungen ist eine Bestätigung erforderlich; einmal Rückgängig stellt sie wieder her. Eingereichte Pakete bleiben unverändert.",
   "shell.view": "Ansicht",
   "shell.mark": "Markieren",
   "shell.inspect": "Prüfen",
@@ -22,4 +21,11 @@ export default {
   "shell.online": "Online",
   "shell.reconnecting": "Verbindung wird wiederhergestellt…",
   "shell.offline": "Offline",
+  "shell.resetConfirm":
+    "{count} Markierungen löschen und die ursprüngliche Anzeige wiederherstellen? Eingereichte Pakete bleiben unverändert.",
+  "shell.resetCancel": "Abbrechen",
+  "shell.resetReadOnly":
+    "Anzeige wiederhergestellt. Markierungen bleiben erhalten, da dieser Entwurf nicht bearbeitet werden kann.",
+  "shell.axes": "Koordinatenachsen anzeigen",
+  "shell.zoomToCursor": "Mausrad-Zoom zur Zeigerposition",
 };

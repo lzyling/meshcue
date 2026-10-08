@@ -309,10 +309,4 @@ export function bindVersionScrolling(review) {
   );
 }
 
-export function bindLatestVersion(review) {
-  review.$("#go-latest").addEventListener("click", () => {
-    const latest = latestVersion(review.state?.versions);
-    if (latest?.id)
-      review.selectVersion(latest.id).catch((e) => review.toast(e.message));
-  });
-}
+export function bindLatestVersion(review) {}

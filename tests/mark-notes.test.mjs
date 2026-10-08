@@ -151,3 +151,25 @@ test("a batch without notes is announced as it always was", async (t) => {
   assert.equal(send.message.includes("has a note"), false);
   assert.equal(send.message.includes("counts as much"), false);
 });
+
+test("optional explode view accepts valid states and refuses out of range", async (t) => {
+  const { save } = await ready(t, "explode-view");
+  for (const explode of [
+    { amount: -0.1, by: "group" },
+    { amount: 1.1, by: "part" },
+    { amount: 0.5, by: "other" },
+    { amount: 0.5, by: "part", extra: true },
+  ])
+    assert.equal(
+      (await save([pin({ view: { ...view, explode } })])).status,
+      400,
+    );
+  assert.equal(
+    (
+      await save([
+        pin({ view: { ...view, explode: { amount: 0.5, by: "group" } } }),
+      ])
+    ).status,
+    200,
+  );
+});

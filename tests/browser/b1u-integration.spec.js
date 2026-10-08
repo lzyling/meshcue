@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
-import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
+import { clickControl, showParts } from "./r12-b-helpers.mjs";
 import fs from "node:fs";
 
 let environment;
@@ -75,6 +75,7 @@ test("integrated View selects parts with the permanent Parts tab, without a face
 for (const [name, viewport] of [
   ["desktop", { width: 1440, height: 900 }],
   ["compact", { width: 1024, height: 768 }],
+  ["tablet", { width: 768, height: 1024 }],
   ["iphone13", { width: 390, height: 844 }],
 ])
   test.describe(name, () => {
@@ -140,26 +141,49 @@ for (const [name, viewport] of [
       await page.screenshot({
         path: `${evidence}/${name}-smart-advanced-section.png`,
       });
-      for (const menu of ["view", "display"]) {
-        await page.locator(`#${menu}-menu-button`).click();
-        const popup = page.locator(
-          menu === "display" ? "#display-options" : `#${menu}-menu`,
-        );
+      for (const menu of ["view-mode", "mark-mode", "display", "projection"]) {
+        await page
+          .locator(
+            {
+              "view-mode": "#view-mode-toggle",
+              "mark-mode": '[data-command="mark-mode"]',
+              display: "#display-toggle",
+              projection: '[data-command="navigation-projection"]',
+            }[menu],
+          )
+          .click();
+        const popup = page.locator(`#${menu}-menu`);
         await expect(popup).toBeVisible();
+        const popupBox = await popup.boundingBox();
+        const toolbarBox = await page.locator(".toolbar").boundingBox();
+        console.log(
+          "MENU_COORDS",
+          JSON.stringify({ name, menu, popupBox, toolbarBox }),
+        );
         expect(
-          noOverlap(
-            await popup.boundingBox(),
-            await page.locator(".toolbar").boundingBox(),
-          ),
+          noOverlap(popupBox, toolbarBox),
+          JSON.stringify({ menu, popupBox, toolbarBox }),
         ).toBe(true);
+        expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(
+          toolbarBox.y + 1,
+        );
         const commands = {
-          view: ["mode-orbit", "mode-pan"],
-          display: ["navigation-projection", "plain"],
+          "view-mode": ["mode-orbit", "mode-pan"],
+          "mark-mode": ["mode-label", "mode-edge", "mode-part"],
+          projection: [
+            "navigation-projection-perspective",
+            "navigation-projection-orthographic",
+          ],
+          display: [],
         }[menu];
         for (const command of commands)
           await expect(
             popup.locator(`[data-command="${command}"]`),
           ).toBeVisible();
+        if (menu === "display") {
+          await expect(popup.locator("[data-style]")).toHaveCount(5);
+          await expect(popup.getByRole("menuitemcheckbox")).toBeVisible();
+        }
         const items = popup.locator("button:visible");
         for (let i = 0; i < (await items.count()); i++)
           await items.nth(i).click({ trial: true });

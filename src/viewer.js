@@ -15,6 +15,7 @@ import { sourceVertexNormals } from "./outline.js";
 import { brepTopology } from "./measure.js";
 import { t, ta } from "./i18n/index.js";
 import { V, GRID_Y, REVIEW_GREY } from "./viewer/shared.js";
+import { ExplodeMethods } from "./viewer/explode.js";
 import { PartsMethods } from "./viewer/parts.js";
 import { NavigationMethods } from "./viewer/navigation.js";
 import { CameraMethods } from "./viewer/camera.js";
@@ -206,6 +207,12 @@ export class ModelViewer {
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
+    canvas.addEventListener("pointerleave", () => {
+      if (["edge", "part"].includes(this.mode)) {
+        this.clearOverlay(this.previewOverlay);
+        this.hoverPart(null);
+      }
+    });
     canvas.addEventListener("pointercancel", () => this.pointerUp());
     window.addEventListener("pointerup", (e) => {
       this.clickEdit(e);
@@ -244,6 +251,7 @@ export class ModelViewer {
     this.controls.enabled = true;
     this.clearOverlay(this.previewOverlay);
     this.fillTarget = null;
+    this.hoverPart(null);
     this.mode = mode;
     // Rotation no longer competes with the mode: it is on a button that marking
     // never uses, so the camera stays available while marking.
@@ -549,7 +557,10 @@ export class ModelViewer {
       matrixWorld: o.matrixWorld.toArray(),
     }));
     await this.onReady({ sha256: hash, meshes: manifest });
-    if (epoch === this.loadingEpoch) this.enabled = true;
+    if (epoch === this.loadingEpoch) {
+      this.enabled = true;
+      this.onExplode?.();
+    }
     return {
       triangles: total,
       meshes: this.meshes.length,
@@ -720,4 +731,9 @@ Object.defineProperties(
       Object.getOwnPropertyDescriptors(DisplayModesMethods.prototype),
     ).filter(([name]) => name !== "constructor"),
   ),
+);
+
+Object.defineProperties(
+  ModelViewer.prototype,
+  Object.getOwnPropertyDescriptors(ExplodeMethods.prototype),
 );

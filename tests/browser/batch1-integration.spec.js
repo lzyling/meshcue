@@ -1,4 +1,4 @@
-import { clickControl, showParts } from "./b1u-shell-helpers.mjs";
+import { clickControl, showParts } from "./r12-shell-helpers.mjs";
 import { test, expect } from "./fixtures.mjs";
 import { startScenario } from "../../scripts/scenario-env.mjs";
 import * as THREE from "three";
@@ -126,7 +126,7 @@ test("integrated part double-click and Fit all share visible framing in both pro
     await row(page, "Side").locator(".parts-name").dblclick();
     await settle(page);
     const part = (await diag(page)).camera;
-    await page.locator('[data-command="parts-isolate"]').click();
+    await page.keyboard.press("Shift+I");
     await page.keyboard.press("f");
     await settle(page);
     const fitted = (await diag(page)).camera;
