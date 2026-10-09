@@ -8,6 +8,8 @@ import { runtimesThatCannotReclaim } from "../integration/manager.mjs";
 import {
   agentSocketPath,
   prepareSocketDirectory,
+  pipeIdentity,
+  pipeProof,
 } from "../server/instance.mjs";
 
 const INSTALL_ROOT = "/fixture/install/meshcue";
@@ -45,17 +47,29 @@ function registered(t, projects) {
     // Probing costs a round trip with a 3s ceiling, so a project whose recorded
     // process is gone is skipped on the strength of this file alone. `pid: 0`
     // stands for one that died without cleaning up.
+    const identity = pipeIdentity();
     fs.writeFileSync(
       path.join(runtime, "instance.lock"),
       JSON.stringify({
         pid: status.deadProcess ? 0 : process.pid,
         startedAt: Date.now(),
+        ...identity,
       }),
     );
+    if (process.platform === "win32" && status.deadProcess) continue;
     const socket = agentSocketPath(runtime, instance);
     prepareSocketDirectory(socket, instance);
-    fs.rmSync(socket, { force: true });
+    if (process.platform !== "win32") fs.rmSync(socket, { force: true });
     const server = http.createServer((req, res) => {
+      if (process.platform === "win32" && req.url.startsWith("/ipc-auth?")) {
+        res.end(
+          pipeProof(
+            identity.ipcKey,
+            new URL(req.url, "http://ipc").searchParams.get("challenge"),
+          ),
+        );
+        return;
+      }
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(status));
     });
