@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { installFakeOpenClaw } from "../tests/helpers/fake-openclaw.mjs";
 /* A workbench for pointing at surfaces cannot be explained in a paragraph. The
  * README described the loop in prose for as long as the repository was public
  * and never once showed it, which asks a stranger to imagine a three
@@ -52,11 +53,7 @@ fs.mkdirSync(out, { recursive: true });
 const dir = fs.mkdtempSync(path.join(repo, "tmp", "demo-"));
 const bin = path.join(dir, "bin");
 fs.mkdirSync(bin);
-fs.copyFileSync(
-  path.join(repo, "tests/fake-openclaw.mjs"),
-  path.join(bin, "openclaw"),
-);
-fs.chmodSync(path.join(bin, "openclaw"), 0o755);
+installFakeOpenClaw(bin);
 const env = {
   ...process.env,
   PORT: String(port),

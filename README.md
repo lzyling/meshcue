@@ -153,7 +153,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 534 unit and integration tests
+npm test             # 541 unit and integration tests
 npm run test:browser # 301 real-Chromium tests, isolated port and data
 ```
 
@@ -175,6 +175,8 @@ For an OpenClaw install, build and install the extension from that clone:
 npm run build:integration -- tmp/candidate/package
 openclaw plugins install ./tmp/candidate/package
 ```
+
+OpenClaw CLI calls require `openclaw` on `PATH`. On Windows, native `.exe`/`.com` commands and npm’s `openclaw.cmd` shim are supported; MeshCue runs the shim’s JavaScript entry directly with Node, without a command shell. Unsupported batch or PowerShell-only launchers fail closed.
 
 For Claude Code, add this repository as a plugin marketplace and install the
 plugin from it:

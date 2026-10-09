@@ -1,7 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { execOpenClaw } from "./openclaw-command.mjs";
 import { normalizeOrigin, deliveryParams } from "./origin.mjs";
-const exec = promisify(execFile);
 
 // Every failure out of call() carries the host's own two fields, so a caller
 // never has to parse prose to find out what went wrong or whether to retry.
@@ -20,7 +18,9 @@ function spawnFailure(method, error) {
     ? "the call timed out"
     : error.code === "ENOENT"
       ? "the openclaw command was not found"
-      : `openclaw exited with ${error.code ?? "?"}`;
+      : error.code === "OPENCLAW_UNSUPPORTED_SHIM"
+        ? "the openclaw command is not a supported npm shim"
+        : `openclaw exited with ${error.code ?? "?"}`;
   const detail = String(error.stderr || "")
     .trim()
     .slice(0, 200);
@@ -56,7 +56,7 @@ export class OpenClawBridge {
     let stdout;
     let refused = false;
     try {
-      ({ stdout } = await exec("openclaw", argv, options));
+      ({ stdout } = await execOpenClaw(argv, options));
     } catch (error) {
       // A refused call still prints its typed reason on stdout and only then
       // exits non-zero. execFile rejects on the exit code before any of that is

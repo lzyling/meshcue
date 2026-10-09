@@ -1,3 +1,4 @@
+import { installFakeOpenClaw } from "../helpers/fake-openclaw.mjs";
 import {
   clickControl,
   selectSetting,
@@ -28,8 +29,7 @@ test.beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-display-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
-  fs.copyFileSync("tests/fake-openclaw.mjs", path.join(bin, "openclaw"));
-  fs.chmodSync(path.join(bin, "openclaw"), 0o755);
+  installFakeOpenClaw(bin);
   env = {
     ...process.env,
     PORT: "0",

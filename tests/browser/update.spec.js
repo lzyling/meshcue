@@ -1,3 +1,4 @@
+import { installFakeOpenClaw } from "../helpers/fake-openclaw.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 /* The badge is the only part of this feature a reviewer ever sees, and the
    request behind it is the only one this service makes to the internet. Both
@@ -38,8 +39,7 @@ async function start({ tag, notes, fail = false } = {}) {
   dir = fs.mkdtempSync(path.join(repo, "tmp", "update-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
-  fs.copyFileSync("tests/fake-openclaw.mjs", path.join(bin, "openclaw"));
-  fs.chmodSync(path.join(bin, "openclaw"), 0o755);
+  installFakeOpenClaw(bin);
   env = {
     ...process.env,
     PORT: "0",

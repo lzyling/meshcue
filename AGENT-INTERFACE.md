@@ -33,6 +33,8 @@ second and runs the `prepare` script in it.
 | CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
 | OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
 
+OpenClaw CLI calls require `openclaw` on `PATH`. On Windows, native `.exe`/`.com` commands and npm’s `openclaw.cmd` shim are supported; MeshCue runs the shim’s JavaScript entry directly with Node, without a command shell. Unsupported batch or PowerShell-only launchers fail closed.
+
 The Claude Code plugin is the package attached to the release, already built;
 it starts this same MCP server from inside the package and names the project
 in `MESHCUE_WORKSPACE`, set to `${CLAUDE_PROJECT_DIR}`. Any host that starts
