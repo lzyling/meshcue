@@ -17,6 +17,7 @@ import {
   readInstance,
 } from "../server/instance.mjs";
 import { authenticatedPipeAgent } from "../integration/ipc-auth.mjs";
+import { ipc } from "../integration/manager.mjs";
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ipc-"));
@@ -152,12 +153,22 @@ test("a Windows proof authenticates the same connection before an action is sent
     } else {
       assert.equal(req.socket, proofSocket);
       actions++;
-      res.end("ok");
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ status: "published" }));
     }
   });
-  const agent = await authenticatedPipeAgent({ ...endpoint, key });
-  t.after(() => agent.destroy());
-  await action(endpoint, agent, "private model payload");
+  const result = await ipc(
+    "unused",
+    null,
+    "/publish",
+    { file: "private model payload" },
+    3000,
+    {
+      platform: "win32",
+      readEndpoint: () => ({ ...endpoint, key }),
+    },
+  );
+  assert.deepEqual(result, { status: "published" });
   assert.equal(actions, 1);
 });
 
@@ -168,7 +179,10 @@ test("an impersonating server receives only a fresh challenge, never the action 
     res.end("b".repeat(64));
   });
   await assert.rejects(
-    authenticatedPipeAgent({ ...endpoint, key: "a".repeat(64) }),
+    ipc("unused", null, "/publish", { file: "secret" }, 3000, {
+      platform: "win32",
+      readEndpoint: () => ({ ...endpoint, key: "a".repeat(64) }),
+    }),
     /authentication failed/,
   );
   assert.equal(requests.length, 1);

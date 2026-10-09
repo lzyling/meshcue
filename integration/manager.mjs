@@ -92,9 +92,15 @@ const IPC_IDLE = 3000;
 // the 600k-triangle ceiling lands near 70. Doubling that leaves room for a
 // machine under load without waiting on a wedged instance forever.
 const IPC_PUBLISH = 180000;
-export async function ipc(runtime, instance, route, body, timeout = IPC_IDLE) {
-  const endpoint =
-    process.platform === "win32" ? readPipeEndpoint(runtime) : null;
+export async function ipc(
+  runtime,
+  instance,
+  route,
+  body,
+  timeout = IPC_IDLE,
+  { platform = process.platform, readEndpoint = readPipeEndpoint } = {},
+) {
+  const endpoint = platform === "win32" ? readEndpoint(runtime) : null;
   const agent = endpoint
     ? await authenticatedPipeAgent(endpoint, timeout)
     : undefined;
