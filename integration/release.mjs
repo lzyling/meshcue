@@ -3,6 +3,12 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { scopedPath, fail } from "./context.mjs";
 
+// Identity paths are portable, while filesystem paths remain native. Do not
+// replace backslashes on POSIX: they are legal filename characters there.
+export function releaseRelative(relative, paths = path) {
+  return relative.split(paths.sep).join("/");
+}
+
 function files(root, relative = "") {
   const found = [];
   for (const name of fs.readdirSync(path.join(root, relative))) {
@@ -14,7 +20,7 @@ function files(root, relative = "") {
         "The package contains a symlink; nothing was started.",
       );
     if (st.isDirectory()) found.push(...files(root, rel));
-    else if (st.isFile()) found.push(rel);
+    else if (st.isFile()) found.push(releaseRelative(rel));
     else fail("PACKAGE_INVALID", "A package entry is not a plain file.");
   }
   return found.sort();
@@ -52,20 +58,20 @@ export function cacheRelease(installRoot, runtime) {
     // optional extras.
     "runtime/step-child.mjs",
     ...files(path.join(installRoot, present(installRoot, "vendor"))).map((p) =>
-      path.join("vendor", p),
+      path.posix.join("vendor", p),
     ),
     "AGENT-INTERFACE.md",
     // The server derives its version from this rather than restating it, so a
     // release without it reports "unknown" from inside a numbered package.
     "package.json",
     ...files(path.join(installRoot, present(installRoot, "web"))).map((p) =>
-      path.join("web", p),
+      path.posix.join("web", p),
     ),
     // A bundled skill ships in the package but the host loads it from the
     // install root, so no other check would notice it being edited in place.
     // Hash it with the rest; a package built without one contributes nothing.
     ...(fs.existsSync(skills)
-      ? files(skills).map((p) => path.join("skills", p))
+      ? files(skills).map((p) => path.posix.join("skills", p))
       : []),
   ];
   const hash = crypto.createHash("sha256"),

@@ -725,3 +725,91 @@ test("a route that does real work gets its own budget, and silence still fails f
     status: "published",
   });
 });
+
+test("workspace-relative serialization uses native separators without changing POSIX bytes", async () => {
+  const { workspaceRelative } =
+    await import("../integration/relative-path.mjs");
+  assert.equal(
+    workspaceRelative(
+      "C:\\workspace",
+      "C:\\workspace\\projects\\a",
+      path.win32,
+    ),
+    "projects/a",
+  );
+  assert.equal(
+    workspaceRelative("/workspace", "/workspace/projects/a\\b", path.posix),
+    path.posix.relative("/workspace", "/workspace/projects/a\\b"),
+  );
+});
+
+test("Windows-serialized project round-trips through open, status and stop", async (t) => {
+  const f = setup(t);
+  const manager = new InstanceManager(f.ctx, {
+    ...f.options,
+    relativePaths: path.win32,
+  });
+  const args = {
+    action: "open",
+    project: "projects/a",
+    file: "part.stl",
+    host: "127.0.0.1",
+    confirmedClientAddress: "127.0.0.1",
+  };
+  // Track the process in the fixture's cleanup, even if an assertion fails.
+  await f.open(args.project);
+  const opened = await manager.execute(args);
+  assert.equal(opened.project, "projects/a");
+  const again = await manager.execute({ ...args, project: opened.project });
+  assert.equal(again.project, opened.project);
+  assert.equal(again.url, opened.url);
+  const status = await manager.execute({
+    action: "status",
+    project: opened.project,
+  });
+  assert.equal(status.project, opened.project);
+  const registry = JSON.parse(
+    fs.readFileSync(
+      path.join(f.workspace, "projects/meshcue-state/registry.json"),
+      "utf8",
+    ),
+  );
+  const p = manager.project(opened.project);
+  assert.deepEqual(Object.keys(registry.projects), [p.id]);
+  assert.equal(registry.projects[p.id].project, "projects/a");
+  assert.equal(registry.projects[p.id].runtime, `projects/a/.meshcue/${p.id}`);
+  assert.equal(
+    (await manager.execute({ action: "stop", project: opened.project }))
+      .project,
+    opened.project,
+  );
+});
+
+test("legacy backslash registry paths resume, pause and rewrite without duplicate registration", async (t) => {
+  const f = setup(t);
+  const opened = await f.open("projects/a");
+  const p = f.manager.project(opened.project);
+  const file = path.join(f.workspace, "projects/meshcue-state/registry.json");
+  const registry = JSON.parse(fs.readFileSync(file, "utf8"));
+  const item = registry.projects[p.id];
+  item.project = item.project.replaceAll("/", "\\");
+  item.runtime = item.runtime.replaceAll("/", "\\");
+  fs.writeFileSync(file, JSON.stringify(registry));
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(fs.existsSync(path.join(p.runtime, "disabled.json")), true);
+  assert.deepEqual(resumeRegistered(f.workspace, f.options.installRoot), []);
+  assert.equal(fs.existsSync(path.join(p.runtime, "disabled.json")), false);
+  // Diagnostics must also use the portable project when identity is stale.
+  const configFile = path.join(p.runtime, "config.json");
+  const config = fs.readFileSync(configFile, "utf8");
+  fs.writeFileSync(configFile, JSON.stringify({ instance: { id: "foreign" } }));
+  assert.deepEqual(pauseRegistered(f.workspace, f.options.installRoot), [
+    "projects/a",
+  ]);
+  fs.writeFileSync(configFile, config);
+  await f.open(opened.project);
+  const after = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.deepEqual(Object.keys(after.projects), [p.id]);
+  assert.equal(after.projects[p.id].project, "projects/a");
+  assert.equal(after.projects[p.id].runtime, `projects/a/.meshcue/${p.id}`);
+});

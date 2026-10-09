@@ -14,14 +14,18 @@ import {
 } from "../server/lockfile.mjs";
 import {
   agentSocketPath,
+  readPipeEndpoint,
+  preparePrivateRuntime,
   readInstance,
   INTEGRATION_API,
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { agentNameSchema, AGENT_NAME_RULE } from "../server/agent-name.mjs";
 import { FEATURES, normalizePartGroups } from "./part-groups.mjs";
+import { authenticatedPipeAgent } from "./ipc-auth.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import { summarizeSubmission, readReceipt } from "./summarize.mjs";
+import { workspaceRelative, normalizeRegistryPaths } from "./relative-path.mjs";
 import {
   workspaceContext,
   contextSummary,
@@ -90,56 +94,72 @@ const IPC_IDLE = 3000;
 // the 600k-triangle ceiling lands near 70. Doubling that leaves room for a
 // machine under load without waiting on a wedged instance forever.
 const IPC_PUBLISH = 180000;
-export async function ipc(runtime, instance, route, body, timeout = IPC_IDLE) {
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        socketPath: agentSocketPath(runtime, instance),
-        path: route,
-        method: body === undefined ? "GET" : "POST",
-        headers: { "Content-Type": "application/json" },
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk;
-          if (data.length > 20 * 1024 * 1024)
-            req.destroy(new Error("Response too large"));
-        });
-        res.on("end", () => {
-          let value;
-          try {
-            value = JSON.parse(data);
-          } catch {
-            // A server older than the route answers with the framework's HTML
-            // 404, and forwarding the parse failure tells the caller a strange
-            // byte arrived instead of the thing that is true: this instance was
-            // started from a build that predates the action. Installing never
-            // replaces a running server, so the remedy is to open it again.
-            const old = res.statusCode === 404;
-            const err = new Error(
-              old
-                ? `This project is being served by a build that has no ${route}; open the project again to serve it from the installed one.`
-                : `The workbench answered ${route} with something that is not JSON (HTTP ${res.statusCode}).`,
-            );
-            err.code = old ? "OLD_RUNTIME" : "BAD_RESPONSE";
-            reject(err);
-            return;
-          }
-          if (res.statusCode >= 400) {
-            const err = new Error(value.error || "MeshCue request failed");
-            err.code = value.code;
-            reject(err);
-          } else resolve(value);
-        });
-      },
-    );
-    req.setTimeout(timeout, () =>
-      req.destroy(new Error("MeshCue IPC timed out")),
-    );
-    req.on("error", reject);
-    req.end(body === undefined ? undefined : JSON.stringify(body));
-  });
+export async function ipc(
+  runtime,
+  instance,
+  route,
+  body,
+  timeout = IPC_IDLE,
+  { platform = process.platform, readEndpoint = readPipeEndpoint } = {},
+) {
+  const endpoint = platform === "win32" ? readEndpoint(runtime) : null;
+  const agent = endpoint
+    ? await authenticatedPipeAgent(endpoint, timeout)
+    : undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          socketPath: endpoint?.path || agentSocketPath(runtime, instance),
+          ...(agent ? { agent } : {}),
+          path: route,
+          method: body === undefined ? "GET" : "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => {
+            data += chunk;
+            if (data.length > 20 * 1024 * 1024)
+              req.destroy(new Error("Response too large"));
+          });
+          res.on("end", () => {
+            let value;
+            try {
+              value = JSON.parse(data);
+            } catch {
+              // A server older than the route answers with the framework's HTML
+              // 404, and forwarding the parse failure tells the caller a strange
+              // byte arrived instead of the thing that is true: this instance was
+              // started from a build that predates the action. Installing never
+              // replaces a running server, so the remedy is to open it again.
+              const old = res.statusCode === 404;
+              const err = new Error(
+                old
+                  ? `This project is being served by a build that has no ${route}; open the project again to serve it from the installed one.`
+                  : `The workbench answered ${route} with something that is not JSON (HTTP ${res.statusCode}).`,
+              );
+              err.code = old ? "OLD_RUNTIME" : "BAD_RESPONSE";
+              reject(err);
+              return;
+            }
+            if (res.statusCode >= 400) {
+              const err = new Error(value.error || "MeshCue request failed");
+              err.code = value.code;
+              reject(err);
+            } else resolve(value);
+          });
+        },
+      );
+      req.setTimeout(timeout, () =>
+        req.destroy(new Error("MeshCue IPC timed out")),
+      );
+      req.on("error", reject);
+      req.end(body === undefined ? undefined : JSON.stringify(body));
+    });
+  } finally {
+    agent?.destroy();
+  }
 }
 async function locked(file, fn) {
   for (let i = 0; i < 100; i++) {
@@ -270,10 +290,12 @@ export class InstanceManager {
       environment = {},
       resolveOrigin,
       toolName,
+      relativePaths = path,
     } = {},
   ) {
     Object.assign(this, workspaceContext(ctx));
     this.ctx = ctx;
+    this.relativePaths = relativePaths; // Serialization-only dependency; filesystem paths stay native.
     // Who owns a review is the host's answer, and only a host shaped like
     // OpenClaw can be asked for it the OpenClaw way. A host that states its own
     // owner supplies this instead; the derivation stays where it can be right.
@@ -324,10 +346,15 @@ export class InstanceManager {
     });
     if (!within(this.allowed, runtime))
       fail("PATH_SCOPE", "The runtime directory is outside the file policy.");
+    preparePrivateRuntime(runtime);
     return {
       id,
       projectRoot,
-      project: path.relative(this.workspace, projectRoot),
+      project: workspaceRelative(
+        this.workspace,
+        projectRoot,
+        this.relativePaths,
+      ),
       runtime,
     };
   }
@@ -396,6 +423,7 @@ export class InstanceManager {
           "REGISTRY_VERSION",
           "Unsupported project registry format; nothing was overwritten.",
         );
+      normalizeRegistryPaths(registry);
       /* Nothing else ever removed an entry, so a project whose folder was
          deleted stayed registered for good, and every Gateway start and stop
          warned about it by name. Only this install's entries, as with pausing:
@@ -408,7 +436,11 @@ export class InstanceManager {
           delete registry.projects[id];
       registry.projects[p.id] = {
         project: p.project,
-        runtime: path.relative(this.workspace, p.runtime),
+        runtime: workspaceRelative(
+          this.workspace,
+          p.runtime,
+          this.relativePaths,
+        ),
         instanceId: config.instance.id,
         agentId: this.agentId,
         installRoot: this.installRoot,
@@ -972,6 +1004,7 @@ function eachRegistered(workspace, installRoot, verb, act) {
       "REGISTRY_VERSION",
       "Unsupported project registry format; nothing was overwritten.",
     );
+  normalizeRegistryPaths(registry);
   const unavailable = [];
   for (const item of Object.values(registry.projects)) {
     if (item.installRoot !== installRoot) continue;
@@ -1025,6 +1058,7 @@ export async function runtimesThatCannotReclaim(
     return [];
   }
   if (registry.schema !== 1) return [];
+  normalizeRegistryPaths(registry);
   // Opening is interactive, and this runs inside it. Each probe can cost the
   // full 3s IPC timeout, so a project that is merely slow must not be paid for
   // one after another: skip the ones whose recorded process is already gone —

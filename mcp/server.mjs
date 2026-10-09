@@ -33,7 +33,7 @@ export function instructions(root = ROOT) {
   if (!fs.existsSync(file)) return "";
   return fs
     .readFileSync(file, "utf8")
-    .replace(/^---\n[\s\S]*?\n---\n+/, "")
+    .replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n)+/, "")
     .trim();
 }
 

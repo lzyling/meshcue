@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { cacheRelease, cachedRelease } from "../integration/release.mjs";
+import crypto from "node:crypto";
+import {
+  cacheRelease,
+  cachedRelease,
+  releaseRelative,
+} from "../integration/release.mjs";
 import { pruneReleases } from "../integration/manager.mjs";
 
 // The version cache is what an upgrade rolls back to. Nothing here was covered,
@@ -247,4 +252,37 @@ test("superseded releases are removed, and only real release ids are touched", (
   assert.deepEqual(pruneReleases(f.runtime, [newest, undefined]), [upgraded]);
   assert.equal(cachedRelease(f.runtime, newest).id, newest);
   assert.equal(fs.existsSync(foreign), true);
+});
+
+test("release identity uses slash paths and matches the 1.4.1 POSIX algorithm", (t) => {
+  const f = fixture(t);
+  const relatives = [
+    "runtime/server.mjs",
+    "runtime/step-child.mjs",
+    "AGENT-INTERFACE.md",
+    "package.json",
+    "vendor/occt-import-js.js",
+    "vendor/occt-import-js.wasm",
+    "vendor/package.json",
+    "vendor/LICENSE.occt.txt",
+    "web/index.html",
+    "web/assets/app.js",
+  ].sort();
+  const legacy = crypto.createHash("sha256");
+  const windows = crypto.createHash("sha256");
+  for (const relative of relatives) {
+    const data = fs.readFileSync(path.join(f.install, relative));
+    legacy.update(relative).update("\0").update(data);
+    windows
+      .update(
+        releaseRelative(path.win32.join(...relative.split("/")), path.win32),
+      )
+      .update("\0")
+      .update(data);
+  }
+  const id = cacheRelease(f.install, f.runtime).id;
+  assert.equal(id, legacy.digest("hex"));
+  assert.equal(id, windows.digest("hex"));
+  assert.equal(releaseRelative("legal\\name", path.posix), "legal\\name");
+  assert.equal(cachedRelease(f.runtime, id).id, id);
 });

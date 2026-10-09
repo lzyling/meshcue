@@ -11,6 +11,7 @@ import {
 } from "../server/models.mjs";
 import { convertStepDetached, STEP_FORMATS } from "../server/step.mjs";
 import { workspaceContext, scopedPath, fail } from "./context.mjs";
+import { workspaceRelative } from "./relative-path.mjs";
 
 // Publishing already rejects an oversized model, but only after the caller has
 // picked a name, a version and a project, and it answers with a message rather
@@ -51,7 +52,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
   };
   const base = {
     ok: true,
-    file: path.relative(workspace, actual),
+    file: workspaceRelative(workspace, actual),
     format,
     bytes: stat.size,
     limits,

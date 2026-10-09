@@ -153,7 +153,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 514 unit and integration tests
+npm test             # 531 unit and integration tests
 npm run test:browser # 300 real-Chromium tests, isolated port and data
 ```
 
@@ -189,6 +189,8 @@ and the Skill already built, so installing it runs no build and no
 `npm install`. It needs Node.js 22 or later on `PATH`, and it works in the
 directory Claude Code was started in. The catalog on `main` names the package
 of the release it was cut with; add `lzyling/meshcue#v<version>` to hold one.
+If `claude plugin install` reports a source type your Claude Code version does
+not support, update Claude Code: the catalog ships each release as an archive.
 
 For any other MCP client, install a tagged commit and point the client at it:
 
