@@ -59,6 +59,7 @@ test("Z-up GLB/STL agree at Top; Y-up opt-in restores the old GLB drawing and pr
     );
   await scenarioKit(page, environment).open(environment.url);
   const frames = [];
+  let oldYUpMark;
   for (const [file, up] of [
     ["z.glb", "z"],
     ["z.stl", "z"],
@@ -131,7 +132,45 @@ test("Z-up GLB/STL agree at Top; Y-up opt-in restores the old GLB drawing and pr
     expect(mark.position[2]).toBeCloseTo(2, 3);
     expect(mark.view.up).toEqual(up === "y" ? [0, 1, 0] : [0, 0, 1]);
     expect(mark.view.space).toBe("model");
+    if (up === "y") oldYUpMark = mark;
   }
+  // The very same Y-up GLB bytes: up:y is the old identity-root drawing;
+  // the new default rotates root. Pick the same original mesh point from Top
+  // in the new default and prove its serialized file/mesh numbers did not turn.
+  const changed = await environment.ipc("/publish", { file: "y.glb", up: "z" });
+  await expect
+    .poll(async () => (await diagnostics(page)).versionId)
+    .toBe(changed.model.id);
+  await clickControl(page, '[data-mode="orbit"]');
+  await page.locator('.orient-face[data-view="0,1,0"]').press("Enter");
+  await settled(page);
+  await clickControl(page, '[data-mode="label"]');
+  const box = await page.locator("#viewer canvas").boundingBox();
+  const now = await diagnostics(page);
+  const camera = new THREE.PerspectiveCamera(
+    38,
+    box.width / box.height,
+    0.01,
+    100,
+  );
+  camera.position.fromArray(now.camera.position);
+  camera.up.fromArray(now.screenUp);
+  camera.lookAt(new THREE.Vector3().fromArray(now.camera.target));
+  camera.updateMatrixWorld();
+  const samePoint = new THREE.Vector3(0.45, 1.2, -0.3).project(camera);
+  await page.mouse.click(
+    box.x + ((samePoint.x + 1) * box.width) / 2,
+    box.y + ((1 - samePoint.y) * box.height) / 2,
+  );
+  await expect
+    .poll(async () => (await diagnostics(page)).annotationCount)
+    .toBe(1);
+  const changedMark = (await diagnostics(page)).annotations[0];
+  changedMark.position.forEach((n, i) =>
+    expect(n).toBeCloseTo(oldYUpMark.position[i], 3),
+  );
+  expect(changedMark.meshId).toBe(oldYUpMark.meshId);
+  expect(changedMark.view.space).toBe("model");
   // Auto-fit distance/target also account for DOM overlays and version tabs;
   // they are not an orientation invariant. Compare the actual settled basis
   // and exact displayed extents instead, alongside the real mark/section checks.
