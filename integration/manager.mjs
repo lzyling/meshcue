@@ -14,11 +14,14 @@ import {
 } from "../server/lockfile.mjs";
 import {
   agentSocketPath,
+  readPipeEndpoint,
+  preparePrivateRuntime,
   readInstance,
   INTEGRATION_API,
 } from "../server/instance.mjs";
 import { listenerConfig, privateIPv4 } from "../server/network.mjs";
 import { agentNameSchema, AGENT_NAME_RULE } from "../server/agent-name.mjs";
+import { authenticatedPipeAgent } from "./ipc-auth.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import { summarizeSubmission, readReceipt } from "./summarize.mjs";
 import {
@@ -90,55 +93,65 @@ const IPC_IDLE = 3000;
 // machine under load without waiting on a wedged instance forever.
 const IPC_PUBLISH = 180000;
 export async function ipc(runtime, instance, route, body, timeout = IPC_IDLE) {
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        socketPath: agentSocketPath(runtime, instance),
-        path: route,
-        method: body === undefined ? "GET" : "POST",
-        headers: { "Content-Type": "application/json" },
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk;
-          if (data.length > 20 * 1024 * 1024)
-            req.destroy(new Error("Response too large"));
-        });
-        res.on("end", () => {
-          let value;
-          try {
-            value = JSON.parse(data);
-          } catch {
-            // A server older than the route answers with the framework's HTML
-            // 404, and forwarding the parse failure tells the caller a strange
-            // byte arrived instead of the thing that is true: this instance was
-            // started from a build that predates the action. Installing never
-            // replaces a running server, so the remedy is to open it again.
-            const old = res.statusCode === 404;
-            const err = new Error(
-              old
-                ? `This project is being served by a build that has no ${route}; open the project again to serve it from the installed one.`
-                : `The workbench answered ${route} with something that is not JSON (HTTP ${res.statusCode}).`,
-            );
-            err.code = old ? "OLD_RUNTIME" : "BAD_RESPONSE";
-            reject(err);
-            return;
-          }
-          if (res.statusCode >= 400) {
-            const err = new Error(value.error || "MeshCue request failed");
-            err.code = value.code;
-            reject(err);
-          } else resolve(value);
-        });
-      },
-    );
-    req.setTimeout(timeout, () =>
-      req.destroy(new Error("MeshCue IPC timed out")),
-    );
-    req.on("error", reject);
-    req.end(body === undefined ? undefined : JSON.stringify(body));
-  });
+  const endpoint =
+    process.platform === "win32" ? readPipeEndpoint(runtime) : null;
+  const agent = endpoint
+    ? await authenticatedPipeAgent(endpoint, timeout)
+    : undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          socketPath: endpoint?.path || agentSocketPath(runtime, instance),
+          ...(agent ? { agent } : {}),
+          path: route,
+          method: body === undefined ? "GET" : "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => {
+            data += chunk;
+            if (data.length > 20 * 1024 * 1024)
+              req.destroy(new Error("Response too large"));
+          });
+          res.on("end", () => {
+            let value;
+            try {
+              value = JSON.parse(data);
+            } catch {
+              // A server older than the route answers with the framework's HTML
+              // 404, and forwarding the parse failure tells the caller a strange
+              // byte arrived instead of the thing that is true: this instance was
+              // started from a build that predates the action. Installing never
+              // replaces a running server, so the remedy is to open it again.
+              const old = res.statusCode === 404;
+              const err = new Error(
+                old
+                  ? `This project is being served by a build that has no ${route}; open the project again to serve it from the installed one.`
+                  : `The workbench answered ${route} with something that is not JSON (HTTP ${res.statusCode}).`,
+              );
+              err.code = old ? "OLD_RUNTIME" : "BAD_RESPONSE";
+              reject(err);
+              return;
+            }
+            if (res.statusCode >= 400) {
+              const err = new Error(value.error || "MeshCue request failed");
+              err.code = value.code;
+              reject(err);
+            } else resolve(value);
+          });
+        },
+      );
+      req.setTimeout(timeout, () =>
+        req.destroy(new Error("MeshCue IPC timed out")),
+      );
+      req.on("error", reject);
+      req.end(body === undefined ? undefined : JSON.stringify(body));
+    });
+  } finally {
+    agent?.destroy();
+  }
 }
 async function locked(file, fn) {
   for (let i = 0; i < 100; i++) {
@@ -315,6 +328,7 @@ export class InstanceManager {
     });
     if (!within(this.allowed, runtime))
       fail("PATH_SCOPE", "The runtime directory is outside the file policy.");
+    preparePrivateRuntime(runtime);
     return {
       id,
       projectRoot,

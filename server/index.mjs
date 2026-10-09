@@ -36,6 +36,9 @@ import {
   instanceCookieName,
   agentSocketPath,
   prepareSocketDirectory,
+  preparePrivateRuntime,
+  pipeIdentity,
+  pipeProof,
   INTEGRATION_API,
 } from "./instance.mjs";
 import {
@@ -75,6 +78,8 @@ const mediaDir = path.resolve(
 // managed path already builds its parents 0700; this is the standalone one,
 // where without a mode the answer came from whoever happened to run it.
 fs.mkdirSync(runtime, { recursive: true, mode: 0o700 });
+preparePrivateRuntime(runtime);
+const ipcIdentity = pipeIdentity();
 const instanceFile = path.join(runtime, "instance.lock");
 if (fs.existsSync(instanceFile)) {
   const previous = readLock(instanceFile);
@@ -89,7 +94,7 @@ if (fs.existsSync(instanceFile)) {
   fs.unlinkSync(instanceFile);
 }
 try {
-  claimLock(instanceFile, { startedAt: Date.now() });
+  claimLock(instanceFile, { startedAt: Date.now(), ...ipcIdentity });
 } catch (error) {
   if (error.code === "EEXIST")
     throw new Error(
@@ -1291,6 +1296,14 @@ app.all("/api/chat", (req, res) =>
 
 // Browser routes intentionally cannot publish models. Agent control is local IPC only.
 const agentApp = express();
+if (process.platform === "win32") {
+  agentApp.get("/ipc-auth", (req, res) => {
+    const challenge = req.query.challenge;
+    if (typeof challenge !== "string" || !/^[a-f0-9]{64}$/.test(challenge))
+      return res.status(400).end();
+    res.type("text/plain").send(pipeProof(ipcIdentity.ipcKey, challenge));
+  });
+}
 agentApp.use(express.json({ limit: "16mb" }));
 agentApp.use((req, res, next) => {
   if (!idle || !agentUse(req.method, req.path)) return next();
@@ -1634,9 +1647,20 @@ function errorHandler(err, req, res, next) {
 agentApp.use(errorHandler);
 const socketPath = agentSocketPath(runtime, instance);
 prepareSocketDirectory(socketPath, instance);
-if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+if (process.platform !== "win32" && fs.existsSync(socketPath))
+  fs.unlinkSync(socketPath);
 const agentServer = http.createServer(agentApp);
-agentServer.listen(socketPath, () => fs.chmodSync(socketPath, 0o600));
+// libuv creates the first Windows handle with FILE_FLAG_FIRST_PIPE_INSTANCE:
+// a preexisting name is a fatal listen error, not a reusable foreign endpoint.
+// Its NULL security descriptor grants full control to creator/SYSTEM/admins,
+// and read (not write) to Everyone/anonymous. Do not enable Node's readableAll /
+// writableAll options. Node cannot set PIPE_REJECT_REMOTE_CLIENTS here: remote
+// access as the same Windows account remains a documented residual risk.
+// https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights
+// https://github.com/libuv/libuv/blob/v1.52.1/src/win/pipe.c (pipe_alloc_accept)
+agentServer.listen(socketPath, () => {
+  if (process.platform !== "win32") fs.chmodSync(socketPath, 0o600);
+});
 app.use(
   express.static(
     path.resolve(process.env.REVIEW_DIST_DIR || path.join(repo, "dist")),
