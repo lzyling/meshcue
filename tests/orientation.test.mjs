@@ -143,6 +143,47 @@ test("publish rejects invalid up, persists y for every format and separates iden
   }
   await f.restart();
   assert.equal((await f.ipc("/status")).body.active.up, "y");
+
+  for (const [format, file] of [
+    ["GLB", "tmp/samples/parametric-bracket.glb"],
+    ["STEP", "tests/fixtures/plate.step"],
+  ]) {
+    await t.test(
+      `${format} z/y versions count shared stored files once in storage.bytes`,
+      async (t) => {
+        const f = await startReview(t);
+        const z = await f.ipc("/publish", { file });
+        const y = await f.ipc("/publish", { file, up: "y" });
+        assert.equal(z.status, 200);
+        assert.equal(y.status, 200);
+        assert.notEqual(z.body.model.id, y.body.model.id);
+        const model = z.body.model;
+        assert.equal(model.filename, y.body.model.filename);
+        assert.equal(model.stored, y.body.model.stored);
+        const files = [model];
+        if (format === "STEP") {
+          assert.ok(model.mesh);
+          assert.equal(model.mesh.filename, y.body.model.mesh.filename);
+          assert.equal(model.mesh.stored, y.body.model.mesh.stored);
+          assert.notEqual(model.filename, model.mesh.filename);
+          files.push(model.mesh);
+        }
+        const actualBytes = files.reduce((sum, stored) => {
+          const size = fs.statSync(`${f.dir}/models/${stored.filename}`).size;
+          assert.equal(size, stored.bytes);
+          return sum + size;
+        }, 0);
+        assert.ok(actualBytes > 0);
+        const storage = (await f.ipc("/status")).body.storage;
+        assert.equal(storage.models, 2, "models counts versions, not files");
+        assert.equal(
+          storage.bytes,
+          actualBytes,
+          "each stored file counts once",
+        );
+      },
+    );
+  }
 });
 
 test("CLI, MCP and OpenClaw expose the same optional up axis", () => {

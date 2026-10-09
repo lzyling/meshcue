@@ -1490,6 +1490,14 @@ function outboxSummary() {
    says so, and `stateFor` already has that shape. */
 agentApp.get("/status", (req, res) => {
   const state = stateFor("", false);
+  // Versions with different up axes can share content-addressed files. Source
+  // and derived mesh filenames identify files in the same media directory.
+  const storedFiles = new Map();
+  for (const model of Object.values(store.state.models)) {
+    for (const file of [model, model.mesh]) {
+      if (file) storedFiles.set(file.filename, file.bytes || 0);
+    }
+  }
   res.json({
     ...state,
     submissions: state.submissions.map(
@@ -1507,10 +1515,7 @@ agentApp.get("/status", (req, res) => {
        to make conspicuous was the one being shaved. */
     storage: {
       models: Object.keys(store.state.models).length,
-      bytes: Object.values(store.state.models).reduce(
-        (sum, model) => sum + (model.bytes || 0) + (model.mesh?.bytes || 0),
-        0,
-      ),
+      bytes: [...storedFiles.values()].reduce((sum, bytes) => sum + bytes, 0),
     },
     viewerReceipts: store.state.viewerReceipts || {},
     // Asking for status is not using the review, so reading this never moves
