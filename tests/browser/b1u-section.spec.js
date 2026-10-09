@@ -110,6 +110,8 @@ async function hollowBox() {
       );
     }
   }
+  group.rotation.x = Math.PI / 2;
+  group.updateMatrixWorld(true);
   const bytes = await new GLTFExporter().parseAsync(group, { binary: true });
   const file = path.join(dir, "hollow.glb");
   fs.writeFileSync(file, Buffer.from(bytes));
@@ -163,9 +165,10 @@ async function clickAt(page, point) {
   const p = await screen(page, point);
   await page.mouse.click(p.x, p.y);
 }
-async function section(page, axis = "z") {
+async function section(page, axis = "y") {
   await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption(axis);
+  if (axis === "y") await page.locator("#section-flip").click();
 }
 async function offset(page, value) {
   await page.locator("#section-offset").fill(String(value));
@@ -190,6 +193,8 @@ async function boxes(count = 2, same = false) {
     );
     group.add(mesh);
   }
+  group.rotation.x = Math.PI / 2;
+  group.updateMatrixWorld(true);
   const file = path.join(dir, "solids.glb");
   fs.writeFileSync(
     file,
@@ -404,6 +409,8 @@ for (const format of ["glb", "stl"])
       new THREE.MeshStandardMaterial({ color: 0xcdd7dc }),
     );
     const file = path.join(dir, `single-hollow.${format}`);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.updateMatrixWorld();
     if (format === "glb")
       fs.writeFileSync(
         file,
@@ -414,15 +421,14 @@ for (const format of ["glb", "stl"])
     else {
       const { STLExporter } =
         await import("three/addons/exporters/STLExporter.js");
-      // Counteract the STL loader's Z-up conversion to keep the same pixel probes.
+      // Both formats use the same canonical Z-up conversion.
       mesh.rotation.x = Math.PI / 2;
       mesh.updateMatrixWorld();
       fs.writeFileSync(file, new STLExporter().parse(mesh));
     }
     await open(page, file);
     await front(page);
-    await section(page, format === "glb" ? "z" : "y");
-    if (format === "stl") await page.locator("#section-flip").click();
+    await section(page, "y");
     const wall = await scan(page, [-9, 0, 0], [-7, 0, 0]);
     const hole = await scan(page, [-3, 0, 0], [3, 0, 0]);
     const variation = (p) =>

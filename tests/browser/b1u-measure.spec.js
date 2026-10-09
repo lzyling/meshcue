@@ -108,7 +108,7 @@ async function open(page, units, file = writePlate()) {
   await expect(page.locator("#measure-options")).toBeVisible();
 }
 // Where a point of the plate is on the screen, from the camera the page holds.
-// A GLB is not stood up: its (x, y, z) is the preview's 0.15 × (x, y, z).
+// Every default-up format maps file (x,y,z) to preview 0.15 × (x,z,-y).
 async function screenOf(page, [x, y, z], format) {
   // Cube changes now animate. Sample screen coordinates only once the camera
   // has arrived, so the following click still tests the intended source face.
@@ -127,11 +127,7 @@ async function screenOf(page, [x, y, z], format) {
   camera.position.fromArray(d.camera.position);
   camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
   camera.updateMatrixWorld();
-  const p = (
-    format === "glb"
-      ? new THREE.Vector3(0.15 * x, 0.15 * y, 0.15 * z)
-      : new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y)
-  ).project(camera);
+  const p = new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y).project(camera);
   return {
     x: box.x + ((p.x + 1) / 2) * box.width,
     y: box.y + ((1 - p.y) / 2) * box.height,

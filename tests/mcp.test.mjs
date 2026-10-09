@@ -107,12 +107,23 @@ test("a review opened over MCP is owned by MCP, and refusals come back as result
     file: "projects/lamp/part.stl",
     name: "lamp",
     version: "v1",
+    up: "y",
     confirmedClientAddress: "127.0.0.1",
   });
   try {
     assert.ok(opened.result.structuredContent.url);
     const status = await call({ action: "status", project: "projects/lamp" });
     const state = status.result.structuredContent;
+    assert.equal(state.active.up, "y");
+    assert.equal(state.versions[0].up, "y");
+    const badUp = await call({
+      action: "open",
+      project: "projects/lamp",
+      file: "projects/lamp/part.stl",
+      up: "x",
+    });
+    assert.equal(badUp.result.isError, true);
+    assert.equal(JSON.parse(badUp.result.content[0].text).code, "BAD_USAGE");
     assert.equal(state.origin.harness, "mcp");
     assert.equal(state.origin.route, undefined);
     assert.deepEqual(state.notifier, { send: false, observe: false });

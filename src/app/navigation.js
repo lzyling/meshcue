@@ -341,8 +341,7 @@ export function bindNavigation(review) {
     viewer.navigationRotating = false;
   });
 
-  // Apply the model root's rotation to file axes before projecting them. STL
-  // and STEP stand +Z up; GLB keeps +Y up, without a filename heuristic here.
+  // Project canonical CAD axes for every format, including up:"y" files.
   const ns = "http://www.w3.org/2000/svg";
   const triad = document.createElementNS(ns, "svg");
   triad.classList.add("navigation-triad");
@@ -374,7 +373,7 @@ export function bindNavigation(review) {
     for (const { line, text, direction } of axes) {
       const d = direction
         .clone()
-        .applyQuaternion(viewer.root.quaternion)
+        .applyAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)
         .applyQuaternion(inverse);
       line.setAttribute("x2", 45 + d.x * 27);
       line.setAttribute("y2", 45 - d.y * 27);

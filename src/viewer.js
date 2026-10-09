@@ -1,5 +1,6 @@
 import { removeNonTrianglePrimitives } from "./glb-primitives.js";
 import { sectionRange } from "./section.js";
+import { previewRotation, canonicalBounds } from "./orientation.js";
 import { modelDigest } from "./browser-crypto.js";
 import * as THREE from "three";
 import { createGltfLoader } from "./viewer/gltf-loader.js";
@@ -33,12 +34,6 @@ THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 
 // Matches the server's MAX_TRIANGLES; the review mesh is what has to fit.
 const MAX_REVIEW_TRIANGLES = 600000;
-
-/* STEP and STL say nothing about which way is up, so MeshCue says it for them:
-   +Z, with -Y towards the reviewer -- how CAD and every slicer draw them. glTF
-   does say, +Y, and is left as it is. An agent whose model is built another way
-   turns it before publishing; nothing here guesses. */
-const Z_UP_FORMATS = new Set(["step", "stp", "stl"]);
 
 // The formats whose mesh the service tessellated, and so says which of the
 // file's faces each triangle came from.
@@ -430,14 +425,15 @@ export class ModelViewer {
       center = bounds.getCenter(new V());
     if (!Number.isFinite(size.length()) || size.length() === 0)
       throw refusal(t("model.noExtent"), "MODEL_FORMAT");
-    this.sectionBounds = bounds.clone();
+    this.sectionBounds = canonicalBounds(bounds, model.up);
+    this.modelUp = model.up || "z";
     const scale = 3 / Math.max(size.x, size.y, size.z);
     /* The turn goes on `root`, beside the fit, because every coordinate handed
        to the agent stops short of `root`: a pin is in its own mesh's frame, and
        a region's `space: "model"` numbers are composed up to `root` and no
        further. Turned anywhere below it, the model would stand up and every
        mark on it would come back rotated. */
-    if (Z_UP_FORMATS.has(model.format)) this.root.rotation.x = -Math.PI / 2;
+    this.root.rotation.x = previewRotation(model.up);
     this.root.scale.setScalar(scale);
     this.root.position
       .copy(center)

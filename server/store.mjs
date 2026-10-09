@@ -309,6 +309,7 @@ export class ReviewStore {
         id: model.id,
         name: model.name,
         version: model.version,
+        ...(model.up === "y" ? { up: "y" } : {}),
         label: model.label || null,
         triangles: model.triangles,
         bytes: model.bytes,

@@ -383,7 +383,7 @@ test("navigation orthographic measuring and section caps use parallel picking ra
   await expect.poll(async () => (await state(page)).dirty).toBe(false);
 });
 
-test("navigation cube drags and arrows turn without roll and the triad follows STL and GLB file axes", async ({
+test("navigation cube drags and arrows turn without roll and the triad follows canonical STL and GLB axes", async ({
   page,
 }) => {
   await open(page);
@@ -437,7 +437,7 @@ test("navigation cube drags and arrows turn without roll and the triad follows S
   await page.locator("#close-settings").click();
   await expect(page.locator(".navigation-triad")).toBeVisible();
   axes = await labels();
-  expect(axes.Y[1]).toBeCloseTo(14, 2);
-  expect(axes.Z[1]).toBeCloseTo(49, 2);
+  expect(axes.Y[1]).toBeCloseTo(49, 2);
+  expect(axes.Z[1]).toBeCloseTo(14, 2);
   await page.screenshot({ path: `${evidence}/cube-glb.png` });
 });

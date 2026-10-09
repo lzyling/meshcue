@@ -76,7 +76,7 @@ export function clientToolName(clientInfo) {
 export const TOOL = {
   name: "meshcue",
   description:
-    "Browser-based 3D model review. Publish a GLB, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. STEP and STL are drawn +Z up, GLB +Y up; rotate a model built otherwise before publishing. precheck a GLB or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.",
+    'Browser-based 3D model review. Publish a GLB, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Marks stay in file coordinates. precheck a GLB or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
   inputSchema: {
     type: "object",
     properties: {
@@ -101,6 +101,12 @@ export const TOOL = {
       partGroups: partGroupsSchema,
       name: { type: "string" },
       version: { type: "string" },
+      up: {
+        type: "string",
+        enum: ["z", "y"],
+        description:
+          "File up axis; default z. Only with open and file. Marks stay in file coordinates.",
+      },
       label: { type: "string" },
       units: { type: "string" },
       versionId: { type: "string" },

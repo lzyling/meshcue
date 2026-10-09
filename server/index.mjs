@@ -1602,6 +1602,7 @@ agentApp.post("/publish", async (req, res) => {
       version: z.string().max(80).optional(),
       source: z.string().optional(),
       units: z.string().max(30).optional(),
+      up: z.enum(["z", "y"]).optional(),
       label: z.string().max(24).optional(),
       origin: originInput.optional(),
       activate: z.boolean().optional(),
@@ -1618,6 +1619,11 @@ agentApp.post("/publish", async (req, res) => {
     mediaDir,
     generator: `MeshCue ${version}`,
   });
+  if (p.up === "y") {
+    model.up = "y";
+    // Same bytes, different interpretation: independent version/draft identity.
+    model.id += "-y";
+  }
   if (p.label) model.label = p.label;
   const published = store.publish(model, p.origin, {
     activate: p.activate !== false,
