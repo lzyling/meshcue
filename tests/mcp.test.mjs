@@ -158,3 +158,28 @@ test("the transport reads whole lines and refuses a broken one without dying", a
   assert.equal(written[0].result.tools.length, 1);
   assert.equal(written[2].error.code, -32700);
 });
+
+test("MCP instructions strip both LF and CRLF Skill frontmatter", (t) => {
+  const root = workspace(t);
+  const directory = path.join(root, "skills/meshcue-review");
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, "SKILL.md");
+  for (const newline of ["\n", "\r\n"]) {
+    fs.writeFileSync(
+      file,
+      [
+        "---",
+        "name: meshcue-review",
+        "description: private YAML",
+        "---",
+        "",
+        "# MeshCue",
+        "Body.",
+      ].join(newline),
+    );
+    assert.equal(instructions(root), `# MeshCue${newline}Body.`);
+    assert.equal(instructions(root).includes("private YAML"), false);
+  }
+  fs.writeFileSync(file, "# MeshCue\r\nNo frontmatter.\r\n");
+  assert.equal(instructions(root), "# MeshCue\r\nNo frontmatter.");
+});
