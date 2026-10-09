@@ -1,3 +1,4 @@
+import { installFakeOpenClaw } from "./fake-openclaw.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -30,11 +31,7 @@ export async function startReview(
   );
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
-  fs.copyFileSync(
-    path.join(repo, "tests/fake-openclaw.mjs"),
-    path.join(bin, "openclaw"),
-  );
-  fs.chmodSync(path.join(bin, "openclaw"), 0o755);
+  installFakeOpenClaw(bin);
   fs.writeFileSync(
     path.join(dir, "config.json"),
     JSON.stringify({ origin, instance, managed, installRoot, projectPath }),

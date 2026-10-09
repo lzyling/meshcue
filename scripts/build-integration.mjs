@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { execOpenClawSync } from "../server/openclaw-command.mjs";
 import { build } from "esbuild";
 import { i18nBundlePlugin } from "./i18n-bundle.mjs";
 import { DOC_FILES } from "../integration/manager.mjs";
@@ -288,7 +289,7 @@ for (const server of Object.values(claudeManifest.mcpServers || {}))
    mistake as a copy that never checked what it wrote. */
 const hostBuild = process.env.MESHCUE_SKIP_HOST_BUILD !== "1";
 if (hostBuild)
-  execFileSync("openclaw", ["plugins", "build", "--root", out], {
+  execOpenClawSync(["plugins", "build", "--root", out], {
     cwd: repo,
     stdio: "pipe",
   });

@@ -1,3 +1,4 @@
+import { installFakeOpenClaw } from "./helpers/fake-openclaw.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -93,7 +94,7 @@ test("a refused call keeps the host's typed reason instead of just the exit code
   // every time, with the answer sitting unread on stdout.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-refusal-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const stub = path.join(dir, "openclaw");
+  const stub = installFakeOpenClaw(dir);
   fs.writeFileSync(
     stub,
     `#!/usr/bin/env node\nconsole.log(JSON.stringify({ ok: false, error: { code: "INVALID_REQUEST", message: "originating route fields require admin scope" } }));\nprocess.exit(1);\n`,
@@ -121,7 +122,7 @@ test("a refused call keeps the host's typed reason instead of just the exit code
 test("a refused call with no parsable payload still fails loudly", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-refusal-raw-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const stub = path.join(dir, "openclaw");
+  const stub = installFakeOpenClaw(dir);
   fs.writeFileSync(
     stub,
     `#!/usr/bin/env node\nprocess.stderr.write("boom\\n");\nprocess.exit(1);\n`,
@@ -141,7 +142,7 @@ test("a refused call with no parsable payload still fails loudly", async (t) => 
 test("a zero-exit payload that carries no error is still accepted", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-accept-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const stub = path.join(dir, "openclaw");
+  const stub = installFakeOpenClaw(dir);
   fs.writeFileSync(
     stub,
     `#!/usr/bin/env node\nconsole.log(JSON.stringify({ status: "started", runId: "r1" }));\n`,

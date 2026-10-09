@@ -1,3 +1,4 @@
+import { installFakeOpenClaw } from "../helpers/fake-openclaw.mjs";
 import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
 /* The interface now follows the reader rather than the author, and that is a
  * property only a browser can demonstrate: which catalogue a page picked, and
@@ -23,8 +24,7 @@ test.beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(repo, "tmp", "i18n-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
-  fs.copyFileSync("tests/fake-openclaw.mjs", path.join(bin, "openclaw"));
-  fs.chmodSync(path.join(bin, "openclaw"), 0o755);
+  installFakeOpenClaw(bin);
   env = {
     ...process.env,
     PORT: "0",

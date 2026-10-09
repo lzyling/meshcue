@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { execOpenClaw } from "./openclaw-command.mjs";
 import { normalizeOrigin } from "./origin.mjs";
 import { matchLocale, sentence } from "../src/i18n/index.js";
-const exec = promisify(execFile);
 
 /* A line in the reviewer's own conversation the moment a batch is handed
    over, and the same line changed once the Agent has read it.
@@ -133,7 +131,7 @@ function routeArgs(route) {
 async function run(argv) {
   let stdout;
   try {
-    ({ stdout } = await exec("openclaw", argv, {
+    ({ stdout } = await execOpenClaw(argv, {
       timeout: TIMEOUT_MS,
       maxBuffer: 1024 * 1024,
     }));
@@ -142,7 +140,9 @@ async function run(argv) {
       ? "the command timed out"
       : error.code === "ENOENT"
         ? "the openclaw command was not found"
-        : `openclaw exited with ${error.code ?? "?"}`;
+        : error.code === "OPENCLAW_UNSUPPORTED_SHIM"
+          ? "the openclaw command is not a supported npm shim"
+          : `openclaw exited with ${error.code ?? "?"}`;
     // Only the host's own words, which never contain the line being sent:
     // execFile's message repeats the whole command line.
     const detail = String(error.stdout || error.stderr || "")
