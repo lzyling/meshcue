@@ -142,18 +142,26 @@ $item = Get-Item -LiteralPath $p -Force
 if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse point runtime refused' }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $acl = New-Object Security.AccessControl.DirectorySecurity
-$acl.SetSecurityDescriptorSddlForm("O:$($sid)D:P(A;OICI;FA;;;$($sid))(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
-Set-Acl -LiteralPath $p -AclObject $acl
-$actual = Get-Acl -LiteralPath $p
-if (!$actual.AreAccessRulesProtected) { throw 'Runtime ACL inheritance was not disabled' }
-if ($actual.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid) { throw 'Runtime owner mismatch' }
-$rules = @($actual.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+# Read Access + Owner only: never request or persist the audit (SACL) section.
+$sections = [Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner
+$before = $item.GetAccessControl($sections)
 $allowed = @($sid, 'S-1-5-18', 'S-1-5-32-544')
+if ($allowed -notcontains $before.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw 'Runtime owner is not the current user, SYSTEM or Administrators' }
+# A fresh security object marks only Access modified. DirectoryInfo persists
+# modified sections, requiring WRITE_DAC, not WRITE_OWNER or SeSecurityPrivilege.
+$acl.SetSecurityDescriptorSddlForm("D:P(A;OICI;FA;;;$($sid))(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)", [Security.AccessControl.AccessControlSections]::Access)
+$item.SetAccessControl($acl)
+$actual = $item.GetAccessControl($sections)
+if (!$actual.AreAccessRulesProtected) { throw 'Runtime ACL inheritance was not disabled' }
+if ($allowed -notcontains $actual.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw 'Runtime owner mismatch' }
+$rules = @($actual.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+if (@($rules.IdentityReference.Value | Select-Object -Unique).Count -ne 3) { throw 'Duplicate runtime access rule' }
 if ($rules.Count -ne 3) { throw 'Unexpected runtime ACL' }
 foreach ($rule in $rules) {
   if ($rule.IsInherited -or $allowed -notcontains $rule.IdentityReference.Value -or
       $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
       $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or
+      $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None -or
       $rule.InheritanceFlags -ne ([Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit)) {
     throw 'Unexpected runtime access rule'
   }
@@ -166,14 +174,21 @@ foreach ($rule in $rules) {
     "v1.0",
     "powershell.exe",
   );
-  run(
-    executable,
-    ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
-    {
-      env: { ...process.env, MESHCUE_PRIVATE_RUNTIME: runtime },
-      stdio: ["ignore", "ignore", "pipe"],
-      timeout: 10000,
-      windowsHide: true,
-    },
-  );
+  try {
+    run(
+      executable,
+      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+      {
+        env: { ...process.env, MESHCUE_PRIVATE_RUNTIME: runtime },
+        stdio: ["ignore", "ignore", "pipe"],
+        timeout: 10000,
+        windowsHide: true,
+      },
+    );
+  } catch (cause) {
+    throw new Error(
+      `MeshCue Windows directory permission setup failed: ${cause.stderr?.toString().trim() || cause.message}`,
+      { cause },
+    );
+  }
 }

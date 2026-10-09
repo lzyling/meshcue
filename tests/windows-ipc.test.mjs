@@ -115,6 +115,13 @@ test("Windows private state fails closed when ACL setup fails; POSIX paths and c
     assert.match(script, /FA;;;BA/);
     assert.match(script, /ReparsePoint/);
     assert.match(script, /AreAccessRulesProtected/);
+    assert.match(script, /\$item\.SetAccessControl\(\$acl\)/);
+    assert.match(script, /SetSecurityDescriptorSddlForm\("D:P.*Access\)/);
+    assert.doesNotMatch(script, /Set-Acl|Get-Acl|O:\$|::Audit|SetOwner/);
+    assert.match(script, /\$before.GetOwner/);
+    assert.match(script, /\$actual.GetOwner/);
+    assert.match(script, /Select-Object -Unique/);
+    assert.match(script, /PropagationFlags/);
   });
   assert.equal(calls, 1);
   assert.throws(
@@ -122,7 +129,7 @@ test("Windows private state fails closed when ACL setup fails; POSIX paths and c
       preparePrivateRuntime(runtime, "win32", () => {
         throw new Error("ACL denied");
       }),
-    /ACL denied/,
+    /Windows directory permission setup failed: ACL denied/,
   );
   preparePrivateRuntime("nonexistent", "darwin", () =>
     assert.fail("POSIX must not run PowerShell"),
