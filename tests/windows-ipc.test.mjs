@@ -152,6 +152,8 @@ test("Windows private state fails closed when ACL setup fails; POSIX paths and c
   );
   assert.equal(agentSocketPath(runtime, {}, "darwin"), expected);
   // Use a fixture path rather than modifying the actual shared per-user dir.
+  // POSIX mode bits are only meaningful on a POSIX filesystem.
+  if (process.platform === "win32") return;
   const privateDirectory = path.join(runtime, "private");
   fs.mkdirSync(privateDirectory, { mode: 0o700 });
   const socket = path.join(privateDirectory, "agent.sock");
