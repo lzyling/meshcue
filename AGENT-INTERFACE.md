@@ -28,7 +28,7 @@ second and runs the `prepare` script in it.
 | Host             | Install                                                                                                                     | It worked when                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Claude Code      | `claude plugin marketplace add lzyling/meshcue`, then `claude plugin install meshcue@meshcue`; Node.js 22 or later on `PATH` | `/mcp` shows `plugin:meshcue:meshcue` connected and `inspect` reports the project directory |
-| Any MCP client   | `npm i -g "github:lzyling/meshcue#v1.4.1"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
+| Any MCP client   | `npm i -g "github:lzyling/meshcue#v1.4.2"`, then `command = "meshcue-mcp"`                                                 | `initialize` answers with the operating instructions, not an empty string |
 | CLI, any harness | the same install; call `meshcue <action> --owner <id>`                                                                      | `meshcue help` prints the documentation paths                             |
 | OpenClaw         | from a clone: `npm run build:integration -- tmp/candidate/package`, then `openclaw plugins install ./tmp/candidate/package` | the native `meshcue` tool answers `inspect`                               |
 
