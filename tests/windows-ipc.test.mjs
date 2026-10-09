@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
+import net from "node:net";
+import { limitInitialPipeRequest } from "../server/ipc-timeout.mjs";
 import crypto from "node:crypto";
 import { once } from "node:events";
 import { execFile } from "node:child_process";
@@ -24,7 +26,8 @@ import { ipc } from "../integration/manager.mjs";
 test("a truncated IPC proof rejects promptly without keeping the child alive for its authentication timeout", async (t) => {
   const runtime = fixture(t);
   const socketPath = path.join(runtime, "truncated.sock");
-  const moduleURL = new URL("../integration/ipc-auth.mjs", import.meta.url).href;
+  const moduleURL = new URL("../integration/ipc-auth.mjs", import.meta.url)
+    .href;
   const script = `
     import net from "node:net";
     import { once } from "node:events";
@@ -54,7 +57,10 @@ test("a truncated IPC proof rejects promptly without keeping the child alive for
     { timeout: 2500 },
   );
   assert.match(stdout, /rejected: .*aborted/i);
-  assert.ok(Date.now() - start < 2500, "child must exit well before 10s timeout");
+  assert.ok(
+    Date.now() - start < 2500,
+    "child must exit well before 10s timeout",
+  );
 });
 
 function fixture(t) {
@@ -208,6 +214,74 @@ test("a Windows proof authenticates the same connection before an action is sent
   );
   assert.deepEqual(result, { status: "published" });
   assert.equal(actions, 1);
+});
+
+test("Windows initial-request deadline closes silent and incomplete-header connections", async (t) => {
+  const endpoint = await pipeServer(t, () =>
+    assert.fail("no complete request"),
+  );
+  limitInitialPipeRequest(endpoint.server, { platform: "win32", timeout: 60 });
+  for (const header of ["", "GET /ipc-auth HTTP/1.1\r\nHost: ipc\r\n"]) {
+    const socket = net.createConnection(endpoint.path);
+    t.after(() => socket.destroy());
+    const closed = once(socket, "close");
+    await once(socket, "connect");
+    if (header) socket.write(header);
+    await Promise.race([
+      closed,
+      new Promise((_, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("idle pipe not closed")),
+          1000,
+        );
+        timer.unref();
+        closed.then(() => clearTimeout(timer));
+      }),
+    ]);
+    assert.equal(socket.destroyed, true);
+  }
+});
+
+test("Windows authenticated long publish survives the initial-request deadline", async (t) => {
+  const key = "a".repeat(64);
+  let proofSocket;
+  const endpoint = await pipeServer(t, (req, res) => {
+    if (req.url.startsWith("/ipc-auth?")) {
+      proofSocket = req.socket;
+      res.end(
+        pipeProof(
+          key,
+          new URL(req.url, "http://ipc").searchParams.get("challenge"),
+        ),
+      );
+    } else {
+      assert.equal(req.socket, proofSocket);
+      req.resume();
+      setTimeout(() => res.end("published"), 150);
+    }
+  });
+  limitInitialPipeRequest(endpoint.server, { platform: "win32", timeout: 40 });
+  const agent = await authenticatedPipeAgent({ ...endpoint, key });
+  t.after(() => agent.destroy());
+  // Also cross the deadline while the authenticated connection is idle before
+  // starting a handler that lasts several times longer than the deadline.
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  await action(endpoint, agent, "model payload");
+});
+
+test("POSIX initial-request behavior is unchanged", async (t) => {
+  const endpoint = await pipeServer(t, (_req, res) => res.end("ok"));
+  const listeners = endpoint.server.listenerCount("connection");
+  limitInitialPipeRequest(endpoint.server, { platform: "darwin", timeout: 20 });
+  assert.equal(endpoint.server.listenerCount("connection"), listeners);
+  const socket = net.createConnection(endpoint.path);
+  t.after(() => socket.destroy());
+  await once(socket, "connect");
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(socket.destroyed, false);
+  const data = once(socket, "data");
+  socket.write("GET / HTTP/1.1\r\nHost: ipc\r\nConnection: close\r\n\r\n");
+  assert.match(String((await data)[0]), /200 OK/);
 });
 
 test("an impersonating server receives only a fresh challenge, never the action or key", async (t) => {

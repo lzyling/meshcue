@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
+import { limitInitialPipeRequest } from "./ipc-timeout.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
 import { importModel, MAX_TRIANGLES } from "./models.mjs";
 import {
@@ -1653,11 +1654,17 @@ const agentServer = http.createServer(agentApp);
 // libuv creates the first Windows handle with FILE_FLAG_FIRST_PIPE_INSTANCE:
 // a preexisting name is a fatal listen error, not a reusable foreign endpoint.
 // Its NULL security descriptor grants full control to creator/SYSTEM/admins,
-// and read (not write) to Everyone/anonymous. Do not enable Node's readableAll /
-// writableAll options. Node cannot set PIPE_REJECT_REMOTE_CLIENTS here: remote
-// access as the same Windows account remains a documented residual risk.
+// and read (not write) to Everyone/anonymous. Node cannot reject their read-only
+// opens: those connections can still consume handles/parser resources. A 5s
+// first-request deadline below bounds idle/incomplete-header connections, but
+// sustained connection churn remains a local availability risk, as does access
+// to the browser's loopback HTTP port. This is mitigation, not a private DACL.
+// Do not enable Node's readableAll / writableAll options. Node cannot set
+// PIPE_REJECT_REMOTE_CLIENTS here: remote SMB access as the same Windows account
+// remains a documented residual risk.
 // https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights
 // https://github.com/libuv/libuv/blob/v1.52.1/src/win/pipe.c (pipe_alloc_accept)
+limitInitialPipeRequest(agentServer);
 agentServer.listen(socketPath, () => {
   if (process.platform !== "win32") fs.chmodSync(socketPath, 0o600);
 });
