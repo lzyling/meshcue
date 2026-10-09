@@ -9,7 +9,7 @@ export default {
   "navigation.normal": "面に垂直に見る",
   "navigation.noFace": "ポインターの下に面がありません",
   "navigation.shortcuts": "キーボードショートカット",
-  "navigation.axes": "モデルファイルの座標軸",
+  "navigation.axes": "モデルの共通座標軸（+Z が上）",
   "navigation.rotateLeft": "左に回転",
   "navigation.rotateRight": "右に回転",
   "navigation.rotateUp": "上に回転",

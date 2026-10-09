@@ -9,7 +9,7 @@ export default {
   "navigation.normal": "正视表面",
   "navigation.noFace": "指针下没有表面",
   "navigation.shortcuts": "键盘快捷键",
-  "navigation.axes": "模型文件坐标轴",
+  "navigation.axes": "模型统一坐标轴（+Z 朝上）",
   "navigation.rotateLeft": "向左旋转",
   "navigation.rotateRight": "向右旋转",
   "navigation.rotateUp": "向上旋转",

@@ -1,8 +1,8 @@
 export default {
   "help.p12":
-    "Section view: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Cut faces are hatched and coloured by part; they are viewing aids and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
+    "Section view: cut along the model’s canonical X, Y or Z axis (+Z up), set the offset in model units, or flip the removed side. Cut faces are hatched and coloured by part; they are viewing aids and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to the Agent, and resets when you load another model or version.",
   "help.p12.named":
-    "Section view: cut along the model’s X, Y or Z axis, set the offset in model units, or flip the removed side. Cut faces are hatched and coloured by part; they are viewing aids and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
+    "Section view: cut along the model’s canonical X, Y or Z axis (+Z up), set the offset in model units, or flip the removed side. Cut faces are hatched and coloured by part; they are viewing aids and cannot be marked or measured. Remaining front-facing surfaces can still be marked and measured. Section view is a viewing aid only, is never sent to {agent}, and resets when you load another model or version.",
 
   "help.open": "How to use",
   "help.eyebrow": "QUICK START",

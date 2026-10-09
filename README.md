@@ -153,8 +153,8 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 531 unit and integration tests
-npm run test:browser # 300 real-Chromium tests, isolated port and data
+npm test             # 534 unit and integration tests
+npm run test:browser # 301 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever
@@ -240,7 +240,8 @@ are welcome in [Discussions](https://github.com/lzyling/meshcue/discussions).
 - **1.5** — every valid GLB opens and looks as its author made it: Draco,
   Meshopt and KTX2 compression, rigged models in their bind pose, morph
   targets, GPU instancing, a texture budget that fits a 4K PBR set, and
-  `.gltf` with external files.
+  `.gltf` with external files. **Behavior change:** GLB now defaults to +Z up
+  too; publish Y-up GLBs with `up:"y"`. Coordinate data is unchanged.
 - **1.6** — showing a GLB as intended: animation poses, LOD sets and material
   variants.
 - **1.7** — review aids for game assets: UV and checker views, per-channel

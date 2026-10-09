@@ -70,7 +70,7 @@ someone sends marks into nothing.
 | Action     | Does                                                                                                                                       | Notes                                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
-| `open`     | publishes a model and **shows it** (optional `partGroups`)                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
+| `open`     | publishes a model and **shows it** (optional `partGroups`, `up:"z"` or `up:"y"`)                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
 | `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
 | `status`   | every version with its mark count, unsubmitted flag, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
 | `read`     | describes a submission, and writes your read receipt                                                                                       | `geometry: true` returns its polygons too; needed to echo or measure, never to understand                             |
@@ -81,6 +81,10 @@ someone sends marks into nothing.
 `versions[].unsubmitted` is a boolean: `true` means the draft has changes
 not yet submitted, including deleting all marks; `false` means no such changes.
 It is not a mark count. `versions[].annotations` is the current mark count.
+
+| Publication field (`open` with `file`, or `/publish`) | Meaning |
+| --- | --- |
+| `up` | Optional `"z"` (default) or `"y"`; every supported format. Invalid values are rejected. |
 
 The publication `label` is optional and limited to 24 characters (UTF-16 code
 units, as counted by JavaScript string length). A longer label is rejected
@@ -93,8 +97,10 @@ gate.
 
 ## Same-content publication
 
-Version identity is the content SHA. Publishing identical bytes, including a
-renamed copy, reuses the existing version with its marks and receipts. Its
+Version identity is the content SHA plus the effective `up` axis (omitted means
+`"z"`). Publishing identical bytes with the same axis, including a renamed copy,
+reuses the existing version with its marks and receipts. Different axes create
+separate versions so neither drawing nor drafts are silently reinterpreted. Its
 existing tab caption (`label`, then `version`, then `name`) is kept; the requested
 `version`/`label` is not applied. HTTP publication and CLI/MCP/OpenClaw `open`
 return an additive entry in `notices`:
@@ -105,7 +111,7 @@ return an additive entry in `notices`:
 
 With `activate: false`, the notice instead says that the existing version was
 reused and the displayed version was not changed. No reviewer notice is emitted
-for that passive publication. A different SHA creates a new version without
+for that passive publication. A different SHA or up axis creates a new version without
 this notice.
 
 An activating reuse also adds optional `sameContentReuse` to review state:
@@ -236,6 +242,7 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | `--file <path>` | `file`, relative to the workspace |
 | `--part-groups <path>` | `open` only, with `file`: workspace-relative JSON array transported as optional `partGroups` |
 | `--name <text>`, `--version <text>`, `--units <text>`, `--label <text>` | Same-named publication fields |
+| `--up <z\|y>` | File up axis on `open` with `file`; defaults to `z` |
 | `--agent-name <text>` | `agentName` |
 | `--client-address <IPv4>` | `confirmedClientAddress`, the verified browser device address |
 | `--host <address>` | `host`, the listening address for a new review |
@@ -449,22 +456,29 @@ Re-run `precheck` after simplifying, then `open`.
 
 ## Which way is up
 
-MeshCue draws STEP and STL with **+Z up, −Y towards the reviewer and +X to the
-right**, the way CAD and slicers draw them, and GLB as glTF defines it, **+Y
-up**. Neither STEP nor STL records an up axis, so this is MeshCue's convention
-and not something read from the file. Nothing is guessed: **a model built
-another way has to be rotated before it is published**, and there is no
-parameter for it.
+MeshCue draws **all formats +Z up, −Y towards the reviewer and +X right**.
+Nothing is guessed. glTF specifies +Y up, so a Y-up export (including Blender's
+default GLB export) must be published with `up: "y"`, or rotated to Z-up before
+publication. This parameter applies to every supported format.
 
-- The view cube's Front, Top and Right are the model's −Y, +Z and +X for STEP
-  and STL, and +Z, +Y and +X for GLB.
-- Standing a model up changes only how it is drawn. A pin's `position` and a
-  region's `space: "model"` numbers stay in the published file's own
-  coordinates and units.
-- A submission's `camera` is in the preview's frame — the model scaled into
-  three units and, for STEP and STL, stood up — not in model coordinates. A
-  mark's own `view` (from 1.4.0) is in model coordinates and units, and says
-  which way the top of the reviewer's screen pointed.
+`up` is optional on `open` with `file` (Agent HTTP `/publish`): `"z"` is the
+default, `"y"` means the published file is Y-up. Other values are rejected.
+The Y-up-to-Z-up right-handed matrix is `[[1,0,0],[0,0,-1],[0,1,0]]`:
+`(x,y,z) → (x,−z,y)`; +Y becomes +Z and glTF's +Z front becomes −Y front.
+The preview then applies `(x,y,z) → (x,z,−y)` to the canonical frame.
+
+- The view cube's Front, Top and Right are canonical −Y, +Z and +X for every
+  format. For `up:"y"`, these correspond to file +Z, +Y and +X.
+- Standing a model up changes only drawing. Pin `position`, region
+  `space:"model"`, measurements and mark `view` always remain in the published
+  file's own coordinates and units, including `up:"y"`.
+- Submission `camera` uses the fitted preview frame (three units, including the
+  canonical standing-up step), not model coordinates. Mark `view` says which
+  way screen-up points in the original file frame.
+- Versions store optional `up`; omitted means `"z"`, including existing data.
+  `status`/`open` version metadata includes `up` only for `"y"`. Identical bytes
+  published with different up axes create separate versions and drafts; same
+  bytes and same axis reuse the existing version. Source hashes stay unchanged.
 
 An STL carries no colour, so it is always drawn grey. When colour matters to the
 review, publish STEP, whose declared colours and transparency are read, or GLB.
@@ -555,11 +569,12 @@ mark, then say what to change."
   cannot be told automatically, the panel says so and gives you a sentence to
   paste into its conversation.
 
-- Section view: cut along the model’s X, Y or Z axis, set the offset in model
-  units, or flip the removed side. Cut faces are hatched and coloured by part;
-  they are viewing aids and cannot be marked or measured. Remaining front-facing
-  surfaces can still be marked and measured. Section view is a viewing aid only,
-  is never sent to the Agent, and resets when you load another model or version.
+- Section view: cut along the model’s canonical X, Y or Z axis (+Z up), set
+  the offset in model units, or flip the removed side. Cut faces are hatched and
+  coloured by part; they are viewing aids and cannot be marked or measured.
+  Remaining front-facing surfaces can still be marked and measured. Section view
+  is a viewing aid only, is never sent to the Agent, and resets when you load
+  another model or version.
 
 - Navigation: in View, click or tap selects only the part; surfaces highlight
   only on hover. Double-click or double-tap a surface sets the rotation centre;
