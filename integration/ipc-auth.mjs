@@ -21,9 +21,10 @@ export async function authenticatedPipeAgent(endpoint, timeout = 3000) {
     return socket;
   };
   const challenge = crypto.randomBytes(32).toString("hex");
+  let timer;
   try {
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(
+      timer = setTimeout(
         () => socket.destroy(new Error("MeshCue IPC authentication timed out")),
         timeout,
       );
@@ -41,8 +42,10 @@ export async function authenticatedPipeAgent(endpoint, timeout = 3000) {
               req.destroy(new Error("Invalid IPC proof."));
           });
           res.on("error", reject);
+          res.on("aborted", () =>
+            reject(new Error("MeshCue IPC authentication response aborted")),
+          );
           res.on("end", () => {
-            clearTimeout(timer);
             const expected = pipeProof(endpoint.key, challenge);
             if (
               res.statusCode !== 200 ||
@@ -58,15 +61,14 @@ export async function authenticatedPipeAgent(endpoint, timeout = 3000) {
           });
         },
       );
-      req.on("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
+      req.on("error", reject);
     });
     return agent;
   } catch (error) {
     agent.destroy();
     socket.destroy();
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -6,6 +6,8 @@ import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
 import { once } from "node:events";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
   pipeIdentity,
   pipePath,
@@ -18,6 +20,42 @@ import {
 } from "../server/instance.mjs";
 import { authenticatedPipeAgent } from "../integration/ipc-auth.mjs";
 import { ipc } from "../integration/manager.mjs";
+
+test("a truncated IPC proof rejects promptly without keeping the child alive for its authentication timeout", async (t) => {
+  const runtime = fixture(t);
+  const socketPath = path.join(runtime, "truncated.sock");
+  const moduleURL = new URL("../integration/ipc-auth.mjs", import.meta.url).href;
+  const script = `
+    import net from "node:net";
+    import { once } from "node:events";
+    import { authenticatedPipeAgent } from ${JSON.stringify(moduleURL)};
+    const server = net.createServer(socket => {
+      socket.once("data", () => {
+        socket.write("HTTP/1.1 200 OK\\r\\nContent-Length: 64\\r\\n\\r\\nabc");
+        setTimeout(() => socket.destroy(), 25);
+      });
+    });
+    server.listen(${JSON.stringify(socketPath)});
+    await once(server, "listening");
+    try {
+      await authenticatedPipeAgent({ path: ${JSON.stringify(socketPath)}, key: "a".repeat(64) }, 10000);
+      throw new Error("Truncated proof unexpectedly succeeded");
+    } catch (error) {
+      if (!/aborted/i.test(error.message)) throw error;
+      console.log("rejected: " + error.message);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  `;
+  const start = Date.now();
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    { timeout: 2500 },
+  );
+  assert.match(stdout, /rejected: .*aborted/i);
+  assert.ok(Date.now() - start < 2500, "child must exit well before 10s timeout");
+});
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ipc-"));
