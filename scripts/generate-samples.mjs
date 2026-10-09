@@ -184,6 +184,8 @@ for (const [name, obj] of [
   ["bunny-figurine.glb", bunny],
   ["occlusion-check.glb", occlusion],
 ]) {
+  obj.rotation.x += Math.PI / 2; // author in Y-up, publish in canonical Z-up
+  obj.updateMatrixWorld(true);
   const data = await exporter.parseAsync(obj, { binary: true });
   const target = path.join(output, path.basename(name));
   fs.writeFileSync(target, Buffer.from(data));

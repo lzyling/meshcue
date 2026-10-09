@@ -51,9 +51,10 @@ async function fixture() {
   };
   const root = new THREE.Group();
   root.name = "Assembly";
-  for (const [name, x, z] of [
-    ["Front", 0, 2],
-    ["Back", 0, -2],
+  // Z-up file: the Front/Back overlap is along the reviewer's -Y view.
+  for (const [name, x, y] of [
+    ["Front", 0, -2],
+    ["Back", 0, 2],
     ["Side", 6, 0],
   ]) {
     const mesh = new THREE.Mesh(
@@ -61,7 +62,7 @@ async function fixture() {
       new THREE.MeshStandardMaterial({ color: 0x719bb2 }),
     );
     mesh.name = name;
-    mesh.position.set(x, 0, z);
+    mesh.position.set(x, y, 0);
     root.add(mesh);
   }
   const file = `${evidence}/assembly.glb`;

@@ -6,13 +6,13 @@ import { agentSocketPath } from "../../server/instance.mjs";
 /* Ask the private agent socket which port listen(0) received. Reserving a port
    in advance and closing that listener leaves a race for another worktree. */
 export async function browserServerUrl(child, dir, instance = null) {
-  const socketPath = agentSocketPath(dir, instance);
   for (let attempt = 0; attempt < 200; attempt++) {
     if (child.exitCode !== null || child.signalCode !== null)
       throw new Error(
         `Browser fixture exited: ${fs.readFileSync(path.join(dir, "server.log"), "utf8")}`,
       );
     try {
+      const socketPath = agentSocketPath(dir, instance);
       const status = await new Promise((resolve, reject) => {
         const req = http.get({ socketPath, path: "/status" }, (res) => {
           let text = "";

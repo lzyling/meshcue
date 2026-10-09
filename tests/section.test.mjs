@@ -40,7 +40,7 @@ test("section side tests retain the plane and flip the removed half", () => {
   }
   assert.ok(retainedPoint(new V(100, 100, 100), null));
 });
-test("section planes follow centering, scaling and the STEP/STL Z-up turn", () => {
+test("section planes follow centering, scaling and the all-format Z-up turn", () => {
   const root = new THREE.Object3D();
   root.rotation.x = -Math.PI / 2;
   root.scale.setScalar(0.15);

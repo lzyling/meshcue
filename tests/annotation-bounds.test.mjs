@@ -91,7 +91,7 @@ test("the preview's own placement does not move the extent", () => {
   );
 });
 
-/* STEP and STL are stood on +Z by turning `root`, beside the fit. The extent is
+/* All default-up formats are stood on +Z by turning `root`, beside the fit. The extent is
    composed up to `root` and stops there, which is the only reason the turn can
    go there without the agent's numbers turning with it. */
 test("standing a model up on +Z does not turn the numbers the agent reads", () => {

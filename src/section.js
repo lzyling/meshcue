@@ -1,8 +1,8 @@
 import { Color, Matrix3, Plane, Vector3 } from "three";
 
 // Positive distance is retained, matching three.js material clipping. The
-// plane is made in the source frame before the preview's fit and Z-up turn;
-// neither operation is allowed to change what the axis or offset means.
+// plane is made in the canonical Z-up frame before the preview's fit/turn.
+// For up:y, the caller transforms source bounds and supplies the canonical matrix.
 export function sectionPlane({ axis, offset, flip = false }, matrixWorld) {
   const normal = new Vector3();
   normal[axis] = flip ? 1 : -1;

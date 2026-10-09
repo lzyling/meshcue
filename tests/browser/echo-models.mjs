@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// Coordinates are shared by the STL and GLB fixtures. GLB is already Y-up.
+// Coordinates are shared by the STL and GLB fixtures; both publish Z-up.
 const lo = [-10, -7.5, -4],
   hi = [10, 7.5, 4];
 const corner = (i) => [0, 1, 2].map((k) => ((i >> k) & 1 ? hi : lo)[k]);
@@ -39,7 +39,7 @@ export function writeInwardPlate(dir, withNormals) {
   const positions = [],
     normals = [];
   for (const tri of triangles) {
-    const points = tri.map(yUp);
+    const points = tri;
     const a = points[1].map((v, i) => v - points[0][i]);
     const b = points[2].map((v, i) => v - points[0][i]);
     const n = [

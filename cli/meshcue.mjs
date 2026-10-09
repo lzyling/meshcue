@@ -47,6 +47,7 @@ const FLAGS = {
   name: "name",
   version: "version",
   units: "units",
+  up: "up",
   label: "label",
   submission: "submissionId",
   summary: "summary",
@@ -82,6 +83,7 @@ export function help(installRoot = INSTALL_ROOT) {
     help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
     partGroups:
       "open --part-groups <workspace-relative JSON file>: optional array; 256 KiB maximum. Membership is resolved in the reviewer browser, not confirmed by publication.",
+    up: "open --up <z|y>: file up axis for every format; defaults to z. Marks stay in file coordinates.",
     limits:
       "CLI read returns summaries; full geometry and region echoes require MCP or the host tool.",
     network:

@@ -326,7 +326,7 @@ for (const withNormals of [true, false]) {
       [6, -7.5, 0],
       [6, -7.5, -2],
     ];
-    const patch = (points) => points.map(([x, y, z]) => [x, z, -y]);
+    const patch = (points) => points; // GLB now shares the STL Z-up source frame
     await echo(page, submission, [
       region(meshId, [4], {
         surfacePatches: [

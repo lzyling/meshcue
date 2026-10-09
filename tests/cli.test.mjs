@@ -88,6 +88,8 @@ test("the CLI opens a review, reports it, and still refuses a stranger", async (
       ...mine,
       "--file",
       "projects/lamp/part.stl",
+      "--up",
+      "y",
       "--name",
       "lamp",
       "--version",
@@ -105,6 +107,15 @@ test("the CLI opens a review, reports it, and still refuses a stranger", async (
     const status = await run(["status", ...mine], f.options);
     assert.equal(status.project, "projects/lamp");
     assert.equal(status.versions.length, 1);
+    assert.equal(opened.active.up, "y");
+    assert.equal(status.versions[0].up, "y");
+    await assert.rejects(
+      run(
+        ["open", ...mine, "--file", "projects/lamp/part.stl", "--up", "x"],
+        f.options,
+      ),
+      { code: "BAD_USAGE" },
+    );
     assert.equal(status.origin.harness, "cli");
     // No route: nothing will announce a submission here, and the tool says so
     // rather than leaving an Agent waiting for a message that cannot arrive.

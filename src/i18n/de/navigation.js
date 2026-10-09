@@ -9,7 +9,7 @@ export default {
   "navigation.normal": "Senkrecht auf Fläche",
   "navigation.noFace": "Keine Fläche unter dem Zeiger",
   "navigation.shortcuts": "Tastenkürzel",
-  "navigation.axes": "Achsen der Modelldatei",
+  "navigation.axes": "Kanonische Modellachsen (+Z oben)",
   "navigation.rotateLeft": "Nach links drehen",
   "navigation.rotateRight": "Nach rechts drehen",
   "navigation.rotateUp": "Nach oben drehen",

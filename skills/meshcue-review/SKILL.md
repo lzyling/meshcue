@@ -92,8 +92,8 @@ before; with none at all it names the tool it recognises, or says “the Agent�
 `open` answers with the `agentName` the page uses and the `agentTool` it writes
 after it.
 
-MeshCue draws STEP and STL +Z up with −Y to the front, and GLB +Y up; rotate a
-model built otherwise before publishing, since nothing is guessed. Marks come
+MeshCue draws all formats +Z up, −Y front and +X right. Publish Y-up files
+with `up:"y"` (CLI `--up y`), or rotate to Z-up yourself; nothing is guessed. Marks come
 back in the file's own coordinates and units. STL carries no colour and is
 always drawn grey; publish STEP or GLB when colour matters.
 

@@ -9,6 +9,7 @@ import {
 } from "../section.js";
 import * as THREE from "three";
 import { V } from "./shared.js";
+import { sectionMatrix } from "../orientation.js";
 
 export class SectionViewMethods {
   // Section state never enters cameraState, markView or serialization. The
@@ -34,7 +35,10 @@ export class SectionViewMethods {
       };
     }
     if (this.section) {
-      const plane = sectionPlane(this.section, this.root.matrixWorld);
+      const plane = sectionPlane(
+        this.section,
+        sectionMatrix(this.root.matrixWorld, this.modelUp),
+      );
       // GPU plane tests use floats after the camera transform. Retain a tiny
       // margin in the fitted three-unit scene so a plane at the bounds does
       // not punch speckled holes through a face exactly on that boundary.
@@ -44,7 +48,10 @@ export class SectionViewMethods {
       if (!this.sectionCapMaterial) {
         this.buildSectionCaps();
       }
-      const cut = sectionPlane(this.section, this.root.matrixWorld);
+      const cut = sectionPlane(
+        this.section,
+        sectionMatrix(this.root.matrixWorld, this.modelUp),
+      );
       for (const cap of this.sectionCaps) {
         cut.projectPoint(cap.userData.sectionCenter, cap.position);
         cap.quaternion.setFromUnitVectors(new V(0, 0, 1), cut.normal);

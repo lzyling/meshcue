@@ -672,6 +672,14 @@ export class InstanceManager {
         "The integration needs permission for this workspace's project registry; the current file policy was not overstepped.",
       );
     const opens = input.action === "open";
+    if (
+      input.up !== undefined &&
+      (!["z", "y"].includes(input.up) || !opens || !input.file)
+    )
+      fail(
+        "BAD_USAGE",
+        'up must be "z" or "y" and is valid only for open with a file.',
+      );
     // Checked before anything is touched: a name the page will not show must
     // not leave a project half-opened behind the refusal.
     let agentName;
@@ -821,6 +829,7 @@ export class InstanceManager {
               name: input.name,
               version: input.version,
               units: input.units,
+              ...(input.up !== undefined ? { up: input.up } : {}),
               origin,
               // Publishing shows the new version by default, because showing it
               // costs the reviewer nothing now. Saying otherwise adds a tab and

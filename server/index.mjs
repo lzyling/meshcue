@@ -1490,6 +1490,14 @@ function outboxSummary() {
    says so, and `stateFor` already has that shape. */
 agentApp.get("/status", (req, res) => {
   const state = stateFor("", false);
+  // Versions with different up axes can share content-addressed files. Source
+  // and derived mesh filenames identify files in the same media directory.
+  const storedFiles = new Map();
+  for (const model of Object.values(store.state.models)) {
+    for (const file of [model, model.mesh]) {
+      if (file) storedFiles.set(file.filename, file.bytes || 0);
+    }
+  }
   res.json({
     ...state,
     submissions: state.submissions.map(
@@ -1507,10 +1515,7 @@ agentApp.get("/status", (req, res) => {
        to make conspicuous was the one being shaved. */
     storage: {
       models: Object.keys(store.state.models).length,
-      bytes: Object.values(store.state.models).reduce(
-        (sum, model) => sum + (model.bytes || 0) + (model.mesh?.bytes || 0),
-        0,
-      ),
+      bytes: [...storedFiles.values()].reduce((sum, bytes) => sum + bytes, 0),
     },
     viewerReceipts: store.state.viewerReceipts || {},
     // Asking for status is not using the review, so reading this never moves
@@ -1602,6 +1607,7 @@ agentApp.post("/publish", async (req, res) => {
       version: z.string().max(80).optional(),
       source: z.string().optional(),
       units: z.string().max(30).optional(),
+      up: z.enum(["z", "y"]).optional(),
       label: z.string().max(24).optional(),
       origin: originInput.optional(),
       activate: z.boolean().optional(),
@@ -1618,6 +1624,11 @@ agentApp.post("/publish", async (req, res) => {
     mediaDir,
     generator: `MeshCue ${version}`,
   });
+  if (p.up === "y") {
+    model.up = "y";
+    // Same bytes, different interpretation: independent version/draft identity.
+    model.id += "-y";
+  }
   if (p.label) model.label = p.label;
   const published = store.publish(model, p.origin, {
     activate: p.activate !== false,

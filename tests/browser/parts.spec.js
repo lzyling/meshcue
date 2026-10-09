@@ -80,6 +80,9 @@ async function fixture(count = 3) {
     count === 350
       ? new THREE.BoxGeometry(2, 2, 2, 12, 12, 11)
       : new THREE.BoxGeometry(2, 2, 2);
+  // File coordinates are Z-up: Front lies toward the reviewer (-Y),
+  // Back behind it (+Y), and rows of the large fixture rise along +Z.
+  geometry.rotateX(Math.PI / 2);
   for (let i = 0; i < count; i++) {
     const mesh = new THREE.Mesh(
       geometry,
@@ -92,8 +95,8 @@ async function fixture(count = 3) {
     mesh.name = count === 3 ? ["Front", "Back", "Side"][i] : `Part ${i + 1}`;
     mesh.position.set(
       i < 2 ? 0 : 3 + ((i - 2) % 20) * 2.3,
+      i === 0 ? -2 : 2,
       count === 3 ? 0 : Math.floor(i / 20) * 2.3,
-      i === 0 ? 2 : -2,
     );
     assembly.add(mesh);
   }
@@ -210,14 +213,14 @@ test("part rows, selection, fit, panel actions, shortcuts and version resets", a
   const kit = await open(page);
   await expect(page.locator(".parts-row")).toHaveCount(4);
   await front(page);
-  await kit.clickModelPoint([0, 0, 1]);
+  await kit.clickModelPoint([0, -1, 0]);
   await expect(row(page, "Front")).toHaveAttribute("aria-selected", "true");
   const initial = await diag(page);
   await selectSetting(page, "#theme-choice", "light");
   await kit.screenshot("panel-light");
   await selectSetting(page, "#theme-choice", "dark");
   await kit.screenshot("panel-dark");
-  await kit.clickModelPoint([0, 0, 1]);
+  await kit.clickModelPoint([0, -1, 0]);
   await page.keyboard.press("y");
   await expect(row(page, "Front")).toHaveClass(/part-hidden/);
   await page.keyboard.press("Shift+Y");
@@ -256,25 +259,27 @@ test("hidden parts lose pins and regions, cannot be marked, and stop contributin
   const kit = await open(page);
   await front(page);
   await clickControl(page, '[data-mode="label"]');
-  await kit.clickModelPoint([0, 0, 1]);
+  await kit.clickModelPoint([0, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   await clickControl(page, '[data-mode="fill"]');
-  await kit.clickModelPoint([0.4, 0, 1]);
+  await kit.clickModelPoint([0.4, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   await expect(page.locator("#save-status")).toHaveText("Draft saved");
   const marks = (await diag(page)).annotations;
   await row(page, "Front").locator(".parts-eye").click();
   await expect(page.locator(".model-pin")).toHaveCount(0);
   await clickControl(page, '[data-mode="label"]');
-  await kit.clickModelPoint([0, 0, 1]);
+  await kit.clickModelPoint([0, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("3");
   expect((await diag(page)).annotations.at(-1).meshId).toBe("mesh-1");
   await row(page, "Front").locator(".parts-eye").click();
   await expect(page.locator(".model-pin")).toHaveCount(2);
   expect((await diag(page)).annotations.slice(0, 2)).toEqual(marks);
   await clickControl(page, "#section-toggle");
-  await page.locator("#section-axis").selectOption("z");
-  await page.locator("#section-offset").fill("2");
+  // The old +Z-front cut at z=2 is now y=-2; keep the Back side.
+  await page.locator("#section-axis").selectOption("y");
+  await page.locator("#section-flip").click();
+  await page.locator("#section-offset").fill("-2");
   await page.locator("#section-offset").press("Enter");
   await clickControl(page, '[data-mode="orbit"]');
   await kit.screenshot("section-visible");
@@ -283,7 +288,7 @@ test("hidden parts lose pins and regions, cannot be marked, and stop contributin
   await kit.screenshot("section-hidden");
   expect(await capPixels(page)).toBeLessThan(10);
   await clickControl(page, '[data-mode="label"]');
-  await kit.clickModelPoint([0.3, 0, 1]);
+  await kit.clickModelPoint([0.3, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("4");
   expect((await diag(page)).annotations.at(-1).meshId).toBe("mesh-1");
 });
@@ -299,20 +304,20 @@ test("transparent parts allow marking and measuring behind them through plain vi
   await page.locator("#viewer").hover();
   await kit.screenshot("transparent");
   await clickControl(page, '[data-mode="label"]');
-  await kit.clickModelPoint([0, 0, 1]);
+  await kit.clickModelPoint([0, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   expect((await diag(page)).annotations[0].meshId).toBe("mesh-1");
   await clickControl(page, "#neutral-view");
-  await kit.clickModelPoint([0.4, 0, 1]);
+  await kit.clickModelPoint([0.4, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
   expect((await diag(page)).annotations[1].meshId).toBe("mesh-1");
   await clickControl(page, '[data-mode="measure"]');
   // Compare arbitrary surface points behind the transparent part.
   await page.locator("#measure-advanced summary").click();
   await page.locator('[data-measure="points"]').click();
-  await kit.clickModelPoint([-0.5, -0.6, 1], { meshId: "mesh-1" });
+  await kit.clickModelPoint([-0.5, -1, -0.6], { meshId: "mesh-1" });
   await expect.poll(async () => (await diag(page)).measuring?.picks).toBe(1);
-  await kit.clickModelPoint([0.5, -0.6, 1], { meshId: "mesh-1" });
+  await kit.clickModelPoint([0.5, -1, -0.6], { meshId: "mesh-1" });
   await expect(page.locator("#keep-measure")).toBeEnabled();
   await page.locator("#keep-measure").click();
   await expect(page.locator("#annotation-count")).toHaveText("3");
@@ -323,7 +328,7 @@ test("transparent parts allow marking and measuring behind them through plain vi
   await clickControl(page, '[data-command="parts-transparent"]');
   await expect(row(page, "Front")).not.toHaveClass(/part-transparent/);
   await clickControl(page, '[data-mode="label"]');
-  await kit.clickModelPoint([-0.4, 0, 1]);
+  await kit.clickModelPoint([-0.4, -1, 0]);
   await expect(page.locator("#annotation-count")).toHaveText("4");
   expect((await diag(page)).annotations[3].meshId).toBe("mesh-0");
 });

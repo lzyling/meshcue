@@ -9,7 +9,7 @@ export default {
   "navigation.normal": "Vue normale à la face",
   "navigation.noFace": "Aucune face sous le pointeur",
   "navigation.shortcuts": "Raccourcis clavier",
-  "navigation.axes": "Axes du fichier modèle",
+  "navigation.axes": "Axes canoniques du modèle (+Z en haut)",
   "navigation.rotateLeft": "Tourner à gauche",
   "navigation.rotateRight": "Tourner à droite",
   "navigation.rotateUp": "Tourner vers le haut",

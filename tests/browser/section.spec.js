@@ -115,6 +115,23 @@ async function hollowBox() {
       );
     }
   }
+  // Bake the exact right-handed Y->Z permutation into the fixture, avoiding
+  // quaternion residues in strict source-bound assertions.
+  group.traverse((o) => {
+    const p = o.geometry?.attributes.position;
+    if (!p) return;
+    const py = o.position.y,
+      pz = o.position.z;
+    o.position.y = -pz;
+    o.position.z = py;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i),
+        z = p.getZ(i);
+      p.setY(i, -z);
+      p.setZ(i, y);
+    }
+    o.geometry.computeVertexNormals();
+  });
   const bytes = await new GLTFExporter().parseAsync(group, { binary: true });
   const file = path.join(dir, "hollow.glb");
   fs.writeFileSync(file, Buffer.from(bytes));
@@ -168,9 +185,10 @@ async function clickAt(page, point) {
   const p = await screen(page, point);
   await page.mouse.click(p.x, p.y);
 }
-async function section(page, axis = "z") {
+async function section(page, axis = "y") {
   await clickControl(page, "#section-toggle");
   await page.locator("#section-axis").selectOption(axis);
+  if (axis === "y") await page.locator("#section-flip").click();
 }
 async function offset(page, value) {
   await page.locator("#section-offset").fill(String(value));
@@ -293,12 +311,12 @@ test("hatched cut faces reject labels, bucket and measurement while exposed cavi
   await clickAt(page, [0, 0, -3]);
   await expect(page.locator("#annotation-count")).toHaveText("1");
   const mark = (await diagnostics(page)).annotations[0];
-  expect(mark.position[2]).toBeCloseTo(-3);
+  expect(mark.position[1]).toBeCloseTo(3);
   expect(mark.view.section).toBeUndefined();
   await clickControl(page, '[data-mode="fill"]');
   await clickAt(page, [0, 2, -3]);
   await expect(page.locator("#annotation-count")).toHaveText("2");
-  await offset(page, 4);
+  await offset(page, -4);
   expect(await capPixels(page)).toBe(0);
   await page.locator("#section-off").click();
   expect(await capPixels(page)).toBe(0);
@@ -321,8 +339,8 @@ test("section follows STEP source axes and resets when a new version loads", asy
   await section(page, "z");
   expect((await diagnostics(page)).viewer.section).toMatchObject({
     axis: "z",
-    min: -4,
-    max: 4,
+    min: -7.5,
+    max: 7.5,
     offset: 0,
     flip: false,
   });
@@ -530,6 +548,23 @@ async function joinedBoxes(kind) {
   }
   // An isolated retained surface must remain pickable next to the cap.
   add([2, 4, 2], [9, 0, -2], 0xcc3355);
+  // Bake the exact right-handed Y->Z permutation into the fixture, avoiding
+  // quaternion residues in strict source-bound assertions.
+  group.traverse((o) => {
+    const p = o.geometry?.attributes.position;
+    if (!p) return;
+    const py = o.position.y,
+      pz = o.position.z;
+    o.position.y = -pz;
+    o.position.z = py;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i),
+        z = p.getZ(i);
+      p.setY(i, -z);
+      p.setZ(i, y);
+    }
+    o.geometry.computeVertexNormals();
+  });
   const bytes = await new GLTFExporter().parseAsync(group, { binary: true });
   const file = path.join(dir, `${kind}.glb`);
   fs.writeFileSync(file, Buffer.from(bytes));
@@ -663,7 +698,7 @@ for (const kind of ["touching", "overlapping", "per-face hollow"])
     await clickControl(page, '[data-mode="label"]');
     await clickAt(page, hollow ? [0, 0, -3] : [9, 0, -1]);
     await expect(page.locator("#annotation-count")).toHaveText("1");
-    expect((await diagnostics(page)).annotations[0].position[2]).toBeCloseTo(
-      hollow ? -3 : 1,
+    expect((await diagnostics(page)).annotations[0].position[1]).toBeCloseTo(
+      hollow ? 3 : -1,
     );
   });

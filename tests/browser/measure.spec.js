@@ -112,7 +112,7 @@ async function open(page, units, file = writePlate()) {
   await page.locator('[data-measure="points"]').click();
 }
 // Where a point of the plate is on the screen, from the camera the page holds.
-// A GLB is not stood up: its (x, y, z) is the preview's 0.15 × (x, y, z).
+// Every default-up format maps file (x,y,z) to preview 0.15 × (x,z,-y).
 async function screenOf(page, [x, y, z], format) {
   // Cube changes now animate. Sample screen coordinates only once the camera
   // has arrived, so the following click still tests the intended source face.
@@ -130,11 +130,7 @@ async function screenOf(page, [x, y, z], format) {
   camera.position.fromArray(d.camera.position);
   camera.lookAt(new THREE.Vector3().fromArray(d.camera.target));
   camera.updateMatrixWorld();
-  const p = (
-    format === "glb"
-      ? new THREE.Vector3(0.15 * x, 0.15 * y, 0.15 * z)
-      : new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y)
-  ).project(camera);
+  const p = new THREE.Vector3(0.15 * x, 0.15 * z, -0.15 * y).project(camera);
   return {
     x: box.x + ((p.x + 1) / 2) * box.width,
     y: box.y + ((1 - p.y) / 2) * box.height,
@@ -430,15 +426,14 @@ test("a GLB is measured as triangles, even carrying a STEP's face ranges", async
   /* The plate's own tessellation published as a GLB: the same triangles, and
      in its extras the same face ranges, which are trusted only from a STEP the
      service converted. As triangles, where the front runs into a round there
-     is nothing to take. glTF is drawn as it stands, so the front of the plate
-     faces down and is seen from below. */
+     is nothing to take. GLB now uses the same Z-up frame as the STEP source. */
   const { glb } = await convertStepDetached(
     fs.readFileSync(path.join(repo, "tests/fixtures/plate.step")),
   );
   const file = path.join(dir, "plate-mesh.glb");
   fs.writeFileSync(file, glb);
   await open(page, "mm", file);
-  await page.locator('.orient-face[data-view="0,-1,0"]').dispatchEvent("click");
+  await page.locator('.orient-face[data-view="0,0,1"]').dispatchEvent("click");
   await page.getByRole("button", { name: "Edge length", exact: true }).click();
   const tangent = await screenOf(page, [8, -7.5, 0], "glb");
   await click(page, { x: tangent.x - 3, y: tangent.y });

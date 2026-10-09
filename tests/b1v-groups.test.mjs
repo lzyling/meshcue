@@ -538,6 +538,7 @@ test("MCP and native schemas share strict grouping shape without changing the in
     parameters.properties.partGroups,
     TOOL.inputSchema.properties.partGroups,
   );
+  assert.deepEqual(parameters.properties.up, TOOL.inputSchema.properties.up);
   assert.equal(INTEGRATION_API, 2);
   let schema = partGroupsSchema.items;
   for (let depth = 1; depth <= 8; depth++) {
