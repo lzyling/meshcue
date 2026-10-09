@@ -24,6 +24,7 @@ import { agentNameSchema, AGENT_NAME_RULE } from "../server/agent-name.mjs";
 import { authenticatedPipeAgent } from "./ipc-auth.mjs";
 import { cacheRelease, cachedRelease } from "./release.mjs";
 import { summarizeSubmission, readReceipt } from "./summarize.mjs";
+import { workspaceRelative, normalizeRegistryPaths } from "./relative-path.mjs";
 import {
   workspaceContext,
   contextSummary,
@@ -280,10 +281,12 @@ export class InstanceManager {
       environment = {},
       resolveOrigin,
       toolName,
+      relativePaths = path,
     } = {},
   ) {
     Object.assign(this, workspaceContext(ctx));
     this.ctx = ctx;
+    this.relativePaths = relativePaths; // Serialization-only dependency; filesystem paths stay native.
     // Who owns a review is the host's answer, and only a host shaped like
     // OpenClaw can be asked for it the OpenClaw way. A host that states its own
     // owner supplies this instead; the derivation stays where it can be right.
@@ -338,7 +341,11 @@ export class InstanceManager {
     return {
       id,
       projectRoot,
-      project: path.relative(this.workspace, projectRoot),
+      project: workspaceRelative(
+        this.workspace,
+        projectRoot,
+        this.relativePaths,
+      ),
       runtime,
     };
   }
@@ -407,6 +414,7 @@ export class InstanceManager {
           "REGISTRY_VERSION",
           "Unsupported project registry format; nothing was overwritten.",
         );
+      normalizeRegistryPaths(registry);
       /* Nothing else ever removed an entry, so a project whose folder was
          deleted stayed registered for good, and every Gateway start and stop
          warned about it by name. Only this install's entries, as with pausing:
@@ -419,7 +427,11 @@ export class InstanceManager {
           delete registry.projects[id];
       registry.projects[p.id] = {
         project: p.project,
-        runtime: path.relative(this.workspace, p.runtime),
+        runtime: workspaceRelative(
+          this.workspace,
+          p.runtime,
+          this.relativePaths,
+        ),
         instanceId: config.instance.id,
         agentId: this.agentId,
         installRoot: this.installRoot,
@@ -967,6 +979,7 @@ function eachRegistered(workspace, installRoot, verb, act) {
       "REGISTRY_VERSION",
       "Unsupported project registry format; nothing was overwritten.",
     );
+  normalizeRegistryPaths(registry);
   const unavailable = [];
   for (const item of Object.values(registry.projects)) {
     if (item.installRoot !== installRoot) continue;
@@ -1020,6 +1033,7 @@ export async function runtimesThatCannotReclaim(
     return [];
   }
   if (registry.schema !== 1) return [];
+  normalizeRegistryPaths(registry);
   // Opening is interactive, and this runs inside it. Each probe can cost the
   // full 3s IPC timeout, so a project that is merely slow must not be paid for
   // one after another: skip the ones whose recorded process is already gone —
