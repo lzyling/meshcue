@@ -8,6 +8,7 @@ import {
   execOpenClaw,
   execOpenClawSync,
 } from "../server/openclaw-command.mjs";
+import { npmNodeShim } from "./helpers/npm-node-shim.mjs";
 import { installFakeOpenClaw } from "./helpers/fake-openclaw.mjs";
 
 function fixture(t) {
@@ -23,8 +24,7 @@ function fixture(t) {
     },
   };
 }
-const shim = (entry = "entry.mjs") =>
-  `@ECHO off\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%" "%dp0%\\${entry}" %*\r\n`;
+const shim = (entry = "entry.mjs") => npmNodeShim(entry);
 
 test("POSIX leaves command lookup unchanged", () => {
   assert.deepEqual(resolveOpenClaw({ platform: "linux", env: {} }), {
@@ -59,27 +59,79 @@ test("Windows searches PATH directories first and PATHEXT in order", (t) => {
     path.join(dir, "entry.mjs"),
   ]);
 });
-test("npm modern and legacy shims resolve quoted JS entry, including spaces", () => {
+function assertNpmLayouts(version) {
   const file = "C:\\Program Files\\npm\\openclaw.cmd";
-  const expected =
-    "C:\\Program Files\\npm\\node_modules\\openclaw\\openclaw.mjs";
   assert.equal(
-    npmShimEntry(shim("node_modules\\openclaw\\openclaw.mjs"), file),
-    expected,
+    npmShimEntry(
+      npmNodeShim("node_modules\\openclaw\\openclaw.mjs", version),
+      file,
+    ),
+    "C:\\Program Files\\npm\\node_modules\\openclaw\\openclaw.mjs",
   );
   assert.equal(
     npmShimEntry(
-      shim("node_modules\\openclaw\\openclaw.mjs").replace(
-        '"%_prog%" ',
-        '"%_prog%"  ',
-      ),
-      file,
+      npmNodeShim("..\\openclaw\\openclaw.mjs", version),
+      "C:\\project\\node_modules\\.bin\\openclaw.cmd",
     ),
-    expected,
+    "C:\\project\\node_modules\\openclaw\\openclaw.mjs",
   );
-  const old =
-    '@"%~dp0\\node.exe" "%~dp0\\node_modules\\openclaw\\openclaw.mjs" %*\r\n"node" "%~dp0\\node_modules\\openclaw\\openclaw.mjs" %*';
-  assert.equal(npmShimEntry(old, file), expected);
+}
+test("real cmd-shim 8.0.0 resolves global and local npm layouts", () => {
+  assertNpmLayouts("8.0.0");
+});
+test("real cmd-shim 9.0.2 resolves global and local npm layouts", () => {
+  assertNpmLayouts("9.0.2");
+});
+test("legacy single-line quoted Node shim resolves entry including spaces", () => {
+  for (const node of ["%~dp0\\node.exe", "node"]) {
+    assert.equal(
+      npmShimEntry(
+        `@"${node}" "%~dp0\\node_modules\\openclaw\\openclaw.mjs" %*\r\n`,
+        "C:\\Program Files\\npm\\openclaw.cmd",
+      ),
+      "C:\\Program Files\\npm\\node_modules\\openclaw\\openclaw.mjs",
+    );
+  }
+});
+test("whole-file whitelist rejects extra commands and altered structure", () => {
+  for (const version of ["8.0.0", "9.0.2"]) {
+    const content = npmNodeShim("entry.mjs", version);
+    for (const invalid of [
+      '@echo off\r\nexit /b 1\r\n"node" "%dp0%\\..\\outside.mjs" %*',
+      "exit /b 1\r\n" + content,
+      content + "echo extra\r\n",
+      content.replace("CALL :find_dp0", "CALL :find_dp0\r\nexit /b 1"),
+      content.replace('SET "_prog=node"', 'SET "_prog=evil"'),
+      content.replace("GOTO start", "GOTO elsewhere"),
+      content.replace('"%_prog%"  ', '"%_prog%" --extra '),
+    ])
+      assert.throws(() => npmShimEntry(invalid, "C:\\npm\\openclaw.cmd"), {
+        code: "OPENCLAW_UNSUPPORTED_SHIM",
+      });
+    assert.equal(
+      npmShimEntry("\r\n" + content + "\r\n", "C:\\npm\\openclaw.cmd"),
+      "C:\\npm\\entry.mjs",
+    );
+  }
+});
+test("rooted, UNC, drive and variable entry suffixes fail before resolve", () => {
+  for (const entry of [
+    "C:outside.mjs",
+    "C:\\outside.mjs",
+    "\\\\server\\share\\x.mjs",
+    "\\x.mjs",
+    "/x.mjs",
+    "%EVIL%.mjs",
+    "entry.txt",
+  ]) {
+    for (const version of ["8.0.0", "9.0.2"]) {
+      assert.throws(
+        () =>
+          npmShimEntry(npmNodeShim(entry, version), "C:\\npm\\openclaw.cmd"),
+        { code: "OPENCLAW_UNSUPPORTED_SHIM" },
+      );
+    }
+  }
 });
 test("unrecognized, ambiguous, variable-based, missing-entry and batch shims fail closed", (t) => {
   const { dir, resolution } = fixture(t);

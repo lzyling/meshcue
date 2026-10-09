@@ -14,28 +14,63 @@ const failure = (code) =>
     { code },
   );
 
-// Recognize only npm cmd-shim's quoted Node invocation with one JS entry and
-// %*. Never interpret batch, expand arbitrary variables, or pass argv to cmd.
+// Whole-file whitelist: npm cmd-shim 8/9's Node/no-args header and IF
+// block, with PATHEXT in the corresponding version's location; or one
+// legacy quoted Node invocation. Blank lines are harmless. No batch is run.
 export function npmShimEntry(text, shim, pathApi = path.win32) {
-  const entries = [];
-  for (const line of text.split(/\r?\n/)) {
-    const match = line.match(
-      /^(?:\s*@?\s*|endLocal & goto #_undefined_# 2>NUL \|\| title %COMSPEC% & )"(?:%_prog%|%dp0%[\\/]node\.exe|%~dp0[\\/]node\.exe|node)"[ \t]+"(%dp0%[\\/][^"\r\n]+|%~dp0[\\/][^"\r\n]+)"[ \t]+%\*\s*$/i,
+  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+  const head = [
+    "@ECHO off",
+    "GOTO start",
+    ":find_dp0",
+    "SET dp0=%~dp0",
+    "EXIT /b",
+    ":start",
+    "SETLOCAL",
+    "CALL :find_dp0",
+    'IF EXIST "%dp0%\\node.exe" (',
+    '  SET "_prog=%dp0%\\node.exe"',
+    ") ELSE (",
+    '  SET "_prog=node"',
+  ];
+  let match;
+  if (lines.length === 1) {
+    // Deliberately only a single, complete legacy invocation, not a scan
+    // for a plausible invocation hidden inside an arbitrary batch file.
+    match = lines[0].match(
+      /^@?"(?:%~dp0\\node\.exe|node)"[ \t]+"%~dp0\\([^"\r\n]+)"[ \t]+%\*$/i,
     );
-    if (!match) continue;
-    const relative = match[1].replace(/^%(?:dp0%|~dp0)[\\/]/i, "");
-    if (relative.includes("%") || !/\.(?:mjs|cjs|js)$/i.test(relative))
-      throw failure("OPENCLAW_UNSUPPORTED_SHIM");
-    entries.push(
-      pathApi.resolve(
-        pathApi.dirname(shim),
-        relative.replace(/[\\/]/g, pathApi.sep),
-      ),
-    );
+  } else if (
+    head.every(
+      (line, index) => lines[index]?.toLowerCase() === line.toLowerCase(),
+    )
+  ) {
+    const tail = lines.slice(head.length);
+    const version8 =
+      tail[0]?.toUpperCase() === "  SET PATHEXT=%PATHEXT:;.JS;=;%";
+    if (version8) tail.shift();
+    if (tail.length === 2 && tail[0] === ")") {
+      match = tail[1].match(
+        version8
+          ? /^endLocal & goto #_undefined_# 2>NUL \|\| title %COMSPEC% & "%_prog%"[ \t]+"%dp0%\\([^"\r\n]+)"[ \t]+%\*$/i
+          : /^endLocal & goto #_undefined_# 2>NUL \|\| title %COMSPEC% & set PATHEXT=%PATHEXT:;.JS;=;% & "%_prog%"[ \t]+"%dp0%\\([^"\r\n]+)"[ \t]+%\*$/i,
+      );
+    }
   }
-  if (!entries.length || new Set(entries).size !== 1)
+  const relative = match?.[1];
+  // Reject rooted/UNC/drive paths and unresolved batch variables BEFORE
+  // resolve can reinterpret them. Parent segments are valid for local .bin.
+  if (
+    !relative ||
+    /^[\\/]/.test(relative) ||
+    /[%:]/.test(relative) ||
+    !/\.(?:mjs|cjs|js)$/i.test(relative)
+  )
     throw failure("OPENCLAW_UNSUPPORTED_SHIM");
-  return entries[0];
+  return pathApi.resolve(
+    pathApi.dirname(shim),
+    relative.replace(/[\\/]/g, pathApi.sep),
+  );
 }
 
 export function resolveOpenClaw({
