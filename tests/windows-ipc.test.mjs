@@ -22,10 +22,11 @@ import {
 } from "../server/instance.mjs";
 import { authenticatedPipeAgent } from "../integration/ipc-auth.mjs";
 import { ipc } from "../integration/manager.mjs";
+import { ipcAddress } from "./helpers/ipc-address.mjs";
 
 test("a truncated IPC proof rejects promptly without keeping the child alive for its authentication timeout", async (t) => {
   const runtime = fixture(t);
-  const socketPath = path.join(runtime, "truncated.sock");
+  const socketPath = ipcAddress(runtime, "truncated.sock");
   const moduleURL = new URL("../integration/ipc-auth.mjs", import.meta.url)
     .href;
   const script = `
@@ -164,7 +165,7 @@ test("Windows private state fails closed when ACL setup fails; POSIX paths and c
 
 async function pipeServer(t, handler) {
   const runtime = fixture(t);
-  const socketPath = path.join(runtime, "proof.sock");
+  const socketPath = ipcAddress(runtime, "proof.sock");
   const server = http.createServer(handler);
   server.listen(socketPath);
   await once(server, "listening");
@@ -334,4 +335,14 @@ test("an authenticated pipe cannot silently reconnect after losing its connectio
     /connection was lost/,
   );
   assert.equal(requests, 1);
+});
+
+test("IPC fixtures select actual Windows named pipes without changing POSIX addresses", () => {
+  const first = ipcAddress("unused", "proof.sock", "win32");
+  assert.match(first, /^\\\\\.\\pipe\\meshcue-test-[a-f0-9]{64}$/);
+  assert.notEqual(first, ipcAddress("unused", "proof.sock", "win32"));
+  assert.equal(
+    ipcAddress("runtime", "proof.sock", "darwin"),
+    path.join("runtime", "proof.sock"),
+  );
 });
