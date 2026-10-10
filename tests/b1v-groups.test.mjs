@@ -495,14 +495,18 @@ test("CLI rejects malformed oversize and out-of-workspace grouping files before 
   );
 });
 
-test("MCP and native schemas share strict grouping shape without changing the integration API", async (t) => {
-  assert.equal(TOOL.inputSchema.properties.partGroups, partGroupsSchema);
+test("MCP and native schemas share flat grouping shape without changing the integration API", async (t) => {
+  const groups = TOOL.inputSchema.properties.partGroups;
+  assert.equal(groups.type, partGroupsSchema.type);
+  assert.deepEqual(groups.items, { type: "object" });
+  // Strict member/depth schema stays authoritative at runtime, not discovery.
+  assert.equal(partGroupsSchema.items.properties.members.items.oneOf.length, 3);
   const native = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
   assert.match(
     native,
-    /import \{ partGroupsSchema \} from "\.\.\/\.\.\/integration\/part-groups\.mjs"/,
+    /import \{ toolSchema, validateToolInput \} from "\.\.\/\.\.\/integration\/contract\.mjs"/,
   );
-  assert.match(native, /partGroups: partGroupsSchema/);
+  assert.match(native, /parameters = toolSchema\("openclaw"\)/);
   // Evaluate the actual native tool definition with only its public host SDK
   // entry mocked. No factory runs, so this neither reads host credentials nor
   // requires a globally installed OpenClaw package to test schema parity.

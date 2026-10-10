@@ -18,8 +18,7 @@ import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
-import { partGroupsSchema } from "../integration/part-groups.mjs";
-import { MAX_AGENT_NAME } from "../server/agent-name.mjs";
+import { toolSchema, validateToolInput } from "../integration/contract.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -76,62 +75,8 @@ export function clientToolName(clientInfo) {
 export const TOOL = {
   name: "meshcue",
   description:
-    'Browser-based 3D model review. Publish a GLB, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. Confirm the model\'s intended upright first. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Marks stay in file coordinates. precheck a GLB or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
-  inputSchema: {
-    type: "object",
-    properties: {
-      action: {
-        type: "string",
-        enum: [
-          "inspect",
-          "precheck",
-          "open",
-          "status",
-          "activate",
-          "retain",
-          "read",
-          "echo",
-          "finish",
-          "unlock",
-          "stop",
-        ],
-      },
-      project: { type: "string" },
-      file: { type: "string" },
-      partGroups: partGroupsSchema,
-      name: { type: "string" },
-      version: { type: "string" },
-      up: {
-        type: "string",
-        enum: ["z", "y"],
-        description:
-          "File up axis; default z. Only with open and file. Marks stay in file coordinates.",
-      },
-      label: { type: "string" },
-      units: { type: "string" },
-      versionId: { type: "string" },
-      keep: { type: "integer", minimum: 0 },
-      submissionId: { type: "string" },
-      geometry: { type: "boolean" },
-      summary: { type: "string" },
-      annotations: { type: "array", items: { type: "object" } },
-      activate: { type: "boolean" },
-      resume: { type: "boolean" },
-      host: {
-        type: "string",
-        description:
-          'New reviews default to 127.0.0.1. Use "lan" for automatic private LAN selection or a verified private IPv4; LAN admission is required. Existing reviews keep their stored host.',
-      },
-      confirmedClientAddress: { type: "string" },
-      agentName: {
-        type: "string",
-        maxLength: MAX_AGENT_NAME,
-        description:
-          "open: what the review page calls you, e.g. “Send to Ada”, or “Send to Ada (Claude Code)” when it recognises the client you run in. The name your user gave you; if they gave none, the name of the tool you run in. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
-      },
-    },
-    required: ["action"],
-  },
+    'Browser-based 3D model review. Publish a GLB, glTF, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. Confirm the model\'s intended upright first. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Marks stay in file coordinates. precheck a GLB, glTF or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
+  inputSchema: toolSchema("mcp"),
 };
 
 /* Where the models are. A client that starts this server in the project it is
@@ -239,6 +184,7 @@ export function createHandler({
           content: [{ type: "text", text: JSON.stringify(refusal) }],
         });
       try {
+        validateToolInput(input, "mcp");
         const result =
           input.action === "inspect"
             ? inspectInstall(context, root)

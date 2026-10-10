@@ -1,3 +1,5 @@
+import { INPUT_LIMITS, ID_PATTERN } from "../server/input-limits.mjs";
+import { validateUnknownFields } from "./contract.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -656,6 +658,7 @@ export class InstanceManager {
     return result;
   }
   async execute(input) {
+    validateUnknownFields(input);
     return this.withServingVersion(await this.run(input));
   }
   async run(input) {
@@ -891,7 +894,7 @@ export class InstanceManager {
       }
       if (input.action === "status") return { project: p.project, ...state };
       if (input.action === "read") {
-        if (!/^[\w-]{1,160}$/.test(input.submissionId || ""))
+        if (!new RegExp(ID_PATTERN).test(input.submissionId || ""))
           fail("SUBMISSION_REQUIRED", "Name the submission id for this batch.");
         const batch = await ipc(
           p.runtime,
@@ -962,7 +965,10 @@ export class InstanceManager {
       // Nothing is deleted, so `retain` with a larger number brings them back.
       if (input.action === "retain") {
         const keep = input.keep ?? null;
-        if (keep !== null && !(Number.isInteger(keep) && keep >= 0))
+        if (
+          keep !== null &&
+          !(Number.isInteger(keep) && keep >= 0 && keep <= INPUT_LIMITS.keep)
+        )
           fail(
             "KEEP_REQUIRED",
             "Say how many of the most recent versions to show, or 0 to show every one again.",

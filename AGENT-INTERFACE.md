@@ -66,19 +66,25 @@ someone sends marks into nothing.
 
 ## Actions
 
-`inspect` · `precheck` · `open` · `status` · `activate` · `read` · `echo` ·
-`finish` · `unlock` · `stop`
+<!-- contract-actions:begin -->
 
-| Action     | Does                                                                                                                                       | Notes                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `inspect`  | context availability, installed version, and the paths of these documents                                                                | on all three entry points; needs no project and no owner                                                              |
-| `open`     | publishes a model and **shows it** (optional `partGroups`, `up:"z"` or `up:"y"`)                                                                                                         | `activate: false` adds a tab without changing what the reviewer is looking at; `label` gives that tab a short caption |
-| `activate` | switches which version is displayed                                                                                                        | takes `versionId` (from `status.versions`) or the `version` string                                                    |
-| `status`   | every version with its mark count, unsubmitted flag, submitted batches and whether a tab is open; plus `outbox`, `notifier` and `storage` | read-only                                                                                                             |
-| `read`     | describes a submission, and writes your read receipt                                                                                       | `geometry: true` returns its polygons too; needed to echo or measure, never to understand                             |
-| `echo`     | shows the reviewer which surface you understood                                                                                            | a statement of understanding, not a change                                                                            |
-| `finish`   | closes a round on one version                                                                                                              | unsubmitted marks are **sealed into a batch**, not discarded                                                          |
-| `unlock`   | clears a stale presence record                                                                                                             | presence is a hint and never blocked anyone                                                                           |
+`inspect` · `precheck` · `open` · `status` · `activate` · `retain` · `read` · `echo` · `finish` · `unlock` · `stop`
+
+| Action | Does / defaults |
+| --- | --- |
+| `inspect` | Context availability, installed version and document paths; no project or owner needed. |
+| `precheck` | Read-only model measurement; starts no review service. |
+| `open` | Publish or reopen a model; activate:false preserves the displayed version. |
+| `status` | Read-only visible versions and marking counts, submissions, outbox, notifier and storage; retain may hide versions. |
+| `activate` | Display a published version; requires versionId or a matching version string. |
+| `retain` | Show the latest keep versions; omitted, null or zero restores all. Files are retained; keptVisible explains protected versions. |
+| `read` | Read a submission and record its receipt; geometry:true includes polygons. Uses the batch version, not caller versionId. |
+| `echo` | Show understanding of a submission without changing marks; uses the batch version, not caller versionId. |
+| `finish` | Close a round, sealing unsubmitted marks into a batch; omitted versionId uses the active version. |
+| `unlock` | Clear stale presence; omitted versionId clears all presence records. |
+| `stop` | Stop this review service without deleting its data. |
+
+<!-- contract-actions:end -->
 
 `versions[].unsubmitted` is a boolean: `true` means the draft has changes
 not yet submitted, including deleting all marks; `false` means no such changes.
@@ -236,24 +242,62 @@ Run `meshcue help` (or `meshcue --help`) for the accepted flags and their tool
 field names. Help is a top-level action: `meshcue open --help` is not supported.
 From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 
-| CLI flag | Tool field / meaning |
+<!-- contract-fields:begin -->
+
+| Field | Type / bounds | Actions | Default / meaning |
+| --- | --- | --- | --- |
+| `action` | type: string; enum: inspect/precheck/open/status/activate/retain/read/echo/finish/unlock/stop | inspect, precheck, open, status, activate, retain, read, echo, finish, unlock, stop | Operation to perform; required. Default: Not specified |
+| `project` | type: string | open, status, activate, retain, read, echo, finish, unlock, stop | Workspace-relative modelling project, e.g. projects/phone-stand; never the application checkout. Default: Not specified |
+| `file` | type: string; minLength: 1 | open, precheck | Existing GLB, glTF, STL or STEP source relative to the workspace. Hard limits: 600000 triangles and 80 MiB; STEP is tessellated on import. Required: precheck. Default: Not specified |
+| `partGroups` | type: array; maxItems: 256 | open | open with file: optional named, nested groups alongside the unchanged File hierarchy. Membership is resolved only in the reviewer's browser. Omit to keep existing groups on same-content reuse; [] clears them. Total limits: 256 groups, depth 8, 4096 members and 256 KiB normalized UTF-8 JSON. Default: Omitted preserves reused groups; [] clears |
+| `name` | type: string; maxLength: 160 | open | Publication name; at most 160 UTF-16 code units. Default: Input file basename |
+| `version` | type: string; maxLength: 80 | open, activate | Publication version (at most 80 UTF-16 code units), or existing version string for activate. Default: initial on publication |
+| `units` | type: string; maxLength: 30 | open | Units text; at most 30 UTF-16 code units. STEP always uses mm. Default: unspecified; STEP mm |
+| `up` | type: string; enum: z/y | open | File up axis, only open with file; default z (+Z up, -Y front, +X right). Marks stay in published file coordinates. Default: z |
+| `label` | type: string; maxLength: 24 | open | Explicit tab caption is rejected above 24 UTF-16 code units. When omitted, the displayed version caption is automatically shortened. Default: Version caption automatically shortened |
+| `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence; 1–100 ASCII letters, digits, underscores or hyphens. read/echo do not use this field; the batch’s own version is authoritative. Default: Action-dependent; see description |
+| `keep` | type: integer/null; minimum: 0; maximum: 1000 | retain | Show latest 0–1000 versions; omitted, null or zero restores all; protected versions remain visible. Default: null: restore all |
+| `submissionId` | type: string; minLength: 1; maxLength: 100 | read, echo | Submission batch id; 1–100 ASCII letters, digits, underscores or hyphens. Required: read, echo. Default: Not specified |
+| `geometry` | type: boolean | read | True returns full batch geometry; omitted returns a summary. Default: false: summary |
+| `summary` | type: string; minLength: 1; maxLength: 1000 | echo | Understanding of the batch; required for echo, 1–1000 UTF-16 code units. Required: echo. Default: Not specified |
+| `annotations` | type: array; maxItems: 20 | echo | At most 20 regions from a full submission; never invented geometry. HTTP validates view, bounds, patches and geometry in detail. Default: [] |
+| `activate` | type: boolean | open | False publishes without changing the displayed version; default true. Default: true |
+| `resume` | type: boolean | open | True only when the user explicitly continues this existing project in the current conversation. Default: false |
+| `host` | type: string | open | New MCP/CLI reviews default to 127.0.0.1; lan selects private LAN, or use a verified private IPv4. Existing reviews keep stored host. Default: Entry-dependent; existing host preserved |
+| `confirmedClientAddress` | type: string; maxLength: 64 | open | User-confirmed browser device IPv4; never inferred from first visitor. Default: OpenClaw may use plugin clientAddress; otherwise admission may need address |
+| `agentName` | type: string; minLength: 1; maxLength: 24 | open | Review-page name: trim first, 1–24 UTF-16 code units, no control/bidi characters. Omitted keeps previous name; otherwise tool fallback. OpenClaw appends OpenClaw; MCP may append recognised client. Default: Previous name or tool fallback |
+
+| CLI flag | Tool field |
 | --- | --- |
-| `--workspace <directory>` | CLI workspace root; defaults to the working directory |
-| `--owner <id>` | CLI originating session; required except for help, inspect and precheck |
-| `--project <projects/name>` | `project` |
-| `--file <path>` | `file`, relative to the workspace |
-| `--part-groups <path>` | `open` only, with `file`: workspace-relative JSON array transported as optional `partGroups` |
-| `--name <text>`, `--version <text>`, `--units <text>`, `--label <text>` | Same-named publication fields |
-| `--up <z\|y>` | File up axis on `open` with `file`; defaults to `z` |
-| `--agent-name <text>` | `agentName` |
-| `--client-address <IPv4>` | `confirmedClientAddress`, the verified browser device address |
-| `--host <address>` | `host`, the listening address for a new review |
-| `--submission <id>` | `submissionId` for read/echo |
-| `--version-id <id>` | `versionId` for activate/read/echo/finish |
-| `--summary <text>` | `summary` for echo |
-| `--keep <number>` | `keep` for retain |
-| `--resume` | `resume: true` |
+| `--workspace <value>` | `workspace` |
+| `--owner <value>` | `owner` |
+| `--project <value>` | `project` |
+| `--file <value>` | `file` |
+| `--part-groups <value>` | `partGroups` |
+| `--name <value>` | `name` |
+| `--version <value>` | `version` |
+| `--units <value>` | `units` |
+| `--up <value>` | `up` |
+| `--label <value>` | `label` |
+| `--version-id <value>` | `versionId` |
+| `--keep <value>` | `keep` |
+| `--submission <value>` | `submissionId` |
+| `--summary <value>` | `summary` |
+| `--host <value>` | `host` |
+| `--client-address <value>` | `confirmedClientAddress` |
+| `--agent-name <value>` | `agentName` |
 | `--no-activate` | `activate: false` |
+| `--resume` | `resume: true` |
+
+Entry differences:
+- openclaw `host`: Listener selection is plugin listenHost configuration, never a per-call parameter; automatic private LAN by default.
+- cli `geometry`: CLI supports summary reads only; use MCP or OpenClaw for geometry.
+- cli `annotations`: CLI echo is text only; use MCP or OpenClaw for regions.
+- cli `partGroups`: Transported as a workspace-relative JSON file via --part-groups.
+- cli `workspace`: CLI context; defaults to cwd. MCP uses environment; OpenClaw supplies context.
+- cli `owner`: CLI context; required for project actions. MCP uses environment/workspace identity; OpenClaw supplies context.
+
+<!-- contract-fields:end -->
 
 Do not turn camelCase tool fields into guessed CLI flags:
 `--submission-id`, `--confirmed-client-address`, and `--confirmedClientAddress`
@@ -283,7 +327,7 @@ that names you, the submit button included; a name that is the tool's own is
 said once. The CLI cannot tell which tool is calling, so a name given there
 stands alone.
 
-It is plain text on one line, at most 24 characters, and is only ever shown as
+It is plain text on one line, trimmed to 1–24 UTF-16 code units with control/bidi characters rejected, and is only ever shown as
 text. A control or text-direction character is refused with `BAD_AGENT_NAME`,
 and then nothing was opened or changed. The CLI takes it as `--agent-name`.
 
@@ -329,7 +373,7 @@ is the substitute.
 
 - `pending > 0` — saved but unconfirmed. The queue retries on a curve capped at
   five minutes. **Marks are not lost.**
-- `stalled > 0` — a batch has failed more than twenty times. **Tell the reviewer
+- `stalled > 0` — a batch has reached the failure threshold (default 20 attempts; REVIEW_STALL_AFTER can override it). **Tell the reviewer
   in the conversation**, with `lastError.message`: they see the same fact on the
   page, but only this carries the reason.
 - `lastError` clears itself on recovery.
@@ -385,7 +429,7 @@ no support for KTX2/BasisU textures, animation, instancing or lights.
 | Limit          | Threshold                            | On exceeding                                    |
 | -------------- | ------------------------------------ | ----------------------------------------------- |
 | Triangles      | **600,000**                          | refused, `MODEL_LIMIT`, with the measured count |
-| File size      | **80 MB**                            | refused, `MODEL_LIMIT`, with the measured size  |
+| File size      | **80 MiB**                            | refused, `MODEL_LIMIT`, with the measured size  |
 | Textures | 8192×8192 each, **384 MiB** estimated GPU memory | refused, `TEXTURE_LIMIT`, with the estimate in MiB |
 
 Texture memory is estimated per embedded image as `width * height * 4 * 4 / 3`
@@ -439,9 +483,10 @@ measures it and refuses it with the same `MODEL_LIMIT`, and a precheck would
 only tessellate it a second time.
 
 - `ok` — publish.
-- `reject` — publishing will be refused. Decimate by
-  `simplify.requiredRatio`, which is measured from this file and lands inside
-  the cap.
+- `reject` — publishing will be refused. Only decimate by
+  `simplify.requiredRatio` when it is a number. When it is null (or simplify
+  is null), follow `reason`: re-export oversized files, reduce oversized
+  textures, or re-export models with no triangles.
 
 Two ways to simplify, in order of preference:
 
@@ -872,8 +917,11 @@ the echo from yellow marks and keeps its edge visible where marks overlap; the
 reviewer's marks remain unchanged. A new echo briefly brightens the glow.
 With `prefers-reduced-motion`, the outline and glow stay still.
 
-`echo` takes the `submissionId`, the `versionId`, a short `summary`, and an
+The HTTP `/echo` route takes `submissionId`, `versionId`, `summary`, and an
 optional `annotations` array of regions in that version's own region format.
+The tool/CLI echo takes the batch id and binds to its version automatically;
+read/echo ignore caller versionId. summary is 1–1000 UTF-16 code units, with
+at most 20 regions.
 Pins are not regions and must not be passed as one. The service validates the
 version, the batch, the mesh indices and the accompanying patches.
 

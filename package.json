@@ -34,7 +34,7 @@
     "build:integration": "node scripts/build-integration.mjs",
     "start": "node server/index.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "sync:docs": "node scripts/sync-reviewer-help.mjs",
+    "sync:docs": "node scripts/sync-reviewer-help.mjs && node scripts/sync-contract-docs.mjs",
     "test": "npm run check:i18n && node scripts/test-node.mjs",
     "test:browser": "node scripts/test-browser.mjs",
     "test:lan": "node scripts/test-lan.mjs",

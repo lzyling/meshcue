@@ -61,7 +61,17 @@ test("a name is plain text on one line, at most twenty-four characters", () => {
   ])
     assert.equal(ok(value).success, false, JSON.stringify(value));
   // The entries advertise the same limit the service holds them to.
-  assert.equal(TOOL.inputSchema.properties.agentName.maxLength, MAX_AGENT_NAME);
+  const name = TOOL.inputSchema.properties.agentName;
+  assert.equal(name.type, "string");
+  assert.match(
+    name.description,
+    new RegExp(`trim first, 1–${MAX_AGENT_NAME} UTF-16`),
+  );
+  assert.equal(
+    name.maxLength,
+    undefined,
+    "schema must not reject padded names before runtime trimming",
+  );
 });
 
 test("the name given is what the page shows, and leaving it out keeps it", (t) => {

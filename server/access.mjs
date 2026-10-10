@@ -1,3 +1,4 @@
+export const DEFAULT_SESSION_DAYS = 30;
 import crypto from "node:crypto";
 import net from "node:net";
 import fs from "node:fs";
@@ -90,7 +91,7 @@ export class ReviewAccess {
     // moment the person reads the message that carries the link. In a tool whose
     // links arrive in a conversation, half an hour between those two is ordinary.
     grantMs = 60 * 60_000,
-    sessionMs = 30 * 24 * 60 * 60_000,
+    sessionMs = DEFAULT_SESSION_DAYS * 24 * 60 * 60_000,
     file = null,
     protectedClients = () => [],
   } = {}) {

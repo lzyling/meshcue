@@ -1,3 +1,8 @@
+import {
+  INPUT_LIMITS,
+  ID_PATTERN,
+  DEFAULT_STALL_AFTER,
+} from "./input-limits.mjs";
 import { markReference } from "../integration/summarize.mjs";
 import express from "express";
 import fs from "node:fs";
@@ -10,7 +15,7 @@ import { ReviewStore, ReviewError, atomicJson } from "./store.mjs";
 import { log, errorDetail } from "./log.mjs";
 import { limitInitialPipeRequest } from "./ipc-timeout.mjs";
 import { claimLock, readLock, releaseLock, processAlive } from "./lockfile.mjs";
-import { importModel, MAX_TRIANGLES } from "./models.mjs";
+import { importModel, MAX_TRIANGLES, MAX_BYTES } from "./models.mjs";
 import {
   MAX_ROUND_BYTES,
   MARK_WHOLE_FACE_BYTES,
@@ -338,7 +343,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
+const id = z.string().regex(new RegExp(ID_PATTERN));
 const vec3 = z.tuple([
   z.number().finite(),
   z.number().finite(),
@@ -577,7 +582,7 @@ function stateFor(clientId, full = false, versionId) {
        it, and the sentence the page offers them for that names the project,
        so the Agent can read the batch without asking which one. */
     project: (config.managed && config.projectPath) || null,
-    limits: { maxTriangles: MAX_TRIANGLES, maxBytes: 80 * 1024 * 1024 },
+    limits: { maxTriangles: MAX_TRIANGLES, maxBytes: MAX_BYTES },
     // The countdown rides along on every poll, not only during the
     // announcement: a throttled background tab can sleep through the whole
     // announced window, and its last reading is then the only thing it has to
@@ -1165,7 +1170,10 @@ app.post("/api/feedback", async (req, res) => {
 // Roughly ninety minutes on the backoff curve: long enough that a Gateway
 // restart or a brief outage never raises it, short enough that a reviewer is
 // still in front of the page when it does.
-const STALL_AFTER = Math.max(1, Number(process.env.REVIEW_STALL_AFTER) || 20);
+const STALL_AFTER = Math.max(
+  1,
+  Number(process.env.REVIEW_STALL_AFTER) || DEFAULT_STALL_AFTER,
+);
 // One failing send used to write a full record on every retry, so a single
 // stuck batch produced a couple of hundred identical multi-line entries. Report
 // each distinct cause once, then stay quiet about it until it changes.
@@ -1603,12 +1611,12 @@ agentApp.post("/publish", async (req, res) => {
   const p = z
     .object({
       file: z.string().min(1),
-      name: z.string().max(160).optional(),
-      version: z.string().max(80).optional(),
+      name: z.string().max(INPUT_LIMITS.name).optional(),
+      version: z.string().max(INPUT_LIMITS.version).optional(),
       source: z.string().optional(),
-      units: z.string().max(30).optional(),
+      units: z.string().max(INPUT_LIMITS.units).optional(),
       up: z.enum(["z", "y"]).optional(),
-      label: z.string().max(24).optional(),
+      label: z.string().max(INPUT_LIMITS.label).optional(),
       origin: originInput.optional(),
       activate: z.boolean().optional(),
       partGroups: z.unknown().optional(),
@@ -1649,7 +1657,15 @@ agentApp.post("/publish", async (req, res) => {
    picks the change up on its next poll without being reloaded or closed. */
 agentApp.post("/retain", (req, res) => {
   const p = z
-    .object({ keep: z.number().int().min(0).max(1000).nullable().optional() })
+    .object({
+      keep: z
+        .number()
+        .int()
+        .min(0)
+        .max(INPUT_LIMITS.keep)
+        .nullable()
+        .optional(),
+    })
     .strict()
     .parse(req.body);
   res.json(store.retain(p.keep ?? null));
@@ -1693,7 +1709,7 @@ agentApp.post("/access/admit", (req, res) => {
   if (!accessRequired || !store.state.active)
     throw new AccessError("No protected review is ready.", 409);
   const p = z
-    .object({ address: z.string().max(64) })
+    .object({ address: z.string().max(INPUT_LIMITS.clientAddress) })
     .strict()
     .parse(req.body);
   // Loopback admissions are for protected local fixtures, not LAN delivery.
@@ -1750,8 +1766,8 @@ agentApp.post("/echo", (req, res) => {
     .object({
       submissionId: id,
       versionId: id,
-      summary: z.string().min(1).max(1000),
-      annotations: z.array(annotation).max(20),
+      summary: z.string().min(1).max(INPUT_LIMITS.summary),
+      annotations: z.array(annotation).max(INPUT_LIMITS.annotations),
     })
     .strict()
     .parse(req.body);

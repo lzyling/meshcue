@@ -82,7 +82,7 @@ they are done rather than waiting for a message that cannot arrive.
 | Limit          | Threshold                        | On exceeding                     |
 | -------------- | -------------------------------- | -------------------------------- |
 | Triangles      | 600,000                          | publish refused, `MODEL_LIMIT`   |
-| File size      | 80 MB                            | publish refused, `MODEL_LIMIT`   |
+| File size      | 80 MiB                            | publish refused, `MODEL_LIMIT`   |
 | Textures | 8192×8192 each, 384 MiB estimated GPU memory (RGBA8 + mipmaps) | publish refused, `TEXTURE_LIMIT` |
 
 A mark names a source face, so a model at the cap marks exactly as precisely as
@@ -153,7 +153,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 545 unit and integration tests
+npm test             # 559 unit and integration tests
 npm run test:browser # 301 real-Chromium tests, isolated port and data
 ```
 
@@ -275,3 +275,5 @@ rather than folded into a bundle. That is deliberate. Replacing it — a differe
 build, a newer OCCT — is a matter of swapping those two files, and a copy inside
 a bundle would be one nobody could swap. Everything MeshCue itself is remains
 Apache-2.0.
+
+Supported review inputs: GLB, glTF, STL and STEP; convert 3MF first.
