@@ -28,8 +28,7 @@ export const ACTION_DETAILS = Object.freeze({
 export const ACTIONS = Object.freeze(Object.keys(ACTION_DETAILS));
 // Discovery compatibility exception (OpenClaw/MCP/CLI): versionId is a string
 // for provider compatibility, but raw read/echo calls still ignore any value.
-// Schema clients intentionally reject non-strings; W2 removes this unused field
-// from read/echo. This is not a claim of OpenAI strict-schema compatibility.
+// Schema clients intentionally reject non-strings; raw read/echo still ignore it. This is not a claim of OpenAI strict-schema compatibility.
 export const ENTRY_DIFFERENCES = Object.freeze({
   openclaw: {
     host: "Listener selection is plugin listenHost configuration, never a per-call parameter; automatic private LAN by default.",

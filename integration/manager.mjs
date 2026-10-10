@@ -1,3 +1,5 @@
+import { precheckModel, stepMeshFor } from "./precheck.mjs";
+import { reviewGates } from "./summarize.mjs";
 import { INPUT_LIMITS, ID_PATTERN } from "../server/input-limits.mjs";
 import { validateUnknownFields } from "./contract.mjs";
 import fs from "node:fs";
@@ -148,6 +150,10 @@ export async function ipc(
             if (res.statusCode >= 400) {
               const err = new Error(value.error || "MeshCue request failed");
               err.code = value.code;
+              if (value.precheck) {
+                err.precheck = value.precheck;
+                err.remediation = value.remediation;
+              }
               reject(err);
             } else resolve(value);
           });
@@ -713,6 +719,23 @@ export class InstanceManager {
           "The model file is outside this tool's file permission.",
         );
     }
+    // Preflight before project creation, registration, ensure or any IPC write.
+    if (opens && input.file && /\.(glb|gltf|stl)$/i.test(input.file)) {
+      const check = precheckModel(this.ctx, input.file, {
+        derived: await stepMeshFor(this.ctx, input.file),
+      });
+      if (check.verdict === "reject") {
+        const error = new IntegrationError(
+          check.remediation.kind === "reduce-textures"
+            ? "TEXTURE_LIMIT"
+            : "MODEL_LIMIT",
+          check.reason,
+        );
+        error.precheck = check;
+        error.remediation = check.remediation;
+        throw error;
+      }
+    }
     let p;
     try {
       p = this.project(input.project);
@@ -785,6 +808,9 @@ export class InstanceManager {
                 project: p.project,
                 running: false,
                 stopped: true,
+                state: readStoppedState(p.runtime, config.instance.id),
+                next: "Use open to reopen the same project; its data is retained.",
+                viewer: null,
                 dataRetained: true,
               };
             fail(
@@ -874,6 +900,7 @@ export class InstanceManager {
         return {
           project: p.project,
           instanceId: config.instance.id,
+          openedAt: state.openedAt ?? null,
           url: `http://${state.network.host}:${state.network.port}/`,
           active: state.active,
           versions: state.versions,
@@ -919,6 +946,7 @@ export class InstanceManager {
           versionId: batch.versionId,
         });
         return {
+          gates: reviewGates(receipt, state.active),
           submission:
             // /read returns the same batch after recording the receipt. Using
             // the earlier snapshot here made a first read contradict itself.
@@ -1126,4 +1154,20 @@ export function resumeRegistered(workspace, installRoot) {
     const marker = path.join(runtime, "disabled.json");
     if (fs.existsSync(marker)) fs.unlinkSync(marker);
   });
+}
+
+function readStoppedState(runtime, instanceId) {
+  try {
+    const record = JSON.parse(
+      fs.readFileSync(path.join(runtime, "stopped.json"), "utf8"),
+    );
+    return record.reason === "idle" &&
+      record.instanceId === instanceId &&
+      typeof record.stoppedAt === "string" &&
+      Number.isFinite(Date.parse(record.stoppedAt))
+      ? "stopped-idle"
+      : "stopped";
+  } catch {
+    return "stopped";
+  }
 }

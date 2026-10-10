@@ -243,3 +243,22 @@ test("the sentence copies without the clipboard API, and fits a narrow host pane
   await page.locator("#receipt-copy").click();
   await expect(page.locator("#receipt-copy")).toHaveText("已复制");
 });
+
+test("W2 status proves a browser loaded since open, not merely a retained receipt", async ({
+  browser,
+}) => {
+  await start({ REVIEW_BRIDGE: "off" });
+  const { ipc } = await import("../../integration/manager.mjs");
+  await ipc(dir, null, "/opened", {});
+  const status = () => JSON.parse(ctl("status"));
+  expect(status().viewer.loadedSinceOpen).toBe(false);
+  const { page } = await reader(browser, "en-US");
+  await expect.poll(() => status().viewer.loadedSinceOpen).toBe(true);
+  expect(status().viewer.clients).toBe(1);
+  await new Promise((r) => setTimeout(r, 5));
+  await ipc(dir, null, "/opened", {});
+  expect(status().viewer.loadedSinceOpen).toBe(false);
+  await page.reload();
+  await expect.poll(() => status().viewer.loadedSinceOpen).toBe(true);
+  expect(status().viewer.expectedSha256).toBe(status().active.sha256);
+});

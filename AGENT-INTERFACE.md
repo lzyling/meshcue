@@ -387,10 +387,9 @@ Mention a conspicuous number; never delete one yourself.
 1. **A batch with `sealed: true` was not handed over deliberately.** It is
    unfinished work closed out on the reviewer's behalf when a version's round
    ended. Ask what they meant before treating it as a change request.
-2. **A mark against an older version may already be fixed.** Check that surface
-   in the current version before deciding whether it is a correction or a stale
-   opinion; the submission carries its `versionId` and the model snapshot of the
-   time, which is enough to compare.
+2. **Use `gates.nextAction` after read.** For `ask-version`, ask whether to return
+   to `gates.olderVersion.markedOn` or apply the feedback to `showing`; do not
+   decide that the feedback is stale yourself.
 3. **Never end a review for the reviewer.** `finish` is for when they ask.
 
 ## Accepted model formats
@@ -483,10 +482,10 @@ measures it and refuses it with the same `MODEL_LIMIT`, and a precheck would
 only tessellate it a second time.
 
 - `ok` — publish.
-- `reject` — publishing will be refused. Only decimate by
-  `simplify.requiredRatio` when it is a number. When it is null (or simplify
-  is null), follow `reason`: re-export oversized files, reduce oversized
-  textures, or re-export models with no triangles.
+- `reject` — follow `remediation.kind` and `remediation.next`: `decimate` supplies
+  a numeric `ratio`; `reexport-smaller`, `reduce-textures`, and `reexport-geometry`
+  require the corresponding re-export or texture fix. `simplify.requiredRatio`
+  remains available for older clients.
 
 Two ways to simplify, in order of preference:
 
@@ -844,7 +843,7 @@ read; what it should become is in its `note` or the conversation ("make this
 before anything is changed. A measurement with neither is a question to ask,
 not a target to guess.
 
-When marks carry notes, **echo what you understood before changing anything**
+For every batch, **echo what you understood before changing anything**
 — in the conversation, and with `echo` where a region helps — and wait for
 the reviewer to confirm it. A note that asks for a size ("make this 22 mm") is
 echoed back as the change from what it is now to what they asked for. **Where a
@@ -934,3 +933,33 @@ to another.
 
 `scripts/reviewctl.mjs` still exists as a local maintenance path and is not the
 agent interface. Use the tool, the CLI or the MCP server.
+
+## Runtime conclusions
+
+`open.openedAt` is the server's ISO timestamp for this open, including a reopen
+without a new file. GLB/glTF/STL opens automatically precheck before starting a
+service or changing project state; limit errors include `precheck` and its
+`remediation` object. STEP import checks are unchanged.
+
+`status.viewer` is null when there is no active model. Otherwise `versionId` and
+`expectedSha256` identify the displayed mesh (the converted mesh SHA for STEP).
+`loadedSinceOpen` means a matching tab receipt arrived after `openedAt`;
+false means "The link was sent, but the page has not loaded the new version."
+This proves a tab loaded the bytes, not that the user looked at them.
+`lastLoadedAt` is the latest matching receipt as an ISO timestamp, or null;
+`clients` counts retained matching tab receipts, including ones before this open.
+Do not compare raw `viewerReceipts` and source hashes yourself.
+
+`read.gates` is present for summary and geometry reads. `sealed` means the system
+sealed unfinished work rather than the user submitting it; `olderVersion` is
+null or `{markedOn, showing}` using publication version names. `hasNotes` says
+whether any mark carries a nonempty note; `mustConfirmBeforeChange` is always
+true. Follow `nextAction`: `ask-sealed` first asks whether a change is intended,
+then resolve any older-version choice; `ask-version` asks which version to
+change; `echo-then-wait` echoes understanding and waits for confirmation.
+Caller `versionId` remains ignored by read/echo; the batch selects its version.
+
+`status.state` is `running`, `stopped-idle` (a recorded idle reclaim), or
+`stopped` (no verified idle record). `next` describes the next operation;
+reopening the same project retains its data. A dead page while `running` is not
+proof of idle shutdown: report or diagnose connectivity rather than guessing.

@@ -169,3 +169,21 @@ test("a GLB with morph targets is refused as animated, before anything is publis
     (error) => error.code === "ANIMATED_MODEL" && /morph/i.test(error.message),
   );
 });
+
+test("precheck inspection reuse is byte-keyed and isolated from caller mutation", async (t) => {
+  const { ctx, write } = setup(t);
+  const { primitiveGlb } = await import("./fixtures/primitive-glb.mjs");
+  const bytes = primitiveGlb([
+    { mode: 1, count: 2 },
+    { mode: 4, count: 3 },
+  ]);
+  const file = write("cached.glb", bytes);
+  const first = precheckModel(ctx, file);
+  first.notices[0].message = "caller mutation";
+  first.triangles = 999;
+  const second = precheckModel(ctx, file);
+  assert.equal(second.triangles, 1);
+  assert.notEqual(second.notices[0].message, "caller mutation");
+  write(file, primitiveGlb([{ mode: 4, count: 6 }]));
+  assert.equal(precheckModel(ctx, file).triangles, 2);
+});

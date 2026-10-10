@@ -75,7 +75,7 @@ export function clientToolName(clientInfo) {
 export const TOOL = {
   name: "meshcue",
   description:
-    'Browser-based 3D model review. Publish a GLB, glTF, STL or STEP for a person to mark on, read the marks they submit, and publish the next version. Confirm the model\'s intended upright first. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Marks stay in file coordinates. precheck a GLB, glTF or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
+    'Browser-based 3D model review. Publish a GLB, glTF, STL or STEP for a person to mark on, read the marks they submit, echo understanding and wait for confirmation, then publish the next version. Confirm the model\'s intended upright first. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Marks stay in file coordinates. precheck a GLB, glTF or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
   inputSchema: toolSchema("mcp"),
 };
 
@@ -209,6 +209,9 @@ export function createHandler({
               text: JSON.stringify({
                 code: error.code || "FAILED",
                 message: String(error.message || error),
+                ...(error.precheck
+                  ? { precheck: error.precheck, remediation: error.remediation }
+                  : {}),
               }),
             },
           ],
