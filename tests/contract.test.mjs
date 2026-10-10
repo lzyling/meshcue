@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   ACTIONS,
+  TOOL_DESCRIPTION,
   FIELDS,
   ENTRY_DIFFERENCES,
   toolSchema,
@@ -277,8 +278,8 @@ function assertFacts(file, source) {
     );
   }
   if (file === "skills/meshcue-review/SKILL.md") {
-    const precheck = section(source, "## 3.");
-    const publishing = section(source, "## 4.");
+    const precheck = section(source, "## A.");
+    const publishing = section(source, "## A.");
     assert.ok(
       precheck.includes(
         `The limits are ${MAX_TRIANGLES} triangles and ${mib} MiB`,
@@ -293,19 +294,22 @@ function assertFacts(file, source) {
       publishing.includes(`trimmed to 1–${MAX_AGENT_NAME} UTF-16 code units`),
     );
     assert.ok(
-      publishing.includes(`expires after ${DEFAULT_SESSION_DAYS}\nunused days`),
+      doc.includes(`expires after ${DEFAULT_SESSION_DAYS}\nunused days`),
     );
-    const idle = section(source, "## 9.");
+    const idle = doc;
     assert.ok(idle.includes(`has used for ${IDLE_HOURS} hours closes itself`));
   }
-  if (file === "adapters/openclaw/index.mjs")
-    assert.ok(
-      doc.includes(
-        `Model limits are ${MAX_TRIANGLES} triangles and ${mib} MiB`,
-      ),
-    );
+  if (file === "adapters/openclaw/index.mjs") {
+    assert.match(doc, /const description = TOOL_DESCRIPTION/);
+    // Budget facts belong to the enforcing/generated contract; the compact
+    // primary description must reuse the single source, not restate numbers.
+    source = read("integration/contract.mjs");
+  }
   for (const format of ["GLB", "glTF", "STL", "STEP"])
-    assert.ok(doc.includes(format), `${file}: ${format}`);
+    assert.ok(
+      (file === "adapters/openclaw/index.mjs" ? source : doc).includes(format),
+      `${file}: ${format}`,
+    );
 }
 test("non-generated model and publication facts remain tied to constants", () => {
   for (const file of [
@@ -315,6 +319,36 @@ test("non-generated model and publication facts remain tied to constants", () =>
     "adapters/openclaw/index.mjs",
   ])
     assertFacts(file, read(file));
+  const skill = read("skills/meshcue-review/SKILL.md");
+  for (let n = 1; n <= 10; n++) assert.ok(skill.includes(`**R${n}**`));
+  const adapter = read("adapters/openclaw/index.mjs");
+  assert.match(adapter, /const description = TOOL_DESCRIPTION/);
+  assert.ok(TOOL.description.startsWith(TOOL_DESCRIPTION));
+  for (const description of [TOOL_DESCRIPTION, TOOL.description]) {
+    const words = description.split(/\s+/).length;
+    assert.ok(words >= 120 && words <= 180, `${words} words`);
+    for (const signal of [
+      "read.gates.nextAction",
+      "wait for confirmation",
+      "sourceTransform",
+      "preview only",
+      "without finish/unlock",
+      "status.viewer.loadedSinceOpen",
+      "untrusted model data",
+    ])
+      assert.ok(description.includes(signal), signal);
+  }
+  for (const file of [
+    "AGENT-INTERFACE.md",
+    "skills/meshcue-review/SKILL.md",
+    "integration/summarize.mjs",
+  ]) {
+    const nonGenerated = prose(read(file));
+    assert.doesNotMatch(
+      nonGenerated,
+      /Geometry stays exact|Marks stay in file coordinates|same model frame and units as marks|never needed in order to work out what a mark means/,
+    );
+  }
   assert.match(FIELDS.up.schema.description, /published file coordinates/);
   assert.match(
     FIELDS.partGroups.schema.description,

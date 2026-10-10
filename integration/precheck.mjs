@@ -34,22 +34,22 @@ function remediationFor(error) {
   if (error.code === "TEXTURE_LIMIT")
     return {
       kind: "reduce-textures",
-      next: "Reduce texture dimensions or remove textures, then run precheck again.",
+      next: "Before altering the model, echo the proposed change and wait for confirmation; reduce texture dimensions or remove textures, then run precheck again.",
     };
   if (error.measured?.triangles > MAX_TRIANGLES)
     return {
       kind: "decimate",
       ratio: ratio(MAX_TRIANGLES, error.measured.triangles),
-      next: "Decimate by the supplied ratio, then run precheck again.",
+      next: "Before altering the model, echo the proposed change and wait for confirmation; decimate by the supplied ratio, then run precheck again.",
     };
   if (error.measured?.triangles === 0)
     return {
       kind: "reexport-geometry",
-      next: "Re-export a model containing triangle surfaces, then run precheck again.",
+      next: "Before altering the model, echo the proposed change and wait for confirmation; re-export a model containing triangle surfaces, then run precheck again.",
     };
   return {
     kind: "reexport-smaller",
-    next: "Re-export a smaller file, then run precheck again to count its triangles.",
+    next: "Before altering the model, echo the proposed change and wait for confirmation; re-export a smaller file, then run precheck again to count its triangles.",
   };
 }
 

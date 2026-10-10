@@ -18,22 +18,42 @@ import { fileURLToPath } from "node:url";
 import { InstanceManager, inspectInstall } from "../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import { normalizeOrigin } from "../server/origin.mjs";
-import { toolSchema, validateToolInput } from "../integration/contract.mjs";
+import {
+  toolSchema,
+  validateToolInput,
+  TOOL_DESCRIPTION,
+} from "../integration/contract.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
 export const PROTOCOL_VERSION = "2025-06-18";
 
-// The operating instructions travel with the server, and they are the same
-// bytes the bundled Skill carries. A second copy written for this surface would
-// start agreeing with the first and end up describing a different product.
-export function instructions(root = ROOT) {
+// MCP InitializeResult.instructions is an optional string hint, not a Skill
+// serialization requirement (2025-06-18 schema). Extract the identical rule
+// card rather than maintaining a second policy. A deployment-only rollback
+// keeps full instructions available without adding any tool argument.
+export function instructions(root = ROOT, environment = process.env) {
   const file = path.join(root, "skills/meshcue-review/SKILL.md");
   if (!fs.existsSync(file)) return "";
-  return fs
+  const body = fs
     .readFileSync(file, "utf8")
     .replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n)+/, "")
     .trim();
+  if (environment.MESHCUE_FULL_INSTRUCTIONS === "1") return body;
+  const card = body.match(
+    /<!-- review-rules:begin -->([\s\S]*?)<!-- review-rules:end -->/,
+  );
+  // Compatibility with an older installed Skill without the extraction markers.
+  if (!card) return body;
+  return [
+    "# MeshCue model review",
+    card[1].trim(),
+    "Flow: inspect → A Publish → B Receive a batch → wait for confirmation → C Publish a revision; D Continue / failures for recovery.",
+    "This MCP host cannot be pushed to; read the submitted batch when the reviewer supplies its notice.",
+    `Workflow: ${file}`,
+    `Action/coordinate reference: ${path.join(root, "AGENT-INTERFACE.md")}`,
+    "Call inspect for installed document paths and context availability; read the relevant workflow/reference section before acting.",
+  ].join("\n\n");
 }
 
 // MCP offers no session identity — initialize names the client, not the
@@ -75,7 +95,8 @@ export function clientToolName(clientInfo) {
 export const TOOL = {
   name: "meshcue",
   description:
-    'Browser-based 3D model review. Publish a GLB, glTF, STL or STEP for a person to mark on, read the marks they submit, echo understanding and wait for confirmation, then publish the next version. Confirm the model\'s intended upright first. All formats default to +Z up, -Y front, +X right; publish Y-up files with up:"y". Use file* or file-tagged fields to edit published files, source* for registered sources; batch camera is preview only. Register sourceTransform in open for rotated copies. precheck a GLB, glTF or STL before every open; open measures a STEP itself. This host cannot be pushed to: a submitted batch waits to be read, so call read when the reviewer says they are done rather than waiting to be told.',
+    TOOL_DESCRIPTION +
+    " This MCP host cannot be pushed to; read when the reviewer supplies a submission notice.",
   inputSchema: toolSchema("mcp"),
 };
 
@@ -167,7 +188,7 @@ export function createHandler({
             fs.readFileSync(path.join(root, "package.json"), "utf8"),
           ).version,
         },
-        instructions: instructions(root),
+        instructions: instructions(root, environment),
       });
     }
     if (method === "tools/list") return reply({ tools: [TOOL] });

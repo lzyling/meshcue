@@ -434,7 +434,7 @@ test("discovery schemas are flat, explicitly typed and smaller than the pre-cont
   }
 });
 
-test("flat discovery descriptions retain group and copied-region shape guidance", () => {
+test("flat discovery descriptions retain group and verified intended-change region shape guidance", () => {
   for (const entry of ["openclaw", "mcp"]) {
     const { partGroups, annotations } = toolSchema(entry).properties;
     assert.deepEqual(partGroups.items, { type: "object" });
@@ -449,7 +449,7 @@ test("flat discovery descriptions retain group and copied-region shape guidance"
     ])
       assert.ok(partGroups.description.includes(text), text);
     for (const text of [
-      "copied from a full read result",
+      "verified intended-change regions using full read geometry",
       'required id, type:"region", label, color, faces',
       "view optional",
       "never construct geometry",

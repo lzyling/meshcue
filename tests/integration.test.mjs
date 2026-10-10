@@ -851,6 +851,11 @@ test("W2 open limit preflight refuses before creating or changing a project", as
         assert.equal(e.code, code);
         assert.equal(e.precheck.verdict, "reject");
         assert.equal(e.remediation.kind, kind);
+        assert.match(
+          e.remediation.next,
+          /echo the proposed change and wait for confirmation/,
+        );
+        assert.match(e.remediation.next, /precheck again/);
         if (kind === "decimate")
           assert.equal(e.remediation.ratio, e.precheck.simplify.requiredRatio);
         return true;

@@ -9,11 +9,14 @@ import {
   inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../../integration/precheck.mjs";
-import { toolSchema, validateToolInput } from "../../integration/contract.mjs";
+import {
+  toolSchema,
+  validateToolInput,
+  TOOL_DESCRIPTION,
+} from "../../integration/contract.mjs";
 
 export const parameters = toolSchema("openclaw");
-const description =
-  "Open or continue browser-based 3D model review in the current conversation; publish GLB, glTF, STL or STEP drafts (confirm the model's intended upright first; all formats default to +Z up with -Y to the front; publish Y-up files with up:\"y\"; use file* or file-tagged fields to edit published files, source* for registered sources; batch camera is preview only; register sourceTransform in open for rotated copies), choose which published version the reviewer sees, read submitted annotations, and echo understanding and wait for confirmation before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MiB, and nothing degrades below them: run precheck on a GLB, glTF or STL before every open, and when its verdict is reject, follow remediation.kind and remediation.next; only decimate supplies a numeric ratio, and report any simplification; a STEP needs no precheck, since open measures it while importing and refuses it the same way. Every visible published version stays selectable and annotatable; retain can hide versions without deleting files, so activate switches the display freely and never discards a draft; status lists visible versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and use read.gates.nextAction to ask whether to return to the marked version or apply feedback to the displayed one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
+const description = TOOL_DESCRIPTION;
 
 const managers = new Map();
 const plugin = defineToolPlugin({
