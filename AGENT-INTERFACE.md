@@ -469,6 +469,35 @@ The Y-up-to-Z-up right-handed matrix is `[[1,0,0],[0,0,-1],[0,1,0]]`:
 `(x,y,z) → (x,−z,y)`; +Y becomes +Z and glTF's +Z front becomes −Y front.
 The preview then applies `(x,y,z) → (x,z,−y)` to the canonical frame.
 
+A file's axes are only the directions written by the exporter. Z-up does not
+mean the model is standing as it will be used: it may have been modelled in a
+print pose, lying on a table, in one assembly part's frame, or under the
+modelling tool's own axis convention. MeshCue draws file +Z up (+Y with
+`up:"y"`); it cannot know the author's intended pose.
+
+Before publishing, confirm from the modelling source which side is up in use
+and which face points towards the reviewer. For a Y-up file with +Z front, use
+`up:"y"`. Otherwise export a **review copy**, using only a rigid rotation
+(and translation if needed) to put the intended upright along +Z and front
+along −Y. Do not scale or change geometry. If the orientation is uncertain,
+ask the user rather than guessing; when delivering the link, say which pose
+this version uses.
+
+For example, if the source's intended up is −X and front is +Z, rotate column
+vectors with `R = [[0,1,0],[0,0,-1],[-1,0,0]]`:
+`(x,y,z) → (y,−z,−x)`. This sends −X to +Z and +Z to −Y. The inverse of a
+rotation is its transpose, `R⁻¹ = Rᵀ`. If you also translate,
+`p_review = R p_source + t` becomes `p_source = Rᵀ (p_review − t)`;
+directions use `Rᵀ` without translation.
+
+Marks, measurements and mark `view` come back in the **published file's**
+coordinates, not the editable source's. When publishing a rotated review copy,
+record `R`, `t` and the source file and published version they belong to in
+your own project records; MeshCue does not store them. Before editing the source, map
+returned positions and measurement geometry back with the inverse transform,
+and normals and `view` directions with the inverse rotation; rigid transforms
+leave measured lengths and angles unchanged. `up:"y"` alone does not change returned file coordinates.
+
 - The view cube's Front, Top and Right are canonical −Y, +Z and +X for every
   format. For `up:"y"`, these correspond to file +Z, +Y and +X.
 - Standing a model up changes only drawing. Pin `position`, region

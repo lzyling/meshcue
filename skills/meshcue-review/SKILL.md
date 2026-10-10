@@ -94,8 +94,12 @@ after it.
 
 MeshCue draws all formats +Z up, −Y front and +X right. Publish Y-up files
 with `up:"y"` (CLI `--up y`), or rotate to Z-up yourself; nothing is guessed. Marks come
-back in the file's own coordinates and units. STL carries no colour and is
-always drawn grey; publish STEP or GLB when colour matters.
+back in the file's own coordinates and units. Before publishing, confirm the
+intended upright and front from the modelling source, not just its export axes;
+if +Z (or +Y with `up:"y"`) does not give that pose, rotate a review copy to
++Z up and −Y front without scaling or changing geometry, and record the transform.
+If unsure, ask the user; say which pose you used when delivering the link.
+STL carries no colour and is always drawn grey; publish STEP or GLB when colour matters.
 
 Publishing switches to the new version immediately; nothing queues, and the user
 does not have to end the previous round first. Deliver only the URL the tool
@@ -171,6 +175,9 @@ tell the user to reload or close it.
 On a submission notice, call `meshcue`'s `read` with the `project` and
 `submissionId` from the notice to read the full 3D annotations, model version
 and camera; the tool writes the read receipt for that batch at the same time.
+If you published a rotated review copy, apply the recorded inverse transform to
+mark and measurement coordinates (inverse rotation only for `view` directions)
+before editing the source model.
 
 Part marks refer to the whole part (e.g. “replace with M4”); edge marks refer to the complete edge (e.g. “fillet”). Interpret them using their note and the conversation.
 Where the host cannot push (an MCP client, the CLI), the notice is a sentence
