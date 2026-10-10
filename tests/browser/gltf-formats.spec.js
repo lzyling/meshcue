@@ -114,7 +114,11 @@ async function manifest(page) {
   const saved = JSON.parse(
     fs.readFileSync(path.join(dir, "manifests", `${id}.json`), "utf8"),
   );
-  return saved.meshes.map(({ matrixWorld, ...entry }) => entry);
+  // Both node matrices legitimately differ: the quantized fixture stores
+  // positions x16 under a 1/16 node scale. Compare mesh identity, not frames.
+  return saved.meshes.map(
+    ({ matrixWorld, fileMatrixWorld, ...entry }) => entry,
+  );
 }
 async function difference(page, first, second) {
   return page.evaluate(

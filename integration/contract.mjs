@@ -1,3 +1,4 @@
+import { normalizeSourceTransform } from "./coordinates.mjs";
 // Single public tool contract. Limits belong to their enforcing runtime modules.
 import { INPUT_LIMITS as L, ID_PATTERN } from "../server/input-limits.mjs";
 import { MAX_AGENT_NAME, agentNameSchema } from "../server/agent-name.mjs";
@@ -90,6 +91,13 @@ export const FIELDS = Object.freeze({
     "part-groups",
     "Omitted preserves reused groups; [] clears",
   ),
+  sourceTransform: field(
+    { type: "object" },
+    ["open"],
+    "open with file: {sourceFile, rotation:[[3 numbers],[3 numbers],[3 numbers]], translation?:[3 numbers]}; p_file=R*p_source+t. Finite orthogonal rotation, determinant +1, tolerance 1e-6; no scale/shear/mirror. Identifier only; sourceFile is not read.",
+    "source-transform",
+    "Omitted: no source conversion",
+  ),
   name: field(
     string(L.name),
     ["open"],
@@ -114,7 +122,7 @@ export const FIELDS = Object.freeze({
   up: field(
     { type: "string", enum: ["z", "y"], default: "z" },
     ["open"],
-    "File up axis, only open with file; default z (+Z up, -Y front, +X right). Marks stay in published file coordinates.",
+    "File up axis, only open with file; default z (+Z up, -Y front, +X right). Use file* or fields tagged file for published file coordinates; source* for registered sources; batch camera is preview only.",
     "up",
     "z",
   ),
@@ -244,6 +252,7 @@ const publicationFields = new Set([
   "label",
   "activate",
   "partGroups",
+  "sourceTransform",
 ]);
 export function fieldIsUsed(key, input) {
   return (
@@ -262,10 +271,12 @@ const toolDescriptions = {
     "Workspace-relative modelling project; never the application checkout.",
   file: `open/precheck: GLB, glTF, STL or STEP; precheck requires file; limits ${MAX_TRIANGLES} triangles, ${MAX_BYTES / 1024 / 1024} MiB.`,
   partGroups: `open with file: groups require id/name, optional members/children; each member has exactly one of nodeIndex/nodeName/partId; omit preserves reused groups, [] clears; whole-tree limits ${PART_GROUP_LIMITS.groups} groups, ${PART_GROUP_LIMITS.members} members, depth ${PART_GROUP_LIMITS.depth} (root=1), ${PART_GROUP_LIMITS.bytes / 1024} KiB normalized JSON; see AGENT-INTERFACE.md § Optional part groups.`,
+  sourceTransform:
+    "open with file: {sourceFile, rotation:3x3, translation?:[3]}; p_file=R*p_source+t; finite rigid rotation, det +1, tolerance 1e-6. Read supplies source*; sourceFile is an identifier only.",
   name: `open with file: at most ${L.name} UTF-16 units; defaults to filename.`,
   version: `open with file: at most ${L.version} UTF-16 units; activate: existing version string instead of versionId.`,
   units: `open with file: at most ${L.units} UTF-16 units; STEP uses mm.`,
-  up: "open with file: z (default) or y; marks stay in file coordinates.",
+  up: "open with file: z (default) or y; use file* or file-tagged fields; source* for registered sources; batch camera is preview only.",
   label: `open with file: at most ${L.label} UTF-16 units; omitted version caption is shortened.`,
   versionId: `activate: required unless version resolves it; finish: omitted uses active; unlock: omitted clears all presence; 1–${L.id} ASCII id characters; read/echo ignore it.`,
   keep: `retain: integer 0–${L.keep}; omitted, null or zero restores all.`,
@@ -338,6 +349,14 @@ export function validateUnknownFields(input, entry = "mcp") {
 // known fields here: read/echo's historical versionId behaviour is unchanged.
 export function validateToolInput(input, entry) {
   validateUnknownFields(input, entry);
+  if (input.sourceTransform !== undefined) {
+    if (input.action !== "open" || !input.file)
+      throw new IntegrationError(
+        "INVALID_INPUT",
+        "sourceTransform requires open with file.",
+      );
+    normalizeSourceTransform(input.sourceTransform);
+  }
   if (!ACTIONS.includes(input.action))
     throw new IntegrationError("BAD_ACTION", "Name a supported action.");
   for (const [key, actions] of Object.entries(REQUIRED_FIELDS))

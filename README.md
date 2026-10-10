@@ -154,8 +154,8 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 567 unit and integration tests
-npm run test:browser # 302 real-Chromium tests, isolated port and data
+npm test             # 570 unit and integration tests
+npm run test:browser # 303 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever

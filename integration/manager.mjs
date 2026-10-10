@@ -1,3 +1,4 @@
+import { normalizeSourceTransform } from "./coordinates.mjs";
 import { precheckModel, stepMeshFor } from "./precheck.mjs";
 import { reviewGates } from "./summarize.mjs";
 import { INPUT_LIMITS, ID_PATTERN } from "../server/input-limits.mjs";
@@ -701,6 +702,14 @@ export class InstanceManager {
         );
       agentName = named.data;
     }
+    if (input.sourceTransform !== undefined) {
+      if (!opens || !input.file)
+        fail(
+          "INVALID_INPUT",
+          "sourceTransform is only valid for open with file.",
+        );
+      normalizeSourceTransform(input.sourceTransform);
+    }
     let groups;
     if (input.partGroups !== undefined) {
       if (!opens || !input.file)
@@ -855,6 +864,9 @@ export class InstanceManager {
             {
               file: input.file,
               ...(groups !== undefined ? { partGroups: groups } : {}),
+              ...(input.sourceTransform !== undefined
+                ? { sourceTransform: input.sourceTransform }
+                : {}),
               name: input.name,
               version: input.version,
               units: input.units,
