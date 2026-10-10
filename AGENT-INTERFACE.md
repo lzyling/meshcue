@@ -492,12 +492,11 @@ directions use `Rᵀ` without translation.
 
 Marks, measurements and mark `view` come back in the **published file's**
 coordinates, not the editable source's. When publishing a rotated review copy,
-record its transform in your own records, or in existing `source` / version
-notes where supported; no new field is needed. Before editing the source, map
+record `R`, `t` and the source file and published version they belong to in
+your own project records; MeshCue does not store them. Before editing the source, map
 returned positions and measurement geometry back with the inverse transform,
 and normals and `view` directions with the inverse rotation; rigid transforms
-leave measured lengths and angles
-unchanged. `up:"y"` alone does not change returned file coordinates.
+leave measured lengths and angles unchanged. `up:"y"` alone does not change returned file coordinates.
 
 - The view cube's Front, Top and Right are canonical −Y, +Z and +X for every
   format. For `up:"y"`, these correspond to file +Z, +Y and +X.
