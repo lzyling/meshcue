@@ -813,3 +813,348 @@ test("legacy backslash registry paths resume, pause and rewrite without duplicat
   assert.equal(after.projects[p.id].project, "projects/a");
   assert.equal(after.projects[p.id].runtime, `projects/a/.meshcue/${p.id}`);
 });
+
+test("W2 open limit preflight refuses before creating or changing a project", async (t) => {
+  const f = setup(t);
+  const { MAX_TRIANGLES, MAX_BYTES } = await import("../server/models.mjs");
+  const { primitiveGlb } = await import("./fixtures/primitive-glb.mjs");
+  const big = Buffer.alloc(84 + (MAX_TRIANGLES + 1) * 50);
+  big.writeUInt32LE(MAX_TRIANGLES + 1, 80);
+  const cases = [
+    ["large.stl", big, "decimate", "MODEL_LIMIT"],
+    [
+      "texture.glb",
+      primitiveGlb([{ mode: 4, count: 3 }], [[8193, 1]]),
+      "reduce-textures",
+      "TEXTURE_LIMIT",
+    ],
+    [
+      "lines.glb",
+      primitiveGlb([{ mode: 1, count: 2 }]),
+      "reexport-geometry",
+      "MODEL_LIMIT",
+    ],
+    ["bytes.stl", null, "reexport-smaller", "MODEL_LIMIT"],
+  ];
+  for (const [file, data, kind, code] of cases) {
+    const target = path.join(f.workspace, file);
+    if (data) fs.writeFileSync(target, data);
+    else {
+      const fd = fs.openSync(target, "w");
+      fs.ftruncateSync(fd, MAX_BYTES + 1);
+      fs.closeSync(fd);
+    }
+    const before = fs.readdirSync(f.workspace).sort();
+    await assert.rejects(
+      f.manager.execute({ action: "open", project: "projects/refused", file }),
+      (e) => {
+        assert.equal(e.code, code);
+        assert.equal(e.precheck.verdict, "reject");
+        assert.equal(e.remediation.kind, kind);
+        if (kind === "decimate")
+          assert.equal(e.remediation.ratio, e.precheck.simplify.requiredRatio);
+        return true;
+      },
+    );
+    assert.deepEqual(fs.readdirSync(f.workspace).sort(), before);
+  }
+  const opened = await f.open("projects/existing");
+  const p = f.manager.project("projects/existing");
+  const state = fs.readFileSync(path.join(p.runtime, "state.json"), "utf8");
+  await assert.rejects(f.open("projects/existing", { file: "large.stl" }), {
+    code: "MODEL_LIMIT",
+  });
+  assert.equal(
+    fs.readFileSync(path.join(p.runtime, "state.json"), "utf8"),
+    state,
+  );
+  assert.equal(
+    (
+      await f.manager.execute({
+        action: "status",
+        project: "projects/existing",
+      })
+    ).active.id,
+    opened.active.id,
+  );
+});
+
+test("W2 manager viewer freshness, gates, ignored versionId and stopped states", async (t) => {
+  const f = setup(t);
+  const project = "projects/signals";
+  const opened = await f.open(project, { version: "v1" });
+  assert.ok(!Number.isNaN(Date.parse(opened.openedAt)));
+  const status = () => f.manager.execute({ action: "status", project });
+  assert.equal((await status()).state, "running");
+  assert.equal((await status()).viewer.loadedSinceOpen, false);
+  const claim = await fetch(`${opened.url}api/access/claim`, {
+    method: "POST",
+    headers: {
+      "X-Review-Client": "1",
+      "Content-Type": "application/json",
+      Origin: opened.url.slice(0, -1),
+    },
+    body: "{}",
+  });
+  assert.equal(claim.status, 200);
+  const cookie = claim.headers.get("set-cookie").split(";")[0];
+  const api = async (route, body, method = "POST") => {
+    const r = await fetch(`${opened.url}api/${route}`, {
+      method,
+      headers: {
+        "X-Review-Client": "1",
+        "Content-Type": "application/json",
+        Origin: opened.url.slice(0, -1),
+        Cookie: cookie,
+      },
+      body: JSON.stringify(body),
+    });
+    assert.equal(r.status, 200, await r.clone().text());
+    return r.json();
+  };
+  const owner = { versionId: opened.active.id, clientId: "w2-tab" };
+  const mesh = {
+    id: "mesh-0",
+    name: "part",
+    triangles: 1,
+    sourceTriangles: 1,
+    surfaceAlgorithm: "midpoint-v3-edge0.07-rationed",
+    matrixWorld: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+  };
+  const ready = () =>
+    api("ready", { ...owner, sha256: opened.active.sha256, meshes: [mesh] });
+  await ready();
+  assert.equal((await status()).viewer.loadedSinceOpen, true);
+  assert.equal((await status()).viewer.clients, 1);
+  await new Promise((r) => setTimeout(r, 5));
+  await f.manager.execute({ action: "open", project });
+  assert.equal((await status()).viewer.loadedSinceOpen, false);
+  assert.ok((await status()).viewer.lastLoadedAt);
+  await ready();
+  const mark = {
+    id: "w2-pin",
+    type: "pin",
+    label: "A",
+    color: "#e76d5c",
+    meshId: "mesh-0",
+    faceIndex: 0,
+    sourceFaceIndex: 0,
+    position: [0, 0, 0],
+    normal: [0, 0, 1],
+    barycentric: [1, 0, 0],
+  };
+  await api("review/begin", owner);
+  let draft = await api(
+    "draft",
+    { ...owner, revision: 0, annotations: [mark], camera: null },
+    "PUT",
+  );
+  await api("feedback", {
+    ...owner,
+    revision: draft.revision,
+    submissionId: "w2-batch",
+  });
+  const read = (geometry) =>
+    f.manager.execute({
+      action: "read",
+      project,
+      submissionId: "w2-batch",
+      versionId: { ignored: true },
+      geometry,
+    });
+  assert.deepEqual((await read()).gates, {
+    sealed: false,
+    olderVersion: null,
+    hasNotes: false,
+    mustConfirmBeforeChange: true,
+    nextAction: "echo-then-wait",
+  });
+  assert.deepEqual((await read(true)).gates, (await read()).gates);
+  await f.manager.execute({
+    action: "echo",
+    project,
+    submissionId: "w2-batch",
+    versionId: 999,
+    summary: "Understood; waiting for confirmation.",
+  });
+  draft = await api(
+    "draft",
+    {
+      ...owner,
+      revision: draft.revision,
+      annotations: [{ ...mark, note: "Make wider" }],
+      camera: null,
+    },
+    "PUT",
+  );
+  await api("feedback", {
+    ...owner,
+    revision: draft.revision,
+    submissionId: "w2-noted",
+  });
+  const noted = await f.manager.execute({
+    action: "read",
+    project,
+    submissionId: "w2-noted",
+  });
+  assert.equal(noted.gates.hasNotes, true);
+  assert.equal(noted.gates.nextAction, "echo-then-wait");
+  fs.writeFileSync(
+    path.join(f.workspace, "next.stl"),
+    stl.replace("vertex 1 0 0", "vertex 2 0 0"),
+  );
+  await f.open(project, { file: "next.stl", version: "v2" });
+  assert.deepEqual((await read()).gates.olderVersion, {
+    markedOn: "v1",
+    showing: "v2",
+  });
+  assert.equal((await read()).gates.nextAction, "ask-version");
+  draft = await api(
+    "draft",
+    {
+      ...owner,
+      revision: draft.revision,
+      annotations: [{ ...mark, note: "Make wider" }],
+      camera: null,
+    },
+    "PUT",
+  );
+  const finished = await f.manager.execute({
+    action: "finish",
+    project,
+    versionId: owner.versionId,
+  });
+  const sealed = await f.manager.execute({
+    action: "read",
+    project,
+    submissionId: finished.sealed,
+    geometry: true,
+  });
+  assert.equal(sealed.gates.sealed, true);
+  assert.equal(sealed.gates.hasNotes, true);
+  assert.equal(sealed.gates.nextAction, "ask-sealed");
+  assert.deepEqual(sealed.gates.olderVersion, {
+    markedOn: "v1",
+    showing: "v2",
+  });
+  await api("review/finish", owner);
+  await f.manager.execute({ action: "stop", project });
+  assert.equal((await status()).state, "stopped");
+  assert.equal((await status()).viewer, null);
+  fs.writeFileSync(
+    path.join(f.manager.project(project).runtime, "stopped.json"),
+    JSON.stringify({ reason: "idle" }),
+  );
+  assert.equal(
+    (await status()).state,
+    "stopped",
+    "an unverified marker must not imply idle reclaim",
+  );
+});
+
+test("W2 manager stopped-idle requires an actual persisted reclaim and clears on reopen", async (t) => {
+  const f = setup(t);
+  const manager = new InstanceManager(f.ctx, {
+    ...f.options,
+    environment: {
+      REVIEW_BRIDGE: "off",
+      REVIEW_IDLE_HOURS: "0.0003",
+      REVIEW_IDLE_TICK_MS: "100",
+    },
+  });
+  const project = "projects/idle-signals";
+  await manager.execute({
+    action: "open",
+    project,
+    file: "part.stl",
+    host: "127.0.0.1",
+  });
+  // Fixture lifetime owns this server even if an assertion fails before reclaim.
+  t.after(async () => {
+    try {
+      await manager.execute({ action: "stop", project });
+    } catch {}
+  });
+  await new Promise((r) => setTimeout(r, 3500));
+  const stopped = await manager.execute({ action: "status", project });
+  assert.equal(stopped.state, "stopped-idle");
+  assert.equal(stopped.dataRetained, true);
+  assert.ok(stopped.next.includes("open"));
+  await manager.execute({ action: "open", project });
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "running",
+  );
+  assert.equal(
+    fs.existsSync(path.join(manager.project(project).runtime, "stopped.json")),
+    false,
+  );
+  await manager.execute({ action: "stop", project });
+});
+
+test("W2 stale idle marker after failed cleanup cannot describe a newer non-idle stop", async (t) => {
+  const f = setup(t);
+  const manager = new InstanceManager(f.ctx, {
+    ...f.options,
+    environment: {
+      REVIEW_BRIDGE: "off",
+      REVIEW_IDLE_HOURS: "0.0003",
+      REVIEW_IDLE_TICK_MS: "100",
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${path.join(repo, "tests/helpers/stop-marker-cleanup-fault.mjs")}`,
+    },
+  });
+  const project = "projects/stale-idle-signals";
+  t.after(async () => {
+    try {
+      await manager.execute({ action: "stop", project });
+    } catch {}
+  });
+  await manager.execute({
+    action: "open",
+    project,
+    file: "part.stl",
+    host: "127.0.0.1",
+  });
+  await new Promise((r) => setTimeout(r, 3500));
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped-idle",
+  );
+  const runtime = manager.project(project).runtime;
+  const markerFile = path.join(runtime, "stopped.json");
+  const oldMarker = fs.readFileSync(markerFile, "utf8");
+  const oldRun = JSON.parse(oldMarker).serviceRunId;
+  await manager.execute({ action: "open", project });
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "running",
+  );
+  assert.equal(fs.readFileSync(markerFile, "utf8"), oldMarker);
+  assert.notEqual(
+    JSON.parse(fs.readFileSync(path.join(runtime, "state.json"), "utf8"))
+      .serviceRunId,
+    oldRun,
+  );
+  await manager.execute({ action: "stop", project });
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped",
+  );
+  // An unreadable/missing retained launch record cannot validate even a marker
+  // that otherwise matches the latest run.
+  const stateFile = path.join(runtime, "state.json");
+  const state = fs.readFileSync(stateFile, "utf8");
+  fs.writeFileSync(
+    markerFile,
+    JSON.stringify({
+      ...JSON.parse(oldMarker),
+      serviceRunId: JSON.parse(state).serviceRunId,
+    }),
+  );
+  fs.writeFileSync(stateFile, "unreadable");
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped",
+  );
+  fs.writeFileSync(stateFile, state);
+});

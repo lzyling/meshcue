@@ -1,3 +1,4 @@
+import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import {
   INPUT_LIMITS,
   ID_PATTERN,
@@ -165,7 +166,41 @@ function accessCookie(value, maxAge) {
 const legacyOrigin = normalizeOrigin(
   process.env.REVIEW_SESSION_KEY || config.origin || config.sessionKey || null,
 );
-const store = new ReviewStore(runtime, { legacyOrigin });
+// Persist this launch in the store's existing startup save. Unlike the lock,
+// state.json survives shutdown, so a failed marker cleanup cannot reuse a prior
+// launch's idle reason. The store's original startedAt keeps its old meaning.
+const serviceRunId = crypto.randomUUID();
+const store = new ReviewStore(runtime, { legacyOrigin, serviceRunId });
+let openedAt = null;
+const stoppedFile = path.join(runtime, "stopped.json");
+try {
+  if (fs.existsSync(stoppedFile)) fs.unlinkSync(stoppedFile);
+} catch (error) {
+  log.warn(
+    "service",
+    "could not clear the previous stop marker",
+    errorDetail(error),
+  );
+}
+function viewerStatus() {
+  const active = store.state.active;
+  if (!active) return null;
+  const expectedSha256 = (active.mesh ?? active).sha256;
+  const receipts = Object.values(store.state.viewerReceipts || {}).filter(
+    (r) => r.versionId === active.id && r.sha256 === expectedSha256,
+  );
+  return {
+    versionId: active.id,
+    expectedSha256,
+    loadedSinceOpen:
+      openedAt !== null &&
+      receipts.some((r) => r.loadedAt > Date.parse(openedAt)),
+    lastLoadedAt: receipts.length
+      ? new Date(Math.max(...receipts.map((r) => r.loadedAt))).toISOString()
+      : null,
+    clients: receipts.length,
+  };
+}
 const notifiers = new Map();
 // Cached because OpenClawBridge holds a conversation window between calls, and
 // null is cached for the same reason a notifier is: asking twice whether a host
@@ -1278,7 +1313,7 @@ function deliverFeedback(item) {
            on the page when nothing had been asked for. */
         const echoing =
           " An echo's regions mark only the places you intend to change, and only once the reviewer has asked for a change: never hand the reviewer's own marks back as regions, and when you cannot mark the place exactly, say it in words alone.";
-        const message = `[MeshCue review marks ${item.id}]\nModel: ${item.model.name} / ${item.model.version}; version ${item.versionId}; SHA256 ${item.model.sha256}.\n${summary}\n\nThe full 3D annotations and camera are saved at ${localFile}. Agent instructions: ${path.join(repo, "AGENT-INTERFACE.md")}.\nThis is a batch of positions the reviewer sent with "Send to Agent". By itself it is not an instruction to change anything. Read the complete submission from this instance with ${readCommand} and write the read receipt before confirming you have it; if neither the conversation nor a mark's note explains a mark, ask what it means and what to change rather than guessing.${measured}${notes}${echoing} Reply only in the conversation this batch came from — never forward it to another topic or channel. The reviewer has not finished, so do not replace the model on them.`;
+        const message = `[MeshCue review marks ${item.id}]\nModel: ${item.model.name} / ${item.model.version}; version ${item.versionId}; SHA256 ${item.model.sha256}.\n${summary}\n\nThe full 3D annotations and camera are saved at ${localFile}. Agent instructions: ${path.join(repo, "AGENT-INTERFACE.md")}.\nThis is a batch of positions the reviewer sent with "Send to Agent". By itself it is not an instruction to change anything. Read the complete submission from this instance with ${readCommand} and write the read receipt before confirming you have it; if neither the conversation nor a mark's note explains a mark, ask what it means and what to change rather than guessing.${measured}${notes}${echoing} Reply only in the conversation this batch came from — never forward it to another topic or channel. Echo your understanding first and wait for the reviewer to confirm before changing the model. After confirmation, publish the next version normally.`;
         const notifier = notifierCached(store.submissionOrigin(item));
         // Nowhere to push is not a push that failed. The batch is already
         // durable and listed; this host's Agent collects it by asking. Counting
@@ -1526,6 +1561,10 @@ agentApp.get("/status", (req, res) => {
       bytes: [...storedFiles.values()].reduce((sum, bytes) => sum + bytes, 0),
     },
     viewerReceipts: store.state.viewerReceipts || {},
+    openedAt,
+    viewer: viewerStatus(),
+    state: "running",
+    next: "Use read for a submitted batch, or open to publish the next confirmed revision.",
     // Asking for status is not using the review, so reading this never moves
     // it. That is the whole reason it can be reported honestly: a countdown
     // that its own observer resets would only ever show the same number.
@@ -1590,7 +1629,8 @@ agentApp.post("/maintenance", (req, res) => {
 // announced window, seconds after the manager handed out its address.
 agentApp.post("/opened", (req, res) => {
   z.object({}).strict().parse(req.body);
-  res.json({ opened: true, idle: idleReport() });
+  openedAt = new Date().toISOString();
+  res.json({ opened: true, openedAt, idle: idleReport() });
 });
 // Its own route rather than a field of `/opened`: a manager that meets a
 // runtime older than names gets a 404 here and nothing else changes, where one
@@ -1627,11 +1667,30 @@ agentApp.post("/publish", async (req, res) => {
     .parse(req.body);
   const groups =
     p.partGroups === undefined ? undefined : normalizePartGroups(p.partGroups);
-  const model = await importModel(p, {
-    workspace,
-    mediaDir,
-    generator: `MeshCue ${version}`,
-  });
+  let model;
+  try {
+    model = await importModel(p, {
+      workspace,
+      mediaDir,
+      generator: `MeshCue ${version}`,
+    });
+  } catch (error) {
+    if (
+      ["MODEL_LIMIT", "TEXTURE_LIMIT"].includes(error.code) &&
+      /\.(glb|gltf|stl)$/i.test(p.file)
+    ) {
+      const ctx = {
+        workspaceDir: workspace,
+        agentId: "review-server",
+        fsPolicy: { workspaceOnly: true },
+      };
+      error.precheck = precheckModel(ctx, p.file, {
+        derived: await stepMeshFor(ctx, p.file),
+      });
+      error.remediation = error.precheck.remediation;
+    }
+    throw error;
+  }
   if (p.up === "y") {
     model.up = "y";
     // Same bytes, different interpretation: independent version/draft identity.
@@ -1830,6 +1889,9 @@ function errorHandler(err, req, res, next) {
           ? "The service could not complete the request for now; the draft is kept."
           : err.message,
     code: err.code || "ERROR",
+    ...(err.precheck
+      ? { precheck: err.precheck, remediation: err.remediation }
+      : {}),
   });
 }
 agentApp.use(errorHandler);
@@ -1912,7 +1974,22 @@ const idleTimer = idle
                 : {}),
             },
           );
-          shutdown();
+          try {
+            atomicJson(stoppedFile, {
+              reason: "idle",
+              stoppedAt: new Date().toISOString(),
+              instanceId: instance?.id,
+              serviceRunId,
+            });
+          } catch (error) {
+            log.warn(
+              "service",
+              "could not record idle reclaim",
+              errorDetail(error),
+            );
+          } finally {
+            shutdown();
+          }
         }
       },
       Math.max(1000, Number(process.env.REVIEW_IDLE_TICK_MS) || 60_000),

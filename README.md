@@ -44,7 +44,8 @@ address, not a description, and can say back which surface it understood.
    orbit tool places nothing, so turning the model never marks it. Nothing is
    submitted until you say so.
 4. Press **Send to Agent**. The batch is frozen against the version you marked.
-5. The agent calls `read`, replies in your conversation, and `open`s the next
+5. The agent calls `read`, echoes its understanding in your conversation, and
+   waits for your confirmation before changing the model and `open`ing the next
    version. Older versions keep their own marks and stay selectable.
 
 There is no "finish the round" button. The next version _is_ the end of the last
@@ -153,8 +154,8 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 559 unit and integration tests
-npm run test:browser # 301 real-Chromium tests, isolated port and data
+npm test             # 567 unit and integration tests
+npm run test:browser # 302 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever

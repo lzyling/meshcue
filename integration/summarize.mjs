@@ -229,3 +229,25 @@ export function summarizeSubmission(batch) {
       : {}),
   };
 }
+
+export function reviewGates(batch, active) {
+  const sealed = batch.sealed === true;
+  const olderVersion =
+    active && batch.versionId !== active.id
+      ? {
+          markedOn: batch.model?.version ?? batch.versionId,
+          showing: active.version ?? active.id,
+        }
+      : null;
+  return {
+    sealed,
+    olderVersion,
+    hasNotes: (batch.annotations || []).some((a) => !!a.note),
+    mustConfirmBeforeChange: true,
+    nextAction: sealed
+      ? "ask-sealed"
+      : olderVersion
+        ? "ask-version"
+        : "echo-then-wait",
+  };
+}

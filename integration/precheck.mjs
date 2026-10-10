@@ -30,6 +30,29 @@ import { workspaceRelative } from "./relative-path.mjs";
 const ratio = (target, actual) =>
   Math.max(0.01, Math.floor((target / actual) * 100) / 100);
 
+function remediationFor(error) {
+  if (error.code === "TEXTURE_LIMIT")
+    return {
+      kind: "reduce-textures",
+      next: "Reduce texture dimensions or remove textures, then run precheck again.",
+    };
+  if (error.measured?.triangles > MAX_TRIANGLES)
+    return {
+      kind: "decimate",
+      ratio: ratio(MAX_TRIANGLES, error.measured.triangles),
+      next: "Decimate by the supplied ratio, then run precheck again.",
+    };
+  if (error.measured?.triangles === 0)
+    return {
+      kind: "reexport-geometry",
+      next: "Re-export a model containing triangle surfaces, then run precheck again.",
+    };
+  return {
+    kind: "reexport-smaller",
+    next: "Re-export a smaller file, then run precheck again to count its triangles.",
+  };
+}
+
 /* Sizing a STEP means tessellating it, and that cannot happen in the process
    that calls this one: the OpenClaw adapter calls it inside the Gateway, and
    the MCP server lives as long as its client. So the conversion is handed in,
@@ -64,6 +87,10 @@ export function precheckModel(ctx, file, { derived } = {}) {
       verdict: "reject",
       reason: `${(stat.size / 1048576).toFixed(1)} MB exceeds the ${MAX_BYTES / 1048576} MB limit; too large to count faces. Simplify or re-export, then run precheck again for a face count.`,
       simplify: { targetTriangles: MAX_TRIANGLES, requiredRatio: null },
+      remediation: remediationFor({
+        code: "MODEL_LIMIT",
+        measured: { bytes: stat.size },
+      }),
     };
   let metadata;
   try {
@@ -85,6 +112,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
       triangles: over,
       verdict: "reject",
       reason: error.message,
+      remediation: remediationFor(error),
       ...(error.notices ? { notices: error.notices } : {}),
       // The ratio comes from the measured count, so a caller decimates once and
       // publishes, instead of guessing and republishing until one happens to fit.
@@ -111,6 +139,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
     verdict: "ok",
     reason: `${triangles} triangles, ${(base.bytes / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
     simplify: null,
+    remediation: null,
   };
 }
 

@@ -13,7 +13,7 @@ import { toolSchema, validateToolInput } from "../../integration/contract.mjs";
 
 export const parameters = toolSchema("openclaw");
 const description =
-  "Open or continue browser-based 3D model review in the current conversation; publish GLB, glTF, STL or STEP drafts (confirm the model's intended upright first; all formats default to +Z up with -Y to the front; publish Y-up files with up:\"y\"; marks stay in file coordinates), choose which published version the reviewer sees, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MiB, and nothing degrades below them: run precheck on a GLB, glTF or STL before every open, and when its verdict is reject, only simplify by simplify.requiredRatio when it is a number and say so before publishing; when it is null, follow reason: re-export oversized files, reduce oversized textures, or re-export models with no triangles; a STEP needs no precheck, since open measures it while importing and refuses it the same way. Every visible published version stays selectable and annotatable; retain can hide versions without deleting files, so activate switches the display freely and never discards a draft; status lists visible versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and check whether a marking made against an older version still applies to the current one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
+  "Open or continue browser-based 3D model review in the current conversation; publish GLB, glTF, STL or STEP drafts (confirm the model's intended upright first; all formats default to +Z up with -Y to the front; publish Y-up files with up:\"y\"; marks stay in file coordinates), choose which published version the reviewer sees, read submitted annotations, and echo understanding and wait for confirmation before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MiB, and nothing degrades below them: run precheck on a GLB, glTF or STL before every open, and when its verdict is reject, follow remediation.kind and remediation.next; only decimate supplies a numeric ratio, and report any simplification; a STEP needs no precheck, since open measures it while importing and refuses it the same way. Every visible published version stays selectable and annotatable; retain can hide versions without deleting files, so activate switches the display freely and never discards a draft; status lists visible versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and use read.gates.nextAction to ask whether to return to the marked version or apply feedback to the displayed one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
 
 const managers = new Map();
 const plugin = defineToolPlugin({
@@ -95,6 +95,9 @@ const plugin = defineToolPlugin({
                 ok: false,
                 code: error.code || "UNAVAILABLE",
                 error: error.message,
+                ...(error.precheck
+                  ? { precheck: error.precheck, remediation: error.remediation }
+                  : {}),
               };
               return {
                 content: [{ type: "text", text: JSON.stringify(result) }],

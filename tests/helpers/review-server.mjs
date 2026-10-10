@@ -223,5 +223,17 @@ export async function startReview(
           () => !alive(),
         )
       : Promise.resolve(true);
-  return { repo, dir, url, ipc, api, publish, restart, alive, waitExit };
+  const exitStatus = () => ({ code: child.exitCode, signal: child.signalCode });
+  return {
+    repo,
+    dir,
+    url,
+    ipc,
+    api,
+    publish,
+    restart,
+    alive,
+    waitExit,
+    exitStatus,
+  };
 }

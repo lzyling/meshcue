@@ -234,6 +234,9 @@ if (invoked) {
           error: {
             code: error.code || "FAILED",
             message: String(error.message || error),
+            ...(error.precheck
+              ? { precheck: error.precheck, remediation: error.remediation }
+              : {}),
           },
         },
         null,

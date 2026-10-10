@@ -368,6 +368,11 @@ test("host-admitted TCP peer collects one HttpOnly session without URL or body c
   const message = calls.find((call) => call.method === "chat.send").params
     .message;
   assert.equal(message.includes(`REVIEW_DATA_DIR='${f.dir}'`), true);
+  assert.equal(message.includes("do not replace the model"), false);
+  assert.ok(message.includes("wait for the reviewer to confirm"));
+  assert.ok(
+    message.includes("After confirmation, publish the next version normally"),
+  );
 });
 async function createFeedback(f, model, clientId, cookie) {
   const owner = { versionId: model.id, clientId };

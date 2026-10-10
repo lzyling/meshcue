@@ -40,7 +40,23 @@ function limitError(message, code, measured) {
   return error;
 }
 
-export function inspectModel(buffer, format, { derived } = {}) {
+// A manual precheck followed by open commonly measures the same bytes in the
+// host process. Keep one successful result, keyed by the complete packed bytes,
+// so expensive compressed geometry is not decoded again. Never trust paths,
+// caller metadata or a STEP tessellation, and never expose the cached object.
+let lastInspection;
+export function inspectModel(buffer, format, options = {}) {
+  if (STEP_FORMATS.includes(format) || buffer.length > MAX_BYTES)
+    return inspectModelUncached(buffer, format, options);
+  const key = `${format}:${sha256(buffer)}`;
+  if (lastInspection?.key === key)
+    return structuredClone(lastInspection.metadata);
+  const metadata = inspectModelUncached(buffer, format, options);
+  lastInspection = { key, metadata: structuredClone(metadata) };
+  return metadata;
+}
+
+function inspectModelUncached(buffer, format, { derived } = {}) {
   if (!buffer.length)
     throw new ReviewError(
       "The model file is empty; it contains no model.",

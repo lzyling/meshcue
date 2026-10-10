@@ -40,14 +40,12 @@ Run `precheck` on a GLB, glTF or STL before every `open`; it only reads and star
 instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MiB, with separate texture budgets and optional grouping metadata bounds in
 AGENT-INTERFACE.md — a dense model marks exactly as precisely as a sparse one.
 
-`verdict: "ok"` publishes as is. On `reject`, only decimate by
-`simplify.requiredRatio` when it is a number; say what you simplified and by
-how much. When the ratio is null (or simplify is null), follow `reason`:
-re-export files that are too large, reduce oversized textures, or re-export
-models with no triangles. Prefer re-exporting from STEP or a modelling script
-with a looser chord height when reducing triangles. Use headless Blender
-only when there is a mesh and no source. Tell the user whether they are
-reviewing original or simplified geometry.
+`verdict: "ok"` publishes as is. On `reject`, follow `remediation.kind` and
+`remediation.next`; only `decimate` supplies a numeric `ratio`. Say what you
+simplified and by how much. The old `simplify.requiredRatio` remains compatible.
+Prefer re-exporting from STEP or a modelling script with a looser chord height
+when reducing triangles. Use headless Blender only when there is a mesh and no
+source. Tell the user whether they are reviewing original or simplified geometry.
 
 Accepted formats are GLB 2.0, glTF 2.0, STL and STEP. Draco
 (`KHR_draco_mesh_compression`), Meshopt (`EXT_meshopt_compression`) and
@@ -108,10 +106,9 @@ actually returned, along with the model version really being displayed.
 `client_address_needed` means the first admission is not ready — do not say
 marking can begin. Browser trust is stored per project and expires after 30
 unused days. A health check on the serving machine is not the same as the page
-being open on the user's. When reopening or upgrading an instance, compare the
-`viewerReceipts` before and after by version, SHA and `loadedAt`: only a new
-receipt from after this reopen, against the current model, is evidence that the
-viewer loaded it. A retained receipt is not re-verification. Done means the
+being open on the user's. After open, use `status.viewer.loadedSinceOpen`: false means the link was sent
+but the page has not loaded the new version. This verifies a tab loaded it, not
+that the user looked at it; STEP uses the converted mesh SHA automatically. Done means the
 right project entry was delivered and its end-device state described accurately.
 
 **Optional grouping.** You can attach a `partGroups` array to an `open` with a
@@ -225,11 +222,10 @@ rather than calling the number millimetres.
 Two kinds of batch are handled differently. A batch with `sealed: true` was not
 handed over deliberately; it is unfinished work closed out on the user's behalf
 when a version's round ended, so ask what they meant rather than executing it as
-a change request. For a batch against an older version — a `versionId` that is
-not the active one — check whether that place has already been changed in the
-current version before deciding whether it is a correction or a stale opinion;
-the submission carries the model snapshot of the time, which is enough to
-compare. Done means the batch, the version and the intent all agree.
+a change request. Follow `read.gates.nextAction`: `ask-sealed` asks whether a change is intended;
+`ask-version` asks whether to return to `olderVersion.markedOn` or apply feedback
+to `showing`; `echo-then-wait` echoes understanding and waits for confirmation.
+Do not decide that old-version feedback is stale yourself. Done means the batch, the version and the intent all agree.
 
 ## 7. Changing, republishing and delivering files
 
@@ -266,11 +262,10 @@ explicitly complete.
 ## 9. A review that closed itself
 
 A review nobody has used for 24 hours closes itself and its URL stops answering.
-This is not a fault and needs no diagnosis: every version, every draft and every
-saved mark stays on disk. When the user reports a dead or closed page, or the
-page tells them it was closed for being idle, `open` the same project again and
-give them the new entry — `status` beforehand will simply say it is not running.
-`status` also reports `idle` as `forMs` against `limitMs`, and asking never
+For `status.state: "stopped-idle"`, this is not a fault: open the same project
+and hand over the new URL; everything is retained. For `stopped`, reopen without
+guessing the reason; for `running`, a dead page needs connectivity checks, not
+an assumption of idle shutdown. `status` also reports `idle` as `forMs` against `limitMs`, and asking never
 resets it, so it can be quoted as it stands. Publishing, reading, echoing and
 opening all count as use; polling status does not.
 
