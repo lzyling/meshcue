@@ -133,7 +133,7 @@ Use stop only for authorized maintenance of this instance; never ask for a nonex
 
 R1/R3–R6 apply: read is a receipt, not a change request or user confirmation.
 Follow gates.nextAction as described in § Runtime conclusions and the Skill; a sealed batch is unfinished work, and an older batch requires a user choice between markedOn and showing, not automatic feedback migration.
-Always echo a same-batch text summary and reply in its originating conversation, then wait for confirmation before every edit, even if there are no notes.
+Before every edit, explain understanding in the originating conversation and wait for confirmation, even if there are no notes. With a submission batch, also send a same-batch text `echo` summary. Before publication, when no batch exists, explain the proposed fix only in that conversation: do not call `echo` or invent a `submissionId`.
 List conflicting note/conversation requests and ask; measurements echo current→target, never assume a target from their current reading.
 
 ## Same-content publication
@@ -481,6 +481,10 @@ only tessellate it a second time.
   require the corresponding re-export or texture fix. `simplify.requiredRatio`
   remains available for older clients.
 
+Before any resource fix, explain the proposal and wait for confirmation; with a batch also send same-batch `echo`, without one do not call `echo` or invent a `submissionId`.
+
+For simplification, tell the user the ratio used, before/after face counts when measurable, and the impact on geometry and review approximation. If bytes-only rejection prevents counting faces, report the counts as unknown; never invent them.
+
 Two ways to simplify, in order of preference:
 
 1. **Re-export from the parametric source** (STEP, a modelling script, CAD) with
@@ -717,7 +721,8 @@ agent interface. Use the tool, the CLI or the MCP server.
 
 Browser trust expires after 30
 unused days per project; this is admission persistence, not evidence of viewing.
-A review nobody has used for 24 hours closes itself; data remains on disk.
+By default, a review unused for 24 hours closes itself; data remains on disk.
+`open.reviewLifetime` reports the actual service idle policy from `status.idle.limitMs`: custom hours or explicitly disabled when zero.
 Only open/publish/read/echo count as use, not polling status.
 
 
@@ -770,7 +775,7 @@ Source bounds inverse-transform all eight file AABB corners and are tagged conse
 
 ## What the reviewer sees
 
-This generated appendix quotes reviewer UI, not an alternate Agent policy: R3 requires confirmation before all edits, retain may hide tabs, and requested files are delivered in conversation (no page download control). Known older help wording conflicts are tracked for the UI workstream; do not repeat them as capabilities.
+This generated appendix quotes reviewer UI, not an alternate Agent policy: R3 requires confirmation before all edits, retain may hide tabs, and requested files are delivered in conversation (no page download control). The help below follows these same rules.
 
 
 <!-- reviewer-help:begin -- generated from src/i18n/en.js by scripts/sync-reviewer-help.mjs -->
@@ -815,25 +820,27 @@ mark, then say what to change."
   model file the Agent holds never carries them.
 
 - “Send to Agent” saves and submits the marks with their notes. Say what you
-  want changed in a note or back in the original conversation — both count; the
-  Agent will ask if anything is unclear. Submitting does not change the model by
-  itself.
+  want changed in a note or in the original conversation — both count. The Agent
+  first explains its understanding and waits for your confirmation before
+  changing the model. Submitting alone does not change it.
 
-- The tabs along the top list every version the Agent has delivered. Press any
-  of them to look back, and you can mark and submit on an older version directly
-  — each version keeps its own draft, and switching does not affect the others.
-  The marks the Agent receives state which version they target.
+- The tabs along the top list currently visible versions. On request, the
+  Agent can hide older versions without deleting their data and restore them
+  later. Press a tab to look back or mark and submit on an older version — each
+  version keeps its own draft, and switching does not affect the others. The
+  marks the Agent receives state which version they target.
 
-- “Send to Agent” sends this batch; the Agent replies with a new version and
-  you carry on marking that one. Nothing has to be closed off, and drafts save
-  themselves.
+- “Send to Agent” sends this batch; the Agent first explains its
+  understanding, waits for your confirmation, then changes the model and
+  delivers a new version for further marking. Nothing has to be closed off, and
+  drafts save themselves.
 
-- GLB, glTF, STL and STEP, up to 80 MB and 600,000 triangles. A STEP is
-  tessellated once when it arrives and your marks land on that mesh; downloading
-  still gives you the STEP itself. An STL carries no colour, so it is always
-  drawn grey; colours come with STEP and GLB. Draco and Meshopt compression are
-  supported; animation and skeletons are not supported yet. This is a review
-  tool; it does not sculpt the model.
+- GLB, glTF, STL and STEP, up to 80 MiB and 600,000 triangles. A STEP is
+  tessellated once when it arrives and your marks land on that mesh; the Agent
+  delivers the original STEP file in the conversation. An STL carries no colour,
+  so it is always drawn grey; colours come with STEP and GLB. Draco and Meshopt
+  compression are supported; animation and skeletons are not supported yet. This
+  is a review tool; it does not sculpt the model.
 
 - Measure starts in Smart: click an edge, hole or face; click a second one to
   compare. Nearby corners snap first, then edges, then faces. A straight edge

@@ -42,7 +42,7 @@ export function packGltf(buffer, actual, workspace, maxBytes) {
   let length = 0;
   const checkSize = (size) => {
     if (!Number.isSafeInteger(size) || size < 0 || length + size > maxBytes)
-      fail("The packed glTF exceeds the 80 MB model limit.", "MODEL_LIMIT");
+      fail("The packed glTF exceeds the 80 MiB model limit.", "MODEL_LIMIT");
   };
   const read = (uri) => {
     if (typeof uri !== "string" || !uri)
@@ -189,6 +189,6 @@ export function packGltf(buffer, actual, workspace, maxBytes) {
   doc.buffers = [{ byteLength: length }];
   const result = encodeGlb(doc, Buffer.concat(chunks));
   if (result.length > maxBytes)
-    fail("The packed glTF exceeds the 80 MB model limit.", "MODEL_LIMIT");
+    fail("The packed glTF exceeds the 80 MiB model limit.", "MODEL_LIMIT");
   return result;
 }

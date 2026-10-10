@@ -853,7 +853,15 @@ test("W2 open limit preflight refuses before creating or changing a project", as
         assert.equal(e.remediation.kind, kind);
         assert.match(
           e.remediation.next,
-          /echo the proposed change and wait for confirmation/,
+          /explain the proposed change in the originating conversation and wait for confirmation/,
+        );
+        assert.match(
+          e.remediation.next,
+          /with a submission batch also send same-batch echo/,
+        );
+        assert.match(
+          e.remediation.next,
+          /without one do not call echo or invent a submissionId/,
         );
         assert.match(e.remediation.next, /precheck again/);
         if (kind === "decimate")
@@ -1163,3 +1171,28 @@ test("W2 stale idle marker after failed cleanup cannot describe a newer non-idle
   );
   fs.writeFileSync(stateFile, state);
 });
+
+for (const [hours, expected] of [
+  [undefined, 24],
+  [3.5, 3.5],
+  [0, 0],
+]) {
+  test(`open reviewLifetime reflects idle policy ${hours ?? "default"}`, async (t) => {
+    const f = setup(t);
+    if (hours !== undefined)
+      f.manager.environment.REVIEW_IDLE_HOURS = String(hours);
+    const opened = await f.open("projects/idle-policy");
+    const state = await f.manager.execute({
+      action: "status",
+      project: "projects/idle-policy",
+    });
+    assert.equal(state.idle.limitMs, expected * 3600000);
+    assert.equal(typeof opened.reviewLifetime, "string");
+    assert.equal(
+      opened.reviewLifetime,
+      expected === 0
+        ? "idle reclaim disabled; data retained"
+        : `reclaimed after ${expected} hours with no use; reopen to resume`,
+    );
+  });
+}

@@ -29,7 +29,7 @@ export const MAX_TEXTURE_PIXELS = MAX_TEXTURE_BYTES / ((4 * 4) / 3);
 // see, and the threshold was telling people to simplify for no reason.
 // Measured 2026-09-17 on 352,560 faces: every source face stayed clickable,
 // and stayed clickable with subdivision switched off entirely.
-const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 // Every limit message states the measured value beside the cap, and carries it
 // as a number too. Without it a caller is told to "simplify" with no way to
 // know by how much, and its only recourse is to guess a decimation ratio and

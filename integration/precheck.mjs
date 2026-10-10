@@ -34,22 +34,22 @@ function remediationFor(error) {
   if (error.code === "TEXTURE_LIMIT")
     return {
       kind: "reduce-textures",
-      next: "Before altering the model, echo the proposed change and wait for confirmation; reduce texture dimensions or remove textures, then run precheck again.",
+      next: "Before altering the model, explain the proposed change in the originating conversation and wait for confirmation; with a submission batch also send same-batch echo, but without one do not call echo or invent a submissionId; reduce texture dimensions or remove textures, then run precheck again.",
     };
   if (error.measured?.triangles > MAX_TRIANGLES)
     return {
       kind: "decimate",
       ratio: ratio(MAX_TRIANGLES, error.measured.triangles),
-      next: "Before altering the model, echo the proposed change and wait for confirmation; decimate by the supplied ratio, then run precheck again.",
+      next: "Before altering the model, explain the proposed change in the originating conversation and wait for confirmation; with a submission batch also send same-batch echo, but without one do not call echo or invent a submissionId; decimate by the supplied ratio, then run precheck again.",
     };
   if (error.measured?.triangles === 0)
     return {
       kind: "reexport-geometry",
-      next: "Before altering the model, echo the proposed change and wait for confirmation; re-export a model containing triangle surfaces, then run precheck again.",
+      next: "Before altering the model, explain the proposed change in the originating conversation and wait for confirmation; with a submission batch also send same-batch echo, but without one do not call echo or invent a submissionId; re-export a model containing triangle surfaces, then run precheck again.",
     };
   return {
     kind: "reexport-smaller",
-    next: "Before altering the model, echo the proposed change and wait for confirmation; re-export a smaller file, then run precheck again to count its triangles.",
+    next: "Before altering the model, explain the proposed change in the originating conversation and wait for confirmation; with a submission batch also send same-batch echo, but without one do not call echo or invent a submissionId; re-export a smaller file, then run precheck again to count its triangles.",
   };
 }
 
@@ -85,7 +85,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
       ...base,
       triangles: null,
       verdict: "reject",
-      reason: `${(stat.size / 1048576).toFixed(1)} MB exceeds the ${MAX_BYTES / 1048576} MB limit; too large to count faces. Simplify or re-export, then run precheck again for a face count.`,
+      reason: `${(stat.size / 1048576).toFixed(1)} MiB exceeds the ${MAX_BYTES / 1048576} MiB limit; too large to count faces. Simplify or re-export, then run precheck again for a face count.`,
       simplify: { targetTriangles: MAX_TRIANGLES, requiredRatio: null },
       remediation: remediationFor({
         code: "MODEL_LIMIT",
@@ -137,7 +137,7 @@ export function precheckModel(ctx, file, { derived } = {}) {
   return {
     ...result,
     verdict: "ok",
-    reason: `${triangles} triangles, ${(base.bytes / 1048576).toFixed(2)} MB: within both limits. Publish as is.`,
+    reason: `${triangles} triangles, ${(base.bytes / 1048576).toFixed(2)} MiB: within both limits. Publish as is.`,
     simplify: null,
     remediation: null,
   };

@@ -89,7 +89,7 @@ they are done rather than waiting for a message that cannot arrive.
 A mark names a source face, so a model at the cap marks exactly as precisely as
 a small one — there is no band below these limits where something quietly gets
 worse. `precheck` measures a file before `open` and, when it is over, answers
-with the ratio to decimate by instead of a refusal after the fact.
+with `remediation.kind/next` instead of a refusal after the fact. Only `decimate` supplies a numeric ratio; other kinds require the stated resource fix and another precheck.
 
 A STEP has no face count until it has been tessellated, so `precheck` tessellates
 it to measure it — the same tessellation `open` then publishes. Over the cap it

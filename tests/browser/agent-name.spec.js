@@ -108,7 +108,7 @@ test("the page says the Agent's name wherever it spoke of the Agent", async ({
     "“Send to Ada (OpenClaw)” saves and submits",
   );
   await expect(help).toContainText(
-    "Ada (OpenClaw) will ask if anything is unclear",
+    "Ada (OpenClaw) first explains its understanding and waits for your confirmation before changing the model",
   );
   // Drawn at start-up in the page's own words; none of them may be left.
   expect(await help.innerText()).not.toMatch(/\bagent\b/i);
