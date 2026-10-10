@@ -386,8 +386,9 @@ test("discovery schemas are flat, explicitly typed and smaller than the pre-cont
   // partGroupsSchema/MAX_AGENT_NAME, then JSON.stringify(...).length (2026-10-10).
   const baseline = { openclaw: 9646, mcp: 8655 };
   // r3 restores minimal group/region shape guidance without recursive schemas.
-  // Measured 2863/2987 characters; allow ~5% prose headroom, not baseline-sized growth.
-  const budget = { openclaw: 3000, mcp: 3130 };
+  // W2B adds only sourceTransform and coordinate guidance: measured 3165/3289 characters.
+  // Allow ~5% prose headroom, retaining the pre-contract ceiling and flatness checks.
+  const budget = { openclaw: 3330, mcp: 3460 };
   const forbidden = new Set([
     "allOf",
     "anyOf",

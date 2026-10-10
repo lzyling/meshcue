@@ -1,3 +1,4 @@
+import { annotateCoordinates, coordinateExtras } from "./coordinates.mjs";
 export function markReference(a) {
   return `${a.label}${a.show === "color" ? ` (color-only mark, ${a.color})` : a.show === "label" ? " (label-only mark)" : ""}`;
 }
@@ -53,8 +54,12 @@ export function summarizeAnnotation(a, units = "unspecified") {
       length: a.length,
       curved: a.curved,
       ends: [a.points[0], a.points.at(-1)],
+      ...(a.sourcePoints
+        ? { sourceEnds: [a.sourcePoints[0], a.sourcePoints.at(-1)] }
+        : {}),
       ...(a.closed ? { closed: true } : {}),
       ...(a.brep ? { brep: a.brep } : {}),
+      ...coordinateExtras(a, ["sourcePoints"]),
       ...reviewerSide(a),
     };
   if (a.type === "part")
@@ -69,6 +74,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       meshIds: a.meshIds,
       bounds: a.bounds,
       ...(a.group ? { group: a.group } : {}),
+      ...coordinateExtras(a),
       ...reviewerSide(a),
     };
   if (a.type === "measure")
@@ -85,6 +91,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       picks: a.picks,
       ...(a.normals ? { normals: a.normals } : {}),
       ...(a.center ? { center: a.center, normal: a.normal } : {}),
+      ...coordinateExtras(a),
       ...reviewerSide(a),
     };
   if (a.type === "pin")
@@ -98,6 +105,7 @@ export function summarizeAnnotation(a, units = "unspecified") {
       sourceFaceIndex: a.sourceFaceIndex ?? a.faceIndex,
       position: (a.position || []).map(round),
       normal: (a.normal || []).map(round),
+      ...coordinateExtras(a),
       ...reviewerSide(a),
     };
   const faces = Object.fromEntries(
@@ -129,12 +137,16 @@ export function summarizeAnnotation(a, units = "unspecified") {
              are the preview's rather than the model's — inventing one here
              would make an old stroke claim a size it never measured. */
           ...(a.bounds.space ? { space: a.bounds.space } : {}),
+          ...(a.bounds.coordinateSpace
+            ? { coordinateSpace: a.bounds.coordinateSpace }
+            : {}),
           centroid: a.bounds.centroid,
           min: a.bounds.min,
           max: a.bounds.max,
           area: a.bounds.area,
         }
       : {}),
+    ...coordinateExtras(a),
     ...reviewerSide(a),
   };
 }
@@ -198,6 +210,7 @@ export function readReceipt(receipt) {
    nothing has to learn a second shape to find a mark by id. */
 export function summarizeSubmission(batch) {
   if (!batch?.annotations) return batch;
+  batch = annotateCoordinates(batch);
   return {
     ...batch,
     annotations: batch.annotations.map((a) =>
@@ -208,17 +221,17 @@ export function summarizeSubmission(batch) {
     // given a description of one, and has to know what to ask for instead.
     geometry: "omitted",
     geometryHint:
-      "Positions and sizes are in the model's own units, the same ones its file is dimensioned in; a region whose bounds carry no space: \"model\" was saved before 1.3.0 and is in the preview's scaled coordinates instead. meshManifest lists only the meshes these marks are on; omittedMeshes counts the rest. For the painted polygons themselves, or the whole parts list, read again with geometry: true — needed only to echo a region back or to measure one exactly.",
+      "Use file* or coordinateSpace:file fields to edit the published file, source* to edit the registered source model. Pin position/normal and patch vertices are mesh-local; historical region bounds are preview coordinates and cannot locate file edits. meshManifest lists only the meshes these marks are on; omittedMeshes counts the rest. For the painted polygons themselves, or the whole parts list, read again with geometry: true — needed only to echo a region back or to measure one exactly.",
     ...(batch.annotations.some((a) => a.view)
       ? {
           viewHint:
-            "A mark's view is where the reviewer was looking from when they last placed, painted, moved or wrote on it, in the same model frame and units as the positions: the camera position, the point it looked at (target), the direction the top of their screen pointed (up), the vertical field of view in degrees (fov) and the width-to-height aspect. So \"the top\" or \"the left side\" of a mark means what it meant on their screen. A mark made before 1.4.0 has no view; the batch's camera is then the nearest thing, and it is in the preview's scaled coordinates, not the model's.",
+            "A mark's view is where the reviewer was looking from when they last placed, painted, moved or wrote on it, in the file frame (coordinateSpace:file), not pin/patch mesh-local coordinates: the camera position, the point it looked at (target), the direction the top of their screen pointed (up), the vertical field of view in degrees (fov) and the width-to-height aspect. So \"the top\" or \"the left side\" of a mark means what it meant on their screen. A mark made before 1.4.0 has no view; the batch's camera is then the nearest thing, and it is in the preview's scaled coordinates, not the model's; never use batch camera to locate model edits.",
         }
       : {}),
     ...(batch.annotations.some((a) => a.type === "measure")
       ? {
           measureHint:
-            'A measurement (type "measure") is a dimension the reviewer read off this version and kept. kind "points" is the distance between two points, a point that landed within a few pixels of a triangle corner being taken at the corner; from the smart tool, one end may be the foot of the perpendicular on an edge\'s line or a face\'s plane, possibly beyond its outline; "edge" is the length of a straight edge, end to end; "planes" is two flat faces: quantity "length" when they are parallel (within 0.5 degrees), the gap between them, else quantity "angle", the angle between the two planes, 0 to 90 degrees, with each face\'s outward normal in normals; "circle" is three points clicked on the rim of a hole or shaft, corners taken as for "points", and the circle through them: quantity "diameter", its center, and normal, the normal of the circle\'s plane and so the direction of the hole\'s or shaft\'s axis, pointing to the side it was measured from. points are the two ends of the line it was read along, or a circle\'s three points, in the model frame and units like every other position; each pick is the source triangle the reviewer clicked for that object. value is in unit: the model\'s declared unit, "unspecified" when none was declared, or "degree". By itself a measurement asks for no change: what it should become is in its note or the conversation, and your echo repeats it as from and to ("12.40 mm to 22 mm") before you change anything. On a STEP, faces and edges are the file\'s own: a face is one of its faces, taken whole, and an edge is where two of them meet, however gently; on a GLB or STL both are found on the mesh, an edge where the faces either side turn by more than 30 degrees and a face grown from the one clicked within 2 degrees.',
+            'A measurement (type "measure") is a dimension the reviewer read off this version and kept. kind "points" is the distance between two points, a point that landed within a few pixels of a triangle corner being taken at the corner; from the smart tool, one end may be the foot of the perpendicular on an edge\'s line or a face\'s plane, possibly beyond its outline; "edge" is the length of a straight edge, end to end; "planes" is two flat faces: quantity "length" when they are parallel (within 0.5 degrees), the gap between them, else quantity "angle", the angle between the two planes, 0 to 90 degrees, with each face\'s outward normal in normals; "circle" is three points clicked on the rim of a hole or shaft, corners taken as for "points", and the circle through them: quantity "diameter", its center, and normal, the normal of the circle\'s plane and so the direction of the hole\'s or shaft\'s axis, pointing to the side it was measured from. points are the two ends of the line it was read along, or a circle\'s three points, in the file frame and declared units; each pick is the source triangle the reviewer clicked for that object. value is in unit: the model\'s declared unit, "unspecified" when none was declared, or "degree". By itself a measurement asks for no change: what it should become is in its note or the conversation, and your echo repeats it as from and to ("12.40 mm to 22 mm") before you change anything. On a STEP, faces and edges are the file\'s own: a face is one of its faces, taken whole, and an edge is where two of them meet, however gently; on a GLB or STL both are found on the mesh, an edge where the faces either side turn by more than 30 degrees and a face grown from the one clicked within 2 degrees.',
         }
       : {}),
     ...(batch.annotations.some((a) => a.note)

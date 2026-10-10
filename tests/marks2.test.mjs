@@ -600,7 +600,16 @@ for (const show of [undefined, "color", "label"]) {
       versionId: owner.versionId,
     });
     assert.equal(read.status, 200);
-    assert.deepEqual(read.body.annotations, annotations);
+    const expected = structuredClone(annotations);
+    expected[0].coordinateSpace = "file";
+    expected[1].bounds.coordinateSpace = "file";
+    Object.assign(expected[2], {
+      coordinateSpace: "mesh",
+      fileConversion: "unavailable",
+      fileConversionReason:
+        "Batch manifest has no mesh-to-file matrix for this mesh.",
+    });
+    assert.deepEqual(read.body.annotations, expected);
     const summary = summarizeSubmission({ annotations });
     for (const a of summary.annotations) assert.equal(a.show, show);
     const { markReference } = await import("../integration/summarize.mjs");

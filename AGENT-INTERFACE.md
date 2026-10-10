@@ -250,10 +250,11 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | `project` | type: string | open, status, activate, retain, read, echo, finish, unlock, stop | Workspace-relative modelling project, e.g. projects/phone-stand; never the application checkout. Default: Not specified |
 | `file` | type: string; minLength: 1 | open, precheck | Existing GLB, glTF, STL or STEP source relative to the workspace. Hard limits: 600000 triangles and 80 MiB; STEP is tessellated on import. Required: precheck. Default: Not specified |
 | `partGroups` | type: array; maxItems: 256 | open | open with file: optional named, nested groups alongside the unchanged File hierarchy. Membership is resolved only in the reviewer's browser. Omit to keep existing groups on same-content reuse; [] clears them. Total limits: 256 groups, depth 8, 4096 members and 256 KiB normalized UTF-8 JSON. Default: Omitted preserves reused groups; [] clears |
+| `sourceTransform` | type: object | open | open with file: {sourceFile, rotation:[[3 numbers],[3 numbers],[3 numbers]], translation?:[3 numbers]}; p_file=R*p_source+t. Finite orthogonal rotation, determinant +1, tolerance 1e-6; no scale/shear/mirror. Identifier only; sourceFile is not read. Default: Omitted: no source conversion |
 | `name` | type: string; maxLength: 160 | open | Publication name; at most 160 UTF-16 code units. Default: Input file basename |
 | `version` | type: string; maxLength: 80 | open, activate | Publication version (at most 80 UTF-16 code units), or existing version string for activate. Default: initial on publication |
 | `units` | type: string; maxLength: 30 | open | Units text; at most 30 UTF-16 code units. STEP always uses mm. Default: unspecified; STEP mm |
-| `up` | type: string; enum: z/y | open | File up axis, only open with file; default z (+Z up, -Y front, +X right). Marks stay in published file coordinates. Default: z |
+| `up` | type: string; enum: z/y | open | File up axis, only open with file; default z (+Z up, -Y front, +X right). Use file* or fields tagged file for published file coordinates; source* for registered sources; batch camera is preview only. Default: z |
 | `label` | type: string; maxLength: 24 | open | Explicit tab caption is rejected above 24 UTF-16 code units. When omitted, the displayed version caption is automatically shortened. Default: Version caption automatically shortened |
 | `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence; 1–100 ASCII letters, digits, underscores or hyphens. read/echo do not use this field; the batch’s own version is authoritative. Default: Action-dependent; see description |
 | `keep` | type: integer/null; minimum: 0; maximum: 1000 | retain | Show latest 0–1000 versions; omitted, null or zero restores all; protected versions remain visible. Default: null: restore all |
@@ -274,6 +275,7 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | `--project <value>` | `project` |
 | `--file <value>` | `file` |
 | `--part-groups <value>` | `partGroups` |
+| `--source-transform <value>` | `sourceTransform` |
 | `--name <value>` | `name` |
 | `--version <value>` | `version` |
 | `--units <value>` | `units` |
@@ -529,31 +531,20 @@ this version uses.
 
 For example, if the source's intended up is −X and front is +Z, rotate column
 vectors with `R = [[0,1,0],[0,0,-1],[-1,0,0]]`:
-`(x,y,z) → (y,−z,−x)`. This sends −X to +Z and +Z to −Y. The inverse of a
-rotation is its transpose, `R⁻¹ = Rᵀ`. If you also translate,
-`p_review = R p_source + t` becomes `p_source = Rᵀ (p_review − t)`;
-directions use `Rᵀ` without translation.
+`(x,y,z) → (y,−z,−x)`. This sends −X to +Z and +Z to −Y. Register this forward rotation and optional translation in open; the tool returns source coordinates without requiring an Agent to invert it.
 
-Marks, measurements and mark `view` come back in the **published file's**
-coordinates, not the editable source's. When publishing a rotated review copy,
-record `R`, `t` and the source file and published version they belong to in
-your own project records; MeshCue does not store them. Before editing the source, map
-returned positions and measurement geometry back with the inverse transform,
-and normals and `view` directions with the inverse rotation; rigid transforms
-leave measured lengths and angles unchanged. `up:"y"` alone does not change returned file coordinates.
+Open a rotated review copy with sourceTransform:{sourceFile,rotation,translation}. MeshCue stores it on that version and supplies source* fields, including node transforms for mesh-local pins and patches. Edit the source with source*, not with local coordinates or a manually inverted matrix. Rigid transforms leave lengths, diameters and angles unchanged. `up:"y"` alone does not change returned file coordinates.
 
 - The view cube's Front, Top and Right are canonical −Y, +Z and +X for every
   format. For `up:"y"`, these correspond to file +Z, +Y and +X.
-- Standing a model up changes only drawing. Pin `position`, region
-  `space:"model"`, measurements and mark `view` always remain in the published
-  file's own coordinates and units, including `up:"y"`.
+- Standing a model up changes only drawing. Pin position/normal and patch vertices stay mesh-local; file* and file-tagged region bounds, measurements and mark view remain in the published file frame, including up:y.
 - Submission `camera` uses the fitted preview frame (three units, including the
   canonical standing-up step), not model coordinates. Mark `view` says which
   way screen-up points in the original file frame.
 - Versions store optional `up`; omitted means `"z"`, including existing data.
   `status`/`open` version metadata includes `up` only for `"y"`. Identical bytes
   published with different up axes create separate versions and drafts; same
-  bytes and same axis reuse the existing version. Source hashes stay unchanged.
+  bytes, same axis and identical sourceTransform registration reuse the existing version. Different registration (including present versus absent) creates a new version; old batches retain their own registration. Source hashes stay unchanged.
 
 An STL carries no colour, so it is always drawn grey. When colour matters to the
 review, publish STEP, whose declared colours and transparency are read, or GLB.
@@ -706,7 +697,7 @@ Pins, edges and parts may have optional `show: "color" | "label"`. Absent means 
 
 `type: "edge"` marks an entire feature edge, not just a point. The summary gives `meshId`, `length`, `curved`, `ends` and optional `brep.face` (STEP face IDs); full `points` are available with `geometry: true`. Length is in model units.
 
-`type: "part"` marks whole parts or an Agent group. The summary gives `partIds`, `names`, `meshIds`, optional `group`, and model-space `bounds`. Interpret the note and conversation as applying to the whole part (for example “replace with M4”) or edge (for example “fillet”).
+`type: "part"` marks whole parts or an Agent group. The summary gives `partIds`, `names`, `meshIds`, optional `group`, and file-space `bounds`. Interpret the note and conversation as applying to the whole part (for example “replace with M4”) or edge (for example “fillet”).
 
 For an unrecognized `type`, understand it from `label`, `note` and the conversation; do not discard it or fail the read.
 
@@ -732,12 +723,7 @@ from any `note` they wrote on a mark.
   for a mark of twenty-five faces and one of twenty thousand, and it is what
   tells you where the reviewer painted and how much. `geometry: "omitted"` says
   so on the batch.
-- **`space: "model"` means the model's own units** — the ones its file is
-  dimensioned in, the same ones a pin's `position` is in. A region saved before
-  1.3.0 carries the four numbers with no `space`, and those are the preview's:
-  every model is scaled into a 3-unit box, so on a 160 mm assembly they are out
-  by a factor of 53 and an area by 2,845. **Do not read an unmarked `bounds` as
-  millimetres.** To use one, divide by the scale in that mesh's `matrixWorld`.
+- **Old space:model is retained for compatibility; coordinateSpace:file is authoritative.** Pin position is mesh-local and node scaling can change file lengths. Historical region bounds without space are tagged coordinateSpace:preview. They cannot safely locate edits or be converted by dividing matrixWorld by a scale; no file/source bounds are fabricated.
 - **Which unit that is, is the model's to say, and a mesh often does not say.**
   A STEP round reports `units: "mm"`, so its numbers are millimetres and square
   millimetres. A mesh published without units reports `"unspecified"`: the
@@ -764,7 +750,7 @@ from any `note` they wrote on a mark.
   and are read as such. History carries no original stroke data, so a precise
   stroke cannot be reconstructed and must not be claimed.
 - `meshManifest` gives stable mesh ids, original names, source and review face
-  counts, and `matrixWorld`. Local coordinates are not rewritten by preview
+  counts, and `matrixWorld` (mesh→preview, fromSpace:mesh/toSpace:preview). New manifests also carry fileMatrixWorld (mesh→file, fileToSpace:file), computed from un-exploded parent matrices excluding the display root. Old batches lacking it report fileConversion:unavailable rather than borrowing another version's matrix. Local coordinates are not rewritten by preview
   centring or scaling. The current review subdivision is
   `midpoint-v3-edge0.07-rationed`.
 - **The summary's manifest lists only the meshes these marks are on**, and
@@ -784,8 +770,7 @@ from any `note` they wrote on a mark.
 - **A mark's `view` is where the reviewer was looking from** when they last
   placed, painted, moved or wrote on it: `position`, `target`, `up` (the
   direction the top of their screen pointed), `fov` (vertical, in degrees) and
-  `aspect` (width over height), all in the same model frame and units as the
-  marks, with `space: "model"`. It is what "the top edge" or "the left of this"
+  `aspect` (dimensionless width over height). Position/target are file points; up is a file unit direction; fov is degrees. The old space:model remains, with coordinateSpace:file; this is not pin/patch mesh space. It is what "the top edge" or "the left of this"
   meant on their screen. A mark made before 1.4.0 has no `view`; the batch's
   `camera` is the nearest thing, and it is in the preview's frame.
   A mark’s optional `view.explode` is `{ amount: 0–1, by: "group" | "part" }`: the reviewer was looking at an exploded assembly. Stored mark coordinates remain in the un-exploded part frame.
@@ -963,3 +948,22 @@ Caller `versionId` remains ignored by read/echo; the batch selects its version.
 `stopped` (no verified idle record). `next` describes the next operation;
 reopening the same project retains its data. A dead page while `running` is not
 proof of idle shutdown: report or diagnose connectivity rather than guessing.
+
+
+### Coordinate fields (read summary and geometry)
+
+Edit the published file using file* or fields tagged coordinateSpace:file; edit the pre-rotation source using source*; batch camera is preview-only and must not locate model edits. All existing space values and numbers are preserved. New coordinateSpace labels consistently identify vector-bearing objects; scalars such as fov, aspect and barycentric are not labelled as positions.
+
+| Field type | Existing coordinateSpace | Added file fields | Registered source fields |
+| --- | --- | --- | --- |
+| pin position/normal (meshId) | mesh | filePosition/fileNormal | sourcePosition/sourceNormal |
+| surfacePatches vertices (geometry:true) | mesh | fileVertices | sourceVertices |
+| region centroid/min/max; raw bounds | file if old space:model; otherwise preview | none | sourceBounds (file only) |
+| part bounds | file | none | sourceBounds |
+| edge summary ends / raw points | file | none | sourceEnds / sourcePoints |
+| measure points/normals/center/normal | file | none | sourcePoints/sourceNormals/sourceCenter/sourceNormal |
+| mark view position/target/up | file | none | view.sourcePosition/sourceTarget/sourceUp |
+| batch camera position/target | preview | none | none |
+| manifest matrixWorld | mesh→preview | fileMatrixWorld: mesh→file | none |
+
+Source bounds inverse-transform all eight file AABB corners and are tagged conservative:true; centroid is the same descriptive point, not an area-weighted centroid. sourceMeasurementInvariant:true means edge length and measurement length/diameter/angle are unchanged. No registration means no source fields. sourceFile is a label, not permission to read a file. Rotation must be finite, orthogonal and determinant +1 within 1e-6; scaling/shear/reflection are refused without repair. Missing batch fileMatrixWorld or singular matrices produce fileConversion:unavailable with a reason and no converted pin/patch vectors. Converted values are calculated before summary rounding.

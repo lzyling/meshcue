@@ -1,3 +1,8 @@
+import {
+  normalizeSourceTransform,
+  annotateCoordinates,
+  withoutCoordinateExtras,
+} from "../integration/coordinates.mjs";
 import { precheckModel, stepMeshFor } from "../integration/precheck.mjs";
 import {
   INPUT_LIMITS,
@@ -640,6 +645,10 @@ function saveManifest(versionId, meshes) {
           sourceTriangles: z.number().int().positive().max(MAX_TRIANGLES),
           surfaceAlgorithm: z.literal("midpoint-v3-edge0.07-rationed"),
           matrixWorld: z.array(z.number().finite()).length(16),
+          fileMatrixWorld: z.array(z.number().finite()).length(16).optional(),
+          fromSpace: z.literal("mesh").optional(),
+          toSpace: z.literal("preview").optional(),
+          fileToSpace: z.literal("file").optional(),
         })
         .strict(),
     )
@@ -653,6 +662,9 @@ function saveManifest(versionId, meshes) {
     throw new ReviewError("The model mesh exceeds the limits.", 400);
   atomicJson(path.join(runtime, "manifests", `${versionId}.json`), {
     versionId,
+    sha256: (
+      store.state.models[versionId].mesh || store.state.models[versionId]
+    ).sha256,
     meshes: valid,
   });
 }
@@ -1660,6 +1672,7 @@ agentApp.post("/publish", async (req, res) => {
       origin: originInput.optional(),
       activate: z.boolean().optional(),
       partGroups: z.unknown().optional(),
+      sourceTransform: z.unknown().optional(),
     })
     // Strict like every other write route: a caller that misnames a field must
     // hear about it rather than have the model published under a default.
@@ -1667,6 +1680,10 @@ agentApp.post("/publish", async (req, res) => {
     .parse(req.body);
   const groups =
     p.partGroups === undefined ? undefined : normalizePartGroups(p.partGroups);
+  const sourceTransform =
+    p.sourceTransform === undefined
+      ? undefined
+      : normalizeSourceTransform(p.sourceTransform);
   let model;
   try {
     model = await importModel(p, {
@@ -1695,6 +1712,15 @@ agentApp.post("/publish", async (req, res) => {
     model.up = "y";
     // Same bytes, different interpretation: independent version/draft identity.
     model.id += "-y";
+  }
+  if (sourceTransform) {
+    model.sourceTransform = sourceTransform;
+    model.id +=
+      "-s" +
+      crypto
+        .createHash("sha256")
+        .update(JSON.stringify(sourceTransform))
+        .digest("hex");
   }
   if (p.label) model.label = p.label;
   const published = store.publish(model, p.origin, {
@@ -1818,9 +1844,11 @@ agentApp.post("/read", (req, res) => {
     .parse(req.body);
   const submission = store.acknowledgeRead(p.submissionId, p.versionId);
   receiptRead(submission);
-  res.json(submission);
+  res.json(annotateCoordinates(submission));
 });
 agentApp.post("/echo", (req, res) => {
+  if (req.body?.annotations)
+    req.body.annotations = withoutCoordinateExtras(req.body.annotations);
   const p = z
     .object({
       submissionId: id,

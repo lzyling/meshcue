@@ -315,6 +315,7 @@ export class ReviewStore {
         triangles: model.triangles,
         bytes: model.bytes,
         publishedAt: model.publishedAt,
+        hasSourceTransform: !!model.sourceTransform,
         active: s.active?.id === model.id,
         annotations: draft?.annotations.length || 0,
         unsubmitted: this.hasUnsubmitted(model.id),

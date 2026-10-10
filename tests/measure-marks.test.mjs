@@ -262,6 +262,7 @@ test("a batch with a measurement says what was read, in the model's unit", async
     quantity: "length",
     value: 5,
     unit: "mm",
+    coordinateSpace: "file",
     space: "model",
     points: [
       [0, 0, 0],

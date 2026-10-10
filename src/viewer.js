@@ -551,6 +551,10 @@ export class ModelViewer {
       sourceTriangles: o.geometry.userData.sourceTriangles,
       surfaceAlgorithm: SURFACE_ALGORITHM,
       matrixWorld: o.matrixWorld.toArray(),
+      fileMatrixWorld: this.modelFrame(o).toArray(),
+      fromSpace: "mesh",
+      toSpace: "preview",
+      fileToSpace: "file",
     }));
     await this.onReady({ sha256: hash, meshes: manifest });
     if (epoch === this.loadingEpoch) {

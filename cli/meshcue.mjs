@@ -80,7 +80,7 @@ export function help(installRoot = INSTALL_ROOT) {
     help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
     partGroups:
       "open --part-groups <workspace-relative JSON file>: optional array; 256 KiB maximum. Membership is resolved in the reviewer browser, not confirmed by publication.",
-    up: "open --up <z|y>: file up axis for every format; defaults to z. Marks stay in file coordinates.",
+    up: "open --up <z|y>: file up axis for every format; defaults to z. Use file* or file-tagged fields; source* for registered sources; batch camera is preview only.",
     limits:
       "CLI read returns summaries; full geometry and region echoes require MCP or the host tool.",
     network:
@@ -162,6 +162,16 @@ export async function run(
       `Usage: meshcue <${ACTIONS.join("|")}> [--option value]… — run "meshcue help" for the documentation paths.`,
     );
   const workspace = fs.realpathSync(input.workspace || cwd);
+  if (input.sourceTransform !== undefined) {
+    try {
+      input.sourceTransform = JSON.parse(input.sourceTransform);
+    } catch {
+      throw new IntegrationError(
+        "INVALID_INPUT",
+        "--source-transform requires a JSON object.",
+      );
+    }
+  }
   if (input.partGroupsFile !== undefined) {
     if (action !== "open" || !input.file)
       throw new IntegrationError(
