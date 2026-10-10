@@ -23,7 +23,7 @@ MeshCue is a browser workbench for reviewing 3D models with an AI agent. The
 agent publishes a draft, you open it in your own browser, mark the surfaces that
 are wrong — lettered pins and painted regions, on the mesh, in three dimensions —
 and hand the batch back. The agent reads positions, not a screenshot, and
-publishes the next version. Every version stays open for marking.
+publishes the next version. Every version remains stored; retained visible versions stay open for marking.
 
 It is not a CAD or sculpting tool. It is the step between "here is a draft" and
 "here is what to change", which until now was a screenshot and a paragraph.
@@ -37,16 +37,16 @@ address, not a description, and can say back which surface it understood.
 
 ## The loop
 
-1. The agent runs `precheck` on the model file, then `open` to publish it.
+1. The agent runs `precheck` on GLB/glTF/STL, then `open` to publish; STEP is checked during import.
 2. You open the URL in Chrome, Safari or any modern WebGL browser.
 3. Pick the label tool and click a surface to drop a lettered pin; the paint
    bucket fills the connected near-flat area around the face you click. The
    orbit tool places nothing, so turning the model never marks it. Nothing is
    submitted until you say so.
 4. Press **Send to Agent**. The batch is frozen against the version you marked.
-5. The agent calls `read`, echoes its understanding in your conversation, and
+5. The agent calls `read`, sends a text `echo` summary and replies in your conversation, and
    waits for your confirmation before changing the model and `open`ing the next
-   version. Older versions keep their own marks and stay selectable.
+   version. Older versions keep their own marks; retained visible versions stay selectable.
 
 There is no "finish the round" button. The next version _is_ the end of the last
 one.
@@ -89,7 +89,7 @@ they are done rather than waiting for a message that cannot arrive.
 A mark names a source face, so a model at the cap marks exactly as precisely as
 a small one — there is no band below these limits where something quietly gets
 worse. `precheck` measures a file before `open` and, when it is over, answers
-with the ratio to decimate by instead of a refusal after the fact.
+with `remediation.kind/next` instead of a refusal after the fact. Only `decimate` supplies a numeric ratio; other kinds require the stated resource fix and another precheck.
 
 A STEP has no face count until it has been tessellated, so `precheck` tessellates
 it to measure it — the same tessellation `open` then publishes. Over the cap it
@@ -154,7 +154,7 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 570 unit and integration tests
+npm test             # 573 unit and integration tests
 npm run test:browser # 303 real-Chromium tests, isolated port and data
 ```
 

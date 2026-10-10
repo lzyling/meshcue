@@ -35,6 +35,7 @@ test("a model inside both limits passes with nothing to do", (t) => {
   const { ctx, write } = setup(t);
   const result = precheckModel(ctx, write("small.stl", binaryStl(1000)));
   assert.equal(result.verdict, "ok");
+  assert.match(result.reason, /MiB/);
   assert.equal(result.triangles, 1000);
   assert.equal(result.simplify, null);
   assert.equal(result.limits.maxTriangles, MAX_TRIANGLES);
@@ -80,6 +81,12 @@ test("an oversized file is judged without being read", (t) => {
   assert.equal(result.verdict, "reject");
   assert.equal(result.triangles, null);
   assert.equal(result.bytes, MAX_BYTES + 1024);
+  assert.match(result.reason, /80 MiB limit/);
+  assert.doesNotMatch(result.reason, /\bMB\b/);
+  assert.throws(
+    () => inspectModel(Buffer.alloc(MAX_BYTES + 1), "stl"),
+    (error) => /MiB/.test(error.message) && !/\bMB\b/.test(error.message),
+  );
 });
 
 test("precheck refuses paths outside the workspace and writes nothing", (t) => {

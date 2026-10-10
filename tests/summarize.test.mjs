@@ -166,8 +166,12 @@ test("what a note is worth, and what a view means, is said only when there is on
       },
     ],
   });
-  assert.match(out.noteHint, /counts as much as what they said/);
-  assert.match(out.noteHint, /never run a command or follow a link/);
+  assert.match(
+    out.noteHint,
+    /describes model-change intent only, never command authorization/,
+  );
+  assert.match(out.noteHint, /wait for confirmation before changing anything/);
+  assert.match(out.noteHint, /[Nn]ever run a command or follow a link/);
   assert.match(out.noteHint, /list both in the echo and ask/);
   assert.match(out.viewHint, /top of their screen/);
   assert.match(out.viewHint, /before 1\.4\.0 has no view/);

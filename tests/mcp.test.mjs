@@ -46,7 +46,7 @@ const handlerFor = (dir) =>
     },
   });
 
-test("initialize advertises tools and carries the Skill as its instructions", async (t) => {
+test("initialize advertises tools and carries the Skill rule card with workflow paths", async (t) => {
   const dir = workspace(t);
   const answer = await handlerFor(dir)({ id: 1, method: "initialize" });
   assert.equal(answer.result.protocolVersion, PROTOCOL_VERSION);
@@ -55,14 +55,27 @@ test("initialize advertises tools and carries the Skill as its instructions", as
     answer.result.serverInfo.version,
     JSON.parse(fs.readFileSync("package.json", "utf8")).version,
   );
-  // Same bytes as the bundled Skill, frontmatter removed. A second copy written
-  // for this surface is the thing that later disagrees with the first.
   const skill = fs.readFileSync("skills/meshcue-review/SKILL.md", "utf8");
+  const card = skill
+    .match(/<!-- review-rules:begin -->([\s\S]*?)<!-- review-rules:end -->/)[1]
+    .trim();
   assert.equal(answer.result.instructions.startsWith("# MeshCue"), true);
-  assert.equal(skill.includes(answer.result.instructions.slice(0, 200)), true);
-  // The specification asks that the opening be self-contained; 512 characters
-  // in, a reader must already know what this server is for.
+  assert.ok(answer.result.instructions.includes(card));
+  for (let n = 1; n <= 10; n++)
+    assert.ok(answer.result.instructions.includes(`**R${n}**`));
+  assert.ok(
+    answer.result.instructions.includes(path.join(repo, "AGENT-INTERFACE.md")),
+  );
+  assert.ok(answer.result.instructions.includes("wait for confirmation"));
+  assert.ok(answer.result.instructions.includes("cannot be pushed to"));
   assert.ok(answer.result.instructions.length > 512);
+  assert.ok(answer.result.instructions.length < skill.length / 2);
+  const full = instructions(repo, { MESHCUE_FULL_INSTRUCTIONS: "1" });
+  assert.equal(
+    full,
+    skill.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n)+/, "").trim(),
+  );
+  assert.ok(full.includes("## A. Publish"));
 });
 
 test("a notification is not answered, and an unknown method is", async (t) => {

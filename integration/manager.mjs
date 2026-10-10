@@ -926,7 +926,12 @@ export class InstanceManager {
           agentTool: state.agentTool ?? null,
           admission,
           accessPolicy: "30 days inactive; renew on use",
-          reviewLifetime: "reclaimed after a day with no use; reopen to resume",
+          reviewLifetime:
+            state.idle?.limitMs === 0
+              ? "idle reclaim disabled; data retained"
+              : Number.isFinite(state.idle?.limitMs)
+                ? `reclaimed after ${state.idle.limitMs / 3600000} hours with no use; reopen to resume`
+                : "idle policy unavailable; check status.idle",
           ...(stale.length ? { runtimesNeedingReopen: stale } : {}),
           sourceBound: true,
         };

@@ -504,7 +504,7 @@ test("MCP and native schemas share flat grouping shape without changing the inte
   const native = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
   assert.match(
     native,
-    /import \{ toolSchema, validateToolInput \} from "\.\.\/\.\.\/integration\/contract\.mjs"/,
+    /import \{\s*toolSchema,\s*validateToolInput,\s*TOOL_DESCRIPTION,?\s*\} from "\.\.\/\.\.\/integration\/contract\.mjs"/,
   );
   assert.match(native, /parameters = toolSchema\("openclaw"\)/);
   // Evaluate the actual native tool definition with only its public host SDK
