@@ -74,7 +74,11 @@ test("MCP open without a host binds loopback and advertises host opt-in", async 
   const f = fixture(t);
   const opened = await f.mcp("open", { file: "part.stl" });
   assert.equal(new URL(opened.url).hostname, "127.0.0.1");
-  assert.equal(TOOL.inputSchema.properties.host.type, "string");
+  assert.equal(
+    TOOL.inputSchema.allOf.find((rule) => rule.then.properties.host).then
+      .properties.host.type,
+    "string",
+  );
 });
 
 test("CLI and MCP explicit LAN selection and stored hosts survive entry-point defaults", async (t) => {

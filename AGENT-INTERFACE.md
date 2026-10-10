@@ -255,7 +255,7 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | `units` | type: string; maxLength: 30 | open | Units text; at most 30 UTF-16 code units. STEP always uses mm. Default: unspecified; STEP mm |
 | `up` | type: string; enum: z/y | open | File up axis, only open with file; default z (+Z up, -Y front, +X right). Marks stay in published file coordinates. Default: z |
 | `label` | type: string; maxLength: 24 | open | Explicit tab caption is rejected above 24 UTF-16 code units. When omitted, the displayed version caption is automatically shortened. Default: Version caption automatically shortened |
-| `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo ignore caller versionId and use the batch version. Default: Action-dependent; see description |
+| `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo do not use this field; the batch’s own version is authoritative. Default: Action-dependent; see description |
 | `keep` | type: integer/null; minimum: 0; maximum: 1000 | retain | Show latest 0–1000 versions; omitted, null or zero restores all; protected versions remain visible. Default: null: restore all |
 | `submissionId` | type: string; minLength: 1; maxLength: 100 | read, echo | Submission batch id; 1–100 ASCII letters, digits, underscores or hyphens. Default: Not specified |
 | `geometry` | type: boolean | read | True returns full batch geometry; omitted returns a summary. Default: false: summary |

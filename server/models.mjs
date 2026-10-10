@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { INPUT_LIMITS } from "./input-limits.mjs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { imageSize, disableTypes, types as imageTypes } from "image-size";
@@ -414,13 +415,13 @@ export async function importModel(
     id,
     sha256: hash,
     filename,
-    name: String(name || path.basename(actual)).slice(0, 160),
-    version: String(version || "initial").slice(0, 80),
+    name: String(name || path.basename(actual)).slice(0, INPUT_LIMITS.name),
+    version: String(version || "initial").slice(0, INPUT_LIMITS.version),
     /* A STEP's mesh is millimetres whatever the caller says, because the
        tessellator is asked for millimetres (`DEFLECTION.linearUnit`) and scales
        whatever unit the file declares into them. Labelling it with the caller's
        word instead put "in" beside millimetre coordinates. */
-    units: step ? "mm" : String(units).slice(0, 30),
+    units: step ? "mm" : String(units).slice(0, INPUT_LIMITS.units),
     source: source
       ? path.relative(workspace, path.resolve(workspace, source))
       : null,

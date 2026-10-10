@@ -265,7 +265,7 @@ explicitly complete.
 
 ## 9. A review that closed itself
 
-A review nobody has used for a day closes itself and its URL stops answering.
+A review nobody has used for 24 hours closes itself and its URL stops answering.
 This is not a fault and needs no diagnosis: every version, every draft and every
 saved mark stays on disk. When the user reports a dead or closed page, or the
 page tells them it was closed for being idle, `open` the same project again and

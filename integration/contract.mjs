@@ -125,7 +125,7 @@ export const FIELDS = Object.freeze({
   versionId: field(
     id,
     ["activate", "finish", "unlock"],
-    "activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo ignore caller versionId and use the batch version.",
+    "activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo do not use this field; the batch’s own version is authoritative.",
     "version-id",
     "Action-dependent; see description",
   ),
@@ -229,20 +229,94 @@ export const FIELDS = Object.freeze({
     "Previous name or tool fallback",
   ),
 });
+// These fields are consumed only when publishing, not when reopening.
+const publicationFields = new Set([
+  "name",
+  "units",
+  "label",
+  "activate",
+  "partGroups",
+]);
+export function fieldCondition(key) {
+  const actions = FIELDS[key].actions;
+  if (key === "version")
+    return {
+      anyOf: [
+        { properties: { action: { const: "activate" } }, required: ["action"] },
+        {
+          properties: {
+            action: { const: "open" },
+            file: { minLength: 1, type: "string" },
+          },
+          required: ["action", "file"],
+        },
+      ],
+    };
+  return {
+    properties: {
+      action: { enum: actions },
+      ...(publicationFields.has(key)
+        ? { file: { type: "string", minLength: 1 } }
+        : {}),
+    },
+    required: ["action", ...(publicationFields.has(key) ? ["file"] : [])],
+  };
+}
+export function fieldIsUsed(key, input) {
+  return (
+    FIELDS[key].actions.includes(input.action) &&
+    (!(
+      publicationFields.has(key) ||
+      (key === "version" && input.action === "open")
+    ) ||
+      !!input.file)
+  );
+}
+export function conditionalFieldSchema(key) {
+  const schema = FIELDS[key].schema;
+  // JSON Schema cannot express trimming before UTF-16 length checks.
+  // Advertise the normalized name rules; runtime remains authoritative.
+  if (key === "agentName")
+    return { type: "string", description: schema.description };
+  // JSON Schema maxLength counts Unicode code points; our HTTP contract
+  // counts UTF-16 code units. IDs are ASCII by pattern, so their bound is exact.
+  if (
+    schema.type === "string" &&
+    schema.maxLength !== undefined &&
+    !schema.pattern
+  ) {
+    const { maxLength: _maxLength, ...portable } = schema;
+    return {
+      ...portable,
+      description: `${schema.description} UTF-16 length is checked at runtime.`,
+    };
+  }
+  return schema;
+}
 export function toolSchema(entry) {
+  const fields = Object.entries(FIELDS).filter(
+    ([key]) =>
+      !(entry === "openclaw" && key === "host") &&
+      !(entry === "cli" && ["geometry", "annotations"].includes(key)),
+  );
   return {
     type: "object",
     additionalProperties: false,
     properties: Object.fromEntries(
-      Object.entries(FIELDS)
-        .filter(
-          ([key]) =>
-            !(entry === "openclaw" && key === "host") &&
-            !(entry === "cli" && ["geometry", "annotations"].includes(key)),
-        )
-        .map(([key, value]) => [key, value.schema]),
+      fields.map(([key, value]) => [
+        key,
+        key === "action"
+          ? value.schema
+          : { description: value.schema.description },
+      ]),
     ),
     required: ["action"],
+    allOf: fields
+      .filter(([key]) => key !== "action")
+      .map(([key]) => ({
+        if: fieldCondition(key),
+        then: { properties: { [key]: conditionalFieldSchema(key) } },
+      })),
   };
 }
 export function cliFlags() {
@@ -281,8 +355,7 @@ export function validateToolInput(input, entry) {
     throw new IntegrationError("BAD_ACTION", "Name a supported action.");
   for (const [key, value] of Object.entries(input)) {
     const schema = FIELDS[key].schema;
-    if (key === "versionId" && ["read", "echo"].includes(input.action))
-      continue;
+    if (!fieldIsUsed(key, input)) continue;
     if (key === "agentName") {
       if (input.action === "open" && !agentNameSchema.safeParse(value).success)
         throw new IntegrationError("BAD_AGENT_NAME", schema.description);

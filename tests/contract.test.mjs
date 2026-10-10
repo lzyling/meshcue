@@ -8,6 +8,8 @@ import {
   toolSchema,
   cliFlags,
   validateToolInput,
+  conditionalFieldSchema,
+  fieldCondition,
   validateUnknownFields,
 } from "../integration/contract.mjs";
 import { TOOL, createHandler } from "../mcp/server.mjs";
@@ -18,7 +20,11 @@ import {
   parseArgs,
   run,
 } from "../cli/meshcue.mjs";
-import { INPUT_LIMITS, ID_PATTERN } from "../server/input-limits.mjs";
+import {
+  INPUT_LIMITS,
+  ID_PATTERN,
+  DEFAULT_STALL_AFTER,
+} from "../server/input-limits.mjs";
 import { syncContractDocs } from "../scripts/sync-contract-docs.mjs";
 import {
   MAX_BYTES,
@@ -50,7 +56,23 @@ test("three entry action sets and every field schema come from the contract", ()
     assert.equal(schema.additionalProperties, false);
     for (const [key, f] of Object.entries(FIELDS)) {
       if (!schema.properties[key]) assert.ok(ENTRY_DIFFERENCES[entry][key]);
-      else assert.deepEqual(schema.properties[key], f.schema);
+      else {
+        assert.deepEqual(
+          schema.properties[key],
+          key === "action" ? f.schema : { description: f.schema.description },
+        );
+        if (key !== "action")
+          assert.ok(
+            schema.allOf.some(
+              (rule) =>
+                JSON.stringify(rule) ===
+                JSON.stringify({
+                  if: fieldCondition(key),
+                  then: { properties: { [key]: conditionalFieldSchema(key) } },
+                }),
+            ),
+          );
+      }
     }
   }
 });
@@ -117,12 +139,18 @@ test("input limits, null keep, trimming and historical batch version binding", (
   ]) {
     const max = FIELDS[key].schema.maxLength;
     const value = "a".repeat(max);
-    validateToolInput(
-      { action: key === "summary" ? "echo" : "open", [key]: value },
-      "mcp",
-    );
+    const action =
+      key === "summary" || key === "submissionId"
+        ? "echo"
+        : key === "versionId"
+          ? "activate"
+          : "open";
+    validateToolInput({ action, file: "part.stl", [key]: value }, "mcp");
     assert.throws(() =>
-      validateToolInput({ action: "open", [key]: value + "a" }, "mcp"),
+      validateToolInput(
+        { action, file: "part.stl", [key]: value + "a" },
+        "mcp",
+      ),
     );
   }
   for (const keep of [undefined, null, 0, INPUT_LIMITS.keep])
@@ -169,59 +197,175 @@ test("AGENT action and field blocks are exactly generated from the contract", ()
   assert.equal(syncContractDocs(doc), doc);
 });
 
+// Remove every generated block first: a refreshed field table must never hide
+// stale prose, including the independently generated reviewer-help block.
+function prose(source) {
+  return source.replace(/<!-- ([\w-]+):begin -->[\s\S]*?<!-- \1:end -->/g, "");
+}
+function section(source, heading) {
+  const body = prose(source);
+  const start = body.indexOf(heading);
+  assert.notEqual(start, -1, heading);
+  const next = body.slice(start + heading.length).search(/\n#{1,3} /);
+  return body.slice(
+    start,
+    next < 0 ? undefined : start + heading.length + next,
+  );
+}
+function assertFacts(file, source) {
+  const doc = prose(source);
+  const triangles = MAX_TRIANGLES.toLocaleString("en-US");
+  const mib = MAX_BYTES / 1024 / 1024;
+  if (["README.md", "AGENT-INTERFACE.md"].includes(file)) {
+    for (const [row, value] of [
+      ["Triangles", triangles],
+      ["File size", `${mib} MiB`],
+      [
+        "Textures",
+        `${MAX_TEXTURE_EDGE}×${MAX_TEXTURE_EDGE} each, ${MAX_TEXTURE_BYTES / 1024 / 1024} MiB estimated GPU memory`,
+      ],
+    ]) {
+      const line = doc
+        .split("\n")
+        .find((line) => new RegExp(`^\\| ${row}\\s*\\|`).test(line));
+      assert.ok(line, `${file}: budget row ${row}`);
+      assert.equal(
+        line
+          .split("|")[2]
+          .replaceAll("**", "")
+          .trim()
+          .replace(" (RGBA8 + mipmaps)", ""),
+        value,
+        `${file}: ${row}`,
+      );
+    }
+  }
+  if (file === "AGENT-INTERFACE.md") {
+    assert.ok(
+      doc.includes(
+        `The publication \`label\` is optional and limited to ${INPUT_LIMITS.label} characters (UTF-16 code`,
+      ),
+    );
+    assert.ok(
+      doc.includes(
+        `trimmed to 1–${MAX_AGENT_NAME} UTF-16 code units with control/bidi characters rejected`,
+      ),
+    );
+    assert.ok(
+      doc.includes(
+        `Limits are ${PART_GROUP_LIMITS.groups} groups total, depth ${PART_GROUP_LIMITS.depth} (root = 1), ${PART_GROUP_LIMITS.members.toLocaleString("en-US")} members total,\nand ${PART_GROUP_LIMITS.bytes / 1024} KiB`,
+      ),
+    );
+    assert.ok(doc.includes(`a ${PART_GROUP_LIMITS.bytes / 1024} KiB file\n`));
+    assert.ok(
+      doc.includes(
+        `failure threshold (default ${DEFAULT_STALL_AFTER} attempts; REVIEW_STALL_AFTER can override it)`,
+      ),
+    );
+    assert.ok(
+      doc.includes(
+        `summary is 1–${INPUT_LIMITS.summary} UTF-16 code units, with\nat most ${INPUT_LIMITS.annotations} regions.`,
+      ),
+    );
+  }
+  if (file === "skills/meshcue-review/SKILL.md") {
+    const precheck = section(source, "## 3.");
+    const publishing = section(source, "## 4.");
+    assert.ok(
+      precheck.includes(
+        `The limits are ${MAX_TRIANGLES} triangles and ${mib} MiB`,
+      ),
+    );
+    assert.ok(
+      publishing.includes(
+        `at most ${INPUT_LIMITS.label} characters (UTF-16 code units)`,
+      ),
+    );
+    assert.ok(
+      publishing.includes(`trimmed to 1–${MAX_AGENT_NAME} UTF-16 code units`),
+    );
+    assert.ok(
+      publishing.includes(`expires after ${DEFAULT_SESSION_DAYS}\nunused days`),
+    );
+    const idle = section(source, "## 9.");
+    assert.ok(idle.includes(`has used for ${IDLE_HOURS} hours closes itself`));
+  }
+  if (file === "adapters/openclaw/index.mjs")
+    assert.ok(
+      doc.includes(
+        `Model limits are ${MAX_TRIANGLES} triangles and ${mib} MiB`,
+      ),
+    );
+  for (const format of ["GLB", "glTF", "STL", "STEP"])
+    assert.ok(doc.includes(format), `${file}: ${format}`);
+}
 test("non-generated model and publication facts remain tied to constants", () => {
   for (const file of [
     "README.md",
     "AGENT-INTERFACE.md",
     "skills/meshcue-review/SKILL.md",
     "adapters/openclaw/index.mjs",
-  ]) {
-    const doc = read(file);
-    assert.ok(
-      doc.includes(String(MAX_TRIANGLES)) ||
-        doc.includes(MAX_TRIANGLES.toLocaleString("en-US")),
-      `${file}: triangles`,
-    );
-    assert.ok(doc.includes(`${MAX_BYTES / 1024 / 1024} MiB`), `${file}: bytes`);
-    for (const format of ["GLB", "glTF", "STL", "STEP"])
-      assert.ok(doc.includes(format), `${file}: ${format}`);
-  }
-  for (const file of ["README.md", "AGENT-INTERFACE.md"]) {
-    assert.ok(read(file).includes(`${MAX_TEXTURE_EDGE}×${MAX_TEXTURE_EDGE}`));
-    assert.ok(read(file).includes(`${MAX_TEXTURE_BYTES / 1024 / 1024} MiB`));
-  }
-  for (const file of ["AGENT-INTERFACE.md", "skills/meshcue-review/SKILL.md"]) {
-    const doc = read(file);
-    assert.match(
-      doc,
-      new RegExp(`label[\\s\\S]{0,180}${INPUT_LIMITS.label} characters`),
-    );
-    assert.ok(doc.includes(`1–${MAX_AGENT_NAME} UTF-16 code units`));
-    if (file === "AGENT-INTERFACE.md") {
-      assert.ok(doc.includes(String(PART_GROUP_LIMITS.groups)));
-      assert.ok(doc.includes(String(PART_GROUP_LIMITS.depth)));
-      assert.ok(doc.includes(`${PART_GROUP_LIMITS.bytes / 1024} KiB`));
-      assert.ok(
-        doc.includes(String(PART_GROUP_LIMITS.members)) ||
-          doc.includes(PART_GROUP_LIMITS.members.toLocaleString("en-US")),
-      );
-    }
-  }
-  assert.match(
-    read("skills/meshcue-review/SKILL.md"),
-    new RegExp(`expires after ${DEFAULT_SESSION_DAYS}\\s+unused days`),
-  );
-  assert.equal(
-    IDLE_HOURS,
-    24,
-    "Update one-day idle policy text in manager and SKILL when the default changes",
-  );
-  // F05/F06/F12/F13/F14 are semantics, not independent numeric facts:
-  // shared field descriptions preserve orientation, coordinate frame, host,
-  // readonly precheck and grouping omission/clear rules in the generated block.
+  ])
+    assertFacts(file, read(file));
   assert.match(FIELDS.up.schema.description, /published file coordinates/);
   assert.match(
     FIELDS.partGroups.schema.description,
     /Omit to keep.*\[\] clears/,
   );
+});
+test("synced generated blocks cannot mask stale named prose facts", () => {
+  const agent = read("AGENT-INTERFACE.md");
+  for (const old of [
+    `**${MAX_TRIANGLES.toLocaleString("en-US")}**`,
+    `**${MAX_BYTES / 1024 / 1024} MiB**`,
+    `${MAX_TEXTURE_EDGE}×${MAX_TEXTURE_EDGE}`,
+    `**${MAX_TEXTURE_BYTES / 1024 / 1024} MiB**`,
+    `limited to ${INPUT_LIMITS.label} characters`,
+    `trimmed to 1–${MAX_AGENT_NAME} UTF-16`,
+    `${PART_GROUP_LIMITS.groups} groups total`,
+    `depth ${PART_GROUP_LIMITS.depth} (root = 1)`,
+    `${PART_GROUP_LIMITS.members.toLocaleString("en-US")} members total`,
+    `and ${PART_GROUP_LIMITS.bytes / 1024} KiB`,
+    `a ${PART_GROUP_LIMITS.bytes / 1024} KiB file`,
+    `default ${DEFAULT_STALL_AFTER} attempts`,
+    `summary is 1–${INPUT_LIMITS.summary}`,
+    `at most ${INPUT_LIMITS.annotations} regions`,
+  ]) {
+    assert.ok(prose(agent).includes(old), old);
+    const stale = syncContractDocs(
+      agent.replace(
+        old,
+        old.replace(/\d/, (digit) => String((Number(digit) + 1) % 10)),
+      ),
+    );
+    assert.equal(syncContractDocs(stale), stale);
+    assert.throws(
+      () => assertFacts("AGENT-INTERFACE.md", stale),
+      undefined,
+      old,
+    );
+  }
+  const skill = read("skills/meshcue-review/SKILL.md");
+  for (const old of [
+    `${MAX_TRIANGLES} triangles`,
+    `${MAX_BYTES / 1024 / 1024} MiB`,
+    `at most ${INPUT_LIMITS.label} characters`,
+    `trimmed to 1–${MAX_AGENT_NAME}`,
+    `after ${DEFAULT_SESSION_DAYS}\nunused days`,
+    `has used for ${IDLE_HOURS} hours`,
+  ]) {
+    assert.ok(prose(skill).includes(old), old);
+    assert.throws(
+      () =>
+        assertFacts(
+          "skills/meshcue-review/SKILL.md",
+          skill.replace(
+            old,
+            old.replace(/\d/, (digit) => String((Number(digit) + 1) % 10)),
+          ),
+        ),
+      undefined,
+      old,
+    );
+  }
 });
