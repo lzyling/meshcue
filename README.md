@@ -243,7 +243,9 @@ are welcome in [Discussions](https://github.com/lzyling/meshcue/discussions).
   Meshopt and KTX2 compression, rigged models in their bind pose, morph
   targets, GPU instancing, a texture budget that fits a 4K PBR set, and
   `.gltf` with external files. **Behavior change:** GLB now defaults to +Z up
-  too; publish Y-up GLBs with `up:"y"`. Coordinate data is unchanged.
+  too; publish Y-up GLBs with `up:"y"`. Confirm the model's intended upright
+  before publishing (see [Which way is up](AGENT-INTERFACE.md#which-way-is-up)).
+  Coordinate data is unchanged.
 - **1.6** — showing a GLB as intended: animation poses, LOD sets and material
   variants.
 - **1.7** — review aids for game assets: UV and checker views, per-channel
