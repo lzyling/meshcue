@@ -248,18 +248,18 @@ From a source clone, use `node cli/meshcue.mjs` in place of `meshcue`.
 | --- | --- | --- | --- |
 | `action` | type: string; enum: inspect/precheck/open/status/activate/retain/read/echo/finish/unlock/stop | inspect, precheck, open, status, activate, retain, read, echo, finish, unlock, stop | Operation to perform; required. Default: Not specified |
 | `project` | type: string | open, status, activate, retain, read, echo, finish, unlock, stop | Workspace-relative modelling project, e.g. projects/phone-stand; never the application checkout. Default: Not specified |
-| `file` | type: string; minLength: 1 | open, precheck | Existing GLB, glTF, STL or STEP source relative to the workspace. Hard limits: 600000 triangles and 80 MiB; STEP is tessellated on import. Default: Not specified |
+| `file` | type: string; minLength: 1 | open, precheck | Existing GLB, glTF, STL or STEP source relative to the workspace. Hard limits: 600000 triangles and 80 MiB; STEP is tessellated on import. Required: precheck. Default: Not specified |
 | `partGroups` | type: array; maxItems: 256 | open | open with file: optional named, nested groups alongside the unchanged File hierarchy. Membership is resolved only in the reviewer's browser. Omit to keep existing groups on same-content reuse; [] clears them. Total limits: 256 groups, depth 8, 4096 members and 256 KiB normalized UTF-8 JSON. Default: Omitted preserves reused groups; [] clears |
 | `name` | type: string; maxLength: 160 | open | Publication name; at most 160 UTF-16 code units. Default: Input file basename |
 | `version` | type: string; maxLength: 80 | open, activate | Publication version (at most 80 UTF-16 code units), or existing version string for activate. Default: initial on publication |
 | `units` | type: string; maxLength: 30 | open | Units text; at most 30 UTF-16 code units. STEP always uses mm. Default: unspecified; STEP mm |
 | `up` | type: string; enum: z/y | open | File up axis, only open with file; default z (+Z up, -Y front, +X right). Marks stay in published file coordinates. Default: z |
 | `label` | type: string; maxLength: 24 | open | Explicit tab caption is rejected above 24 UTF-16 code units. When omitted, the displayed version caption is automatically shortened. Default: Version caption automatically shortened |
-| `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo do not use this field; the batch’s own version is authoritative. Default: Action-dependent; see description |
+| `versionId` | type: string; minLength: 1; maxLength: 100 | activate, finish, unlock | activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence; 1–100 ASCII letters, digits, underscores or hyphens. read/echo do not use this field; the batch’s own version is authoritative. Default: Action-dependent; see description |
 | `keep` | type: integer/null; minimum: 0; maximum: 1000 | retain | Show latest 0–1000 versions; omitted, null or zero restores all; protected versions remain visible. Default: null: restore all |
-| `submissionId` | type: string; minLength: 1; maxLength: 100 | read, echo | Submission batch id; 1–100 ASCII letters, digits, underscores or hyphens. Default: Not specified |
+| `submissionId` | type: string; minLength: 1; maxLength: 100 | read, echo | Submission batch id; 1–100 ASCII letters, digits, underscores or hyphens. Required: read, echo. Default: Not specified |
 | `geometry` | type: boolean | read | True returns full batch geometry; omitted returns a summary. Default: false: summary |
-| `summary` | type: string; minLength: 1; maxLength: 1000 | echo | Understanding of the batch; required for echo, 1–1000 UTF-16 code units. Default: Not specified |
+| `summary` | type: string; minLength: 1; maxLength: 1000 | echo | Understanding of the batch; required for echo, 1–1000 UTF-16 code units. Required: echo. Default: Not specified |
 | `annotations` | type: array; maxItems: 20 | echo | At most 20 regions from a full submission; never invented geometry. HTTP validates view, bounds, patches and geometry in detail. Default: [] |
 | `activate` | type: boolean | open | False publishes without changing the displayed version; default true. Default: true |
 | `resume` | type: boolean | open | True only when the user explicitly continues this existing project in the current conversation. Default: false |

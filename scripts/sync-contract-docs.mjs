@@ -4,6 +4,7 @@ import {
   ACTIONS,
   ACTION_DETAILS,
   FIELDS,
+  REQUIRED_FIELDS,
   ENTRY_DIFFERENCES,
   cliFlags,
   cliSwitches,
@@ -44,7 +45,7 @@ export function renderContract(key) {
               )
               .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join("/") : v}`)
               .join("; ");
-            return `| \`${key}\` | ${escape(bounds)} | ${f.actions.join(", ")} | ${escape(f.schema.description)} Default: ${escape(f.defaultBehavior)} |`;
+            return `| \`${key}\` | ${escape(bounds)} | ${f.actions.join(", ")} | ${escape(f.schema.description)}${REQUIRED_FIELDS[key] ? ` Required: ${REQUIRED_FIELDS[key].join(", ")}.` : ""} Default: ${escape(f.defaultBehavior)} |`;
           }),
           "",
           "| CLI flag | Tool field |",

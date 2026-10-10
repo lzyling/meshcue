@@ -61,9 +61,7 @@ test("a name is plain text on one line, at most twenty-four characters", () => {
   ])
     assert.equal(ok(value).success, false, JSON.stringify(value));
   // The entries advertise the same limit the service holds them to.
-  const name = TOOL.inputSchema.allOf.find(
-    (rule) => rule.then.properties.agentName,
-  ).then.properties.agentName;
+  const name = TOOL.inputSchema.properties.agentName;
   assert.equal(name.type, "string");
   assert.match(
     name.description,

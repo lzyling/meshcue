@@ -192,11 +192,7 @@ test("CLI, MCP and OpenClaw expose the same optional up axis", () => {
     parseArgs(["open", "--file", "model.glb", "--up", "y"]).input.up,
     "y",
   );
-  assert.deepEqual(
-    TOOL.inputSchema.allOf.find((rule) => rule.then.properties.up).then
-      .properties.up.enum,
-    ["z", "y"],
-  );
+  assert.deepEqual(TOOL.inputSchema.properties.up.enum, ["z", "y"]);
   const adapter = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
   assert.match(adapter, /parameters = toolSchema\("openclaw"\)/);
   assert.deepEqual(

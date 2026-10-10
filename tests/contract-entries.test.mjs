@@ -25,11 +25,16 @@ const legal = [
   { action: "inspect", summary: "" },
   { action: "status", summary: "" },
   { action: "open", ...publication },
-  { action: "read", versionId: "ignored id!" },
-  { action: "echo", versionId: { arbitrary: true } },
+  { action: "read", submissionId: "batch", versionId: "ignored id!" },
+  {
+    action: "echo",
+    submissionId: "batch",
+    summary: "ok",
+    versionId: { arbitrary: true },
+  },
 ];
 // No JSON Schema validator dependency is installed. This minimal evaluator
-// implements exactly the keywords emitted for these top-level conditional
+// implements exactly the keywords emitted for these flat discovery
 // contracts; unsupported keywords fail loudly, never silently pass.
 function valid(schema, value) {
   for (const key of Object.keys(schema))
@@ -41,10 +46,7 @@ function valid(schema, value) {
         "properties",
         "required",
         "additionalProperties",
-        "allOf",
-        "anyOf",
-        "if",
-        "then",
+        "items",
         "enum",
         "const",
         "minimum",
@@ -76,10 +78,6 @@ function valid(schema, value) {
     return false;
   if (schema.enum && !schema.enum.includes(value)) return false;
   if (Object.hasOwn(schema, "const") && schema.const !== value) return false;
-  if (schema.anyOf && !schema.anyOf.some((s) => valid(s, value))) return false;
-  if (schema.allOf && !schema.allOf.every((s) => valid(s, value))) return false;
-  if (schema.if && valid(schema.if, value) && !valid(schema.then, value))
-    return false;
   if (typeof value === "string") {
     // JSON Schema counts Unicode code points, unlike runtime UTF-16 limits.
     const length = [...value].length;
@@ -95,12 +93,12 @@ function valid(schema, value) {
       (schema.maximum !== undefined && value > schema.maximum))
   )
     return false;
-  if (
-    Array.isArray(value) &&
-    schema.maxItems !== undefined &&
-    value.length > schema.maxItems
-  )
-    return false;
+  if (Array.isArray(value)) {
+    if (schema.maxItems !== undefined && value.length > schema.maxItems)
+      return false;
+    if (schema.items && !value.every((item) => valid(schema.items, item)))
+      return false;
+  }
   if (value && typeof value === "object" && !Array.isArray(value)) {
     if (schema.required?.some((key) => !Object.hasOwn(value, key)))
       return false;
@@ -117,7 +115,7 @@ function valid(schema, value) {
   return true;
 }
 
-test("generated conditional schemas accept ignored known fields and reject unknown names", () => {
+test("generated flat schemas accept ignored known fields and reject unknown names", () => {
   for (const entry of ["mcp", "cli", "openclaw"]) {
     const schema = toolSchema(entry);
     for (const input of legal) {
@@ -135,7 +133,11 @@ test("generated conditional schemas accept ignored known fields and reject unkno
       { action: "retain", keep: INPUT_LIMITS.keep + 1 },
     ]) {
       assert.throws(() => validateToolInput(input, entry));
-      assert.equal(valid(schema, input), false);
+      assert.equal(
+        valid(schema, input),
+        true,
+        "action bounds are runtime-only",
+      );
     }
     // Portable schema deliberately leaves UTF-16 maxima to runtime, rather
     // than promising a Unicode-code-point bound with different semantics.
@@ -359,4 +361,67 @@ test("HTTP publication persists metadata at shared input limits across restart",
       ).status,
       400,
     );
+});
+
+test("discovery schemas are flat, portable and smaller than the pre-contract baseline", () => {
+  // Read-only git show 2339407:adapters/openclaw/index.mjs parameters and
+  // 2339407:mcp/server.mjs TOOL.inputSchema, evaluated with their imported
+  // partGroupsSchema/MAX_AGENT_NAME, then JSON.stringify(...).length (2026-10-10).
+  const baseline = { openclaw: 9646, mcp: 8655 };
+  const forbidden = new Set([
+    "allOf",
+    "anyOf",
+    "oneOf",
+    "if",
+    "then",
+    "else",
+    "not",
+    "$ref",
+    "dependentSchemas",
+  ]);
+  const scan = (value) => {
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      assert.equal(
+        forbidden.has(key),
+        false,
+        `Forbidden discovery keyword: ${key}`,
+      );
+      scan(child);
+    }
+  };
+  for (const entry of ["openclaw", "mcp", "cli"]) {
+    const schema = toolSchema(entry);
+    assert.deepEqual(Object.keys(schema).sort(), [
+      "additionalProperties",
+      "properties",
+      "required",
+      "type",
+    ]);
+    assert.deepEqual(schema.required, ["action"]);
+    scan(schema);
+    if (baseline[entry])
+      assert.ok(JSON.stringify(schema).length <= baseline[entry]);
+  }
+});
+
+test("runtime reports action, field and limits, including action-required parameters", () => {
+  for (const entry of ["openclaw", "mcp", "cli"]) {
+    for (const [input, pattern] of [
+      [{ action: "echo", submissionId: "batch" }, /summary \(echo\): required/],
+      [{ action: "read" }, /submissionId \(read\): required/],
+      [{ action: "precheck" }, /file \(precheck\): required/],
+      [{ action: "activate" }, /versionId \(activate\): required/],
+      [
+        { action: "echo", submissionId: "batch", summary: "" },
+        new RegExp(`summary \\(echo\\).*1–${INPUT_LIMITS.summary}`),
+      ],
+      [
+        { action: "retain", keep: INPUT_LIMITS.keep + 1 },
+        new RegExp(`keep \\(retain\\).*0–${INPUT_LIMITS.keep}`),
+      ],
+      [{ action: "activate", versionId: "bad id!" }, /versionId \(activate\)/],
+    ])
+      assert.throws(() => validateToolInput(input, entry), pattern);
+  }
 });

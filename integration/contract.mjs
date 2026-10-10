@@ -3,7 +3,7 @@ import { INPUT_LIMITS as L, ID_PATTERN } from "../server/input-limits.mjs";
 import { MAX_AGENT_NAME, agentNameSchema } from "../server/agent-name.mjs";
 import { MAX_TRIANGLES, MAX_BYTES } from "../server/models.mjs";
 import { MAX_REGION_LABEL, MAX_NOTE } from "../server/budget.mjs";
-import { partGroupsSchema } from "./part-groups.mjs";
+import { partGroupsSchema, PART_GROUP_LIMITS } from "./part-groups.mjs";
 import { IntegrationError } from "./context.mjs";
 
 export const ACTION_DETAILS = Object.freeze({
@@ -125,7 +125,7 @@ export const FIELDS = Object.freeze({
   versionId: field(
     id,
     ["activate", "finish", "unlock"],
-    "activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence. read/echo do not use this field; the batch’s own version is authoritative.",
+    `activate: required unless version resolves it; finish: omitted uses active version; unlock: omitted clears ALL presence; 1–${L.id} ASCII letters, digits, underscores or hyphens. read/echo do not use this field; the batch’s own version is authoritative.`,
     "version-id",
     "Action-dependent; see description",
   ),
@@ -229,6 +229,11 @@ export const FIELDS = Object.freeze({
     "Previous name or tool fallback",
   ),
 });
+export const REQUIRED_FIELDS = Object.freeze({
+  file: ["precheck"],
+  submissionId: ["read", "echo"],
+  summary: ["echo"],
+});
 // These fields are consumed only when publishing, not when reopening.
 const publicationFields = new Set([
   "name",
@@ -237,31 +242,6 @@ const publicationFields = new Set([
   "activate",
   "partGroups",
 ]);
-export function fieldCondition(key) {
-  const actions = FIELDS[key].actions;
-  if (key === "version")
-    return {
-      anyOf: [
-        { properties: { action: { const: "activate" } }, required: ["action"] },
-        {
-          properties: {
-            action: { const: "open" },
-            file: { minLength: 1, type: "string" },
-          },
-          required: ["action", "file"],
-        },
-      ],
-    };
-  return {
-    properties: {
-      action: { enum: actions },
-      ...(publicationFields.has(key)
-        ? { file: { type: "string", minLength: 1 } }
-        : {}),
-    },
-    required: ["action", ...(publicationFields.has(key) ? ["file"] : [])],
-  };
-}
 export function fieldIsUsed(key, input) {
   return (
     FIELDS[key].actions.includes(input.action) &&
@@ -272,30 +252,45 @@ export function fieldIsUsed(key, input) {
       !!input.file)
   );
 }
-export function conditionalFieldSchema(key) {
+// Compact discovery prose; detailed bounds remain in FIELDS for runtime/docs.
+const toolDescriptions = {
+  action: "Operation; required.",
+  project:
+    "Workspace-relative modelling project; never the application checkout.",
+  file: `open/precheck: GLB, glTF, STL or STEP; precheck requires file; limits ${MAX_TRIANGLES} triangles, ${MAX_BYTES / 1024 / 1024} MiB.`,
+  partGroups: `open with file: optional groups; omit preserves reused groups, [] clears; limits ${PART_GROUP_LIMITS.groups} groups, depth ${PART_GROUP_LIMITS.depth}, ${PART_GROUP_LIMITS.members} members, ${PART_GROUP_LIMITS.bytes / 1024} KiB normalized JSON.`,
+  name: `open with file: at most ${L.name} UTF-16 units; defaults to filename.`,
+  version: `open with file: at most ${L.version} UTF-16 units; activate: existing version string instead of versionId.`,
+  units: `open with file: at most ${L.units} UTF-16 units; STEP uses mm.`,
+  up: "open with file: z (default) or y; marks stay in file coordinates.",
+  label: `open with file: at most ${L.label} UTF-16 units; omitted version caption is shortened.`,
+  versionId: `activate: required unless version resolves it; finish: omitted uses active; unlock: omitted clears all presence; 1–${L.id} ASCII id characters; read/echo ignore it.`,
+  keep: `retain: integer 0–${L.keep}; omitted, null or zero restores all.`,
+  submissionId: `read/echo: required, 1–${L.id} ASCII letters, digits, underscores or hyphens.`,
+  geometry: "read: true includes polygons; default false.",
+  summary: `echo: required, 1–${L.summary} UTF-16 units.`,
+  annotations: `echo: at most ${L.annotations} regions from full submission; no invented geometry.`,
+  activate: "open with file: default true; false preserves displayed version.",
+  resume:
+    "open: true only for user-requested continuation in this conversation.",
+  host: "open: 127.0.0.1 default, lan or verified private IPv4; existing host is preserved.",
+  confirmedClientAddress: `open: user-confirmed browser IPv4, at most ${L.clientAddress} UTF-16 units; never inferred.`,
+  agentName: `open: trim first, 1–${MAX_AGENT_NAME} UTF-16 units, no control/bidi; omitted keeps previous name or tool fallback.`,
+};
+export function flatFieldSchema(key) {
   const schema = FIELDS[key].schema;
-  // JSON Schema cannot express trimming before UTF-16 length checks.
-  // Advertise the normalized name rules; runtime remains authoritative.
-  if (key === "agentName")
-    return { type: "string", description: schema.description };
-  // JSON Schema maxLength counts Unicode code points; our HTTP contract
-  // counts UTF-16 code units. IDs are ASCII by pattern, so their bound is exact.
-  if (
-    schema.type === "string" &&
-    schema.maxLength !== undefined &&
-    !schema.pattern
-  ) {
-    const { maxLength: _maxLength, ...portable } = schema;
-    return {
-      ...portable,
-      description: `${schema.description} UTF-16 length is checked at runtime.`,
-    };
-  }
-  return schema;
+  // versionId is historically ignored by read/echo even for non-string values.
+  // Action-specific lengths, nested shapes and required fields belong to runtime.
+  return {
+    ...(key === "versionId" ? {} : { type: schema.type }),
+    ...(schema.enum ? { enum: schema.enum } : {}),
+    ...(schema.type === "array" ? { items: { type: "object" } } : {}),
+    description: toolDescriptions[key],
+  };
 }
 export function toolSchema(entry) {
-  const fields = Object.entries(FIELDS).filter(
-    ([key]) =>
+  const fields = Object.keys(FIELDS).filter(
+    (key) =>
       !(entry === "openclaw" && key === "host") &&
       !(entry === "cli" && ["geometry", "annotations"].includes(key)),
   );
@@ -303,20 +298,9 @@ export function toolSchema(entry) {
     type: "object",
     additionalProperties: false,
     properties: Object.fromEntries(
-      fields.map(([key, value]) => [
-        key,
-        key === "action"
-          ? value.schema
-          : { description: value.schema.description },
-      ]),
+      fields.map((key) => [key, flatFieldSchema(key)]),
     ),
     required: ["action"],
-    allOf: fields
-      .filter(([key]) => key !== "action")
-      .map(([key]) => ({
-        if: fieldCondition(key),
-        then: { properties: { [key]: conditionalFieldSchema(key) } },
-      })),
   };
 }
 export function cliFlags() {
@@ -353,12 +337,26 @@ export function validateToolInput(input, entry) {
   validateUnknownFields(input, entry);
   if (!ACTIONS.includes(input.action))
     throw new IntegrationError("BAD_ACTION", "Name a supported action.");
+  for (const [key, actions] of Object.entries(REQUIRED_FIELDS))
+    if (actions.includes(input.action) && input[key] === undefined)
+      throw new IntegrationError(
+        key === "submissionId" ? "SUBMISSION_REQUIRED" : "BAD_USAGE",
+        `${key} (${input.action}): required; ${FIELDS[key].schema.description}`,
+      );
+  if (input.action === "activate" && !input.versionId && !input.version)
+    throw new IntegrationError(
+      "VERSION_REQUIRED",
+      "versionId (activate): required unless version resolves an existing version.",
+    );
   for (const [key, value] of Object.entries(input)) {
     const schema = FIELDS[key].schema;
     if (!fieldIsUsed(key, input)) continue;
     if (key === "agentName") {
       if (input.action === "open" && !agentNameSchema.safeParse(value).success)
-        throw new IntegrationError("BAD_AGENT_NAME", schema.description);
+        throw new IntegrationError(
+          "BAD_AGENT_NAME",
+          `${key} (${input.action}): ${schema.description}`,
+        );
       continue;
     }
     if (
@@ -369,7 +367,10 @@ export function validateToolInput(input, entry) {
         value > L.keep)
     ) {
       if (value === null) continue;
-      throw new IntegrationError("KEEP_REQUIRED", schema.description);
+      throw new IntegrationError(
+        "KEEP_REQUIRED",
+        `${key} (${input.action}): ${schema.description}`,
+      );
     }
     const type = Array.isArray(value) ? "array" : typeof value;
     if (
@@ -381,7 +382,7 @@ export function validateToolInput(input, entry) {
     )
       throw new IntegrationError(
         "BAD_USAGE",
-        `${key}: expected ${schema.type}.`,
+        `${key} (${input.action}): expected ${schema.type}.`,
       );
     if (
       typeof value === "string" &&
@@ -391,14 +392,17 @@ export function validateToolInput(input, entry) {
     )
       throw new IntegrationError(
         key === "submissionId" ? "SUBMISSION_REQUIRED" : "BAD_USAGE",
-        `${key}: ${schema.description}`,
+        `${key} (${input.action}): ${schema.description}`,
       );
     if (schema.enum && !schema.enum.includes(value))
       throw new IntegrationError(
         "BAD_USAGE",
-        `${key}: expected ${schema.enum.join(" or ")}.`,
+        `${key} (${input.action}): expected ${schema.enum.join(" or ")}.`,
       );
     if (schema.maxItems !== undefined && value.length > schema.maxItems)
-      throw new IntegrationError("BAD_USAGE", `${key}: ${schema.description}`);
+      throw new IntegrationError(
+        "BAD_USAGE",
+        `${key} (${input.action}): ${schema.description}`,
+      );
   }
 }

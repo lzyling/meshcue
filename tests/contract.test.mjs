@@ -8,8 +8,7 @@ import {
   toolSchema,
   cliFlags,
   validateToolInput,
-  conditionalFieldSchema,
-  fieldCondition,
+  flatFieldSchema,
   validateUnknownFields,
 } from "../integration/contract.mjs";
 import { TOOL, createHandler } from "../mcp/server.mjs";
@@ -57,21 +56,7 @@ test("three entry action sets and every field schema come from the contract", ()
     for (const [key, f] of Object.entries(FIELDS)) {
       if (!schema.properties[key]) assert.ok(ENTRY_DIFFERENCES[entry][key]);
       else {
-        assert.deepEqual(
-          schema.properties[key],
-          key === "action" ? f.schema : { description: f.schema.description },
-        );
-        if (key !== "action")
-          assert.ok(
-            schema.allOf.some(
-              (rule) =>
-                JSON.stringify(rule) ===
-                JSON.stringify({
-                  if: fieldCondition(key),
-                  then: { properties: { [key]: conditionalFieldSchema(key) } },
-                }),
-            ),
-          );
+        assert.deepEqual(schema.properties[key], flatFieldSchema(key));
       }
     }
   }
@@ -145,10 +130,25 @@ test("input limits, null keep, trimming and historical batch version binding", (
         : key === "versionId"
           ? "activate"
           : "open";
-    validateToolInput({ action, file: "part.stl", [key]: value }, "mcp");
+    validateToolInput(
+      {
+        action,
+        file: "part.stl",
+        submissionId: "batch",
+        summary: "ok",
+        [key]: value,
+      },
+      "mcp",
+    );
     assert.throws(() =>
       validateToolInput(
-        { action, file: "part.stl", [key]: value + "a" },
+        {
+          action,
+          file: "part.stl",
+          submissionId: "batch",
+          summary: "ok",
+          [key]: value + "a",
+        },
         "mcp",
       ),
     );
@@ -188,7 +188,15 @@ test("input limits, null keep, trimming and historical batch version binding", (
     ),
   );
   for (const action of ["read", "echo"])
-    validateToolInput({ action, versionId: "ignored id!" }, "mcp");
+    validateToolInput(
+      {
+        action,
+        submissionId: "batch",
+        summary: "ok",
+        versionId: "ignored id!",
+      },
+      "mcp",
+    );
   assert.equal(FIELDS.submissionId.schema.pattern, ID_PATTERN);
 });
 

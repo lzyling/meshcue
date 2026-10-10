@@ -495,11 +495,12 @@ test("CLI rejects malformed oversize and out-of-workspace grouping files before 
   );
 });
 
-test("MCP and native schemas share strict grouping shape without changing the integration API", async (t) => {
-  const groups = TOOL.inputSchema.allOf.find(
-    (rule) => rule.then.properties.partGroups,
-  ).then.properties.partGroups;
-  assert.equal(groups, partGroupsSchema);
+test("MCP and native schemas share flat grouping shape without changing the integration API", async (t) => {
+  const groups = TOOL.inputSchema.properties.partGroups;
+  assert.equal(groups.type, partGroupsSchema.type);
+  assert.deepEqual(groups.items, { type: "object" });
+  // Strict member/depth schema stays authoritative at runtime, not discovery.
+  assert.equal(partGroupsSchema.items.properties.members.items.oneOf.length, 3);
   const native = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
   assert.match(
     native,
