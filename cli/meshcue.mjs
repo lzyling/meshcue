@@ -21,46 +21,28 @@ import { normalizeOrigin } from "../server/origin.mjs";
 import { IntegrationError, scopedPath } from "../integration/context.mjs";
 import { PART_GROUP_LIMITS } from "../integration/part-groups.mjs";
 
+import {
+  ACTIONS as CONTRACT_ACTIONS,
+  FIELDS,
+  cliFlags,
+  cliSwitches,
+  toolSchema,
+  validateToolInput,
+} from "../integration/contract.mjs";
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const INSTALL_ROOT = path.resolve(HERE, "..");
 
-const ACTIONS = [
-  "inspect",
-  "open",
-  "status",
-  "activate",
-  "retain",
-  "read",
-  "echo",
-  "finish",
-  "unlock",
-  "stop",
-  "precheck",
-];
-
-const FLAGS = {
-  workspace: "workspace",
-  owner: "owner",
-  project: "project",
-  file: "file",
-  "part-groups": "partGroupsFile",
-  name: "name",
-  version: "version",
-  units: "units",
-  up: "up",
-  label: "label",
-  submission: "submissionId",
-  summary: "summary",
-  "version-id": "versionId",
-  keep: "keep",
-  host: "host",
-  "client-address": "confirmedClientAddress",
-  // A CLI cannot tell which tool is calling it, so the name is the caller's
-  // to give; without one the page uses its own word for an agent.
-  "agent-name": "agentName",
-};
-const BOOLEANS = { resume: "resume", "no-activate": "activate" };
-const NUMBERS = new Set(["keep"]);
+export const ACTIONS = CONTRACT_ACTIONS;
+export const FLAGS = cliFlags();
+const BOOLEANS = cliSwitches();
+const NUMBERS = new Set(
+  Object.entries(FLAGS)
+    .filter(([, field]) =>
+      [FIELDS[field]?.schema.type].flat().includes("integer"),
+    )
+    .map(([flag]) => flag),
+);
 
 // An MCP client is handed the operating instructions during `initialize`. A
 // caller reaching this binary gets no such handshake, so the only chance to say
@@ -70,16 +52,31 @@ export function help(installRoot = INSTALL_ROOT) {
   return {
     usage: `meshcue <${ACTIONS.join("|")}> [--option value]…`,
     actions: ACTIONS,
+    inputSchema: toolSchema("cli"),
     flags: Object.fromEntries(
       Object.entries(FLAGS).map(([flag, field]) => [
         `--${flag} <value>`,
         field === "partGroupsFile" ? "partGroups" : field,
       ]),
     ),
-    switches: {
-      "--resume": "resume: true",
-      "--no-activate": "activate: false",
-    },
+    switches: Object.fromEntries(
+      Object.entries(BOOLEANS).map(([flag, field]) => [
+        `--${flag}`,
+        `${field}: ${flag !== "no-activate"}`,
+      ]),
+    ),
+    fields: Object.fromEntries(
+      Object.entries(FIELDS)
+        .filter(([, f]) => f.cli)
+        .map(([key, f]) => [
+          key,
+          {
+            description: f.schema.description,
+            actions: f.actions,
+            defaultBehavior: f.defaultBehavior,
+          },
+        ]),
+    ),
     help: "Use meshcue help or meshcue --help; per-action --help is not supported.",
     partGroups:
       "open --part-groups <workspace-relative JSON file>: optional array; 256 KiB maximum. Membership is resolved in the reviewer browser, not confirmed by publication.",
@@ -188,6 +185,8 @@ export async function run(
     }
     delete input.partGroupsFile;
   }
+  const { workspace: _workspace, owner: _owner, ...toolInput } = input;
+  validateToolInput({ ...toolInput, action }, "cli");
   // Orientation comes before ownership: an agent calls this to find out where it
   // is, and demanding --owner first would make the answer conditional on
   // knowing it.

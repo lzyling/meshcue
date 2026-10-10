@@ -37,16 +37,17 @@ project and one originating session.
 ## 3. Measuring before publishing
 
 Run `precheck` on a GLB, glTF or STL before every `open`; it only reads and starts no
-instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MB, with separate texture budgets and optional grouping metadata bounds in
+instance. Skip it for a STEP: `open` measures one as it imports it. The limits are 600000 triangles and 80 MiB, with separate texture budgets and optional grouping metadata bounds in
 AGENT-INTERFACE.md — a dense model marks exactly as precisely as a sparse one.
 
-`verdict: "ok"` publishes as is. On `reject`, simplify first and say in the
-conversation that you simplified, at what ratio, and from how many faces to how
-many; `simplify.requiredRatio` is measured from that file and lands inside the
-cap. Prefer re-exporting from STEP or a modelling script with a looser chord
-height — geometry stays exact. Use headless Blender decimation only when there
-is a mesh and no source. Done means the user knows whether they are reviewing
-original or simplified geometry.
+`verdict: "ok"` publishes as is. On `reject`, only decimate by
+`simplify.requiredRatio` when it is a number; say what you simplified and by
+how much. When the ratio is null (or simplify is null), follow `reason`:
+re-export files that are too large, reduce oversized textures, or re-export
+models with no triangles. Prefer re-exporting from STEP or a modelling script
+with a looser chord height when reducing triangles. Use headless Blender
+only when there is a mesh and no source. Tell the user whether they are
+reviewing original or simplified geometry.
 
 Accepted formats are GLB 2.0, glTF 2.0, STL and STEP. Draco
 (`KHR_draco_mesh_compression`), Meshopt (`EXT_meshopt_compression`) and
@@ -87,7 +88,7 @@ Pass `agentName` on every `open`: the page calls you by it, with the tool it
 recognises in brackets after it (“Send to Ada (OpenClaw)”; full-width in
 Chinese and Japanese). Use the name your user gave you; if they gave none, your
 tool's name — `OpenClaw`, `Claude Code`, `Codex` — which is then said once.
-Plain text, at most 24 characters. Left out, the page keeps the name you gave
+Plain text, trimmed to 1–24 UTF-16 code units; control and bidi characters are rejected. Left out, the page keeps the name you gave
 before; with none at all it names the tool it recognises, or says “the Agent”.
 `open` answers with the `agentName` the page uses and the `agentTool` it writes
 after it.
@@ -133,11 +134,11 @@ AGENT-INTERFACE.md; this is a capability you can use, never a required step.
 
 ## 5. Controlling which version is shown
 
-Every published version stays, each with its own draft and marks, listed as tabs
+Every published version stays, each with its own draft and marks; visible versions are listed as tabs
 at the top of the page, and the user can return to any of them and mark there.
 Switching therefore loses nothing and needs no permission.
 
-Use `status` to read `versions`: each carries an `id`, a `version`, its mark
+Use `status` to read visible `versions` (retain may hide older ones): each carries an `id`, a `version`, its mark
 count, unsubmitted flag, submitted batches, and whether a window is open. Use
 `activate` to change what is displayed, passing `versionId` or the `version`
 string. To add a version without disturbing what the user is looking at right
@@ -158,10 +159,10 @@ last one, the page gives the user no button to end a round, so never tell them
 to press one. Use `finish` only when they explicitly ask to close a version out.
 
 When a long strip starts getting in the way of the model, and only when the user
-asks for it, `retain` with `keep: 3` — or any count — shows just that many most
+asks for it, `retain` with `keep: 3` — or a count from 0 to 1000 — shows just that many most
 recent versions. It hides and never deletes: the draft, the marks, the submitted
 batches and the file of a hidden version all stay, and `retain` with a larger
-count, or `keep: 0`, brings every one of them back unchanged. It is a standing
+count brings more back; omitted keep, null or `keep: 0` restores every version unchanged. It is a standing
 rule rather than a one-off tidy-up, so each version published afterwards pushes
 the oldest out of view without being asked again. Three things outrank it and
 stay visible anyway: the version on screen, one somebody is marking at that

@@ -9,93 +9,11 @@ import {
   inspectInstall,
 } from "../../integration/manager.mjs";
 import { precheckModel, stepMeshFor } from "../../integration/precheck.mjs";
-import { partGroupsSchema } from "../../integration/part-groups.mjs";
-import { MAX_AGENT_NAME } from "../../server/agent-name.mjs";
+import { toolSchema, validateToolInput } from "../../integration/contract.mjs";
 
-const parameters = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    action: {
-      type: "string",
-      enum: [
-        "inspect",
-        "precheck",
-        "open",
-        "status",
-        "activate",
-        "read",
-        "echo",
-        "finish",
-        "unlock",
-        "stop",
-      ],
-    },
-    project: {
-      type: "string",
-      description:
-        "Workspace-relative modelling project, e.g. projects/phone-stand. Never the MeshCue application checkout.",
-    },
-    file: {
-      type: "string",
-      description:
-        "Existing GLB, STL or STEP source, relative to this workspace. open imports/publishes it; precheck only measures it. A STEP needs no conversion first: it is tessellated once on import, the reviewer marks that mesh, and download still returns the STEP. Hard limits are 600000 triangles and 80 MB, with separate texture and optional metadata bounds: marking is as precise on a dense model as on a sparse one.",
-    },
-    partGroups: partGroupsSchema,
-    name: { type: "string" },
-    version: { type: "string" },
-    up: {
-      type: "string",
-      enum: ["z", "y"],
-      description:
-        "File up axis; default z. Only with open and file. Marks stay in file coordinates.",
-    },
-    units: { type: "string" },
-    label: {
-      type: "string",
-      description:
-        "Short tab caption for this version, e.g. v0.2. Defaults to the version string, which the workstation truncates.",
-    },
-    versionId: {
-      type: "string",
-      description:
-        "Published version to act on, from status.versions. Omit to use the one on screen.",
-    },
-    activate: {
-      type: "boolean",
-      description:
-        "Default true: open shows the newly published version. False publishes it as a selectable tab without changing what the reviewer is looking at.",
-    },
-    resume: {
-      type: "boolean",
-      description:
-        "True only when the user explicitly continues this existing project in the present conversation.",
-    },
-    confirmedClientAddress: {
-      type: "string",
-      description:
-        "Client LAN IPv4 already confirmed by the user, never inferred from the first visitor.",
-    },
-    agentName: {
-      type: "string",
-      maxLength: MAX_AGENT_NAME,
-      description:
-        "open: what the review page calls you, followed by OpenClaw, e.g. “Send to Ada (OpenClaw)”. The name your user gave you; if they gave none, leave it out and the page says OpenClaw. Plain text, at most 24 characters. Send it on every open; left out, the page keeps the name you gave before.",
-    },
-    submissionId: { type: "string" },
-    geometry: { type: "boolean" },
-    summary: { type: "string" },
-    annotations: {
-      type: "array",
-      items: { type: "object" },
-      description:
-        "Surface regions from the complete submission, validated by the core; never invented mesh coordinates.",
-    },
-  },
-  required: ["action"],
-};
+export const parameters = toolSchema("openclaw");
 const description =
-  "Open or continue browser-based 3D model review in the current conversation; publish GLB, STL or STEP drafts (confirm the model's intended upright first; all formats default to +Z up with -Y to the front; publish Y-up files with up:\"y\"; marks stay in file coordinates), choose which published version the reviewer sees, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MB, and nothing degrades below them: run precheck on a GLB or STL before every open, and when its verdict is reject, simplify the model by the ratio it gives and say so before publishing; a STEP needs no precheck, since open measures it while importing and refuses it the same way. Every published version stays selectable and annotatable, so activate switches the display freely and never discards a draft; status lists versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and check whether a marking made against an older version still applies to the current one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
+  "Open or continue browser-based 3D model review in the current conversation; publish GLB, glTF, STL or STEP drafts (confirm the model's intended upright first; all formats default to +Z up with -Y to the front; publish Y-up files with up:\"y\"; marks stay in file coordinates), choose which published version the reviewer sees, read submitted annotations, and show understanding before revising a model. Use after creating a first model, including natural modelling requests that do not name MeshCue. Model limits are 600000 triangles and 80 MiB, and nothing degrades below them: run precheck on a GLB, glTF or STL before every open, and when its verdict is reject, only simplify by simplify.requiredRatio when it is a number and say so before publishing; when it is null, follow reason: re-export oversized files, reduce oversized textures, or re-export models with no triangles; a STEP needs no precheck, since open measures it while importing and refuses it the same way. Every visible published version stays selectable and annotatable; retain can hide versions without deleting files, so activate switches the display freely and never discards a draft; status lists visible versions with their marking counts. A batch with sealed true was closed out on the reviewer's behalf, so confirm what they meant before treating it as a change request, and check whether a marking made against an older version still applies to the current one. inspect, precheck and status are read-only. finish closes a version's round and unlock clears a stale tab: use either only when the user asks.";
 
 const managers = new Map();
 const plugin = defineToolPlugin({
@@ -133,6 +51,7 @@ const plugin = defineToolPlugin({
           parameters,
           async execute(_callId, params) {
             try {
+              validateToolInput(params, "openclaw");
               let result;
               if (params.action === "inspect")
                 result = inspectInstall(ctx, api.rootDir);

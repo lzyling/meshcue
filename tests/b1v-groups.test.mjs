@@ -500,9 +500,9 @@ test("MCP and native schemas share strict grouping shape without changing the in
   const native = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
   assert.match(
     native,
-    /import \{ partGroupsSchema \} from "\.\.\/\.\.\/integration\/part-groups\.mjs"/,
+    /import \{ toolSchema, validateToolInput \} from "\.\.\/\.\.\/integration\/contract\.mjs"/,
   );
-  assert.match(native, /partGroups: partGroupsSchema/);
+  assert.match(native, /parameters = toolSchema\("openclaw"\)/);
   // Evaluate the actual native tool definition with only its public host SDK
   // entry mocked. No factory runs, so this neither reads host credentials nor
   // requires a globally installed OpenClaw package to test schema parity.

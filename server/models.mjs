@@ -15,6 +15,7 @@ disableTypes(
 
 export const MAX_BYTES = 80 * 1024 * 1024;
 export const MAX_TRIANGLES = 600000;
+export const MAX_TEXTURE_EDGE = 8192;
 export const MAX_TEXTURE_BYTES = 384 * 1024 * 1024;
 // Keep the pixel ceiling available to existing 1.x callers, expressed in the
 // same RGBA8-with-mipmaps estimate that now enforces the budget.
@@ -191,12 +192,12 @@ export function inspectModel(buffer, format, { derived } = {}) {
       texturePixels += dimensions.width * dimensions.height;
       textureBytes += (dimensions.width * dimensions.height * 4 * 4) / 3;
       if (
-        dimensions.width > 8192 ||
-        dimensions.height > 8192 ||
+        dimensions.width > MAX_TEXTURE_EDGE ||
+        dimensions.height > MAX_TEXTURE_EDGE ||
         textureBytes > MAX_TEXTURE_BYTES
       )
         throw limitError(
-          `Texture decoding exceeds the limit: 8192×8192 per image and ${MAX_TEXTURE_BYTES / 1048576} MiB estimated GPU memory (RGBA8 plus mipmaps), against ${(textureBytes / 1048576).toFixed(1)} MiB here. Reduce the textures.`,
+          `Texture decoding exceeds the limit: ${MAX_TEXTURE_EDGE}×${MAX_TEXTURE_EDGE} per image and ${MAX_TEXTURE_BYTES / 1048576} MiB estimated GPU memory (RGBA8 plus mipmaps), against ${(textureBytes / 1048576).toFixed(1)} MiB here. Reduce the textures.`,
           "TEXTURE_LIMIT",
           { texturePixels, textureBytes },
         );

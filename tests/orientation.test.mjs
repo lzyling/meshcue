@@ -11,6 +11,7 @@ import { sectionPlane, retainedPoint } from "../src/section.js";
 import { startReview } from "./helpers/review-server.mjs";
 import { parseArgs } from "../cli/meshcue.mjs";
 import { TOOL } from "../mcp/server.mjs";
+import { toolSchema } from "../integration/contract.mjs";
 import { ModelViewer } from "../src/viewer.js";
 const V = THREE.Vector3;
 const close = (a, b) => assert.ok(a.distanceTo(b) < 1e-10);
@@ -193,5 +194,9 @@ test("CLI, MCP and OpenClaw expose the same optional up axis", () => {
   );
   assert.deepEqual(TOOL.inputSchema.properties.up.enum, ["z", "y"]);
   const adapter = fs.readFileSync("adapters/openclaw/index.mjs", "utf8");
-  assert.match(adapter, /up:\s*\{\s*type: "string",\s*enum: \["z", "y"\]/);
+  assert.match(adapter, /parameters = toolSchema\("openclaw"\)/);
+  assert.deepEqual(
+    toolSchema("openclaw").properties.up,
+    TOOL.inputSchema.properties.up,
+  );
 });
