@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
+import { pathToFileURL } from "node:url";
 import {
   InstanceManager,
   ipc,
@@ -1113,7 +1114,7 @@ test("W2 stale idle marker after failed cleanup cannot describe a newer non-idle
       REVIEW_BRIDGE: "off",
       REVIEW_IDLE_HOURS: "0.0003",
       REVIEW_IDLE_TICK_MS: "100",
-      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${path.join(repo, "tests/helpers/stop-marker-cleanup-fault.mjs")}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${pathToFileURL(path.join(repo, "tests/helpers/stop-marker-cleanup-fault.mjs")).href}`,
     },
   });
   const project = "projects/stale-idle-signals";

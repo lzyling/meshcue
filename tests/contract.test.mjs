@@ -36,8 +36,16 @@ import { MAX_AGENT_NAME } from "../server/agent-name.mjs";
 import { PART_GROUP_LIMITS } from "../integration/part-groups.mjs";
 import { DEFAULT_SESSION_DAYS } from "../server/access.mjs";
 import { IDLE_HOURS } from "../server/idle.mjs";
+import { normalizeDocumentText } from "./helpers/document-text.mjs";
 const read = (file) =>
-  fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+  normalizeDocumentText(
+    fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8"),
+  );
+const crlf = (source) => normalizeDocumentText(source).replaceAll("\n", "\r\n");
+function assertGenerated(source) {
+  const doc = normalizeDocumentText(source);
+  assert.equal(syncContractDocs(doc), doc);
+}
 
 test("three entry action sets and every field schema come from the contract", () => {
   assert.deepEqual(TOOL.inputSchema, toolSchema("mcp"));
@@ -203,13 +211,24 @@ test("input limits, null keep, trimming and historical batch version binding", (
 
 test("AGENT action and field blocks are exactly generated from the contract", () => {
   const doc = read("AGENT-INTERFACE.md");
-  assert.equal(syncContractDocs(doc), doc);
+  for (const source of [doc, crlf(doc)]) {
+    assertGenerated(source);
+    const stale = source.replace(
+      "`inspect` · `precheck`",
+      "`stale` · `precheck`",
+    );
+    assert.notEqual(stale, source);
+    assert.throws(() => assertGenerated(stale), { code: "ERR_ASSERTION" });
+  }
 });
 
 // Remove every generated block first: a refreshed field table must never hide
 // stale prose, including the independently generated reviewer-help block.
 function prose(source) {
-  return source.replace(/<!-- ([\w-]+):begin -->[\s\S]*?<!-- \1:end -->/g, "");
+  return normalizeDocumentText(source).replace(
+    /<!-- ([\w-]+):begin -->[\s\S]*?<!-- \1:end -->/g,
+    "",
+  );
 }
 function section(source, heading) {
   const body = prose(source);
@@ -222,6 +241,7 @@ function section(source, heading) {
   );
 }
 function assertFacts(file, source) {
+  source = normalizeDocumentText(source);
   const doc = prose(source);
   const triangles = MAX_TRIANGLES.toLocaleString("en-US");
   const mib = MAX_BYTES / 1024 / 1024;
@@ -318,7 +338,8 @@ test("non-generated model and publication facts remain tied to constants", () =>
     "skills/meshcue-review/SKILL.md",
     "adapters/openclaw/index.mjs",
   ])
-    assertFacts(file, read(file));
+    for (const source of [read(file), crlf(read(file))])
+      assertFacts(file, source);
   const skill = read("skills/meshcue-review/SKILL.md");
   for (let n = 1; n <= 10; n++) assert.ok(skill.includes(`**R${n}**`));
   const adapter = read("adapters/openclaw/index.mjs");
@@ -381,11 +402,12 @@ test("synced generated blocks cannot mask stale named prose facts", () => {
       ),
     );
     assert.equal(syncContractDocs(stale), stale);
-    assert.throws(
-      () => assertFacts("AGENT-INTERFACE.md", stale),
-      undefined,
-      old,
-    );
+    for (const source of [stale, crlf(stale)])
+      assert.throws(
+        () => assertFacts("AGENT-INTERFACE.md", source),
+        undefined,
+        old,
+      );
   }
   const skill = read("skills/meshcue-review/SKILL.md");
   for (const old of [
@@ -397,17 +419,15 @@ test("synced generated blocks cannot mask stale named prose facts", () => {
     `unused for ${IDLE_HOURS} hours`,
   ]) {
     assert.ok(prose(skill).includes(old), old);
-    assert.throws(
-      () =>
-        assertFacts(
-          "skills/meshcue-review/SKILL.md",
-          skill.replace(
-            old,
-            old.replace(/\d/, (digit) => String((Number(digit) + 1) % 10)),
-          ),
-        ),
-      undefined,
+    const stale = skill.replace(
       old,
+      old.replace(/\d/, (digit) => String((Number(digit) + 1) % 10)),
     );
+    for (const source of [stale, crlf(stale)])
+      assert.throws(
+        () => assertFacts("skills/meshcue-review/SKILL.md", source),
+        undefined,
+        old,
+      );
   }
 });

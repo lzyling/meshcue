@@ -8,11 +8,13 @@ import { fileURLToPath } from "node:url";
 import { render, BEGIN, END } from "../scripts/sync-reviewer-help.mjs";
 import { docPaths, DOC_FILES } from "../integration/manager.mjs";
 
+import { normalizeDocumentText } from "./helpers/document-text.mjs";
+
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (file) => fs.readFileSync(path.join(repo, file), "utf8");
 
-test("the agent reads the same reviewer help the panel shows", async () => {
-  const doc = read("AGENT-INTERFACE.md");
+function assertReviewerHelp(source, expected) {
+  const doc = normalizeDocumentText(source);
   const from = doc.indexOf(BEGIN);
   const to = doc.indexOf(END);
   assert.notEqual(
@@ -22,9 +24,22 @@ test("the agent reads the same reviewer help the panel shows", async () => {
   );
   assert.equal(
     doc.slice(from, to + END.length),
-    await render(),
+    expected,
     "AGENT-INTERFACE.md is behind src/i18n/en.js — run node scripts/sync-reviewer-help.mjs",
   );
+}
+
+test("the agent reads the same reviewer help the panel shows", async () => {
+  const doc = normalizeDocumentText(read("AGENT-INTERFACE.md"));
+  const expected = await render();
+  for (const source of [doc, doc.replaceAll("\n", "\r\n")]) {
+    assertReviewerHelp(source, expected);
+    const stale = source.replace("Right-drag", "Wrong-drag");
+    assert.notEqual(stale, source);
+    assert.throws(() => assertReviewerHelp(stale, expected), {
+      code: "ERR_ASSERTION",
+    });
+  }
 });
 
 /* The install line names a tag, which is the whole point: a bare github: URL
