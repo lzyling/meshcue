@@ -5,7 +5,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
-import { toolSchema, validateToolInput } from "../integration/contract.mjs";
+import {
+  FIELDS,
+  toolSchema,
+  validateToolInput,
+} from "../integration/contract.mjs";
 import { MAX_AGENT_NAME } from "../server/agent-name.mjs";
 import { INPUT_LIMITS } from "../server/input-limits.mjs";
 import { createHandler } from "../mcp/server.mjs";
@@ -30,7 +34,7 @@ const legal = [
     action: "echo",
     submissionId: "batch",
     summary: "ok",
-    versionId: { arbitrary: true },
+    versionId: "ignored id!",
   },
 ];
 // No JSON Schema validator dependency is installed. This minimal evaluator
@@ -127,6 +131,19 @@ test("generated flat schemas accept ignored known fields and reject unknown name
       );
     }
     assert.equal(valid(schema, { action: "inspect", typo: true }), false);
+    // Intentional discovery-only tightening: raw read/echo still ignore any
+    // versionId value, but providers get a string type (W2 removes the field).
+    for (const action of ["read", "echo"])
+      for (const versionId of [null, 42, false, [], { arbitrary: true }]) {
+        const input = {
+          action,
+          submissionId: "batch",
+          ...(action === "echo" ? { summary: "ok" } : {}),
+          versionId,
+        };
+        assert.doesNotThrow(() => validateToolInput(input, entry));
+        assert.equal(valid(schema, input), false);
+      }
     for (const input of [
       { action: "echo", summary: "" },
       { action: "activate", versionId: "ignored id!" },
@@ -363,11 +380,14 @@ test("HTTP publication persists metadata at shared input limits across restart",
     );
 });
 
-test("discovery schemas are flat, portable and smaller than the pre-contract baseline", () => {
+test("discovery schemas are flat, explicitly typed and smaller than the pre-contract baseline", () => {
   // Read-only git show 2339407:adapters/openclaw/index.mjs parameters and
   // 2339407:mcp/server.mjs TOOL.inputSchema, evaluated with their imported
   // partGroupsSchema/MAX_AGENT_NAME, then JSON.stringify(...).length (2026-10-10).
   const baseline = { openclaw: 9646, mcp: 8655 };
+  // r3 restores minimal group/region shape guidance without recursive schemas.
+  // Measured 2863/2987 characters; allow ~5% prose headroom, not baseline-sized growth.
+  const budget = { openclaw: 3000, mcp: 3130 };
   const forbidden = new Set([
     "allOf",
     "anyOf",
@@ -400,8 +420,41 @@ test("discovery schemas are flat, portable and smaller than the pre-contract bas
     ]);
     assert.deepEqual(schema.required, ["action"]);
     scan(schema);
-    if (baseline[entry])
-      assert.ok(JSON.stringify(schema).length <= baseline[entry]);
+    for (const [key, property] of Object.entries(schema.properties))
+      assert.equal(property.type, FIELDS[key].schema.type, `${entry}.${key}`);
+    if (baseline[entry]) {
+      const length = JSON.stringify(schema).length;
+      assert.ok(length <= baseline[entry]);
+      assert.ok(
+        length <= budget[entry],
+        `${entry}: ${length} > ${budget[entry]}`,
+      );
+    }
+  }
+});
+
+test("flat discovery descriptions retain group and copied-region shape guidance", () => {
+  for (const entry of ["openclaw", "mcp"]) {
+    const { partGroups, annotations } = toolSchema(entry).properties;
+    assert.deepEqual(partGroups.items, { type: "object" });
+    assert.deepEqual(annotations.items, { type: "object" });
+    for (const text of [
+      "require id/name",
+      "optional members/children",
+      "exactly one of nodeIndex/nodeName/partId",
+      "whole-tree limits",
+      "(root=1)",
+      "AGENT-INTERFACE.md § Optional part groups",
+    ])
+      assert.ok(partGroups.description.includes(text), text);
+    for (const text of [
+      "copied from a full read result",
+      'required id, type:"region", label, color, faces',
+      "view optional",
+      "never construct geometry",
+      "AGENT-INTERFACE.md § Echo — showing what you understood",
+    ])
+      assert.ok(annotations.description.includes(text), text);
   }
 });
 

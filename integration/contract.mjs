@@ -26,6 +26,10 @@ export const ACTION_DETAILS = Object.freeze({
   stop: "Stop this review service without deleting its data.",
 });
 export const ACTIONS = Object.freeze(Object.keys(ACTION_DETAILS));
+// Discovery compatibility exception (OpenClaw/MCP/CLI): versionId is a string
+// for provider compatibility, but raw read/echo calls still ignore any value.
+// Schema clients intentionally reject non-strings; W2 removes this unused field
+// from read/echo. This is not a claim of OpenAI strict-schema compatibility.
 export const ENTRY_DIFFERENCES = Object.freeze({
   openclaw: {
     host: "Listener selection is plugin listenHost configuration, never a per-call parameter; automatic private LAN by default.",
@@ -258,7 +262,7 @@ const toolDescriptions = {
   project:
     "Workspace-relative modelling project; never the application checkout.",
   file: `open/precheck: GLB, glTF, STL or STEP; precheck requires file; limits ${MAX_TRIANGLES} triangles, ${MAX_BYTES / 1024 / 1024} MiB.`,
-  partGroups: `open with file: optional groups; omit preserves reused groups, [] clears; limits ${PART_GROUP_LIMITS.groups} groups, depth ${PART_GROUP_LIMITS.depth}, ${PART_GROUP_LIMITS.members} members, ${PART_GROUP_LIMITS.bytes / 1024} KiB normalized JSON.`,
+  partGroups: `open with file: groups require id/name, optional members/children; each member has exactly one of nodeIndex/nodeName/partId; omit preserves reused groups, [] clears; whole-tree limits ${PART_GROUP_LIMITS.groups} groups, ${PART_GROUP_LIMITS.members} members, depth ${PART_GROUP_LIMITS.depth} (root=1), ${PART_GROUP_LIMITS.bytes / 1024} KiB normalized JSON; see AGENT-INTERFACE.md § Optional part groups.`,
   name: `open with file: at most ${L.name} UTF-16 units; defaults to filename.`,
   version: `open with file: at most ${L.version} UTF-16 units; activate: existing version string instead of versionId.`,
   units: `open with file: at most ${L.units} UTF-16 units; STEP uses mm.`,
@@ -269,7 +273,7 @@ const toolDescriptions = {
   submissionId: `read/echo: required, 1–${L.id} ASCII letters, digits, underscores or hyphens.`,
   geometry: "read: true includes polygons; default false.",
   summary: `echo: required, 1–${L.summary} UTF-16 units.`,
-  annotations: `echo: at most ${L.annotations} regions from full submission; no invented geometry.`,
+  annotations: `echo: at most ${L.annotations} regions copied from a full read result; required id, type:"region", label, color, faces; view optional; never construct geometry; see AGENT-INTERFACE.md § Echo — showing what you understood.`,
   activate: "open with file: default true; false preserves displayed version.",
   resume:
     "open: true only for user-requested continuation in this conversation.",
@@ -279,10 +283,10 @@ const toolDescriptions = {
 };
 export function flatFieldSchema(key) {
   const schema = FIELDS[key].schema;
-  // versionId is historically ignored by read/echo even for non-string values.
   // Action-specific lengths, nested shapes and required fields belong to runtime.
+  // See the discovery versionId compatibility exception above.
   return {
-    ...(key === "versionId" ? {} : { type: schema.type }),
+    type: schema.type,
     ...(schema.enum ? { enum: schema.enum } : {}),
     ...(schema.type === "array" ? { items: { type: "object" } } : {}),
     description: toolDescriptions[key],
