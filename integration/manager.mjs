@@ -1161,8 +1161,17 @@ function readStoppedState(runtime, instanceId) {
     const record = JSON.parse(
       fs.readFileSync(path.join(runtime, "stopped.json"), "utf8"),
     );
+    // The process lock is released on exit; the startup store save is retained.
+    // Missing/unreadable launch identity (including pre-upgrade data) is not
+    // evidence of an idle reclaim, so fail conservatively to stopped.
+    const latest = JSON.parse(
+      fs.readFileSync(path.join(runtime, "state.json"), "utf8"),
+    );
     return record.reason === "idle" &&
       record.instanceId === instanceId &&
+      typeof latest.serviceRunId === "string" &&
+      latest.serviceRunId.length > 0 &&
+      record.serviceRunId === latest.serviceRunId &&
       typeof record.stoppedAt === "string" &&
       Number.isFinite(Date.parse(record.stoppedAt))
       ? "stopped-idle"

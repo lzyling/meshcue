@@ -166,10 +166,22 @@ function accessCookie(value, maxAge) {
 const legacyOrigin = normalizeOrigin(
   process.env.REVIEW_SESSION_KEY || config.origin || config.sessionKey || null,
 );
-const store = new ReviewStore(runtime, { legacyOrigin });
+// Persist this launch in the store's existing startup save. Unlike the lock,
+// state.json survives shutdown, so a failed marker cleanup cannot reuse a prior
+// launch's idle reason. The store's original startedAt keeps its old meaning.
+const serviceRunId = crypto.randomUUID();
+const store = new ReviewStore(runtime, { legacyOrigin, serviceRunId });
 let openedAt = null;
 const stoppedFile = path.join(runtime, "stopped.json");
-if (fs.existsSync(stoppedFile)) fs.unlinkSync(stoppedFile);
+try {
+  if (fs.existsSync(stoppedFile)) fs.unlinkSync(stoppedFile);
+} catch (error) {
+  log.warn(
+    "service",
+    "could not clear the previous stop marker",
+    errorDetail(error),
+  );
+}
 function viewerStatus() {
   const active = store.state.active;
   if (!active) return null;
@@ -1962,12 +1974,22 @@ const idleTimer = idle
                 : {}),
             },
           );
-          atomicJson(stoppedFile, {
-            reason: "idle",
-            stoppedAt: new Date().toISOString(),
-            instanceId: instance?.id,
-          });
-          shutdown();
+          try {
+            atomicJson(stoppedFile, {
+              reason: "idle",
+              stoppedAt: new Date().toISOString(),
+              instanceId: instance?.id,
+              serviceRunId,
+            });
+          } catch (error) {
+            log.warn(
+              "service",
+              "could not record idle reclaim",
+              errorDetail(error),
+            );
+          } finally {
+            shutdown();
+          }
         }
       },
       Math.max(1000, Number(process.env.REVIEW_IDLE_TICK_MS) || 60_000),

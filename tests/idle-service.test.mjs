@@ -215,3 +215,32 @@ test("a handler's own 404 is still the work the agent came to do", async (t) => 
   assert.equal(f.alive(), true);
   assert.equal((await f.api("state?clientId=warm")).body.closing, undefined);
 });
+
+test("stop marker cleanup and write failures do not prevent startup or normal idle shutdown", async (t) => {
+  const f = await startReview(t, {
+    managed: true,
+    idleHours: 2 * SECONDS,
+    idleTickMs: 100,
+  });
+  await f.publish();
+  const previousRun = JSON.parse(
+    fs.readFileSync(path.join(f.dir, "state.json"), "utf8"),
+  ).serviceRunId;
+  await f.restart(() => {
+    // unlink and atomic rename both fail against a directory, even when the
+    // test runs with elevated filesystem permissions. No production seam.
+    fs.mkdirSync(path.join(f.dir, "stopped.json"));
+  });
+  assert.equal(f.alive(), true);
+  assert.equal((await f.ipc("/status")).status, 200);
+  const currentRun = JSON.parse(
+    fs.readFileSync(path.join(f.dir, "state.json"), "utf8"),
+  ).serviceRunId;
+  assert.equal(typeof currentRun, "string");
+  assert.notEqual(currentRun, previousRun);
+  assert.equal(await f.waitExit(5000), true);
+  // Uncaught write failure would also exit, but with code 1 rather than the
+  // original shutdown's code 0. Exercise the real idle timer and shutdown.
+  assert.deepEqual(f.exitStatus(), { code: 0, signal: null });
+  assert.equal(fs.existsSync(path.join(f.dir, "instance.lock")), false);
+});

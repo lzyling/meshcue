@@ -1091,3 +1091,70 @@ test("W2 manager stopped-idle requires an actual persisted reclaim and clears on
   );
   await manager.execute({ action: "stop", project });
 });
+
+test("W2 stale idle marker after failed cleanup cannot describe a newer non-idle stop", async (t) => {
+  const f = setup(t);
+  const manager = new InstanceManager(f.ctx, {
+    ...f.options,
+    environment: {
+      REVIEW_BRIDGE: "off",
+      REVIEW_IDLE_HOURS: "0.0003",
+      REVIEW_IDLE_TICK_MS: "100",
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${path.join(repo, "tests/helpers/stop-marker-cleanup-fault.mjs")}`,
+    },
+  });
+  const project = "projects/stale-idle-signals";
+  t.after(async () => {
+    try {
+      await manager.execute({ action: "stop", project });
+    } catch {}
+  });
+  await manager.execute({
+    action: "open",
+    project,
+    file: "part.stl",
+    host: "127.0.0.1",
+  });
+  await new Promise((r) => setTimeout(r, 3500));
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped-idle",
+  );
+  const runtime = manager.project(project).runtime;
+  const markerFile = path.join(runtime, "stopped.json");
+  const oldMarker = fs.readFileSync(markerFile, "utf8");
+  const oldRun = JSON.parse(oldMarker).serviceRunId;
+  await manager.execute({ action: "open", project });
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "running",
+  );
+  assert.equal(fs.readFileSync(markerFile, "utf8"), oldMarker);
+  assert.notEqual(
+    JSON.parse(fs.readFileSync(path.join(runtime, "state.json"), "utf8"))
+      .serviceRunId,
+    oldRun,
+  );
+  await manager.execute({ action: "stop", project });
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped",
+  );
+  // An unreadable/missing retained launch record cannot validate even a marker
+  // that otherwise matches the latest run.
+  const stateFile = path.join(runtime, "state.json");
+  const state = fs.readFileSync(stateFile, "utf8");
+  fs.writeFileSync(
+    markerFile,
+    JSON.stringify({
+      ...JSON.parse(oldMarker),
+      serviceRunId: JSON.parse(state).serviceRunId,
+    }),
+  );
+  fs.writeFileSync(stateFile, "unreadable");
+  assert.equal(
+    (await manager.execute({ action: "status", project })).state,
+    "stopped",
+  );
+  fs.writeFileSync(stateFile, state);
+});

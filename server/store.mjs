@@ -24,7 +24,7 @@ export function atomicJson(file, value) {
   fs.renameSync(tmp, file);
 }
 export class ReviewStore {
-  constructor(dir, { legacyOrigin = null } = {}) {
+  constructor(dir, { legacyOrigin = null, serviceRunId = null } = {}) {
     this.dir = dir;
     this.file = path.join(dir, "state.json");
     this.state = fs.existsSync(this.file)
@@ -122,6 +122,7 @@ export class ReviewStore {
     for (const item of this.state.submissions)
       if (item.readAt && item.status !== "read")
         this.submissionStatus(item.id, "read");
+    if (serviceRunId !== null) this.state.serviceRunId = serviceRunId;
     this.save();
   }
   // Schema 1 held one draft, one lock, one echo and one queued model, so every
