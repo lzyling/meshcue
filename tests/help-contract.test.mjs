@@ -36,7 +36,7 @@ for (const [lang, [visible, retained, confirm, delivery]] of Object.entries(
       assert.ok(help[`help.p7${suffix}`].includes(visible));
       assert.ok(help[`help.p7${suffix}`].includes(retained));
       if (suffix)
-        for (const n of [6, 7, 8])
+        for (const n of [6, 7, 8, 9])
           assert.ok(help[`help.p${n}${suffix}`].includes("{agent}"));
     }
     assert.ok(help["help.p9"].includes(delivery));

@@ -297,7 +297,7 @@ function assertFacts(file, source) {
       doc.includes(`expires after ${DEFAULT_SESSION_DAYS}\nunused days`),
     );
     const idle = doc;
-    assert.ok(idle.includes(`has used for ${IDLE_HOURS} hours closes itself`));
+    assert.ok(idle.includes(`unused for ${IDLE_HOURS} hours closes itself`));
   }
   if (file === "adapters/openclaw/index.mjs") {
     assert.match(doc, /const description = TOOL_DESCRIPTION/);
@@ -394,7 +394,7 @@ test("synced generated blocks cannot mask stale named prose facts", () => {
     `at most ${INPUT_LIMITS.label} characters`,
     `trimmed to 1–${MAX_AGENT_NAME}`,
     `after ${DEFAULT_SESSION_DAYS}\nunused days`,
-    `has used for ${IDLE_HOURS} hours`,
+    `unused for ${IDLE_HOURS} hours`,
   ]) {
     assert.ok(prose(skill).includes(old), old);
     assert.throws(

@@ -57,6 +57,7 @@ export function mountOnboarding(review) {
     "help.p6",
     "help.p7",
     "help.p8",
+    "help.p9",
     "help.p11",
     "help.p12",
     "help.p13",
