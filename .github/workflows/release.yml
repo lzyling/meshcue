@@ -39,6 +39,10 @@ jobs:
             exit 1
           fi
           npm run build:integration -- tmp/release-package
+          if find tmp/release-package -type f \( -name '*.map' -o -name '*.env' -o -name '.env' -o -name '.env.*' -o -name '*.log' \) -print -quit | grep -q .; then
+            echo "::error::Package contains a source map, environment file or log" >&2
+            exit 1
+          fi
           (cd tmp/release-package && zip -r -X -q "../meshcue-$version.zip" .)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

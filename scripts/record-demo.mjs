@@ -27,7 +27,7 @@ import { chromium } from "playwright";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(repo, "docs/media");
 const raw = path.join(repo, "tmp/demo-raw");
-const port = 43176;
+const port = Number(process.env.MESHCUE_DEMO_PORT || 43280);
 const url = `http://127.0.0.1:${port}`;
 const size = { width: 1280, height: 800 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
