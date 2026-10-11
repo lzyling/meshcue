@@ -15,6 +15,7 @@
 
 ### 1.5.x · 维护
 
+- 新增 MeshCue 自身署名的 `NOTICE`，随 npm、Release／OpenClaw 包和 Claude Code 插件分发（本分支已完成）。
 - 依赖小版本更新（Dependabot）。
 - Skill 补齐「STL 一律灰，要颜色发 STEP 或 GLB」，并核对六语帮助。
 - 拆分 `src/style.css` 与 `server/index.mjs`，只拆分、不改行为。

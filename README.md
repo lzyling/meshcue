@@ -269,6 +269,8 @@ exploring. Ideas and requests are welcome in
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+When using or redistributing MeshCue, retain [NOTICE](NOTICE) as required by
+Apache-2.0 Section 4(d).
 
 STEP support is the one part that is not ours. Reading a STEP means evaluating
 its surfaces, which MeshCue does with
