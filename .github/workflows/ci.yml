@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
@@ -34,6 +36,30 @@ jobs:
       - run: npm run check:i18n
       - run: npm run format:check
       - run: node --test tests/*.test.mjs
+      - name: check commit messages and tag annotations
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          base="$PUSH_BEFORE"
+          head=HEAD
+          if [ "$EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE"
+            head="$PR_HEAD"
+          fi
+          if [ -n "$base" ] && [[ ! "$base" =~ ^0+$ ]] && git cat-file -e "$base^{commit}" 2>/dev/null && git cat-file -e "$head^{commit}" 2>/dev/null; then
+            node scripts/privacy-check.mjs --range "$base..$head"
+          else
+            # First pushes or unavailable event objects: check HEAD itself.
+            git log -1 --format=%B HEAD > "$RUNNER_TEMP/privacy-message.txt"
+            node scripts/privacy-check.mjs --message "$RUNNER_TEMP/privacy-message.txt"
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              node scripts/privacy-check.mjs --range HEAD^..HEAD
+            fi
+          fi
       # The version lives in three manifests and only this build compares them.
       # 0.13.1 shipped with the authoritative one left behind at 0.13.0, so the
       # release could not be packaged at all and nothing said so for a day.

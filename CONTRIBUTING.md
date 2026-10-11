@@ -46,6 +46,17 @@ a reader who follows it gets nothing.
 
 ## Releasing
 
+Before each release, perform a separate privacy audit and run
+`node scripts/privacy-check.mjs`.
+
+The same public rules check tracked working-tree text, `--message <file>` checks
+one commit message, and `--range <a>..<b>` checks commit messages and annotated
+tags pointing to those commits. An optional `MESHCUE_PRIVATE_INDICATORS` file
+must live outside the repository: one literal or `/pattern/flags` per line
+(supported flags: `i`, `m`, `u`). Do not commit private indicators. Maintainers
+may call the message mode from a commit-msg hook; no hook is installed by this
+repository. Public self/vendor exemptions never bypass private indicators.
+
 ```sh
 git switch main && git merge --ff-only dev
 git tag -a vX.Y.Z -F - <<< "…"   # the annotation becomes the release notes

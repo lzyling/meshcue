@@ -4,7 +4,8 @@
 `three@0.186.1/examples/jsm/libs/draco/gltf/draco_decoder.js` (512,465 bytes).
 It is Apache-2.0 licensed; see `LICENSE.draco.txt`. The filename marks the
 upstream CommonJS export. The implementation is unchanged; an Apache license comment is prepended so the raw browser asset
-also carries the license. Integration packaging copies this decoder to
+also carries the license. The Apache appendix retains the upstream copyright
+placeholder; it is not a copyright claim by MeshCue. Integration packaging copies this decoder to
 `vendor/` once; it is loaded as CommonJS outside the ESM host bundles.
 The browser receives the same bytes through Vite's local asset URL.
 

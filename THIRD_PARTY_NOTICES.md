@@ -51,3 +51,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Draco decoder
+
+The offline glTF Draco decoder in `server/gltf-vendor/draco_decoder.cjs` is from Google LLC, distributed with Three.js under Apache-2.0. The implementation is unchanged; its prepended license and `LICENSE.draco.txt` retain the upstream appendix template. See `server/gltf-vendor/README.md` for provenance and packaging.

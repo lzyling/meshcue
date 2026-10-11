@@ -81,10 +81,10 @@ test("the name given is what the page shows, and leaving it out keeps it", (t) =
   assert.equal(store.nameAgent({ tool: "OpenClaw" }), "OpenClaw");
   assert.equal(store.nameAgent({ name: "爆爆", tool: "OpenClaw" }), "爆爆");
   assert.equal(store.nameAgent({ tool: "OpenClaw" }), "爆爆");
-  assert.equal(store.nameAgent({ name: "POP", tool: "OpenClaw" }), "POP");
-  assert.equal(store.publicState("").agentName, "POP");
+  assert.equal(store.nameAgent({ name: "Ada", tool: "OpenClaw" }), "Ada");
+  assert.equal(store.publicState("").agentName, "Ada");
   // Kept with the project, so a restarted service still knows it.
-  assert.equal(new ReviewStore(dir).agentName(), "POP");
+  assert.equal(new ReviewStore(dir).agentName(), "Ada");
 });
 
 test("another conversation taking the project over does not wear the name", (t) => {

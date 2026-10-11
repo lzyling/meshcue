@@ -29,7 +29,7 @@ Always call `stop()` in `finally`. Create a Playwright page and pass it to
 - `toolbarState()`: ids, command ids, enabled/active/pressed state and labels.
 - `screenshot("step-name", {viewerOnly})`: write `<run>/step-name.png`.
 
-The kit performs no assertions about a reviewer goal. POP supplies those later.
+The kit performs no assertions about a reviewer goal. The reviewer supplies those later.
 Browser scripts must acquire `acquireBrowserLock()` from
 `scripts/browser-lock.mjs` before launching Chrome and release it in `finally`.
 The machine-wide lock admits two browser runs at once by default (about 14 of 18

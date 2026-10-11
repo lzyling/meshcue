@@ -1,6 +1,6 @@
-# MeshCue · 内网定向入场适配（0.4）
+# MeshCue · 内网定向入场适配
 
-此适配补齐「服务器有许可，但 Windows 浏览器拿不到」的缺口。用户打开普通工作台网址；Agent 在本机为**已核对的客户端 IPv4**签发入场许可，网页自动领取，服务直接写入 HttpOnly cookie。用户不输入 token、不切换 Control UI、不回 Mac 配对。带 token 的聊天链接仍未提供；这不是解除宿主凭据规则。**16:32已改为[长期记住浏览器](BROWSER-TRUST.md)：30天未使用才过期，取代60分钟硬截止。**
+普通链接不含凭据；Agent 核对客户端 IPv4 后签发许可，浏览器自动领取 HttpOnly cookie，不增加配对步骤。长期授权见 [BROWSER-TRUST.md](BROWSER-TRUST.md)。
 
 ## Agent 操作
 
@@ -20,7 +20,7 @@ REVIEW_DATA_DIR=tmp/isolated-review node scripts/reviewctl.mjs status
 
 ## 授权规则与边界
 
-- 本机 Unix IPC 的 `/access/admit` 接收已核对地址，创建内存内1小时一次性许可；没有浏览器授权管理接口。
+- 本地 Agent IPC 的 `/access/admit` 接收已核对地址，创建内存内1小时一次性许可；没有浏览器授权管理接口。
 - `POST /api/access/claim` 只接受空 JSON，经既有 Host／Origin／自定义标头保护，使用 TCP `socket.remoteAddress` 匹配。请求正文、`X-Forwarded-For`、`X-Real-IP`、`Forwarded` 均不能指定领取者。
 - 匹配成功，立即消费许可并建立30天闲置到期的浏览器授权，实际使用自动续期；HTTP 响应通过 `Set-Cookie` 交给浏览器。Cookie 为 HttpOnly／SameSite=Strict；领取响应 no-store、正文不含凭据，URL、日志、CLI、Git 也不包含凭据。普通内网 HTTP 不是 TLS。
 - 已有有效 cookie 的重复领取保持同一身份与原截止时间，也不消耗新签发的许可。新的未用许可替换旧未用许可；普通发行与定向发行共用一个许可槽。
@@ -34,11 +34,11 @@ REVIEW_DATA_DIR=tmp/isolated-review node scripts/reviewctl.mjs status
 - 写操作在进到鉴权之前先被三道挡：`Host` 必须等于服务实际绑定的地址（否则 421）、跨站的 `Origin` 或
   `Sec-Fetch-Site` 直接拒（403）、外加一个跨源表单发不出来的 `X-Review-Client` 标头。这三道是 CSRF 防护，
   跟 cookie 校验是两层，不要当成同一层。
-- 本机 agent 入口是 Unix socket 并 `chmod 0600`，不监听任何 TCP 端口；浏览器够不着 `publish`／`retain`／
+- 本地 Agent 入口在 POSIX 上使用 Unix socket 并 `chmod 0600`，Windows 使用受保护的命名管道，不监听任何 TCP 端口；浏览器够不着 `publish`／`retain`／
   `activate`，所以**网页无法改变正在显示的是哪一版**。
 
 ## 验收范围
 
 新增测试覆盖错误地址／伪造转发标头、跨站和路由变体、一次性与期限、发行轮换、原会话期限／身份保留、来源变更及撤销。真实浏览器通过普通 `review.test` HTTP 入口自动领取，未使用 fixture cookie 注入；可加载、标记、刷新恢复和下载，未同步草稿可在原页自动恢复。
 
-Windows 用户已确认内网页面连通；目标地址核对、Windows 实际模型操作及真实 Telegram 回传，仍需分别记录真实结果，不能用 Mac 浏览器或 fake Gateway 代替。
+客户端实际模型操作和原会话回传需分别记录真实结果，不能用隔离浏览器或测试替身代替。
