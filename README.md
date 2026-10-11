@@ -237,22 +237,27 @@ how long that lasts.
 
 ## Roadmap
 
-Plans, not promises: the order can change as people use it. Ideas and requests
-are welcome in [Discussions](https://github.com/lzyling/meshcue/discussions).
+Plans, not promises: the order can change as people use it. Only work we know
+we can build gets a version number; ideas still being proven are listed as
+exploring. Ideas and requests are welcome in
+[Discussions](https://github.com/lzyling/meshcue/discussions).
 
-- **1.5** — every valid GLB opens and looks as its author made it: Draco,
-  Meshopt and KTX2 compression, rigged models in their bind pose, morph
-  targets, GPU instancing, a texture budget that fits a 4K PBR set, and
-  `.gltf` with external files. **Behavior change:** GLB now defaults to +Z up
-  too; publish Y-up GLBs with `up:"y"`. Confirm the model's intended upright
-  before publishing (see [Which way is up](AGENT-INTERFACE.md#which-way-is-up)).
-  Coordinate data is unchanged.
-- **1.6** — showing a GLB as intended: animation poses, LOD sets and material
-  variants.
-- **1.7** — review aids for game assets: UV and checker views, per-channel
-  texture views, per-mesh triangle counts and a node tree with visibility.
-- **2.0** — animation playback: rigged animation you can play and step through
-  frame by frame.
+- **1.5.x** — maintenance releases: fixes, dependency updates and docs.
+- **1.6** — version tree: branch from any earlier version and keep the old
+  line visible, with the agent told exactly which version to change. Feature
+  recognition: holes (including counterbores and countersinks), slots, bosses
+  and fillets, so a mark can say what it is on.
+- **1.7** — the agent can mark the model too: risks and questions on their own
+  layer, with replies in place. Tangent-chain selection (a whole fillet in one
+  click), and the rest of mechanical-assembly GLB support.
+- **1.8** — joints and poses: drive revolute and sliding joints within their
+  limits, switch named poses, mark a part in a pose, and see when parts
+  collide.
+- **1.9** — simulation results: temperature, stress and similar values the
+  agent computes elsewhere, shown as colour on the model with a value wherever
+  you point; emissive parts glow.
+- **Exploring** — server-side snapshots for the agent, closed-loop linkages,
+  heat and airflow animation (CFD particles).
 
 ## Documentation
 
