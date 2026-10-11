@@ -54,15 +54,21 @@ test("without the host build, the package still builds and says so", (t) => {
   assert.match(notice, /Copyright/);
   assert.match(notice, /https:\/\/github\.com\/lzyling\/meshcue/);
   // npm's files whitelist also governs github: installs. LICENSE is automatic;
-  // NOTICE is not, so check the actual packing list rather than the whitelist.
-  const [packed] = JSON.parse(
-    execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], {
-      cwd: repo,
-      encoding: "utf8",
-    }),
+  // NOTICE is not, so pin its explicit inclusion and both root files. Avoid
+  // npm pack: npm 10 still runs prepare with --ignore-scripts --dry-run, while
+  // npm 11 does not, making its JSON stdout lifecycle-dependent.
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(repo, "package.json"), "utf8"),
+  );
+  assert.ok(
+    manifest.files.includes("NOTICE"),
+    "npm and github: installs must explicitly include NOTICE",
   );
   for (const name of ["LICENSE", "NOTICE"])
-    assert.ok(packed.files.some((file) => file.path === name));
+    assert.ok(
+      fs.statSync(path.join(repo, name)).isFile(),
+      `npm and github: installs must have a root ${name} file to include`,
+    );
 });
 
 test("a missing host command is still an error, not a quiet skip", (t) => {
