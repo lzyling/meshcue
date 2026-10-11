@@ -211,6 +211,8 @@ for (const name of ["package.json", "package-lock.json"]) {
 // exactly what it is told, and for two releases it was told about one file.
 // Told what, now, is not a second list to keep in step: it is the same constant
 // `inspect` reports from, so a file dropped from one is dropped from both.
+for (const name of ["LICENSE", "NOTICE"])
+  fs.copyFileSync(path.join(repo, name), path.join(out, name));
 for (const relative of Object.values(DOC_FILES))
   if (!relative.startsWith("skills/"))
     fs.copyFileSync(path.join(repo, relative), path.join(out, relative));
@@ -256,6 +258,9 @@ if (skillExport) {
 // copy -- which is exactly how the adapter package named four documents and
 // carried two. Read the output back instead: this is the one statement that
 // knows what was written rather than what was intended.
+for (const name of ["LICENSE", "NOTICE"])
+  if (!fs.existsSync(path.join(out, name)))
+    throw new Error(`The package is missing ${name}.`);
 for (const [key, relative] of Object.entries(DOC_FILES)) {
   if (relative.startsWith("skills/") && !skillExport) continue;
   if (!fs.existsSync(path.join(out, relative)))

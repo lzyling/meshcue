@@ -15,6 +15,11 @@ if (!process.argv[2])
       "Build one first: npm run build:integration -- tmp/<candidate>",
   );
 const root = fs.realpathSync(process.argv[2]);
+for (const name of ["LICENSE", "NOTICE"])
+  assert.ok(fs.statSync(path.join(root, name)).isFile());
+const notice = fs.readFileSync(path.join(root, "NOTICE"), "utf8");
+assert.match(notice, /Copyright/);
+assert.match(notice, /https:\/\/github\.com\/lzyling\/meshcue/);
 const globalModules = execFileSync("npm", ["root", "-g"], {
   encoding: "utf8",
 }).trim();

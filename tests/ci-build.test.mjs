@@ -41,6 +41,28 @@ test("without the host build, the package still builds and says so", (t) => {
   );
   assert.equal(result.hostBuild, false);
   assert.equal(result.bundledSkill, true);
+  for (const name of ["LICENSE", "NOTICE"])
+    assert.equal(
+      fs.readFileSync(path.join(repo, result.output, name), "utf8"),
+      fs.readFileSync(path.join(repo, name), "utf8"),
+      `the shared OpenClaw and Claude Code package must carry ${name}`,
+    );
+  const notice = fs.readFileSync(
+    path.join(repo, result.output, "NOTICE"),
+    "utf8",
+  );
+  assert.match(notice, /Copyright/);
+  assert.match(notice, /https:\/\/github\.com\/lzyling\/meshcue/);
+  // npm's files whitelist also governs github: installs. LICENSE is automatic;
+  // NOTICE is not, so check the actual packing list rather than the whitelist.
+  const [packed] = JSON.parse(
+    execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], {
+      cwd: repo,
+      encoding: "utf8",
+    }),
+  );
+  for (const name of ["LICENSE", "NOTICE"])
+    assert.ok(packed.files.some((file) => file.path === name));
 });
 
 test("a missing host command is still an error, not a quiet skip", (t) => {
