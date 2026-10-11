@@ -19,7 +19,7 @@ export const RULES = [
   [/(?<!\d)-100\d{10}(?!\d)/, "Telegram chat id"],
   [/(?:\b[A-Z][a-z]+|消息|\bmessage)\s?#?\d{5}(?!\d)/, "chat message number"],
   [
-    /\btmp\/(?:wt-|candidate-\d|[\w-]+-plugin-|[\w-]+-\d{3}-|windows-lan-test|cc-home)|\bdocuments\/[\w-]+\/|\bprojects\/[\w-]+-\d+-acceptance\b/,
+    /\btmp\/(?:wt-|candidate-\d|[\w-]+-plugin-|[\w-]+-\d{3}-|windows-lan-test|cc-home)/,
     "private workspace path",
   ],
   [
@@ -47,6 +47,48 @@ const IP_ALLOW = new Set([
   "10.1.2.3",
   "192.168.0.0",
 ]);
+// Exact product examples/defaults, plus existing synthetic test directories.
+// Fixture names are allowed only in tests, not in docs or commit/tag messages.
+const PROJECT_ALLOW = new Set([
+  "lamp",
+  "phone-stand",
+  "sample",
+  "meshcue-state",
+]);
+const FIXTURE_PROJECT_ALLOW = new Set([
+  "a",
+  "allowed",
+  "also-removed",
+  "b",
+  "bracket-a",
+  "bracket-b",
+  "bracket-step",
+  "c",
+  "cli",
+  "disallowed",
+  "elsewhere",
+  "escape",
+  "existing",
+  "fixture",
+  "forgotten",
+  "idle-policy",
+  "idle-signals",
+  "lean",
+  "lean-escape",
+  "new",
+  "old",
+  "opened",
+  "plate",
+  "printed-and-forgotten",
+  "refused",
+  "removed",
+  "signals",
+  "somebody-elses",
+  "stale-idle-signals",
+  "the-one-being-opened",
+]);
+const WORKSPACE_PATH =
+  /(?<![\p{L}\p{N}_.-])(documents|projects)[/\\]([\p{L}\p{N}_.-]+)/gu;
 const SELF = new Set(["scripts/privacy-rules.mjs", "tests/privacy.test.mjs"]);
 export function exempt(file) {
   return (
@@ -83,6 +125,17 @@ export function scanText(text, file, additional = []) {
           : pattern.test(line)
       )
         hits.push({ file, line: index + 1, rule });
+    }
+    if (!exempt(file)) {
+      for (const [, directory, name] of line.matchAll(WORKSPACE_PATH)) {
+        if (
+          directory === "projects" &&
+          (PROJECT_ALLOW.has(name) ||
+            (file.startsWith("tests/") && FIXTURE_PROJECT_ALLOW.has(name)))
+        )
+          continue;
+        hits.push({ file, line: index + 1, rule: "private workspace path" });
+      }
     }
     if (!exempt(file))
       for (const match of line.matchAll(PRIVATE_IP)) {
@@ -139,20 +192,47 @@ export function scanRange(root, range, additional = []) {
         additional,
       ),
     );
-  const tags = git(["for-each-ref", "refs/tags", "--format=%(refname)"])
+  hits.push(...scanTagsAt(root, selected, additional));
+  return hits;
+}
+function gitAt(root, args) {
+  return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+export function scanTag(root, ref, additional = []) {
+  if (!ref.startsWith("refs/tags/")) throw new Error("Expected a tag ref");
+  // Resolve the exact ref, not the prefix matching used by for-each-ref.
+  const sha = gitAt(root, [
+    "rev-parse",
+    "--verify",
+    "--end-of-options",
+    ref,
+  ]).trim();
+  if (gitAt(root, ["cat-file", "-t", sha]).trim() !== "tag") return [];
+  const object = gitAt(root, ["cat-file", "tag", sha]);
+  return scanText(
+    object.slice(object.indexOf("\n\n") + 2),
+    `tag:${ref}`,
+    additional,
+  );
+}
+function scanTagsAt(root, selected, additional) {
+  const tags = gitAt(root, ["for-each-ref", "refs/tags", "--format=%(refname)"])
     .trim()
     .split("\n")
     .filter(Boolean);
-  for (const tag of tags) {
-    if (git(["cat-file", "-t", tag]).trim() !== "tag") continue;
-    if (!selected.has(git(["rev-parse", `${tag}^{commit}`]).trim())) continue;
-    hits.push(
-      ...scanText(
-        git(["for-each-ref", tag, "--format=%(contents)"]),
-        `tag:${tag}`,
-        additional,
-      ),
-    );
-  }
-  return hits;
+  return tags.flatMap((tag) => {
+    const target = gitAt(root, ["rev-parse", `${tag}^{}`]).trim();
+    return selected.has(target) ? scanTag(root, tag, additional) : [];
+  });
+}
+export function scanHead(root, additional = []) {
+  const sha = gitAt(root, ["rev-parse", "HEAD"]).trim();
+  return [
+    ...scanText(
+      gitAt(root, ["show", "-s", "--format=%B", sha]),
+      `commit:${sha}`,
+      additional,
+    ),
+    ...scanTagsAt(root, new Set([sha]), additional),
+  ];
 }

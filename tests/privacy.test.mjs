@@ -9,6 +9,8 @@ import {
   scanText,
   scanTree,
   scanRange,
+  scanHead,
+  scanTag,
   privateRules,
 } from "../scripts/privacy-rules.mjs";
 
@@ -131,4 +133,93 @@ test("CLI checks messages and external literal or regex indicators fail closed",
     1,
   );
   assert.equal(run(["--unknown"]).status, 1);
+});
+
+test("workspace paths include bare directories and respect exact example boundaries", () => {
+  for (const text of [
+    "documents/fictional-notes",
+    "documents/fictional-notes/report.md",
+    String.raw`documents\fictional-notes`,
+    "projects/fictional-engine",
+    "projects/fictional-42-acceptance",
+    String.raw`projects\fictional-engine\part.stl`,
+    "projects/lamp-extra",
+    "projects/sample.private",
+    "projects/meshcue-state-old",
+  ])
+    assert.ok(
+      scanText(text, "fixture.txt").some(
+        (h) => h.rule === "private workspace path",
+      ),
+      text,
+    );
+  for (const text of [
+    "projects/lamp",
+    "projects/phone-stand/part.stl",
+    "projects/sample",
+    String.raw`projects\meshcue-state\registry.json`,
+    "myprojects/fictional-engine",
+    "mydocuments/fictional-notes",
+    "projects-other/fictional-engine",
+  ])
+    assert.deepEqual(scanText(text, "fixture.txt"), [], text);
+  assert.deepEqual(scanText("projects/fixture", "tests/example.test.mjs"), []);
+  assert.equal(scanText("projects/fixture", "docs/example.md").length, 1);
+  assert.equal(
+    scanText("projects/fictional-engine", "tests/example.test.mjs").length,
+    1,
+  );
+  assert.equal(
+    scanText("projects/lamp projects/fictional-engine", "fixture.txt").length,
+    1,
+  );
+});
+test("root HEAD fallback checks its message and annotated tags without a parent", (t) => {
+  const { dir, git } = fixtureRepo(t);
+  git("tag", "-a", "root", "-m", "message 54321");
+  git("tag", "lightweight");
+  assert.throws(() => git("rev-parse", "--verify", "HEAD^"));
+  assert.deepEqual(
+    scanHead(dir).map((h) => h.file),
+    ["tag:refs/tags/root"],
+  );
+  git("commit", "--amend", "-qm", "message 54321");
+  assert.ok(scanHead(dir).some((h) => h.file.startsWith("commit:")));
+});
+test("tag annotation updates on the same commit are scanned independently of ranges", (t) => {
+  const { dir, git } = fixtureRepo(t);
+  const sha = git("rev-parse", "HEAD").trim();
+  git("tag", "-a", "release", "-m", "Safe annotation");
+  git("tag", "-a", "release-extra", "-m", "message 54321");
+  assert.deepEqual(scanTag(dir, "refs/tags/release"), []);
+  git("tag", "-fa", "release", "-m", "message 54321");
+  assert.equal(git("rev-parse", "release^{commit}").trim(), sha);
+  assert.deepEqual(scanRange(dir, `${sha}..HEAD`), []);
+  assert.deepEqual(
+    scanTag(dir, "refs/tags/release").map((h) => h.file),
+    ["tag:refs/tags/release"],
+  );
+  assert.throws(() => scanTag(dir, "HEAD"));
+  // Exercise both CI entry points through the actual CLI in a fixture repository.
+  fs.mkdirSync(path.join(dir, "scripts"));
+  for (const name of ["privacy-check.mjs", "privacy-rules.mjs"])
+    fs.copyFileSync(
+      path.join(repo, "scripts", name),
+      path.join(dir, "scripts", name),
+    );
+  for (const args of [["--head"], ["--tag", "refs/tags/release"]]) {
+    const result = spawnSync(
+      process.execPath,
+      [path.join(dir, "scripts/privacy-check.mjs"), ...args],
+      {
+        encoding: "utf8",
+        env: { ...process.env, MESHCUE_PRIVATE_INDICATORS: "" },
+      },
+    );
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /tag:refs\/tags\/release:1: chat message number/,
+    );
+  }
 });

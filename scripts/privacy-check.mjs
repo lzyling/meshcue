@@ -7,6 +7,8 @@ import {
   scanText,
   scanTree,
   scanRange,
+  scanHead,
+  scanTag,
 } from "./privacy-rules.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,9 +36,13 @@ try {
     );
   else if (args.length === 2 && args[0] === "--range")
     hits = scanRange(root, args[1], additional);
+  else if (args.length === 1 && args[0] === "--head")
+    hits = scanHead(root, additional);
+  else if (args.length === 2 && args[0] === "--tag")
+    hits = scanTag(root, args[1], additional);
   else
     throw new Error(
-      "Usage: privacy-check.mjs [--message <file> | --range <a>..<b>]",
+      "Usage: privacy-check.mjs [--message <file> | --range <a>..<b> | --head | --tag <refs/tags/name>]",
     );
   for (const hit of hits) console.error(`${hit.file}:${hit.line}: ${hit.rule}`);
   if (hits.length) process.exitCode = 1;
