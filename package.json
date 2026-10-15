@@ -50,17 +50,17 @@
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
-    "express": "^5.1.0",
+    "express": "^5.3.0",
     "image-size": "^2.0.4",
     "occt-import-js": "^0.0.23",
     "three": "^0.186.1",
     "three-mesh-bvh": "^0.9.16",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "esbuild": "0.28.2",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "vite": "^8.3.4"
   },
   "description": "Browser-based 3D review and annotation for agent-assisted modeling."
