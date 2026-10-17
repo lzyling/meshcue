@@ -1,0 +1,159 @@
+/* === Lane N: CAD navigation === */
+.navigation-pivot {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e9e78;
+  border: 1px solid white;
+  box-shadow: 0 0 0 1px #14202a;
+  pointer-events: none;
+  z-index: 3;
+}
+.orient-stage {
+  position: relative;
+  touch-action: none;
+  /* Reserve the cube's complete projected reach before placing the arrows;
+     otherwise a visible corner can lose every clickable pixel to an arrow. */
+  width: calc(var(--orient-reach) + 48px);
+  height: calc(var(--orient-reach) + 48px);
+}
+.navigation-projection {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+.navigation-triad {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  width: 72px;
+  height: 72px;
+  pointer-events: none;
+}
+.navigation-triad[hidden] {
+  display: none;
+}
+.navigation-triad line {
+  stroke-width: 2;
+}
+.navigation-triad text {
+  stroke: none;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+#navigation-shortcuts {
+  max-height: 80vh;
+  overflow: auto;
+}
+#navigation-shortcuts dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 24px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#navigation-shortcuts dt {
+  font-family: monospace;
+}
+#navigation-shortcuts dd {
+  margin: 0;
+}
+
+.viewer-top {
+  padding-right: calc(var(--orient-reach) + 133px);
+}
+
+/* === Lane D: display styles and opt-in performance display === */
+.display-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  min-width: 210px;
+  padding: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  z-index: 10;
+}
+.display-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+}
+.display-menu button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+#perf-panel {
+  position: absolute;
+  top: 170px;
+  right: 8px;
+  width: 230px;
+  max-height: calc(100% - 290px);
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 11px;
+  z-index: 4;
+}
+#perf-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.5;
+}
+#perf-panel[data-verdict="normal"] {
+  border-color: var(--accent);
+}
+#perf-panel[data-verdict="normal"] pre::first-line {
+  color: var(--accent);
+}
+#perf-panel[data-verdict="warning"] {
+  border-color: var(--warn);
+}
+#perf-panel[data-verdict="warning"] pre::first-line {
+  color: var(--warn);
+}
+#perf-panel[data-verdict="bad"] {
+  border-color: var(--danger);
+}
+#perf-panel[data-verdict="bad"] pre::first-line {
+  color: var(--danger);
+}
+/* Reserve canvas space while the overlay is open: neither a surface mark nor
+   its DOM pin can end up underneath the report. ResizeObserver updates the
+   camera and line widths through the viewer's existing resize path. */
+.performance-open #viewer {
+  right: 250px;
+  width: auto;
+}
+@media (max-width: 700px) {
+  .performance-open #viewer {
+    right: 0;
+    top: 170px;
+    height: auto;
+  }
+  #perf-panel {
+    top: 35px;
+    left: 8px;
+    right: 116px;
+    width: auto;
+    max-height: 125px;
+  }
+  .toolbar:has(#display-toggle) {
+    max-width: calc(100% - 16px);
+    flex-wrap: wrap;
+  }
+}

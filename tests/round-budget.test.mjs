@@ -49,7 +49,11 @@ test("the page's budget sits below the service's, and they count alike", () => {
 test("the face limit is gone from both sides, not merely raised", () => {
   // 20,000 faces and 40,000 polygons were the byte budget written twice, from
   // when a whole face still stored a polygon repeating its own triangle.
-  const server = fs.readFileSync(path.join(repo, "server/index.mjs"), "utf8");
+  const server = fs
+    .readdirSync(path.join(repo, "server"))
+    .filter((file) => file.endsWith(".mjs"))
+    .map((file) => fs.readFileSync(path.join(repo, "server", file), "utf8"))
+    .join("\n");
   assert.equal(/20,?000 review faces/.test(server), false);
   assert.equal(/patchCount > 40000/.test(server), false);
   assert.equal(/> 20000/.test(main), false);

@@ -1,0 +1,451 @@
+/* A review surface must fit a narrow host side panel without a second chat. */
+@media (max-width: 760px) {
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 560px;
+  }
+  .review-panel {
+    flex: 1;
+    padding: 10px;
+  }
+  .app-header {
+    height: 58px;
+    padding: 0 12px;
+  }
+  .workspace {
+    height: calc(100dvh - 58px);
+  }
+  /* The tagline is the line that gives way when the header is short of room.
+     The version stays: it is three characters, and it is the answer to the
+     question this header is most often asked. */
+  .brand > span,
+  .scene-pill.subtle,
+  .axis-label {
+    display: none;
+  }
+  .viewer-shell {
+    min-height: 330px;
+  }
+  .tool {
+    min-width: 46px;
+  }
+  .tool-options {
+    flex-wrap: wrap;
+  }
+  .review-body {
+    flex-direction: column;
+  }
+  .annotations-panel {
+    width: auto;
+    max-height: 148px;
+  }
+  /* A chosen mark's note needs room of its own, and at 148px it took the send
+     button's: the button was pushed out of the panel and under the model. The
+     model gives up that room while a mark is chosen and has it back when none
+     is; the box itself is kept to two lines, and `maxlength` still counts. */
+  .annotations-panel:has(#mark-note:not([hidden])) {
+    max-height: 220px;
+  }
+  /* The same for the sentence to paste: it is the one thing on the page the
+     reviewer has to act on, so the list gives up its room for it. Across the
+     full width the button fits beside the sentence. */
+  .annotations-panel:has(#receipt-nudge:not([hidden])) {
+    max-height: 250px;
+  }
+  /* Both at once, which is what just after sending with a mark chosen looks
+     like, and the list still keeps a row. */
+  .annotations-panel:has(#mark-note:not([hidden])):has(
+      #receipt-nudge:not([hidden])
+    ) {
+    max-height: 330px;
+  }
+  .receipt-copy {
+    flex-direction: row;
+    align-items: center;
+  }
+  #receipt-line {
+    flex: 1;
+    min-width: 0;
+  }
+  #receipt-copy {
+    align-self: center;
+  }
+  .mark-note {
+    padding: 6px 8px 5px;
+    gap: 3px;
+  }
+  .mark-note textarea {
+    height: 40px;
+    min-height: 40px;
+  }
+  .mark-note small {
+    display: none;
+  }
+  .annotation-row {
+    padding: 7px;
+  }
+  .viewer-bottom {
+    left: 10px;
+    right: 10px;
+    font-size: 9px;
+  }
+  .primary-button {
+    padding: 10px 6px;
+  }
+}
+
+/* 0.3: the model owns the available height, including narrow host panels. */
+.app-header {
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  gap: 8px;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  font-size: 19px;
+}
+.brand strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.brand > span {
+  display: none;
+}
+.workspace {
+  height: calc(100dvh - 44px);
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
+}
+.review-panel {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 6px 8px;
+}
+.viewer-shell {
+  min-height: 290px;
+  border-radius: 10px;
+}
+.viewer-top {
+  top: 8px;
+  left: 10px;
+  right: 10px;
+}
+.scene-pill {
+  padding: 4px 7px;
+}
+/* The pill that names the format does not belong in this block. It is hidden
+   deliberately, but only where the header has run out of room -- the rule for
+   that is with the tagline up in the 760px query. Carried here it applied at
+   every width, and from 0.3 until 1.3.0-dev nobody could see what kind of file
+   they were looking at. That mattered least while every review was a mesh the
+   agent had exported anyway; a STEP round is tessellated for the reviewer, and
+   this pill is the only thing on screen that says so. */
+.toolbar {
+  padding: 4px;
+  gap: 1px;
+  border-radius: 9px;
+  bottom: 34px;
+}
+.tool {
+  min-width: 44px;
+  height: 39px;
+  font-size: 17px;
+  padding: 0 6px;
+}
+.tool.small {
+  height: 25px;
+}
+.tool span {
+  font-size: 8px;
+}
+/* A compass, not decoration: it turns with the camera, so an orbit that lost
+   the reviewer's bearings can be read off instead of guessed at, and a face is
+   a way back to a named view. Its own perspective, so it never borrows the
+   canvas's projection. */
+.orient {
+  position: absolute;
+  /* Level with the status pill on the other side. It used to clear a second
+     pill that this layout never shows, and an offset kept for an absent
+     neighbour reads as a widget that slid out of its own corner. */
+  top: 8px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
+}
+/* The stage exists to reserve the room a turning cube needs, and to put the
+   vanishing point on the cube rather than on the middle of the whole widget.
+   Without it the projection leans downwards over the reset button and takes
+   its clicks. Its size comes from the geometry — see projectedReach(). */
+.orient-stage {
+  width: var(--orient-reach);
+  height: var(--orient-reach);
+  display: grid;
+  place-items: center;
+  perspective: 400px;
+}
+.orient-cube {
+  width: 72px;
+  height: 72px;
+  position: relative;
+  transform-style: preserve-3d;
+  /* The box itself is only a frame of reference. Left clickable it competes
+     with its own plates in the depth sort and wins often enough to leave a
+     dead spot on one of them. */
+  pointer-events: none;
+}
+/* Sizes, offsets and transforms are all computed geometry and are set from
+   orient-cube.js; what is left here is only how a region looks. */
+.orient-region {
+  position: absolute;
+  pointer-events: auto;
+  left: 50%;
+  top: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  backface-visibility: hidden;
+  box-shadow: none;
+}
+/* Sized for the longest side name any language has — ARRIÈRE and DESSOUS are
+   seven letters where 前 is one; orient-cube.js gives the type back when a word
+   needs it. Deliberately not `overflow: hidden`: that makes the plate its own
+   stacking context, drops it out of the cube's depth sort, and a whole face
+   stops taking clicks — the browser tests catch it, but it costs an hour. */
+.orient-face {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+/* Edges and corners are aim points, not labels: they stay quiet until the
+   pointer is on them, so the cube still reads as six named sides. */
+.orient-edge {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+}
+/* The square is what you aim at; the triangle inside it is what you see. */
+.orient-corner {
+  background: none;
+  border: 0;
+}
+.orient-corner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--corner-clip);
+  background: var(--surface-sunken);
+  pointer-events: none;
+}
+.orient-face:hover,
+.orient-edge:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.orient-corner:hover::before {
+  background: var(--accent);
+}
+.orient-home {
+  position: relative;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  box-shadow: var(--shadow-1);
+}
+.tool-options {
+  bottom: 92px;
+  max-width: calc(100% - 18px);
+  padding: 7px 9px;
+  gap: 10px;
+}
+.annotations-heading {
+  padding: 7px 9px;
+}
+.annotation-row {
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 1px;
+}
+.annotation-select {
+  padding: 6px 4px;
+}
+.annotation-select small {
+  font-size: 8px;
+}
+.annotation-action {
+  font-size: 9px;
+  padding: 6px 3px;
+}
+.annotation-badge.measure-badge {
+  border: 1px solid var(--pin-ring);
+  outline: 1px solid var(--line-strong);
+}
+.delete-annotation {
+  padding: 6px 4px;
+}
+/* Capsules retain their geometry and contrast on narrow screens. */
+.model-pin .pin-tag {
+  font-size: 11px;
+}
+.panel-actions {
+  padding: 6px;
+  gap: 4px;
+}
+.primary-button {
+  padding: 8px 10px;
+  flex: none;
+  font-size: 10px;
+}
+.viewer-bottom {
+  bottom: 9px;
+  left: 10px;
+  right: 10px;
+}
+.pending-banner {
+  margin-top: 5px;
+  padding: 5px 9px;
+}
+/* Bottom right, out of the way of the toolbar beneath the model and the cube
+   above it — and speaking like a remark rather than a banner across the view.
+   It used to start 14px up, which put it over the bottom row; that only ever
+   covered the axis label, which is decoration, so nobody noticed. The row now
+   carries the pill naming the file, so the bubble starts above it. */
+#echo-dock {
+  position: absolute;
+  right: 14px;
+  bottom: var(--bottom-row-reach);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: min(370px, calc(100% - 90px));
+  z-index: 3;
+}
+#echo-panel {
+  background: var(--echo-soft);
+  color: var(--echo-ink);
+  border: 1px dashed var(--echo-line);
+  border-radius: 10px 10px 3px 10px;
+  padding: 8px 11px;
+  font-size: 11px;
+  line-height: 1.55;
+  box-shadow: var(--shadow-1);
+  animation: echo-arrive 170ms ease-out;
+}
+@keyframes echo-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.97);
+  }
+}
+#echo-recall {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--echo-line);
+  background: var(--echo-soft);
+  color: var(--echo-ink);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+/* A sample of the echo's line beside its words, so the two read as one. */
+.echo-swatch {
+  display: inline-block;
+  width: 22px;
+  margin: 0 7px 3px 0;
+  vertical-align: middle;
+  border-top: 3px dashed var(--echo-core);
+  filter: drop-shadow(0 0 2px var(--echo-core));
+}
+@media (prefers-reduced-motion: reduce) {
+  #echo-panel {
+    animation: none;
+  }
+}
+#echo-stale {
+  display: block;
+  font-size: 9px;
+  margin-top: 4px;
+}
+@media (max-width: 650px) {
+  .header-right {
+    font-size: 9px;
+  }
+  .annotation-select {
+    flex-basis: 100%;
+    padding-bottom: 1px;
+  }
+  .annotation-action {
+    margin-left: 5px;
+  }
+  #feedback-status {
+    font-size: 9px;
+  }
+  .primary-button {
+    padding: 7px 5px;
+  }
+}
+
+/* Section remains available beside every marking tool. Its panel lives above
+   the tool options so neither the measurement controls nor the cut controls
+   have to disappear while the reviewer is inspecting an interior. */
+.section-options {
+  position: absolute;
+  left: 16px;
+  top: 52px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, calc(100% - 150px));
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--overlay);
+  color: var(--ink);
+  font-size: 12px;
+}
+.section-options[hidden] {
+  display: none;
+}
+.section-options input[type="number"] {
+  width: 90px;
+}
+.section-options input[type="range"] {
+  width: 120px;
+  accent-color: var(--section-fill);
+}
+.section-options small {
+  flex-basis: 100%;
+  color: var(--ink-muted);
+}
+
+/* Slots give features an insertion point without adding boxes to the toolbar's
+   existing flex layout. The buttons keep their original spacing and sizing. */
+[data-toolbar-slot] {
+  display: contents;
+}

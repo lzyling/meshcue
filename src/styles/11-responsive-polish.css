@@ -1,0 +1,256 @@
+/* === b1v CI: stable phone measurement controls, clear of the next pick === */
+@media (max-width: 760px) {
+  /* A shrink-to-fit strip wrapped differently when the first pick added its
+     status. Bottom anchoring then lifted the whole panel into the second tap.
+     Use the phone's width and reserve the reading before any pick; even a
+     longer translated reading scrolls in that slot instead of moving targets.
+     Advanced still expands deliberately, not as a side effect of measuring. */
+  .tool-options:has(#measure-options:not([hidden])) {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+    padding: 6px 8px;
+    /* An intentionally expanded chooser wins over the cube, just as menus
+       do; otherwise its right-hand choices can be visible but untappable. */
+    z-index: 5;
+  }
+  #measure-options {
+    width: 100%;
+    gap: 4px 8px;
+  }
+  #measure-options > [data-measure="smart"],
+  #measure-advanced {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  #measure-advanced[open] {
+    flex-basis: 100%;
+    order: 1;
+  }
+  #keep-measure {
+    min-height: 44px;
+    padding: 5px 9px;
+  }
+  #measure-reading {
+    order: 2;
+    flex: 0 0 100%;
+    min-width: 0;
+    height: 32px;
+    line-height: 16px;
+    overflow: auto;
+    overflow-wrap: anywhere;
+  }
+  /* Hints belong at an edge, not stacked above a growing panel in the model's
+     centre. The upper-left strip clears the cube on the right; the existing
+     visibility check still hides it when Section needs the same space. */
+  .viewer-shell:has(#measure-options:not([hidden])) .tool-hint-box {
+    top: 50px;
+    bottom: auto !important;
+    max-width: calc(100% - var(--orient-reach) - 80px);
+  }
+}
+@media (max-width: 380px) {
+  /* At 360px, group chrome pushed Reset onto a third toolbar row, lifting the
+     dock into the model centre. Reclaim that chrome and the strip's vertical
+     padding, not its 44px targets or reserved reading, while measuring. */
+  .tool-options:has(#measure-options:not([hidden])) {
+    padding-block: 2px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar {
+    max-width: calc(100% - 8px);
+    padding: 2px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar-group {
+    padding: 0 1px;
+  }
+  .viewer-shell:has(#measure-options:not([hidden])) .toolbar-history {
+    padding: 0 2px;
+  }
+}
+
+/* r4 shell: metadata hugs the preview corner; phone tool row scrolls as one. */
+.viewer-bottom {
+  bottom: 10px;
+  right: 10px;
+}
+.orient-home {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  transition:
+    opacity 120ms,
+    color 120ms;
+}
+.reset-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+}
+.reset-dialog-actions button {
+  min-height: 36px;
+  padding: 8px 18px;
+}
+#reset-dialog {
+  max-width: min(420px, calc(100vw - 32px));
+}
+#reset-dialog .danger-button {
+  background: var(--danger, #b63636);
+  color: white;
+}
+@media (max-width: 760px) {
+  .toolbar {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: flex;
+    flex: none;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+  .viewer-bottom #model-info,
+  .viewer-bottom .axis-label {
+    display: none;
+  }
+}
+
+/* Picked-up marking tools are distinct from passive display switches. */
+.tool.active:is(
+    [data-mode="label"],
+    [data-mode="fill"],
+    [data-mode="measure"]
+  ) {
+  background: var(--accent);
+  color: white;
+}
+.viewer-top {
+  justify-content: center;
+  padding-right: 0;
+  z-index: 3;
+}
+#review-status {
+  max-width: min(420px, 60%);
+  text-align: center;
+}
+#section-flip,
+#section-off {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#section-flip svg,
+#section-off svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+/* Keep the optional axes clear of the section panel on desktop and phones. */
+.viewer-shell:has(.navigation-triad:not([hidden])) .section-options {
+  top: 88px;
+}
+
+/* r6: action captions replace redundant group headings. Keep complete labels
+   in aria-label/title, and allow long localized short names up to two lines. */
+.toolbar .toolbar-command,
+.toolbar .tool.small,
+.toolbar .reset-preview {
+  width: auto;
+  min-width: 44px;
+  height: 58px;
+  padding: 4px 6px;
+  flex: 1 0 auto;
+}
+.toolbar .tool span {
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 60px;
+  max-height: 24px;
+  overflow: hidden;
+}
+.toolbar .icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+@media (max-width: 760px) {
+  /* Preserve 44px touch targets by wrapping whole groups instead of scrolling.
+     At 390px: View 139 + Mark 95 + Inspect 95 + chrome 8 = 337px;
+     Display 139 + History 139 + chrome 8 = 286px. */
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    overflow: visible;
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-command,
+  .toolbar .tool.small,
+  .toolbar .reset-preview {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 4px;
+    flex: none;
+  }
+  .toolbar .tool span {
+    display: none;
+  }
+}
+
+/* Captioned tools must also fit tablet views with the sidebar still open.
+   Wrap intact groups within the canvas rather than overflowing the viewport;
+   desktop captions and 44px targets remain unchanged. Short landscape phones
+   retain their existing single-row layout rather than acquiring tablet rows. */
+@media (min-width: 761px) and (max-width: 1000px) and (min-height: 500px) {
+  .toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center;
+    width: max-content;
+    max-width: calc(100% - 8px);
+    row-gap: 4px;
+  }
+  .toolbar [data-toolbar-slot="tools"] {
+    display: contents;
+  }
+  .toolbar .toolbar-history {
+    flex: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* A shrink-to-fit translated fill dock added a separate row for New area,
+     covering centre-face taps after the folded sidebar's canvas resized. */
+  .tool-options:has(#fill-control:not([hidden])) {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+  }
+  /* Keep the closed chooser and its reserved reading on one stable row.
+     The full-width reading row lifted the dock into the next-pick clearance
+     on a 390x664 phone. Its 32px scroll slot and 44px controls stay intact;
+     deliberately opening Advanced retains the existing expanded layout. */
+  #measure-options:has(#measure-advanced:not([open])) > [data-measure="smart"] {
+    flex: 0 0 72px;
+    overflow-wrap: anywhere;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-advanced {
+    flex: 0 0 64px;
+  }
+  #measure-options:has(#measure-advanced:not([open])) > #measure-reading {
+    order: 0;
+    flex: 1 1 0;
+  }
+}

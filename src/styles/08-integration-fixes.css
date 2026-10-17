@@ -1,0 +1,143 @@
+/* === Batch 1 integration: clear navigation controls with performance open === */
+@media (min-width: 701px) {
+  #perf-panel {
+    /* The navigation lane adds cube arrows and a projection button below it.
+       Keep the report below the complete control stack, including Home. */
+    top: calc(var(--orient-reach) + 120px);
+    max-height: calc(100% - var(--orient-reach) - 240px);
+  }
+}
+@media (max-width: 700px) {
+  #perf-panel {
+    /* On phones, the section controls need the space beside the cube. Put the
+       scrollable report below both, and start the model below the report. */
+    top: calc(var(--orient-reach) + 120px);
+    right: 8px;
+  }
+  .performance-open #viewer {
+    top: calc(var(--orient-reach) + 255px);
+  }
+}
+
+/* === FIX lane: phone Section controls clear the complete navigation widget === */
+@media (max-width: 760px) {
+  .section-options {
+    max-width: calc(100% - var(--orient-reach) - 90px);
+    padding: 8px;
+  }
+}
+
+/* === FIX lane: phone marks retain a readable list beside their note === */
+@media (max-width: 760px) {
+  /* A capped panel spent its whole height on the heading, note and send area,
+     leaving the list only a few pixels. Let those siblings take their natural
+     height and reserve a scrollable card-sized viewport for the marks. */
+  .annotations-panel,
+  .annotations-panel:has(#mark-note:not([hidden])),
+  .annotations-panel:has(#receipt-nudge:not([hidden])),
+  .annotations-panel:has(#mark-note:not([hidden])):has(
+      #receipt-nudge:not([hidden])
+    ) {
+    max-height: none;
+  }
+  #annotations-list {
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 100px;
+  }
+  .annotation-empty {
+    padding: 12px 10px;
+  }
+}
+
+/* === FIX lane: mark text and actions occupy separate rows in every locale === */
+.annotations-panel:not(.collapsed) {
+  min-width: 176px;
+}
+.annotation-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+.annotation-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-left: 24px;
+}
+.annotation-select {
+  min-width: 0;
+}
+.annotation-select strong {
+  overflow-wrap: anywhere;
+}
+.annotation-actions .annotation-action {
+  margin-left: 0;
+}
+
+/* === Follow-up lane: publication notices === */
+#publication-notices {
+  flex: none;
+  color: var(--ink-muted);
+  background: var(--surface-sunken);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.publication-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+}
+.publication-notice[hidden] {
+  display: none;
+}
+.publication-notice span {
+  flex: 1;
+  min-width: 0;
+}
+.publication-notice button {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+/* === Scenario R2: keep review controls reachable === */
+.section-options {
+  /* The cube's arrows extend beyond its original square. Reserve the whole
+     widget at desktop widths too, even when Parts narrows the canvas. */
+  max-width: min(520px, calc(100% - var(--orient-reach) - 90px));
+}
+.toolbar:has(#display-menu:not([hidden])) {
+  /* The toolbar transform creates a stacking context. Raise that context,
+     rather than only the menu inside it, above the sibling tool options. */
+  z-index: 6;
+}
+.toolbar {
+  /* Parts can make a desktop canvas narrower than a phone viewport. Wrap by
+     available space, while keeping each translated caption with its icon. */
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
+}
+.toolbar .tool {
+  flex: 0 0 auto;
+}
+.toolbar .tool span {
+  white-space: nowrap;
+}
+.tool-options {
+  bottom: var(--tool-options-bottom, 92px);
+}
+
+/* === Lane owner-decisions: Pan tool === */
+/* Let drags begin over an existing label or reading as well as bare canvas.
+   The list remains available for deliberate annotation editing. */
+.pan-tool .model-pin,
+.pan-tool .model-pin .pin-tag,
+.pan-tool .measure-label {
+  pointer-events: none;
+}
