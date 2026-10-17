@@ -1,0 +1,529 @@
+/* The rail and the canvas are siblings, so the panel that lists the marks
+   never sits on top of the model it is describing. */
+.review-body {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+.viewer-shell {
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--canvas-a), var(--canvas-b));
+  border: 1px solid var(--line);
+}
+#viewer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+#viewer canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.viewer-top {
+  position: absolute;
+  top: 18px;
+  left: 19px;
+  right: 19px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+  /* This row ends on the compass's edge, and the compass paints over it. The
+     status text is the only thing left up here and it is the one that grows --
+     a long line would run in under the cube exactly as the format pill did.
+     Reserving the compass's own width is cheaper than pushing it back down,
+     which would take the row above the model away again. */
+  padding-right: calc(var(--orient-reach) + 8px);
+}
+.scene-pill {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+}
+.scene-pill.subtle {
+  margin-left: auto;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+}
+.toolbar {
+  position: absolute;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  padding: 6px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  max-width: calc(100% - 24px);
+}
+.tool {
+  background: transparent;
+  min-width: 56px;
+  height: 50px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.1;
+}
+.tool span {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+/* A tool is the one you are using; a switch is one that is left on. They look
+   the same because they read the same from across the room — this is the state
+   the toolbar is in. */
+.tool.active,
+.tool[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tool:hover:not(:disabled):not(.active):not([aria-pressed="true"]) {
+  background: var(--surface-sunken);
+}
+.tool.small {
+  min-width: 38px;
+  padding: 0 5px;
+  font-size: 17px;
+}
+.tool-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+  margin: 5px 3px;
+}
+.tool-options {
+  position: absolute;
+  bottom: 114px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 13px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--ink-muted);
+  box-shadow: var(--shadow-1);
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+}
+.palette {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.color-button {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  padding: 0;
+}
+.color-button.active {
+  outline: 1px solid var(--focus);
+  outline-offset: 1px;
+}
+.tool-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.tool-options input {
+  width: 70px;
+  accent-color: var(--accent);
+}
+.tool-options select {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-sunken);
+  font-size: 10px;
+  padding: 4px;
+  color: var(--ink);
+}
+.quiet-dark {
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+/* Docked beside the canvas instead of floating over it: a list of marks is
+   read while looking at the model, so it must not cover what it lists. */
+.annotations-panel {
+  width: clamp(152px, 17%, 232px);
+  flex: none;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+}
+.annotations-panel.collapsed {
+  width: auto;
+}
+/* Folded, the column is the button that unfolds it and nothing else. A heading
+   left standing holds the width of its own words — in some languages most of
+   what folding was asked to give back — and the count it carries is a fact
+   about a list that is not on screen. */
+.annotations-panel.collapsed .annotations-heading {
+  border-bottom: none;
+}
+.annotations-panel.collapsed .annotations-heading strong {
+  display: none;
+}
+.annotations-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 12px 11px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+}
+.annotations-heading strong {
+  font-weight: 550;
+  letter-spacing: 0.03em;
+}
+.annotations-heading span {
+  font-size: 9px;
+  color: var(--ink-faint);
+  margin-left: 5px;
+}
+.annotations-heading button {
+  font-size: 15px;
+  min-width: 20px;
+}
+#annotations-list {
+  overflow: auto;
+  flex: 1;
+  padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.annotation-empty {
+  padding: 26px 10px 29px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  line-height: 1.9;
+  white-space: pre-line;
+  text-align: center;
+}
+.annotation-row {
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+.annotation-row.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+/* The eye leads the row because it answers the question asked while looking at
+   the model — is this one showing — before the question of what it is. */
+.mark-eye {
+  background: transparent;
+  color: var(--ink-faint);
+  padding: 8px 2px 8px 7px;
+  font-size: 14px;
+  flex: none;
+}
+.mark-eye.off {
+  opacity: 0.45;
+}
+.annotation-select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  padding: 9px 6px;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+}
+.annotation-badge-column {
+  width: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.annotation-badge {
+  flex-shrink: 0;
+}
+.annotation-badge.region-badge,
+.annotation-badge.measure-badge {
+  width: 24px;
+  height: 20px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--pin-color);
+  font-weight: 750;
+  white-space: nowrap;
+}
+.annotation-select strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1.7;
+}
+.annotation-select small {
+  display: block;
+  font-size: 8px;
+  color: var(--ink-faint);
+  line-height: 1.7;
+}
+.delete-annotation {
+  background: transparent;
+  color: var(--ink-faint);
+  padding: 8px 6px;
+  font-size: 14px;
+}
+.viewer-bottom {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  /* Three things now: the current tool's hint on the left, and on the right
+     the pill naming the file followed by the axis label. The pill's own
+     `margin-left: auto` is what groups the right-hand pair; these two keep
+     them on one line and apart. */
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+.axis-label {
+  letter-spacing: 0.17em;
+  font-size: 8px;
+}
+/* The one action a reviewer takes sits under the marks it hands over, not in a
+   bar of its own across the bottom. The bar had four controls; three of them
+   were the page offering to do what the Agent is there to do, and removing
+   them left nothing worth the 74px it reserved. */
+.panel-actions {
+  border-top: 1px solid var(--line);
+  padding: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+.panel-actions .primary-button {
+  width: 100%;
+  justify-content: center;
+  padding: 11px 12px;
+}
+/* "Send to" is followed by whatever the Agent is called, which can be long in
+   any language; the words shorten before the button leaves its panel. */
+.submit-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A mark's note sits between the marks and the button that hands them over,
+   because it is part of what is handed over. It follows the selected mark
+   instead of living in its row: the rows are rebuilt on every change, and a
+   text box rebuilt under someone typing loses what they were typing. */
+.mark-note {
+  border-top: 1px solid var(--line);
+  padding: 8px 9px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: none;
+}
+.mark-note label {
+  font-size: 10px;
+  font-weight: 550;
+}
+.mark-note textarea {
+  width: 100%;
+  min-height: 58px;
+  max-height: 160px;
+  resize: vertical;
+  padding: 6px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.mark-note textarea:read-only {
+  color: var(--ink-muted);
+}
+.mark-note small {
+  align-self: flex-end;
+  font-size: 9px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* In the list a note stands in for the line saying how the mark was made, cut
+   to two lines; the whole of it is in the box below when the mark is chosen. */
+.annotation-select > span {
+  min-width: 0;
+}
+.annotation-select small.annotation-note {
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+#feedback-status {
+  font-size: 10px;
+  color: var(--ink-faint);
+  line-height: 1.6;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+}
+/* Once a batch has gone, the first line answers "did it arrive?", so it is set
+   as the answer; the line under it says how far the rest has got. */
+#feedback-status.sent #feedback-line {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Where the Agent cannot be woken, what to do about it, and the sentence to
+   do it with. Shown until the Agent reads the batch. */
+.receipt-nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid var(--warn-line);
+  border-radius: 7px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.receipt-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#receipt-line {
+  padding: 5px 6px;
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+#receipt-copy {
+  align-self: flex-end;
+  min-height: 24px;
+  padding: 3px 10px;
+  font-size: 10px;
+}
+.primary-button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  padding: 13px 19px;
+  border-radius: 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.primary-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.pending-banner {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  padding: 10px 13px;
+  border-radius: 8px;
+  gap: 15px;
+  line-height: 1.6;
+}
+/* Losing work is the fear a delivery failure triggers, and nothing here is
+   lost. Warn without borrowing the colour an unrecoverable error would use. */
+.pending-banner.warn {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--ink);
+  z-index: 9;
+  text-align: center;
+  padding: 30px;
+}
+.loading-overlay strong {
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 450px;
+  line-height: 1.7;
+}
+.loading-overlay span {
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.spinner {
+  width: 27px;
+  height: 27px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}

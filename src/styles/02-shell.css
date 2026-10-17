@@ -1,0 +1,327 @@
+/* The sprite is markup, not a picture: it holds the shapes and must take up no
+   room. Icons take their size from the font-size already on the button, so the
+   existing rules — including the responsive ones — keep sizing them. */
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.icon {
+  width: 1em;
+  height: 1em;
+  display: block;
+  flex: none;
+}
+.icon-only {
+  display: inline-grid;
+  place-items: center;
+}
+.icon-only .icon {
+  width: 1.25em;
+  height: 1.25em;
+}
+/* A label beside an icon has to sit on the icon's centre line, not the text
+   baseline, or the two read as separate things stacked by accident. */
+.primary-button,
+#new-region {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.app-header {
+  height: 78px;
+  display: flex;
+  align-items: center;
+  padding: 0 30px;
+  border-bottom: 1px solid var(--line);
+  gap: 13px;
+}
+.brand-mark {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+}
+.brand {
+  display: flex;
+  gap: 6px;
+  flex-direction: column;
+}
+.brand strong {
+  font-size: 17px;
+  letter-spacing: 0.1em;
+  font-weight: 650;
+}
+.brand > span {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+}
+/* The version belongs to the name, so it stands beside it rather than taking a
+   framed slot of its own further along the header. */
+.brand-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.brand-title .app-version {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+}
+/* Beside the running version, reading as the next step from it. The arrow is
+   drawn rather than translated: it is the only part of this that means the same
+   in six languages, and the words it would need instead are in the tooltip. */
+.brand-title .app-update {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-soft, var(--line));
+  color: var(--accent, var(--ink));
+  background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  /* Same rule as everything else in this header: it has to be able to give
+     ground before it pushes a scrollbar onto a 460px panel. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brand-title .app-update::before {
+  content: "↑ ";
+}
+.brand-title a.app-update:hover {
+  text-decoration: underline;
+}
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-muted);
+  /* The header sits above a 460px-wide embedded review as readily as a full
+     window. Anything added here has to be able to give ground, or it pushes a
+     horizontal scrollbar onto the whole page. */
+  min-width: 0;
+}
+/* A chooser says its subject with a mark rather than a word: the header has to
+   sit above a 460px panel, and a written label is the widest thing in it in
+   every language. The accessible name stays on the select, so nothing that was
+   ever announced is lost. */
+.setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.setting > .icon {
+  color: var(--ink-faint);
+  flex: none;
+}
+/* Both are the same control and are sized by one rule, which is how a third
+   one that only picked up `.quiet` was caught standing 12px and 27px tall
+   beside two neighbours at 10px and 25px. They used to sit in the header,
+   capped at 116px (78px and 9px type on a phone) to leave room for the brand;
+   they now live in the settings dialog, where that cap only cut "Follow the
+   system" short in a row with space to spare. The dialog's own rule sizes
+   them to the row. */
+#locale-choice,
+#theme-choice {
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+.connection-dot,
+.tiny-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.connection-dot.online,
+.tiny-dot {
+  background: var(--accent);
+}
+/* The header's connection mark (see `showConnection` in src/app/api.js).
+   Shape carries the state as much as colour does: filled when online, a
+   hollow ring while (re)connecting, a struck-out ring when offline. */
+.connection-indicator {
+  position: relative;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--warn);
+  background: transparent;
+}
+.connection-indicator[data-state="online"] {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--ink-muted));
+  background: color-mix(in srgb, var(--accent) 65%, var(--ink-muted));
+}
+.connection-indicator[data-state="connecting"],
+.connection-indicator[data-state="reconnecting"] {
+  animation: connection-pulse 1.4s ease-in-out infinite;
+}
+.connection-indicator[data-state="offline"] {
+  border-color: var(--danger);
+}
+.connection-indicator[data-state="offline"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--danger);
+  transform: rotate(45deg);
+}
+@keyframes connection-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connection-indicator {
+    animation: none !important;
+  }
+}
+.quiet {
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-width: 27px;
+  min-height: 27px;
+  font-size: 12px;
+}
+.header-right > .quiet,
+.header-right > .setting {
+  margin-left: 16px;
+}
+.workspace {
+  height: calc(100dvh - 78px);
+  min-height: 610px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: var(--ink-faint);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.inline-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin: 9px 0;
+  line-height: 1.7;
+}
+.review-panel {
+  padding: 27px 28px 18px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+/* Every version the Agent published stays reachable, so the tab strip is a
+   primary control rather than history: it is where an older model is chosen. */
+.version-tabs {
+  display: flex;
+  gap: 6px;
+  /* Wrapping cost the model a whole row of its height every time the Agent
+     published past the width of the strip. Seventeen versions in one session
+     put two rows on screen permanently. The strip scrolls instead. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin: 0 0 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+/* Fading an edge is how the strip admits there is more; it is applied only when
+   there really is, so a strip that fits never looks cut off. */
+.version-tabs.overflow-start {
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px);
+}
+.version-tabs.overflow-end {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent 100%);
+}
+.version-tabs.overflow-start.overflow-end {
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 22px,
+    #000 calc(100% - 22px),
+    transparent 100%
+  );
+}
+.version-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.version-tab:hover {
+  border-color: var(--line-strong);
+}
+/* A switch already in flight swallows any further click; look that way too.
+   Only the tabs stop responding — killing pointer events on the strip itself
+   would take the scrolling with them, and being unable to look along the
+   versions is not part of being unable to switch to one. */
+.version-tabs.busy {
+  opacity: 0.55;
+}
+.version-tabs.busy .version-tab {
+  pointer-events: none;
+}
+.version-tab.current {
+  border-color: var(--accent);
+}
+.version-tab.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.version-tab .badge {
+  font-style: normal;
+  font-size: 10px;
+  min-width: 15px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.version-tab.selected .badge {
+  background: var(--accent-hover);
+  color: var(--accent-ink);
+}
+.version-tab .badge.unsent {
+  background: var(--warn);
+  color: var(--warn-on);
+}

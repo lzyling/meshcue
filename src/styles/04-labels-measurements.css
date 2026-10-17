@@ -1,0 +1,381 @@
+/* The wrapper is centred on the surface dot, also the landing scale origin.
+   Only the capsule handles input: the leader and dot leave the model usable. */
+.model-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  transform-origin: 3.5px 3.5px;
+  outline: none;
+  pointer-events: none;
+  z-index: 3;
+}
+.model-pin::before {
+  content: "";
+  position: absolute;
+  left: 2.75px;
+  bottom: 3.5px;
+  width: 1.5px;
+  height: 16px;
+  background: var(--pin-color);
+  pointer-events: none;
+}
+.model-pin::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pin-color);
+  box-shadow: 0 0 0 1.5px #fff;
+  pointer-events: none;
+}
+.model-pin .pin-tag {
+  position: absolute;
+  left: 3.5px;
+  bottom: 19.5px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+/* List marks share the capsule body, never the model's leader or selection halo. */
+.model-pin .pin-tag,
+.annotation-badge:not(.region-badge):not(.measure-badge) {
+  display: inline-block;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--pin-color);
+  color: var(--pin-text, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 0 1px 1px #0003;
+  box-shadow:
+    0 0 0 1.5px #ffffffd9,
+    0 2px 6px #0004;
+}
+.model-pin.color-only .pin-tag,
+.annotation-badge.color-only:not(.region-badge):not(.measure-badge) {
+  min-width: 14px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+}
+.model-pin.label-only,
+.annotation-badge.label-only {
+  --pin-color: #6b7378 !important;
+  --pin-text: #fff !important;
+}
+.model-pin.landing {
+  animation: pin-land 170ms ease-out;
+}
+/* Placing a mark is the one moment a reviewer makes something. It used to
+   appear with no acknowledgement at all, which reads as the click having been
+   missed rather than taken. Acknowledging it is all this has to do: a short
+   settle at the point, with no overshoot to follow across the screen. */
+@keyframes pin-land {
+  0% {
+    opacity: 0;
+    scale: 0.82;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.pin-ripple {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid var(--pin-color);
+  pointer-events: none;
+  z-index: 2;
+  animation: pin-ripple 300ms ease-out forwards;
+}
+@keyframes pin-ripple {
+  from {
+    opacity: 0.6;
+    scale: 0.6;
+  }
+  to {
+    opacity: 0;
+    scale: 1.9;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-pin.landing {
+    animation: none;
+  }
+  .pin-ripple {
+    display: none;
+  }
+}
+.model-pin.selected .pin-tag,
+.model-pin:focus-visible .pin-tag {
+  box-shadow:
+    0 0 0 1.5px #fff,
+    0 0 0 3.5px var(--focus),
+    0 2px 6px #0004;
+}
+/* A measurement is read, not pointed at: its reading sits on the middle of its
+   line, dark on a pale ring like the line itself, so it reads on any model
+   and either backdrop. The points it was taken from are dots; under the
+   pointer, a hollow dot is where a click would land and a filled one is a
+   corner it would take. */
+.measure-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #14202a;
+  color: #ffffff;
+  border: 2px solid #ffffffd9;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+  z-index: 3;
+}
+button.measure-label {
+  pointer-events: auto;
+}
+.measure-label b {
+  font-weight: 700;
+  opacity: 0.7;
+  margin-right: 2px;
+}
+.measure-label.selected {
+  background: var(--accent);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.measure-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #14202a;
+  border: 2px solid #ffffff;
+  pointer-events: none;
+  z-index: 2;
+}
+.measure-dot.hover {
+  background: transparent;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px #ffffffd9;
+}
+.measure-dot.hover.snapped {
+  background: var(--accent);
+}
+.annotation-badge.measure-badge {
+  border-radius: 7px;
+  background: #14202a;
+  color: #ffffff;
+  font-size: 9px;
+}
+.measure-options {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.measure-kinds {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.measure-kind {
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: 10px;
+  padding: 5px 9px;
+}
+.measure-kind + .measure-kind {
+  border-left: 1px solid var(--line);
+}
+.measure-kind.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+#measure-reading {
+  min-width: 5em;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+#keep-measure {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+#toast {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+  padding: 13px 20px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  max-width: min(640px, 90vw);
+  z-index: 100;
+  border: 1px solid var(--line);
+}
+dialog {
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  max-width: 550px;
+  width: calc(100vw - 40px);
+  padding: 33px;
+  box-shadow: var(--shadow-3);
+}
+dialog::backdrop {
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+}
+dialog h2 {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+dialog p {
+  font-size: 12px;
+  line-height: 1.9;
+  margin-top: 14px;
+  color: var(--ink-muted);
+}
+dialog .muted {
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  font-size: 17px;
+  background: none;
+  color: var(--ink-faint);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 1600px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-panel {
+    padding: 30px 36px 23px;
+  }
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-panel {
+    padding: 20px 17px 16px;
+  }
+
+  .tool-options {
+    gap: 9px;
+  }
+  .primary-button {
+    padding: 12px;
+  }
+  #feedback-status {
+    font-size: 9px;
+  }
+  .viewer-top {
+    left: 15px;
+    right: 13px;
+  }
+  .scene-pill {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+}
+@media (max-width: 800px) {
+  .app-header {
+    padding: 0 18px;
+    height: 64px;
+  }
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - 64px);
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .review-panel {
+    height: 70dvh;
+    min-height: 570px;
+    padding: 17px 12px;
+  }
+
+  .viewer-shell {
+    min-height: 370px;
+  }
+  .tool-options {
+    bottom: 104px;
+    max-width: calc(100% - 20px);
+    padding: 8px;
+  }
+  .tool {
+    min-width: 48px;
+    height: 43px;
+  }
+  .tool.small {
+    height: 28px;
+  }
+  .scene-pill.subtle {
+    display: none;
+  }
+  .viewer-bottom {
+    left: 13px;
+    font-size: 8px;
+  }
+  .axis-label {
+    display: none;
+  }
+  .header-right {
+    font-size: 10px;
+  }
+}
