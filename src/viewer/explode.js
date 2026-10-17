@@ -199,6 +199,7 @@ export class ExplodeMethods {
     this.onExplode?.();
   }
   setExplode(amount = 0, by = this.explode?.by || "group") {
+    this.invalidate?.();
     if (!this.explodeBase?.size) return;
     amount = Math.max(0, Math.min(1, Number(amount) || 0));
     this.explode = { amount, by };

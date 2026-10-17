@@ -12,13 +12,14 @@ export function bindOverlayLayout(review) {
       `${bottom - toolbar.getBoundingClientRect().top + 8}px`,
     );
     pending = true;
+    viewer.invalidate();
   };
   const observer = new ResizeObserver(update);
   for (const el of [toolbar, shell, viewer.container]) observer.observe(el);
   viewer.navigationViewport = () => {
     // Docked panels already reduce the canvas. Reserve only overlays that
     // occupy its top or bottom, using their live layout after wrapping.
-    const canvas = viewer.container.getBoundingClientRect();
+    const canvas = viewer.frameRect();
     let top = canvas.top + 36;
     let bottom = Math.min(
       canvas.bottom - 8,

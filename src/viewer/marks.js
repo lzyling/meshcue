@@ -358,7 +358,8 @@ export class MarksMethods {
             depthTest: false,
             depthWrite: false,
           });
-          const r = this.container.getBoundingClientRect();
+          const r =
+            this.frameRect?.() || this.container.getBoundingClientRect();
           material.resolution.set(r.width, r.height);
           this.clipMaterial(material);
           this.lineMaterials.set(key, material);
@@ -410,6 +411,7 @@ export class MarksMethods {
     }
   }
   setAnnotations(annotations, selectedId) {
+    this.invalidate?.();
     this.partAnnotations = [annotations, selectedId];
     this.clearOverlay(this.overlay);
     this.labels.replaceChildren();
@@ -500,29 +502,56 @@ export class MarksMethods {
     this.knownPins = new Set(
       annotations.filter((a) => a.type === "pin").map((a) => a.id),
     );
-    // Labels are rebuilt in an animation frame of their own, which runs after
-    // the render loop's in the same frame because the loop asked first. Left to
-    // the loop, every rebuilt label was painted once at the layer's origin —
-    // the corner of the view — before the next frame put it on its point.
+    // Pins need their projected position before the mutation observer/paint,
+    // but readings stay deferred: measuring them after pin style writes would
+    // force a same-frame layout. Projection uses just one cached container read.
     this.placePins();
-    this.placeReadings();
+    this.invalidate?.();
   }
+
   placePins() {
     if (!this.pins.length) return;
-    const rect = this.container.getBoundingClientRect();
+    const rect = this.frameRect?.() || this.container.getBoundingClientRect();
     // Occlusion costs one ray per pin and only changes when the view does. At
     // the documented 200-pin ceiling, testing it every frame was 12,000 BVH
     // raycasts a second; damping keeps this true for the frames that matter.
-    const moved =
+    let moved =
       !this.occlusionValid ||
       !this.occlusionAt.position.equals(this.camera.position) ||
       !this.occlusionAt.target.equals(this.controls.target);
+    const now = performance.now();
+    const moving = this.navigationAnimation || this.navigationPointers?.size;
+    // Only a changed view whose precise check was deferred needs a settling
+    // frame. A held pointer alone must never keep waking a stationary view.
+    // Keep the deadline relative to the last check, not the latest movement:
+    // occlusion remains at most 80ms + one frame stale even during a drag.
+    if (
+      moved &&
+      moving &&
+      this.occlusionValid &&
+      now - this.occlusionTime < 80
+    ) {
+      moved = false;
+      if (!this.occlusionTimer)
+        this.occlusionTimer = setTimeout(
+          () => {
+            this.occlusionTimer = null;
+            this.occlusionValid = false;
+            this.invalidate?.();
+          },
+          80 - (now - this.occlusionTime),
+        );
+    }
     if (moved) {
+      clearTimeout(this.occlusionTimer);
+      this.occlusionTimer = null;
+      this.occlusionTime = now;
       this.occlusionAt.position.copy(this.camera.position);
       this.occlusionAt.target.copy(this.controls.target);
       this.occlusionValid = true;
     }
     for (const pin of this.pins) {
+      pin.el.style.visibility = "";
       // A kept measurement's reading hangs at the middle of its line, which is
       // in the model's frame rather than any one mesh's.
       const world = pin.objectMark
@@ -575,6 +604,23 @@ export class MarksMethods {
         pin.el.style.translate = `${((projected.x + 1) * rect.width) / 2}px ${((-projected.y + 1) * rect.height) / 2}px`;
     }
   }
+  // Both the render read phase and a newly completed measurement use this
+  // before placement writes. A hidden (visibility, not display) new label is
+  // measurable, so it need never be exposed at the layer's origin.
+  readReadingSizes() {
+    for (const { el } of [
+      ...(this.pins || []),
+      ...(this.measureAnchors || []),
+    ]) {
+      if (
+        !this.readingSizes.has(el) &&
+        el.classList.contains("measure-label")
+      ) {
+        const { width, height } = this.frameRect(el);
+        if (width) this.readingSizes.set(el, [width, height]);
+      }
+    }
+  }
   /* Every measurement's reading, kept or being taken, set down together:
      readings are words on the model, and two taken close together -- the same
      hole twice, an edge and a face beside it -- would print one over the
@@ -592,7 +638,7 @@ export class MarksMethods {
       ),
     ].filter((r) => !r.el.hidden);
     if (!readings.length) return;
-    const rect = this.container.getBoundingClientRect();
+    const rect = this.frameRect?.() || this.container.getBoundingClientRect();
     const screen = (p) => {
       const q = this.scratch.ring
         .copy(p)
@@ -600,13 +646,29 @@ export class MarksMethods {
         .project(this.camera);
       return [((q.x + 1) * rect.width) / 2, ((1 - q.y) * rect.height) / 2];
     };
+    const signature = JSON.stringify([
+      this.camera.matrixWorld.elements,
+      this.camera.projectionMatrix.elements,
+      this.root.matrixWorld.elements,
+      rect.width,
+      rect.height,
+      readings.map((r) => [
+        r.el.textContent,
+        this.readingSizes.get(r.el),
+        r.model.toArray(),
+        r.ring?.map((p) => p.toArray()),
+      ]),
+    ]);
+    if (
+      signature === this.readingsSignature &&
+      readings.every((r, i) => r.el === this.readingsElements?.[i])
+    )
+      return;
+    this.readingsSignature = signature;
+    this.readingsElements = readings.map((r) => r.el);
     const boxes = readings.map(({ el, model, ring }) => {
       // Measured once it has been laid out; its words never change after.
-      let size = this.readingSizes.get(el);
-      if (!size && el.offsetWidth) {
-        size = [el.offsetWidth, el.offsetHeight];
-        this.readingSizes.set(el, size);
-      }
+      const size = this.readingSizes.get(el);
       const [w, h] = size || [0, 0];
       let x, top;
       if (ring) {
@@ -694,6 +756,7 @@ export class MarksMethods {
     this.controls.update();
   }
   clearOverlay(group) {
+    this.invalidate?.();
     for (const o of [...group.children]) {
       // Geometry is per stroke; the material is shared and outlives the group.
       o.geometry.dispose();
@@ -727,12 +790,14 @@ export class MarksMethods {
     return material;
   }
   setVisible(visible) {
+    this.invalidate?.();
     this.annotationsVisible = visible;
     this.overlay.visible = visible;
     this.agentOverlay.visible = visible && !this.agentHidden;
     this.previewOverlay.visible = visible;
   }
   drawPatches(group, patches, color) {
+    this.invalidate?.();
     this.clearOverlay(group);
     const groups = new Map();
     for (const p of patches) {
@@ -755,6 +820,7 @@ export class MarksMethods {
     }
   }
   setAgentEcho(echo) {
+    this.invalidate?.();
     this.agentEcho = echo;
     const annotations =
       echo?.versionId === this.model?.id ? echo.annotations : [];
@@ -976,7 +1042,8 @@ export class MarksMethods {
     };
     material.customProgramCacheKey = () =>
       "echo-surface-lift-toward-eye-section";
-    const { width, height } = this.container.getBoundingClientRect();
+    const { width, height } =
+      this.frameRect?.() || this.container.getBoundingClientRect();
     material.resolution.set(width || 1, height || 1);
     this.clipMaterial(material);
     this.lineMaterials.set(key, material);

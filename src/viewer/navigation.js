@@ -17,6 +17,7 @@ export class NavigationMethods {
     this.pivotDot.hidden = true;
     this.container.append(this.pivotDot);
     this.controls.addEventListener("start", () => {
+      this.invalidate?.();
       this.navigationFitOnLayout = false;
     });
     const canvas = this.renderer.domElement;
@@ -109,6 +110,7 @@ export class NavigationMethods {
       this.navigationPointer =
         e.pointerType === "mouse" && !e.buttons ? [e.clientX, e.clientY] : null;
       this.navigationHoverDirty = true;
+      this.invalidate?.();
     });
     canvas.addEventListener("pointerleave", () => {
       this.navigationPointer = null;
@@ -130,7 +132,12 @@ export class NavigationMethods {
       // pointer start. Only load/restore may opt back into automatic fitting.
       this.navigationFitOnLayout = false;
       this.navigationHoverDirty = true;
+      this.invalidate?.();
       this.updateNavigationProjection();
+    });
+    this.controls.addEventListener("end", () => {
+      this.occlusionValid = false;
+      this.invalidate?.();
     });
     this.addFrameHook(() => this.navigationFrame());
     try {
@@ -199,6 +206,7 @@ export class NavigationMethods {
     target,
     { animate = true, height = this.navigationHeight() } = {},
   ) {
+    this.invalidate?.();
     this.navigationFitOnLayout = false;
     this.cancelNavigation();
     const start = {
@@ -220,6 +228,7 @@ export class NavigationMethods {
   }
 
   applyNavigation(position, target, height) {
+    this.invalidate?.();
     this.camera.position.copy(position);
     this.controls.target.copy(target);
     if (this.camera.isOrthographicCamera)
@@ -227,7 +236,6 @@ export class NavigationMethods {
     this.camera.lookAt(target);
     this.controls.update();
     this.updateNavigationProjection();
-    this.occlusionValid = false;
   }
 
   navigationFrame() {
@@ -284,7 +292,7 @@ export class NavigationMethods {
     this.pivotDot.hidden = !this.navigationRotating || !this.enabled;
     if (!this.pivotDot.hidden) {
       const [x, y] = this.toScreen(this.controls.target);
-      const rect = this.container.getBoundingClientRect();
+      const rect = this.frameRect();
       this.pivotDot.style.transform = `translate(${x - rect.left}px, ${y - rect.top}px)`;
     }
     if (!["orbit", "pan"].includes(this.mode)) {
@@ -329,6 +337,7 @@ export class NavigationMethods {
 
   clearNavigationHover() {
     if (!this.navigationHover) return;
+    this.invalidate?.();
     this.clearOverlay(this.previewOverlay);
     this.navigationHoverTarget = null;
     this.navigationHoverFaces = 0;
@@ -358,6 +367,7 @@ export class NavigationMethods {
   }
 
   setProjection(projection, remember = true) {
+    this.invalidate?.();
     const ortho = projection === "orthographic";
     if (!!this.camera.isOrthographicCamera === ortho) return;
     this.cancelNavigation();

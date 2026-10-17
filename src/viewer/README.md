@@ -25,7 +25,18 @@ migrated into hooks. A frame takes a snapshot of registered hooks; adding or
 removing one during a hook changes the next frame. Registering the same function
 twice keeps one entry. Hooks are synchronous and should not throw; exceptions
 propagate as they do in the existing render phases. Scene changes from a hook
-are visible on the next frame.
+are visible on the next frame when the mutation calls `viewer.invalidate()`.
+
+`viewer.invalidate()` is the sole frame scheduling entry point: synchronous
+mutations coalesce into one request, and stationary viewers run neither render
+nor post-render hooks. Navigation and echo motion request their next frame;
+reduced-motion echoes do not. Hook owners with pending layout work must request
+an explicit frame rather than poll. The performance panel samples only actual
+renders and uses a one-shot DOM-only timeout to return to idle.
+
+Pin occlusion is refreshed at most 80ms apart during active camera movement,
+then refreshed precisely on release (or the next settling frame). Reading sizes
+are cached before placement writes; unchanged reading/camera layouts are reused.
 
 ## Parts (Batch 2 seam)
 

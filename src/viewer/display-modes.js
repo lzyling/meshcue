@@ -97,6 +97,7 @@ export class DisplayModesMethods {
       }
   }
   applyDisplayStyle() {
+    this.invalidate?.();
     this.restoreDisplayMaterials();
     for (const mesh of this.meshes) {
       mesh.userData.displayOriginal = mesh.material;
@@ -182,6 +183,7 @@ export class DisplayModesMethods {
     if (this.displayEdges.length) this.updateDisplayEdgeColor();
   }
   updateDisplayEdgeColor() {
+    this.invalidate?.();
     const dark = document.documentElement.dataset.theme === "dark";
     for (const edge of this.displayEdges)
       edge.material.color.set(

@@ -392,3 +392,29 @@ for (const withNormals of [true, false]) {
     expect((await diagnostics(page)).echoSegments).toBe(3);
   });
 }
+
+test("echo rendering runs only while motion is allowed", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const { submission, painted } = await submitTop(page, writePlate(dir));
+  await echo(page, submission, [painted]);
+  const count = () =>
+    page.evaluate(() => window.__reviewDiagnostics().viewer.renderCount);
+  const before = await count();
+  await expect.poll(count).toBeGreaterThan(before);
+  await page.locator("#toggle-marks").evaluate((el) => el.click());
+  await expect(page.locator("#toggle-marks")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await page.waitForTimeout(400);
+  const hidden = await count();
+  await page.waitForTimeout(1100);
+  expect(await count()).toBe(hidden);
+  await page.locator("#toggle-marks").evaluate((el) => el.click());
+  await expect.poll(count).toBeGreaterThan(hidden);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.waitForTimeout(400);
+  const still = await count();
+  await page.waitForTimeout(1100);
+  expect(await count()).toBe(still);
+});

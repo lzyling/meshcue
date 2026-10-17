@@ -47,6 +47,7 @@ export class DisplayMethods {
      tokens — the studio lights, the default STL grey and the mark colours stay
      fixed on purpose, so the same model looks the same in either theme. */
   applyTheme() {
+    this.invalidate?.();
     const token = (name) =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     this.updateSectionColors();
@@ -68,10 +69,12 @@ export class DisplayMethods {
     this.scene.add(this.grid);
   }
   setGridY(y) {
+    this.invalidate?.();
     this.gridY = y;
     if (this.grid) this.grid.position.y = y;
   }
   setNeutral(neutral) {
+    this.invalidate?.();
     if (this.displayStyle && !this.displayClearing) {
       this.neutral = neutral;
       this.applyDisplayStyle();

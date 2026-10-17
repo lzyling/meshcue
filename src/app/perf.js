@@ -1,6 +1,11 @@
 import { DISPLAY_LABELS } from "./display-labels.js";
 import { t } from "../i18n/index.js";
-import { FrameWindow, performanceReport, softwareRenderer } from "../perf.js";
+import {
+  FrameWindow,
+  performanceReport,
+  softwareRenderer,
+  PERF_IDLE_MS,
+} from "../perf.js";
 import { gpuTimer } from "../viewer/perf-gpu.js";
 
 export function bindPerformance(review) {
@@ -189,6 +194,15 @@ export function bindPerformance(review) {
       timer.end();
       after.apply(this, args);
     };
+    let idleTimer;
+    const paint = (frame) => {
+      panel.dataset.verdict = frame.verdict || "idle";
+      heading.textContent = `${labels.fps}: ${frame.idle ? labels.idle : frame.fps === null ? labels.unavailable : Math.round(frame.fps)}`;
+      output.textContent = performanceReport(snapshot, labels)
+        .split("\n")
+        .slice(2)
+        .join("\n");
+    };
     const sample = () => {
       const now = performance.now();
       sampledFrames++;
@@ -211,20 +225,19 @@ export function bindPerformance(review) {
         gpuMs: timer.available ? timer.milliseconds : null,
         gpuAvailable: timer.available,
       };
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        snapshot = { ...snapshot, ...window.sample(performance.now(), false) };
+        paint(snapshot);
+      }, PERF_IDLE_MS);
       if (now - paintedAt < 200) return;
       paintedAt = now;
-      panel.dataset.verdict = frame.verdict || "idle";
-      heading.textContent = `${labels.fps}: ${frame.idle ? labels.idle : frame.fps === null ? labels.unavailable : Math.round(frame.fps)}`;
-      // The clipboard includes user agent; on screen it needlessly takes
-      // several lines of scarce space, so leave it to the report.
-      output.textContent = performanceReport(snapshot, labels)
-        .split("\n")
-        .slice(2)
-        .join("\n");
+      paint(frame);
     };
     const unsubscribe = viewer.addFrameHook(sample);
-    sample();
+    viewer.invalidate();
     stop = () => {
+      clearTimeout(idleTimer);
       unsubscribe();
       observer.disconnect();
       viewer.controls.removeEventListener("change", active);
