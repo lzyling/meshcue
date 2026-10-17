@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { faceRegion } from "../face-region.js";
+import { planarFacesSteps } from "../planar-fill.js";
 import {
   easeNavigation,
   fitFrame,
@@ -320,22 +321,115 @@ export class NavigationMethods {
     this.previewOverlay.visible = true;
     if (
       this.navigationHoverTarget?.mesh === mesh &&
-      this.navigationHoverTarget.seed === seed
+      this.navigationHoverTarget.seed === seed &&
+      this.navigationHoverTarget.tolerance === this.fillTolerance
+    )
+      return;
+    if (
+      this.navigationHoverJob?.mesh === mesh &&
+      this.navigationHoverJob.seed === seed &&
+      this.navigationHoverJob.tolerance === this.fillTolerance
     )
       return;
     this.clearNavigationHover();
+    if (!mesh.userData.fillTopology.brep) {
+      this.startNavigationHover(mesh, seed);
+      return;
+    }
     const faces = faceRegion(
       mesh.userData.fillTopology,
       seed,
       this.fillTolerance,
     );
     this.addFaces(this.previewOverlay, mesh, faces, true);
-    this.navigationHoverTarget = { mesh, seed };
+    this.navigationHoverTarget = { mesh, seed, tolerance: this.fillTolerance };
     this.navigationHoverFaces = faces.length;
     this.navigationHover = true;
   }
 
+  // Hover alone is deferred. Bucket/measurement callers keep their synchronous
+  // region API, and STEP keeps its inexpensive authored-face fast path.
+  startNavigationHover(mesh, seed) {
+    const topology = mesh.userData.fillTopology;
+    const job = { mesh, seed, tolerance: this.fillTolerance };
+    this.navigationHoverJob = job;
+    const walk = planarFacesSteps(topology, seed, job.tolerance);
+    function* prepare() {
+      let step;
+      do {
+        step = walk.next();
+        if (!step.done) yield;
+      } while (!step.done);
+      const faces = step.value;
+      const coords = new Float32Array(faces.length * 9);
+      let offset = 0;
+      for (let i = 0; i < faces.length; i++) {
+        for (const vertex of topology.vertices[faces[i]]) {
+          coords[offset++] = vertex[0];
+          coords[offset++] = vertex[1];
+          coords[offset++] = vertex[2];
+        }
+        if (i % 256 === 0) yield;
+      }
+      return { faces, coords };
+    }
+    const work = prepare();
+    const advance = () => {
+      if (this.navigationHoverJob !== job) return;
+      const until = performance.now() + 4;
+      let step;
+      do {
+        step = work.next();
+      } while (!step.done && performance.now() < until);
+      if (!step.done) {
+        job.timer = setTimeout(advance, 0);
+        return;
+      }
+      // Never publish an old pointer/camera hit before its dirty frame picks
+      // again, or a mesh that has since been hidden, replaced or unloaded.
+      if (
+        this.navigationHoverDirty ||
+        job.tolerance !== this.fillTolerance ||
+        !this.enabled ||
+        !["orbit", "pan"].includes(this.mode) ||
+        !this.navigationPointer ||
+        this.navigationPointers.size ||
+        this.meshMap.get(mesh.userData.reviewId) !== mesh ||
+        (this.parts &&
+          (!this.parts.meshVisible(mesh.userData.reviewId) ||
+            this.parts.meshTransparent(mesh.userData.reviewId)))
+      ) {
+        this.navigationHoverJob = null;
+        this.navigationHoverDirty = true;
+        this.invalidate?.();
+        return;
+      }
+      const { faces, coords } = step.value;
+      // Reuse the existing exact hover material/section setup, but avoid its
+      // synchronous nested-array expansion for the actual region geometry.
+      this.addFaces(this.previewOverlay, mesh, [], true);
+      const overlay = this.previewOverlay.children.at(-1);
+      overlay.geometry.dispose();
+      overlay.geometry = new THREE.BufferGeometry().setAttribute(
+        "position",
+        new THREE.BufferAttribute(coords, 3),
+      );
+      overlay.frustumCulled = false;
+      this.previewOverlay.visible = true;
+      this.navigationHoverTarget = { mesh, seed, tolerance: job.tolerance };
+      this.navigationHoverFaces = faces.length;
+      this.navigationHover = true;
+      this.navigationHoverJob = null;
+      this.invalidate?.();
+    };
+    job.timer = setTimeout(advance, 0);
+  }
+
   clearNavigationHover() {
+    if (this.navigationHoverJob) {
+      clearTimeout(this.navigationHoverJob.timer);
+      this.navigationHoverJob = null;
+    }
     if (!this.navigationHover) return;
     this.invalidate?.();
     this.clearOverlay(this.previewOverlay);
