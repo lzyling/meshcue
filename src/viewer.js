@@ -624,19 +624,7 @@ export class ModelViewer {
     if (this.container?.getBoundingClientRect) this.frameRect();
     if (this.renderer.domElement?.getBoundingClientRect)
       this.frameRect(this.renderer.domElement);
-    // Read all uncached reading sizes before any placement writes.
-    for (const { el } of [
-      ...(this.pins || []),
-      ...(this.measureAnchors || []),
-    ]) {
-      if (
-        !this.readingSizes.has(el) &&
-        el.classList.contains("measure-label")
-      ) {
-        const { width, height } = this.frameRect(el);
-        if (width) this.readingSizes.set(el, [width, height]);
-      }
-    }
+    this.readReadingSizes();
     // Input handlers and programmatic navigation already update controls.
     // Only damping/auto-rotation need another update on an idle render: even
     // with no input, OrbitControls normalizes and rescales target while

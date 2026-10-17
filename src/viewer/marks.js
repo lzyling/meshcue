@@ -604,6 +604,23 @@ export class MarksMethods {
         pin.el.style.translate = `${((projected.x + 1) * rect.width) / 2}px ${((-projected.y + 1) * rect.height) / 2}px`;
     }
   }
+  // Both the render read phase and a newly completed measurement use this
+  // before placement writes. A hidden (visibility, not display) new label is
+  // measurable, so it need never be exposed at the layer's origin.
+  readReadingSizes() {
+    for (const { el } of [
+      ...(this.pins || []),
+      ...(this.measureAnchors || []),
+    ]) {
+      if (
+        !this.readingSizes.has(el) &&
+        el.classList.contains("measure-label")
+      ) {
+        const { width, height } = this.frameRect(el);
+        if (width) this.readingSizes.set(el, [width, height]);
+      }
+    }
+  }
   /* Every measurement's reading, kept or being taken, set down together:
      readings are words on the model, and two taken close together -- the same
      hole twice, an edge and a face beside it -- would print one over the

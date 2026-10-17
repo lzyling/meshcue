@@ -455,8 +455,24 @@ export class MeasureViewMethods {
         m.result.center && m.result.line,
       ).textContent = this.formatMeasure?.(m.result) ?? String(m.result.value);
     }
-    // The next placement frame reveals new anchors at their projected point.
+    // Keep new anchors hidden until positioned. A completed reading is part
+    // of this interaction's result, not the next animation frame: consumers
+    // (and a second measurement of the same hole) can inspect it immediately.
     for (const a of this.measureAnchors) a.el.style.visibility = "hidden";
+    if (m?.result) {
+      const previousRects = this.frameRects;
+      this.frameRects ??= new Map();
+      try {
+        // One read phase before placement writes; newly inserted labels alone
+        // need a fresh size. The next render reuses their cached dimensions.
+        this.frameRect();
+        this.readReadingSizes();
+        this.placeMeasure();
+        this.placeReadings();
+      } finally {
+        this.frameRects = previousRects;
+      }
+    }
     this.invalidate?.();
     this.onMeasure?.(
       m
