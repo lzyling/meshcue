@@ -89,4 +89,19 @@ test("pins repaint after placement and settled occlusion matches a fresh precise
   await page.mouse.up({ button: "right" });
   await idle(page);
   expect(await visibility()).toEqual(settled);
+  await page.mouse.down({ button: "right" });
+  // Holding a navigation pointer is not movement and must not self-schedule
+  // occlusion checks. Drag, then pause without releasing, must also settle.
+  await idle(page);
+  const beforeDrag = await draws(page);
+  await page.mouse.move(box.x + 85, box.y + 45, { steps: 12 });
+  await expect.poll(() => draws(page)).toBeGreaterThan(beforeDrag);
+  const stopped = await draws(page);
+  await page.waitForTimeout(250);
+  expect((await draws(page)) - stopped).toBeLessThanOrEqual(3);
+  await idle(page);
+  const paused = await visibility();
+  await page.mouse.up({ button: "right" });
+  await idle(page);
+  expect(await visibility()).toEqual(paused);
 });

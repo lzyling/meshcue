@@ -199,6 +199,17 @@ export class ModelViewer {
     this.setupNavigation();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
+    // Scrolling moves the canvas in viewport coordinates without resizing it.
+    // Refresh projected overlays and picking once; never rely on idle frames
+    // to notice the changed client rect (including ancestor-panel scrolling).
+    window.addEventListener(
+      "scroll",
+      () => {
+        this.navigationHoverDirty = true;
+        this.invalidate();
+      },
+      { capture: true, passive: true },
+    );
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => this.pointerDown(e), true);
     canvas.addEventListener("pointermove", (e) => this.pointerMove(e));
@@ -653,7 +664,9 @@ export class ModelViewer {
     if (
       this.navigationAnimation ||
       this.controls.autoRotate ||
-      (!this.reduceMotion?.matches && this.agentOverlay?.children.length)
+      (!this.reduceMotion?.matches &&
+        this.agentOverlay?.visible &&
+        this.agentOverlay.children.some((child) => child.visible))
     )
       this.invalidate();
   }

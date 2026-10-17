@@ -521,18 +521,30 @@ export class MarksMethods {
       !this.occlusionAt.target.equals(this.controls.target);
     const now = performance.now();
     const moving = this.navigationAnimation || this.navigationPointers?.size;
-    // At most 80ms stale while moving. A scheduled settling frame, or the
-    // pointer release, always performs the full original precise test.
-    if (moved && moving && this.occlusionValid && now - this.occlusionTime < 80)
+    // Only a changed view whose precise check was deferred needs a settling
+    // frame. A held pointer alone must never keep waking a stationary view.
+    // Keep the deadline relative to the last check, not the latest movement:
+    // occlusion remains at most 80ms + one frame stale even during a drag.
+    if (
+      moved &&
+      moving &&
+      this.occlusionValid &&
+      now - this.occlusionTime < 80
+    ) {
       moved = false;
-    clearTimeout(this.occlusionTimer);
-    if (moving) {
-      this.occlusionTimer = setTimeout(() => {
-        this.occlusionValid = false;
-        this.invalidate?.();
-      }, 80);
+      if (!this.occlusionTimer)
+        this.occlusionTimer = setTimeout(
+          () => {
+            this.occlusionTimer = null;
+            this.occlusionValid = false;
+            this.invalidate?.();
+          },
+          80 - (now - this.occlusionTime),
+        );
     }
     if (moved) {
+      clearTimeout(this.occlusionTimer);
+      this.occlusionTimer = null;
       this.occlusionTime = now;
       this.occlusionAt.position.copy(this.camera.position);
       this.occlusionAt.target.copy(this.controls.target);
