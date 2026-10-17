@@ -224,9 +224,33 @@ export class ModelViewer {
     });
     this.initializeParts();
     this.initializeDisplayModes();
-    this.renderer.setAnimationLoop(() => this.render());
+    this.renderCount = 0;
+    this.reduceMotion.addEventListener?.("change", () => this.invalidate());
+    canvas.addEventListener("webglcontextrestored", () => this.invalidate());
+    this.invalidate();
+  }
+  // The sole scheduling entry point. Multiple mutations coalesce into one frame;
+  // hooks remain post-render and never keep a stationary viewer running.
+  invalidate() {
+    if (
+      !this.container ||
+      typeof requestAnimationFrame !== "function" ||
+      this.renderRequest != null
+    )
+      return;
+    this.renderRequest = requestAnimationFrame(() => {
+      this.renderRequest = null;
+      this.render();
+    });
+  }
+  frameRect(element = this.container) {
+    if (!this.frameRects) return element.getBoundingClientRect();
+    if (!this.frameRects.has(element))
+      this.frameRects.set(element, element.getBoundingClientRect());
+    return this.frameRects.get(element);
   }
   resize() {
+    this.invalidate();
     const { width, height } = this.container.getBoundingClientRect();
     if (!width || !height) return;
     this.camera.aspect = width / height;
@@ -237,6 +261,7 @@ export class ModelViewer {
       material.resolution.set(width, height);
   }
   setMode(mode) {
+    this.invalidate?.();
     this.navigationPress = null;
     this.navigationLastClick = null;
     this.editEpoch = (this.editEpoch || 0) + 1;
@@ -265,6 +290,7 @@ export class ModelViewer {
     );
   }
   clearModel() {
+    this.invalidate?.();
     this.clearNavigationSelection();
     this.navigationPress = null;
     this.navigationLastClick = null;
@@ -316,6 +342,7 @@ export class ModelViewer {
     this.renderer.renderLists.dispose();
   }
   async load(model, url, onStage = () => {}) {
+    this.invalidate?.();
     const epoch = ++this.loadingEpoch;
     this.enabled = false;
     this.clearModel();
@@ -559,6 +586,7 @@ export class ModelViewer {
     await this.onReady({ sha256: hash, meshes: manifest });
     if (epoch === this.loadingEpoch) {
       this.enabled = true;
+      this.invalidate?.();
       this.onExplode?.();
     }
     return {
@@ -581,6 +609,23 @@ export class ModelViewer {
     return () => this.frameHooks.delete(fn);
   }
   render() {
+    this.frameRects = new Map();
+    if (this.container?.getBoundingClientRect) this.frameRect();
+    if (this.renderer.domElement?.getBoundingClientRect)
+      this.frameRect(this.renderer.domElement);
+    // Read all uncached reading sizes before any placement writes.
+    for (const { el } of [
+      ...(this.pins || []),
+      ...(this.measureAnchors || []),
+    ]) {
+      if (
+        !this.readingSizes.has(el) &&
+        el.classList.contains("measure-label")
+      ) {
+        const { width, height } = this.frameRect(el);
+        if (width) this.readingSizes.set(el, [width, height]);
+      }
+    }
     // Input handlers and programmatic navigation already update controls.
     // Only damping/auto-rotation need another update on an idle render: even
     // with no input, OrbitControls normalizes and rescales target while
@@ -596,6 +641,7 @@ export class ModelViewer {
     if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
     this.animateEcho();
     this.renderer.render(this.scene, this.camera);
+    this.renderCount = (this.renderCount || 0) + 1;
     this.reportOrientation();
     this.placePins();
     this.placeMeasure();
@@ -603,6 +649,13 @@ export class ModelViewer {
     // Hooks run after rendering and all overlay placement, in registration order.
     // Snapshotting makes registration/removal during a hook affect the next frame.
     for (const hook of [...(this.frameHooks || [])]) hook(this);
+    this.frameRects = null;
+    if (
+      this.navigationAnimation ||
+      this.controls.autoRotate ||
+      (!this.reduceMotion?.matches && this.agentOverlay?.children.length)
+    )
+      this.invalidate();
   }
   stats() {
     const core = this.lineMaterials.get("echo-core");
@@ -610,6 +663,7 @@ export class ModelViewer {
       (o) => o.material === core,
     );
     return {
+      renderCount: this.renderCount || 0,
       section: this.section
         ? {
             ...this.section,

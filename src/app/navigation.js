@@ -334,11 +334,13 @@ export function bindNavigation(review) {
   stage.addEventListener("pointerup", () => {
     clearTimeout(longPress);
     viewer.navigationRotating = false;
+    viewer.invalidate();
   });
   stage.addEventListener("pointercancel", () => {
     clearTimeout(longPress);
     drag = null;
     viewer.navigationRotating = false;
+    viewer.invalidate();
   });
 
   // Project canonical CAD axes for every format, including up:"y" files.
@@ -364,6 +366,7 @@ export function bindNavigation(review) {
   review.$(".viewer-shell").append(triad);
   const showAxes = (value) => {
     triad.toggleAttribute("hidden", !value);
+    viewer.invalidate();
   };
   review.settings.on("axes", showAxes);
   showAxes(review.settings.get("axes"));

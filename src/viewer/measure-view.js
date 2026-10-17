@@ -52,7 +52,8 @@ export class MeasureViewMethods {
       depthWrite: false,
       toneMapped: false,
     });
-    const { width, height } = this.container.getBoundingClientRect();
+    const { width, height } =
+      this.frameRect?.() || this.container.getBoundingClientRect();
     material.resolution.set(width || 1, height || 1);
     this.clipMaterial(material);
     this.lineMaterials.set(name, material);
@@ -78,6 +79,7 @@ export class MeasureViewMethods {
   // Plain green tint, without the coloured boundary of a painted mark.
   // Measurements keep their own lines and readings; section cuts alone hatch.
   addFaces(group, mesh, faces, hover = false) {
+    this.invalidate?.();
     const key = hover ? "hover" : "fixed";
     let material = this.measureFaceMaterials.get(key);
     if (!material) {
@@ -242,6 +244,7 @@ export class MeasureViewMethods {
     this.drawMeasure();
   }
   hoverSmartMeasure(hit, x, y) {
+    this.invalidate?.();
     const candidate = hit ? this.smartCandidate(hit, x, y) : null;
     const old = this.measureCandidate;
     this.measureCandidate = candidate;
@@ -280,6 +283,7 @@ export class MeasureViewMethods {
       );
   }
   hoverMeasure(x, y) {
+    this.invalidate?.();
     if (!this.enabled) return;
     const hit = this.rayAt(x, y);
     const kind = this.measureKind;
@@ -412,6 +416,7 @@ export class MeasureViewMethods {
     this.drawMeasure();
   }
   drawMeasure() {
+    this.invalidate?.();
     this.clearOverlay(this.measureLines);
     this.clearOverlay(this.measureFaces);
     this.measureLayer.replaceChildren();
@@ -450,9 +455,9 @@ export class MeasureViewMethods {
         m.result.center && m.result.line,
       ).textContent = this.formatMeasure?.(m.result) ?? String(m.result.value);
     }
-    // On its point from the first frame, not the corner of the view.
-    this.placeMeasure();
-    this.placeReadings();
+    // The next placement frame reveals new anchors at their projected point.
+    for (const a of this.measureAnchors) a.el.style.visibility = "hidden";
+    this.invalidate?.();
     this.onMeasure?.(
       m
         ? {
@@ -478,8 +483,9 @@ export class MeasureViewMethods {
       ? [...this.measureAnchors, this.hoverAnchor]
       : this.measureAnchors;
     if (!anchors.length) return;
-    const rect = this.container.getBoundingClientRect();
+    const rect = this.frameRect?.() || this.container.getBoundingClientRect();
     for (const a of anchors) {
+      a.el.style.visibility = "";
       const p = this.scratch.projected
         .copy(a.model)
         .applyMatrix4(this.root.matrixWorld);

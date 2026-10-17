@@ -16,6 +16,7 @@ export class SectionViewMethods {
   // shared plane object changes in place so existing and newly drawn overlays
   // always agree, without rebuilding geometry as the slider moves.
   setSection(change) {
+    this.invalidate?.();
     if (change && !this.sectionBounds) return;
     const previous = this.section;
     if (!change) this.section = null;

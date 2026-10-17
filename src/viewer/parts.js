@@ -35,6 +35,7 @@ export class PartsMethods {
     );
   }
   updateParts(kind) {
+    this.invalidate?.();
     if (!this.parts) return;
     if (kind === "projection") {
       if (this.explode?.amount) this.setExplode(this.explode.amount);
@@ -131,10 +132,12 @@ export class PartsMethods {
     }
   }
   hoverPart(id) {
+    this.invalidate?.();
     this.partHover = id;
     this.highlightPart(id || this.parts.selected());
   }
   highlightPart(id) {
+    this.invalidate?.();
     if (!this.partsHighlight) return;
     // Share existing mesh geometry; building edges for a 600k-face assembly on
     // hover would stall the pointer. A light surface tint follows the exact part.

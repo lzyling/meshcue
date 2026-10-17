@@ -32,7 +32,9 @@ export class PickingMethods {
   rayAt(x, y) {
     // Input can arrive before the next render after orbit/home changes.
     this.camera.updateMatrixWorld();
-    const r = this.renderer.domElement.getBoundingClientRect();
+    const r =
+      this.frameRect?.(this.renderer.domElement) ||
+      this.renderer.domElement.getBoundingClientRect();
     this.ray.setFromCamera(
       new THREE.Vector2(
         ((x - r.left) / r.width) * 2 - 1,
@@ -93,7 +95,9 @@ export class PickingMethods {
     return frame;
   }
   toScreen(world) {
-    const r = this.renderer.domElement.getBoundingClientRect();
+    const r =
+      this.frameRect?.(this.renderer.domElement) ||
+      this.renderer.domElement.getBoundingClientRect();
     const p = world.clone().project(this.camera);
     return [
       r.left + ((p.x + 1) * r.width) / 2,
