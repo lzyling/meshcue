@@ -67,3 +67,32 @@ export function planarFaces(topology, seed, tolerance = 6) {
   }
   return [...result];
 }
+
+// Same seed-relative flood as planarFaces, including insertion order. Yield
+// during the edge walk (not just per face: non-manifold edges may have many
+// neighbours), so a hover can be cancelled without blocking input or rendering.
+export function* planarFacesSteps(topology, seed, tolerance = 6) {
+  const { normals, adjacency } = topology;
+  if (!normals[seed]) return [];
+  const cos = Math.cos(
+    (Math.max(0.1, Math.min(30, tolerance)) * Math.PI) / 180,
+  );
+  const result = new Set([seed]),
+    queue = [seed];
+  let edges = 0;
+  for (let i = 0; i < queue.length; i++) {
+    const current = queue[i];
+    for (const next of adjacency[current]) {
+      if (++edges % 256 === 0) yield;
+      if (
+        result.has(next) ||
+        normals[next].dot(normals[seed]) < cos ||
+        normals[next].dot(normals[current]) < cos
+      )
+        continue;
+      result.add(next);
+      queue.push(next);
+    }
+  }
+  return queue;
+}
