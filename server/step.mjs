@@ -2,9 +2,10 @@
    one into the other, once, at import.
 
    The tessellation is the part worth being careful about. Marks anchor on
-   `meshId` + face index (`server/index.mjs`), so the deflection that produced
-   those indices is not a rendering preference — it is part of what a mark
-   means. Recompute it later with a different value and every existing mark
+   `meshId` + face index (`server/review-schemas.mjs`,
+   `server/annotations.mjs`), so the deflection that produced those indices
+   is not a rendering preference — it is part of what a mark means.
+   Recompute it later with a different value and every existing mark
    quietly moves to a different piece of the model. So the derived mesh is
    written beside the source, keyed by the source hash, and never recomputed;
    `importModel` reuses the file if it is already there. The parameters travel
