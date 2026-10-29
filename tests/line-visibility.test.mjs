@@ -9,13 +9,19 @@ import {
   LINE_ALL,
   LINE_DEPTH,
   LINE_FACES,
-  LINE_PART,
+  LINE_NEAR,
   LineVisibility,
+  cutLike,
   faceIdentity,
   faceTestedLine,
   fittedDepth,
+  outlineEdges,
+  segmentSources,
 } from "../src/viewer/line-visibility.js";
 import { DisplayModesMethods } from "../src/viewer/display-modes.js";
+import { extractEdges } from "../src/viewer/edges.js";
+import { buildFillTopology } from "../src/planar-fill.js";
+import { brepTopology } from "../src/measure.js";
 
 const box = (material = new THREE.MeshBasicMaterial()) => {
   const mesh = new THREE.Mesh(
@@ -41,7 +47,7 @@ test("lines are face-tested instead of depth-tested, for native and wide lines a
     assert.equal(material.depthTest, false);
     assert.equal(material.depthWrite, false);
     assert.equal(material.clippingPlanes, planes);
-    assert.equal(material.customProgramCacheKey(), `${key}:line-faces-v1`);
+    assert.equal(material.customProgramCacheKey(), `${key}:line-faces-v2`);
     const wide = !!material.isLineMaterial;
     const shader = {
       vertexShader: wide
@@ -258,28 +264,70 @@ test("each line takes its mode from its own mesh at draw time", () => {
   const edge = faceTestedLine(new THREE.LineBasicMaterial(), visibility);
   const lines = new THREE.LineSegments(new THREE.BufferGeometry(), edge);
   solid.add(lines);
-  visibility.track(lines, solid, "faces");
+  visibility.track(lines, solid);
   const ghostLines = new THREE.LineSegments(
     new THREE.BufferGeometry(),
     faceTestedLine(new THREE.LineBasicMaterial(), visibility),
   );
   ghost.add(ghostLines);
-  visibility.track(ghostLines, ghost, "faces");
+  visibility.track(ghostLines, ghost);
   const shared = faceTestedLine(new LineMaterial(), visibility);
-  const mark = new LineSegments2(new LineSegmentsGeometry(), shared);
+  const markGeometry = new LineSegmentsGeometry().setPositions([
+    -100, 80, 10, 100, 80, 10,
+  ]);
+  const mark = new LineSegments2(markGeometry, shared);
   scene.add(mark);
-  visibility.track(mark, solid, "part");
+  visibility.track(
+    mark,
+    solid,
+    segmentSources(solid.geometry, [
+      new THREE.Vector3(-100, 80, 10),
+      new THREE.Vector3(100, 80, 10),
+    ]),
+  );
   visibility.syncMeshes([solid, ghost]);
   const first = visibility.proxies.get(solid).userData.first;
   const own = (line) => line.material.userData.lineFaceOwn.value.toArray();
   const renderer = { getViewport: (v) => v.set(0, 0, 8, 8) };
+  // No faces known for a mesh without file faces until its edges are built.
+  lines.onBeforeRender(renderer);
+  assert.deepEqual(own(lines), [LINE_NEAR, 0, 0, 0]);
+  assert.deepEqual(
+    Array.from(markGeometry.attributes.lineFaces.array),
+    [-1, -1],
+  );
+  visibility.setFaces(
+    solid,
+    Int32Array.from({ length: 12 }, (_, t) => t >> 1),
+  );
   lines.onBeforeRender(renderer);
   assert.deepEqual(own(lines), [LINE_FACES, first, 0, 0]);
   ghostLines.onBeforeRender(renderer);
   assert.deepEqual(own(ghostLines), [LINE_DEPTH, 0, 0, 0]);
   shared.uniformsNeedUpdate = false;
   mark.onBeforeRender(renderer);
-  assert.deepEqual(own(mark), [LINE_PART, first, first + 12, 0]);
+  // A mark is tested against its own two faces, never its whole part: the
+  // box's top (+y, face 2) and front (+z, face 4), mapped once faces arrive.
+  // The third value: the mesh draws front faces only, so a mark segment
+  // turned away on both sides is not drawn. Display edges carry no normals.
+  assert.deepEqual(own(mark), [LINE_FACES, first, 1, 0]);
+  assert.ok(markGeometry.attributes.lineFaces.isInstancedBufferAttribute);
+  assert.deepEqual(
+    Array.from(markGeometry.attributes.lineFaces.array).sort(),
+    [2, 4],
+  );
+  // The normals of the triangles either side, for the facing test.
+  const normals = ["lineNormalA", "lineNormalB"].map((name) =>
+    Array.from(markGeometry.attributes[name].array).join(),
+  );
+  assert.deepEqual(normals.sort(), ["0,0,1", "0,1,0"]);
+  // Drawn double-sided, nothing is set aside by facing.
+  solid.material.side = THREE.DoubleSide;
+  visibility.syncMeshes([solid, ghost]);
+  mark.onBeforeRender(renderer);
+  assert.deepEqual(own(mark), [LINE_FACES, first, 0, 0]);
+  solid.material.side = THREE.FrontSide;
+  visibility.syncMeshes([solid, ghost]);
   // Shared between marks of different parts: uploaded again for each draw.
   assert.equal(shared.uniformsNeedUpdate, true);
   // LineSegments2's own resolution update still runs.
@@ -323,7 +371,7 @@ test("the face pass runs only when a face-tested line will be drawn, and restore
     faceTestedLine(new THREE.LineBasicMaterial(), visibility),
   );
   mesh.add(lines);
-  visibility.track(lines, mesh, "faces");
+  visibility.track(lines, mesh);
   lines.visible = false;
   assert.equal(visibility.render(renderer, camera, null, [mesh], null), false);
   lines.visible = true;
@@ -393,4 +441,253 @@ test("section caps replay the stencil count and occlude with an identity no line
   visibility.syncCaps(group);
   assert.equal(visibility.caps.size, 0);
   assert.equal(a.parent, null);
+});
+
+/* A STEP face the tessellator could not mesh is an empty run, and keeps its
+   number: the faces after it are numbered past the mesh's triangle count. Run
+   through the display pipeline (the worker module's one call made in place),
+   every identity a mesh draws and every face its edges claim stays inside its
+   own block, so no part can take another part's face for its own. */
+test("faces after an empty B-rep face stay inside their own part's identities", async () => {
+  const triangle = (x) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BufferGeometry().setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute([x, 0, 0, x + 1, 0, 0, x, 1, 0], 3),
+      ),
+      new THREE.MeshBasicMaterial(),
+    );
+    mesh.updateMatrixWorld(true);
+    mesh.userData.fillTopology = buildFillTopology(
+      mesh.geometry,
+      mesh.matrixWorld,
+    );
+    return mesh;
+  };
+  const step = triangle(0);
+  step.userData.fillTopology.brep = brepTopology(
+    [
+      [0, -1],
+      [0, 0],
+    ],
+    1,
+  );
+  assert.ok(step.userData.fillTopology.brep);
+  const plate = triangle(2);
+  const holed = triangle(4);
+  holed.userData.fillTopology.brep = brepTopology(
+    [
+      [0, -1],
+      [0, -1],
+      [0, -1],
+      [0, 0],
+    ],
+    1,
+  );
+  const meshes = [step, plate, holed];
+  const saved = { Worker: globalThis.Worker, document: globalThis.document };
+  globalThis.Worker = class {
+    postMessage(input) {
+      setTimeout(() => this.onmessage({ data: extractEdges(input) }));
+    }
+    terminate() {}
+  };
+  globalThis.document = { documentElement: { dataset: {} } };
+  try {
+    const viewer = Object.assign(new DisplayModesMethods(), {
+      meshes,
+      model: { sha256: "empty-brep-face-regression" },
+      clipMaterial: (m) => m,
+      restoreSectionSides() {},
+      applySectionMaterials() {},
+    });
+    viewer.initializeDisplayModes();
+    await viewer.buildDisplayEdges();
+    assert.equal(viewer.displayError, null);
+    const visibility = viewer.lineVisibility;
+    visibility.syncMeshes(meshes);
+    const blocks = [];
+    for (const mesh of meshes) {
+      const { first, capacity } = visibility.proxies.get(mesh).userData;
+      const drawn = new Set();
+      const colour =
+        visibility.proxies.get(mesh).geometry.attributes.faceIdentity.array;
+      for (let i = 0; i < colour.length; i += 4)
+        drawn.add(
+          first + ((colour[i] << 16) | (colour[i + 1] << 8) | colour[i + 2]),
+        );
+      for (const id of drawn)
+        assert.ok(
+          id >= first && id < first + capacity,
+          `${id} in [${first}, ${first + capacity})`,
+        );
+      const edges = mesh.children.find((c) => c.isLineSegments);
+      for (const face of edges.geometry.attributes.lineFaces.array)
+        assert.ok(drawn.has(first + face), `edge face ${first + face}`);
+      blocks.push(drawn);
+    }
+    for (let i = 0; i < blocks.length; i++)
+      for (let j = i + 1; j < blocks.length; j++)
+        for (const id of blocks[i])
+          assert.ok(
+            !blocks[j].has(id),
+            `identity ${id} shared by parts ${i} and ${j}`,
+          );
+  } finally {
+    Object.assign(globalThis, saved);
+  }
+});
+
+test("a face table outside the mesh's block is refused, and a block past 24 bits owns no line", () => {
+  const visibility = new LineVisibility();
+  const mesh = box();
+  mesh.userData.fillTopology = { vertices: new Array(12) };
+  assert.equal(visibility.setFaces(mesh, new Int32Array(12).fill(12)), false);
+  assert.equal(visibility.proxies.get(mesh).userData.table, null);
+  assert.equal(mesh.geometry.attributes.faceIdentity, undefined);
+  assert.equal(visibility.setFaces(mesh, new Int32Array(11)), false);
+  assert.equal(visibility.setFaces(mesh, new Int32Array(12).fill(11)), true);
+  const huge = box();
+  huge.userData.fillTopology = { vertices: { length: FACE_CAP } };
+  const after = box();
+  visibility.syncMeshes([mesh, huge, after]);
+  const data = [mesh, huge, after].map(
+    (m) => visibility.proxies.get(m).userData,
+  );
+  assert.deepEqual(
+    data.map((d) => [d.first, d.overflow, d.uniforms.faceScale.value]),
+    [
+      [1, false, 1],
+      [FACE_CAP, true, 0],
+      [13, false, 1],
+    ],
+  );
+  const lines = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    faceTestedLine(new THREE.LineBasicMaterial(), visibility),
+  );
+  huge.add(lines);
+  visibility.track(lines, huge);
+  lines.onBeforeRender({});
+  assert.deepEqual(lines.material.userData.lineFaceOwn.value.toArray(), [
+    LINE_NEAR,
+    0,
+    0,
+    0,
+  ]);
+});
+
+test("part outlines are EdgesGeometry's segments, each with the triangles either side", () => {
+  const geometries = [
+    new THREE.BoxGeometry(4, 4, 0.015),
+    new THREE.BoxGeometry(2, 3, 4).toNonIndexed(),
+    new THREE.CylinderGeometry(1, 1, 2, 24),
+    new THREE.TorusKnotGeometry(1, 0.3, 64, 8),
+  ];
+  for (const geometry of geometries) {
+    const expected = new THREE.EdgesGeometry(geometry, 30).attributes.position
+      .array;
+    const { geometry: outline, sources } = outlineEdges(geometry, 30);
+    assert.deepEqual(outline.attributes.position.array, expected);
+    assert.equal(sources.stride, 2);
+    assert.equal(sources.sources.length, expected.length / 3);
+    const position = geometry.attributes.position,
+      index = geometry.index;
+    const corner = (t, k) =>
+      new THREE.Vector3().fromBufferAttribute(
+        position,
+        index ? index.getX(t * 3 + k) : t * 3 + k,
+      );
+    for (let s = 0; s < expected.length / 6; s++) {
+      const a = new THREE.Vector3().fromArray(expected, s * 6),
+        b = new THREE.Vector3().fromArray(expected, s * 6 + 3);
+      const [one, two] = sources.sources.slice(s * 2, s * 2 + 2);
+      assert.ok(one >= 0);
+      for (const t of two < 0 ? [one] : [one, two]) {
+        const corners = [0, 1, 2].map((k) => corner(t, k));
+        for (const p of [a, b])
+          assert.ok(corners.some((c) => c.distanceTo(p) < 1e-4));
+      }
+    }
+  }
+});
+
+test("an edge mark finds the faces either side of each segment, through review subdivision", () => {
+  const geometry = new THREE.BoxGeometry(4, 4, 0.015).toNonIndexed();
+  // Every source triangle split in two, as review subdivision does.
+  const position = geometry.attributes.position;
+  const split = [],
+    sourceFaces = [];
+  for (let t = 0; t < position.count / 3; t++) {
+    const [a, b, c] = [0, 1, 2].map((k) =>
+      new THREE.Vector3().fromBufferAttribute(position, t * 3 + k),
+    );
+    const m = a.clone().lerp(b, 0.5);
+    split.push(...a.toArray(), ...m.toArray(), ...c.toArray());
+    split.push(...m.toArray(), ...b.toArray(), ...c.toArray());
+    sourceFaces.push(t, t);
+  }
+  const review = new THREE.BufferGeometry().setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(split, 3),
+  );
+  review.userData.sourceFaces = Uint32Array.from(sourceFaces);
+  // The rear left edge of a 0.015 thick wall: its faces are the left (-x)
+  // and rear (-z) sides, not the front only 0.015 away.
+  const edge = segmentSources(review, [
+    new THREE.Vector3(-2, -1.8, -0.0075),
+    new THREE.Vector3(-2, 0.4, -0.0075),
+    new THREE.Vector3(-2, 1.8, -0.0075),
+  ]);
+  const faceOf = (t) => t >> 1;
+  for (let s = 0; s < 2; s++) {
+    const found = Array.from(
+      edge.sources.slice(s * edge.stride, (s + 1) * edge.stride),
+    ).filter((t) => t >= 0);
+    assert.deepEqual([...new Set(found.map(faceOf))].sort(), [1, 5]);
+  }
+  // A segment that lies on no face of this mesh is unknown, not guessed.
+  const loose = segmentSources(review, [
+    new THREE.Vector3(9, 9, 9),
+    new THREE.Vector3(9, 8, 9),
+  ]);
+  assert.ok(loose.sources.every((t) => t === -1));
+});
+
+test("the face pass cuts away what the colour pass's alpha test cuts away", () => {
+  const visibility = new LineVisibility();
+  const texture = new THREE.DataTexture(new Uint8Array(8), 2, 1);
+  texture.offset.set(0.5, 0);
+  const source = new THREE.MeshBasicMaterial({
+    map: texture,
+    alphaTest: 0.5,
+    opacity: 0.8,
+    side: THREE.DoubleSide,
+  });
+  const mesh = box(source);
+  visibility.syncMeshes([mesh]);
+  const material = visibility.proxies.get(mesh).material;
+  assert.equal(material.map, texture);
+  assert.equal(material.alphaTest, 0.5);
+  assert.equal(material.side, THREE.DoubleSide);
+  assert.equal(material.uniforms.alphaTest.value, 0.5);
+  assert.equal(material.uniforms.opacity.value, 0.8);
+  assert.equal(material.uniforms.map.value, texture);
+  assert.deepEqual(
+    material.uniforms.mapTransform.value.toArray(),
+    texture.matrix.toArray(),
+  );
+  assert.equal(texture.matrix.elements[6], 0.5);
+  // Without an alpha test nothing is discarded in either pass: no texture.
+  const version = material.version;
+  source.alphaTest = 0;
+  visibility.syncMeshes([mesh]);
+  assert.equal(material.map, null);
+  assert.equal(material.alphaTest, 0);
+  assert.ok(material.version > version);
+  // Alpha hash discards at a per-pixel threshold; here, at its mean.
+  source.alphaHash = true;
+  cutLike(material, source, mesh.geometry);
+  assert.equal(material.alphaTest, 0.5);
+  assert.equal(material.map, texture);
 });

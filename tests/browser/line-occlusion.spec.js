@@ -182,3 +182,98 @@ for (const projection of ["perspective", "orthographic"]) {
     }
   });
 }
+
+/* Marks on one part only 0.015 mm thick, seen at an angle: the rear face's
+   edges lie just behind the part's own front face. An edge mark and the
+   whole-part outline are tested against the faces either side of each
+   segment, not against any face of the part, and a segment turned away on
+   both sides of a front-faces-only solid is not drawn. Front edges stay whole.
+   With file faces, crease patches, and before the patches are built. */
+for (const projection of ["perspective", "orthographic"]) {
+  test(`marks hide the rear edges of a 0.015 mm part (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    const run = async (options) => {
+      const result = await page.evaluate((o) => window.thinMark(o), {
+        projection,
+        ...options,
+      });
+      const name = `thin-${projection}-${options.kind}-${options.faces}-${options.eye.join("_")}${options.double ? "-double" : ""}`;
+      results.push({ name, ...result });
+    };
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh", "pending"])
+        for (const eye of [
+          [5, 2, 10],
+          [9, 3, 4],
+          [2, 7, 7],
+        ])
+          await run({ kind, faces, eye });
+    // Drawn double-sided nothing is set aside by facing: own faces decide.
+    // The counterexample's own view, 800 px, 30 degrees, from (5, 2, 10).
+    if (projection === "perspective")
+      for (const kind of ["edge", "part"])
+        for (const faces of ["brep", "mesh"])
+          await run({ kind, faces, eye: [5, 2, 10], double: true });
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* The field shell's cavity edge, 0.015 mm behind the outer fillet, faces
+     the eye on both sides: only its own faces can hide it. */
+  test(`marks on the field shell stay off the outer fillet (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.fieldMark);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const distance of [500, 1000, 2000]) {
+        const result = await page.evaluate((o) => window.fieldMark(o), {
+          kind,
+          distance,
+          projection,
+        });
+        const name = `field-mark-${kind}-${projection}-${distance}`;
+        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        results.push({ name, ...result });
+      }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/field-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.fillet, result.name).toBe(0);
+      expect(result.front, result.name).toBe(1);
+      if (result.name.includes("part"))
+        expect(result.total, result.name).toBeGreaterThan(200);
+    }
+  });
+
+  /* A surface the colour pass cuts away by alpha test hides nothing there:
+     an edge behind the hole is drawn whole, behind the solid half it is not. */
+  test(`alpha-tested holes do not hide the edges behind them (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.cutout);
+    const result = await page.evaluate((o) => window.cutout(o), {
+      projection,
+    });
+    await page.screenshot({
+      path: `tmp/evidence/${phase}/cutout-${projection}.png`,
+    });
+    expect(result.hole).toBe(1);
+    expect(result.behind).toBe(0);
+  });
+}

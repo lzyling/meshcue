@@ -129,11 +129,35 @@ export function extractEdges(
   };
 }
 
+/* A STEP's faces numbered from 0 in the order they first appear, counting
+   only faces that have triangles. The file's own numbers count every face,
+   including ones its tessellation could not mesh (`brepTopology` accepts an
+   empty run), so they can reach past the mesh's triangle count; the visibility
+   pass gives each mesh exactly that many identities (line-visibility.js), and a
+   number past it would land in the next mesh's block. Edges and the face pass
+   both use these numbers. Kept per topology: it is computed once. */
+const local = new WeakMap();
+export function localFaces(topology) {
+  const of = topology?.brep?.of;
+  if (!of) return null;
+  let faces = local.get(topology);
+  if (faces?.length === of.length) return faces;
+  faces = new Int32Array(of.length);
+  const numbers = new Map();
+  for (let t = 0; t < of.length; t++) {
+    let n = numbers.get(of[t]);
+    if (n === undefined) numbers.set(of[t], (n = numbers.size));
+    faces[t] = n;
+  }
+  local.set(topology, faces);
+  return faces;
+}
+
 function allocateInput(topology) {
   return {
     positions: new Float32Array(topology.vertices.length * 9),
     normals: new Float32Array(topology.vertices.length * 3),
-    faceIds: topology.brep?.of.slice(),
+    faceIds: localFaces(topology)?.slice(),
   };
 }
 function packInput(topology, input, first, end) {

@@ -12,6 +12,17 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(800, 800);
 renderer.setClearColor(0xffffff);
 document.body.append(renderer.domElement);
+// Drawing-buffer pixels per side. The suite runs at 800 x 800, ratio 1; local
+// evidence on other ratios and sizes resizes through canvasSize.
+let SIZE = 800,
+  CSS = 800;
+window.canvasSize = (css, ratio = 1) => {
+  renderer.setPixelRatio(ratio);
+  renderer.setSize(css, css);
+  CSS = css;
+  SIZE = css * ratio;
+  return renderer.getDrawingBufferSize(new THREE.Vector2()).toArray();
+};
 const scene = new THREE.Scene();
 const marks = new THREE.Group();
 scene.add(marks);
@@ -30,7 +41,7 @@ Object.assign(context, {
   markMaterials: new Map(),
   meshMap: new Map(),
   container: renderer.domElement,
-  frameRect: () => ({ width: 800, height: 800 }),
+  frameRect: () => ({ width: CSS, height: CSS }),
   modelFrame: (mesh) => mesh.matrixWorld.clone(),
   clipMaterial: (m) => m,
   parts: { meshVisible: () => true, meshTransparent: () => false },
@@ -150,19 +161,19 @@ window.setup = async ({
 window.probe = () => {
   renderer.render(scene, camera);
   const gl = renderer.getContext(),
-    pixels = new Uint8Array(800 * 800 * 4);
-  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    pixels = new Uint8Array(SIZE * SIZE * 4);
+  gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
   let interior = 0,
     total = 0;
   const p = new THREE.Vector3(60, 50, 10).project(camera);
-  const boundX = Math.abs(p.x) * 400 + 4,
-    boundY = Math.abs(p.y) * 400 + 4;
-  for (let y = 0; y < 800; y++)
-    for (let x = 0; x < 800; x++) {
-      const i = (y * 800 + x) * 4;
+  const boundX = Math.abs(p.x) * (SIZE / 2) + 4,
+    boundY = Math.abs(p.y) * (SIZE / 2) + 4;
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++) {
+      const i = (y * SIZE + x) * 4;
       if (pixels[i] > 180 && pixels[i + 1] < 120 && pixels[i + 2] > 180) {
         total++;
-        if (Math.abs(x - 400) < boundX && Math.abs(y - 400) < boundY)
+        if (Math.abs(x - SIZE / 2) < boundX && Math.abs(y - SIZE / 2) < boundY)
           interior++;
       }
     }
@@ -172,12 +183,12 @@ window.probe = () => {
       .fromArray(probeSegment[0])
       .lerp(new THREE.Vector3().fromArray(probeSegment[1]), n / 100)
       .project(camera);
-    const x = Math.round((q.x + 1) * 400),
-      y = Math.round((q.y + 1) * 400);
+    const x = Math.round((q.x + 1) * (SIZE / 2)),
+      y = Math.round((q.y + 1) * (SIZE / 2));
     let ink = false;
     for (let dy = -2; dy <= 2; dy++)
       for (let dx = -2; dx <= 2; dx++) {
-        const i = ((y + dy) * 800 + x + dx) * 4;
+        const i = ((y + dy) * SIZE + x + dx) * 4;
         if (pixels[i] > 180 && pixels[i + 1] < 120 && pixels[i + 2] > 180)
           ink = true;
       }
@@ -198,6 +209,7 @@ window.setupMac = async ({
   back = false,
   edge = false,
   view = null,
+  projection = "perspective",
 } = {}) => {
   const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
   const { brepTopology } = await import("../../../src/measure.js");
@@ -262,7 +274,20 @@ window.setupMac = async ({
       false,
     );
   }
-  camera = new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance + 1000);
+  // Orthographic shows what the perspective view shows at the target.
+  const half = distance * Math.tan(Math.PI / 12);
+  camera =
+    projection === "perspective"
+      ? new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance + 1000)
+      : new THREE.OrthographicCamera(
+          -half,
+          half,
+          half,
+          -half,
+          distance * 1e-4,
+          distance + 1000,
+        );
+  camera.aspect = 1;
   camera.position.set(
     distance * 0.28,
     -distance * 0.2,
@@ -354,8 +379,8 @@ window.firstDemandFrame = async (change) => {
   v.invalidate();
   await new Promise(requestAnimationFrame);
   const gl = renderer.getContext(),
-    p = new Uint8Array(800 * 800 * 4);
-  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+    p = new Uint8Array(SIZE * SIZE * 4);
+  gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, p);
   let ink = 0;
   for (let i = 0; i < p.length; i += 4)
     if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) ink++;
@@ -447,8 +472,8 @@ window.grazing = async () => {
   );
   renderer.render(scene, c);
   const gl = renderer.getContext(),
-    p = new Uint8Array(800 * 800 * 4);
-  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+    p = new Uint8Array(SIZE * SIZE * 4);
+  gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, p);
   let hidden = 0;
   for (let i = 0; i < p.length; i += 4)
     if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) hidden++;
@@ -473,19 +498,19 @@ window.grazing = async () => {
       b = new THREE.Vector3(-40, 50, 5).applyMatrix4(slab.matrixWorld);
     }
     renderer.render(scene, c);
-    gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+    gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, p);
     let covered = 0;
     for (let n = 1; n < 100; n++) {
       const q = a
         .clone()
         .lerp(b, n / 100)
         .project(c);
-      const px = Math.round((q.x + 1) * 400),
-        py = Math.round((q.y + 1) * 400);
+      const px = Math.round((q.x + 1) * (SIZE / 2)),
+        py = Math.round((q.y + 1) * (SIZE / 2));
       let ink = false;
       for (let dy = -2; dy <= 2; dy++)
         for (let dx = -2; dx <= 2; dx++) {
-          const i = ((py + dy) * 800 + px + dx) * 4;
+          const i = ((py + dy) * SIZE + px + dx) * 4;
           if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) ink = true;
         }
       if (ink) covered++;
@@ -628,15 +653,15 @@ const fieldPoint = (angle, y) => {
 // `upper` is the strip's upper angle in degrees.
 function filletInk(offset, upper = 75) {
   const gl = renderer.getContext(),
-    pixels = new Uint8Array(800 * 800 * 4);
-  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    pixels = new Uint8Array(SIZE * SIZE * 4);
+  gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
   const ink = (x, y) => {
-    const i = (y * 800 + x) * 4;
+    const i = (y * SIZE + x) * 4;
     return pixels[i] > 180 && pixels[i + 1] < 120 && pixels[i + 2] > 180;
   };
   const screen = (v) => {
     const q = v.clone().project(camera);
-    return [(q.x + 1) * 400, (q.y + 1) * 400];
+    return [(q.x + 1) * (SIZE / 2), (q.y + 1) * (SIZE / 2)];
   };
   const quad = [
     fieldPoint(15, -80),
@@ -657,8 +682,8 @@ function filletInk(offset, upper = 75) {
   };
   let fillet = 0,
     total = 0;
-  for (let y = 0; y < 800; y++)
-    for (let x = 0; x < 800; x++)
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++)
       if (ink(x, y)) {
         total++;
         if (inside(x + 0.5, y + 0.5)) fillet++;
@@ -737,5 +762,345 @@ window.fieldShell = async ({
     ),
     tangent: brep ? coverage(fieldPoint(90, -80), fieldPoint(90, 80)) : 1,
     near: camera.near,
+  };
+};
+
+const magentaAt = (pixels, size) => (x, y) => {
+  if (x < 0 || y < 0 || x >= size || y >= size) return false;
+  const i = (y * size + x) * 4;
+  return pixels[i] > 180 && pixels[i + 1] < 120 && pixels[i + 2] > 180;
+};
+function readMagenta() {
+  const gl = renderer.getContext(),
+    pixels = new Uint8Array(SIZE * SIZE * 4);
+  gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  const ink = magentaAt(pixels, SIZE);
+  let total = 0;
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++) if (ink(x, y)) total++;
+  return { ink, total };
+}
+// Share of 99 points along a-b with magenta within two pixels.
+function coverageOf(ink, a, b) {
+  let covered = 0;
+  for (let n = 1; n < 100; n++) {
+    const q = a
+      .clone()
+      .lerp(b, n / 100)
+      .project(camera);
+    const x = Math.round((q.x + 1) * (SIZE / 2)),
+      y = Math.round((q.y + 1) * (SIZE / 2));
+    let hit = false;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) if (ink(x + dx, y + dy)) hit = true;
+    if (hit) covered++;
+  }
+  return covered / 99;
+}
+
+/* One part, a 4 x 4 plate only 0.015 thick, seen at an angle: the edges of
+   its rear face lie just behind its own front face. Marks on the part, an edge
+   mark or the whole-part outline, must hide them as the front face does, and
+   still draw the front edges whole. `faces`: "brep" (file faces, known on
+   load), "mesh" (crease patches, after the display edges are built), or
+   "pending" (crease patches not built yet). `double`: the part is drawn
+   double-sided, so a mark facing away on both sides is not set aside by its
+   facing and its own faces alone decide. */
+const THIN = { x: 2, y: 2, z: 0.0075 };
+window.thinMark = async ({
+  kind = "edge",
+  projection = "perspective",
+  faces = "brep",
+  eye = [5, 2, 10],
+  double = false,
+} = {}) => {
+  for (const child of [...scene.children])
+    if (child !== marks) scene.remove(child);
+  marks.clear();
+  context.meshMap.clear();
+  context.displayEdges = [];
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(THIN.x * 2, THIN.y * 2, THIN.z * 2).toNonIndexed(),
+    new THREE.MeshBasicMaterial({
+      color: 0xcccccc,
+      side: double ? THREE.DoubleSide : THREE.FrontSide,
+    }),
+  );
+  plate.userData.reviewId = "thin-plate";
+  plate.updateMatrixWorld(true);
+  plate.userData.fillTopology = buildFillTopology(
+    plate.geometry,
+    plate.matrixWorld,
+  );
+  if (faces === "brep")
+    // BoxGeometry's six sides, two triangles each, as file faces.
+    plate.userData.fillTopology.brep = {
+      of: Int32Array.from({ length: 12 }, (_, t) => t >> 1),
+      ranges: [0, 1, 2, 3, 4, 5].map((f) => [f * 2, f * 2 + 1]),
+    };
+  context.meshMap.set(plate.userData.reviewId, plate);
+  scene.add(plate);
+  context.meshes = [plate];
+  context.model = { sha256: `thin-plate-${faces}` };
+  if (faces === "mesh") {
+    await context.buildDisplayEdges();
+    if (context.displayError) throw new Error(context.displayError);
+    context.displayEdges.forEach((e) => (e.visible = false));
+  } else context.applyDisplayStyle();
+  camera =
+    projection === "perspective"
+      ? new THREE.PerspectiveCamera(30, 1, 0.1, 100)
+      : new THREE.OrthographicCamera(-3, 3, 3, -3, 0.1, 100);
+  camera.aspect = 1;
+  camera.position.set(...eye);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  NavigationMethods.prototype.updateNavigationProjection.call({
+    camera,
+    meshes: [plate],
+    controls: { target: new THREE.Vector3() },
+    navigationSize: 5.7,
+  });
+  const { x, y, z } = THIN;
+  const V = (...p) => new THREE.Vector3(...p);
+  // Rear face edges hidden from a (+x, +y, +z) eye: left and bottom.
+  const hidden = [
+    [V(-x, -y * 0.9, -z), V(-x, y * 0.9, -z)],
+    [V(-x * 0.9, -y, -z), V(x * 0.9, -y, -z)],
+  ];
+  // Front face edges in sight: the left silhouette and the top.
+  const shown = [
+    [V(-x, -y * 0.9, z), V(-x, y * 0.9, z)],
+    [V(-x * 0.9, y, z), V(x * 0.9, y, z)],
+  ];
+  const draw = (segments) => {
+    marks.clear();
+    if (kind === "edge")
+      for (const [a, b] of segments)
+        context.drawObjectMark(
+          marks,
+          {
+            type: "edge",
+            meshId: plate.userData.reviewId,
+            points: [a.toArray(), b.toArray()],
+            color: "#ff00ff",
+          },
+          false,
+          false,
+        );
+    else {
+      context.drawObjectMark(
+        marks,
+        { type: "part", meshIds: [plate.userData.reviewId], color: "#ff00ff" },
+        false,
+        false,
+      );
+      // The tinted overlay is not a line; leave only the outline.
+      const outline = marks.children.find((c) => c.isLineSegments);
+      for (const child of [...marks.children])
+        if (child !== outline) marks.remove(child);
+      if (segments === shown) return;
+      // Keep only the outline's rear-face segments, with the faces production
+      // gave them: the front ones lie a pixel away and would be counted too.
+      const from = outline.geometry;
+      const keep = [];
+      const p = from.attributes.position;
+      for (let i = 0; i < p.count; i += 2) {
+        const a = V().fromBufferAttribute(p, i),
+          b = V().fromBufferAttribute(p, i + 1);
+        const rear = a.z < 0 && b.z < 0;
+        const left = Math.abs(a.x + x) < 1e-6 && Math.abs(b.x + x) < 1e-6;
+        const bottom = Math.abs(a.y + y) < 1e-6 && Math.abs(b.y + y) < 1e-6;
+        if (rear && (left || bottom)) keep.push(i, i + 1);
+      }
+      const geometry = new THREE.BufferGeometry();
+      for (const [name, attribute] of Object.entries(from.attributes)) {
+        const array = new Float32Array(keep.length * attribute.itemSize);
+        keep.forEach((v, k) =>
+          array.set(
+            attribute.array.subarray(
+              v * attribute.itemSize,
+              (v + 1) * attribute.itemSize,
+            ),
+            k * attribute.itemSize,
+          ),
+        );
+        geometry.setAttribute(
+          name,
+          new THREE.BufferAttribute(array, attribute.itemSize),
+        );
+      }
+      outline.geometry = geometry;
+    }
+  };
+  draw(hidden);
+  renderer.render(scene, camera);
+  const rear = readMagenta();
+  await new Promise((r) => setTimeout(r));
+  if (kind === "part") {
+    // The isolated segments must be the rear edges, and must reach the GPU.
+    const outline = marks.children[0];
+    if (outline.geometry.attributes.position.count !== 4)
+      throw new Error("rear outline segments not found");
+  }
+  draw(shown);
+  renderer.render(scene, camera);
+  const front = readMagenta();
+  return {
+    hidden: rear.total,
+    front: front.total,
+    coverage: Math.min(...shown.map(([a, b]) => coverageOf(front.ink, a, b))),
+  };
+};
+
+/* A cut-out surface: a plate in front whose left half its texture makes
+   transparent (alpha test 0.5, through a texture offset), over a box whose
+   front top edge runs behind both halves. Through the hole the edge is
+   visible and whole; behind the solid half it is hidden. */
+window.cutout = async ({ projection = "perspective" } = {}) => {
+  const texture = new THREE.DataTexture(
+    new Uint8Array([255, 255, 255, 255, 255, 255, 255, 0]),
+    2,
+    1,
+  );
+  texture.magFilter = texture.minFilter = THREE.NearestFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.offset.set(0.5, 0);
+  texture.needsUpdate = true;
+  const plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 120).toNonIndexed(),
+    new THREE.MeshBasicMaterial({
+      color: 0xcccccc,
+      map: texture,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide,
+    }),
+  );
+  plate.position.z = 30;
+  const solid = new THREE.Mesh(
+    new THREE.BoxGeometry(100, 80, 20).toNonIndexed(),
+    new THREE.MeshBasicMaterial({ color: 0xcccccc }),
+  );
+  await displayOnly(
+    [plate, solid],
+    `cutout-${projection}`,
+    [0x000000, 0xff00ff],
+  );
+  camera =
+    projection === "perspective"
+      ? new THREE.PerspectiveCamera(30, 1, 0.1, 4000)
+      : new THREE.OrthographicCamera(-140, 140, 140, -140, 0.1, 4000);
+  camera.aspect = 1;
+  camera.position.set(0, 60, 1000);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  NavigationMethods.prototype.updateNavigationProjection.call({
+    camera,
+    meshes: [plate, solid],
+    controls: { target: new THREE.Vector3() },
+    navigationSize: 200,
+  });
+  renderer.render(scene, camera);
+  const { ink } = readMagenta();
+  // Magenta in the solid half's screen area, away from the hole's border.
+  const edge = (x) => new THREE.Vector3(x, 40, 10).project(camera);
+  const [left, right] = [edge(4), edge(80)].map((q) => (q.x + 1) * (SIZE / 2));
+  let behind = 0;
+  for (let y = 0; y < SIZE; y++)
+    for (let x = Math.ceil(left); x < right; x++) if (ink(x, y)) behind++;
+  return {
+    hole: coverageOf(
+      ink,
+      new THREE.Vector3(-48, 40, 10),
+      new THREE.Vector3(-4, 40, 10),
+    ),
+    behind,
+  };
+};
+
+/* Marks on the field shell: an edge mark along a cavity edge (cavity end face
+   and inner fillet, both turned towards the eye, 0.015 mm behind the outer
+   fillet), and the whole-part outline. Neither may show on the outer fillet;
+   the outline's grille end top edge stays whole. */
+window.fieldMark = async ({
+  kind = "edge",
+  distance = 1000,
+  projection = "perspective",
+} = {}) => {
+  for (const child of [...scene.children])
+    if (child !== marks) scene.remove(child);
+  marks.clear();
+  context.meshMap.clear();
+  context.displayEdges = [];
+  const shell = fieldShell(true);
+  context.meshMap.set(shell.userData.reviewId, shell);
+  scene.add(shell);
+  context.meshes = [shell];
+  context.model = { sha256: "field-shell-marks" };
+  context.applyDisplayStyle();
+  const { cx, cz, r, arc } = FIELD.inner;
+  const cavity = [];
+  for (let k = 0; k <= arc; k++) {
+    const a = ((k / arc) * Math.PI) / 2;
+    cavity.push([cx + r * Math.cos(a), -FIELD.innerY, cz + r * Math.sin(a)]);
+  }
+  context.drawObjectMark(
+    marks,
+    kind === "edge"
+      ? {
+          type: "edge",
+          meshId: shell.userData.reviewId,
+          points: cavity,
+          color: "#ff00ff",
+        }
+      : { type: "part", meshIds: [shell.userData.reviewId], color: "#ff00ff" },
+    false,
+    false,
+  );
+  // The tinted overlay is not a line; count lines only.
+  for (const child of [...marks.children])
+    if (child.isMesh) marks.remove(child);
+  const centre = new THREE.Vector3(0, 0, 64);
+  camera =
+    projection === "perspective"
+      ? new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance * 4)
+      : new THREE.OrthographicCamera(
+          -140,
+          140,
+          140,
+          -140,
+          distance * 1e-4,
+          distance * 4,
+        );
+  camera.aspect = 1;
+  camera.up.set(0, 0, 1);
+  camera.position
+    .set(0.62, -0.55, 0.56)
+    .normalize()
+    .multiplyScalar(distance)
+    .add(centre);
+  camera.lookAt(centre);
+  camera.updateMatrixWorld(true);
+  NavigationMethods.prototype.updateNavigationProjection.call({
+    camera,
+    meshes: [shell],
+    controls: { target: centre },
+    navigationSize: 283,
+  });
+  renderer.render(scene, camera);
+  const { fillet, total, ink } = filletInk(new THREE.Vector3());
+  const top = FIELD.outer.top,
+    endY = -FIELD.outerY;
+  return {
+    fillet,
+    total,
+    front:
+      kind === "part"
+        ? coverageOf(
+            ink,
+            new THREE.Vector3(-60, endY, top),
+            new THREE.Vector3(60, endY, top),
+          )
+        : 1,
   };
 };

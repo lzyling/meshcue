@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { LineVisibility, faceTestedLine } from "./line-visibility.js";
-import { edgeInputAsync } from "./edges.js";
+import { edgeInputAsync, localFaces } from "./edges.js";
 import { REVIEW_GREY } from "./shared.js";
 const PLAIN_DIFFUSE = new THREE.Color(REVIEW_GREY)
   .toArray()
@@ -19,18 +19,6 @@ const cache = new Map();
 let cacheBytes = 0;
 const materials = (mesh) =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-// The face of each drawn triangle, in the identities its edges carry: the
-// file's B-rep face, else the crease-bounded patch from the edge worker. Review
-// subdivision maps each drawn triangle back to its source triangle.
-function triangleFaces(mesh, patches) {
-  const of = mesh.userData.fillTopology.brep?.of || patches;
-  const sources = mesh.geometry.userData.sourceFaces;
-  const count =
-    (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3;
-  const faces = new Uint32Array(count);
-  for (let t = 0; t < count; t++) faces[t] = of[sources ? sources[t] : t];
-  return faces;
-}
 
 export class DisplayModesMethods {
   initializeDisplayModes() {
@@ -328,8 +316,13 @@ export class DisplayModesMethods {
         lines.userData = { feature, wire };
         lines.renderOrder = 2;
         lines.raycast = () => {};
-        this.lineVisibility.setFaces(mesh, triangleFaces(mesh, result.patches));
-        this.lineVisibility.track(lines, mesh, "faces");
+        // The faces of each source triangle, in the numbers the edges carry:
+        // the file's B-rep faces, else the crease-bounded patches.
+        this.lineVisibility.setFaces(
+          mesh,
+          localFaces(mesh.userData.fillTopology) || result.patches,
+        );
+        this.lineVisibility.track(lines, mesh);
         mesh.add(lines);
         this.displayEdges.push(lines);
         this.displayBuildMs += result.buildMs;

@@ -1,5 +1,9 @@
 import { sectionIntersection } from "../section.js";
-import { faceTestedLine } from "./line-visibility.js";
+import {
+  faceTestedLine,
+  outlineEdges,
+  segmentSources,
+} from "./line-visibility.js";
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
@@ -359,8 +363,9 @@ export class MarksMethods {
             depthTest: true,
             depthWrite: false,
           });
-          // Shown where its part is the front surface, by the same face pass
-          // as display edges; a viewer without that pass keeps a depth test.
+          // Shown where one of its own faces is the front surface, by the
+          // same face pass as display edges; a viewer without that pass keeps
+          // a depth test.
           if (this.lineVisibility)
             faceTestedLine(material, this.lineVisibility);
           const r =
@@ -374,7 +379,13 @@ export class MarksMethods {
         line.matrix.copy(mesh.matrixWorld);
         line.userData.partMeshId = id;
         line.renderOrder = 8;
-        this.lineVisibility?.track(line, mesh, "part");
+        // Its own faces are the two either side of the edge, found on the
+        // mesh where each segment lies; the mark itself stores no face.
+        this.lineVisibility?.track(
+          line,
+          mesh,
+          segmentSources(mesh.geometry, points),
+        );
         group.add(line);
       } else {
         const overlay = new THREE.Mesh(
@@ -386,8 +397,11 @@ export class MarksMethods {
         overlay.userData.partMeshId = id;
         overlay.renderOrder = 3;
         group.add(overlay);
+        // The outline EdgesGeometry draws, with the triangles either side of
+        // each segment, so each is tested against its own two faces.
+        const edges = outlineEdges(mesh.geometry, 30);
         const outline = new THREE.LineSegments(
-          new THREE.EdgesGeometry(mesh.geometry, 30),
+          edges.geometry,
           new THREE.LineBasicMaterial({
             color: a.color,
             transparent: true,
@@ -397,7 +411,7 @@ export class MarksMethods {
         );
         if (this.lineVisibility) {
           faceTestedLine(outline.material, this.lineVisibility);
-          this.lineVisibility.track(outline, mesh, "part");
+          this.lineVisibility.track(outline, mesh, edges.sources);
         }
         this.clipMaterial(outline.material);
         outline.matrixAutoUpdate = false;
