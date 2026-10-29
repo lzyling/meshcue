@@ -93,12 +93,17 @@ test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
     !process.env.LINE_MAC_EVIDENCE,
     "Local read-only STEP sample is not shipped",
   );
+  const field = [];
   for (const options of [
     { distance: 500, edge: true, name: "mac-front" },
     { distance: 500, edge: true, back: true, name: "mac-back" },
     { distance: 500, name: "mac-edges-500" },
     { distance: 1000, name: "mac-edges-1000" },
     { distance: 2000, name: "mac-edges-2000" },
+    // The field report's three-quarter view of the top right fillet.
+    { distance: 500, view: "field", name: "mac-field-500" },
+    { distance: 1000, view: "field", name: "mac-field-1000" },
+    { distance: 2000, view: "field", name: "mac-field-2000" },
   ]) {
     await page.goto(url);
     await page.waitForFunction(() => window.setupMac);
@@ -110,6 +115,11 @@ test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
     await page.screenshot({
       path: `tmp/evidence/${phase}/${options.name}.png`,
     });
+    if (options.view) field.push({ name: options.name, ...info });
+  }
+  for (const pose of field) {
+    expect(pose.total, pose.name).toBeGreaterThan(200);
+    expect(pose.fillet, pose.name).toBe(0);
   }
 });
 
@@ -126,16 +136,285 @@ for (const change of ["reveal", "explode"]) {
     expect(result.requests).toBe(0);
   });
 }
-/* Known issue in 1.5.2: behind a fillet at grazing angles a few rear-edge pixels
-   still show. Marked as expected to fail, not relaxed: when a fix lands this
-   turns red as an unexpected pass, and the marker comes off. */
-test.fail(
-  "grazing curved surface hides close rear edge without breaking visible edge",
-  async ({ page }) => {
+/* A rear edge 0.2 mm behind a cylinder seen at a grazing angle, and genuine
+   edges on the curved surface and on steep creases. Depth offsets could not do
+   both; face identity does. */
+test("grazing curved surface hides close rear edge without breaking visible edge", async ({
+  page,
+}) => {
+  await page.goto(url);
+  await page.waitForFunction(() => window.grazing);
+  const result = await page.evaluate(() => window.grazing());
+  expect(result.hidden).toBe(0);
+  expect(result.coverage).toBe(1);
+});
+
+/* Field case: an edge 0.015 mm behind a curved wall. No depth tolerance can
+   separate the two, so this checks that a line is drawn only where its own
+   faces are in front; with file faces and with crease-bounded mesh faces. */
+for (const projection of ["perspective", "orthographic"]) {
+  test(`thin non-concentric fillet hides cavity edges at every distance (${projection})`, async ({
+    page,
+  }) => {
     await page.goto(url);
-    await page.waitForFunction(() => window.grazing);
-    const result = await page.evaluate(() => window.grazing());
-    expect(result.hidden).toBe(0);
-    expect(result.coverage).toBe(1);
-  },
-);
+    await page.waitForFunction(() => window.fieldShell);
+    const results = [];
+    for (const brep of [true, false])
+      for (const distance of [500, 1000, 2000]) {
+        const result = await page.evaluate((o) => window.fieldShell(o), {
+          distance,
+          projection,
+          brep,
+        });
+        const name = `field-${brep ? "brep" : "mesh"}-${projection}-${distance}`;
+        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        results.push({ name, ...result });
+      }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/field-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.total, result.name).toBeGreaterThan(200);
+      expect(result.fillet, result.name).toBe(0);
+      expect(result.front, result.name).toBe(1);
+      expect(result.tangent, result.name).toBe(1);
+    }
+  });
+}
+
+/* Marks on one part only 0.015 mm thick, seen at an angle: the rear face's
+   edges lie just behind the part's own front face. An edge mark and the
+   whole-part outline are tested against the faces either side of each
+   segment, not against any face of the part, and a segment turned away on
+   both sides of a front-faces-only solid is not drawn. Front edges stay whole.
+   With file faces, crease patches, and before the patches are built. */
+for (const projection of ["perspective", "orthographic"]) {
+  test(`marks hide the rear edges of a 0.015 mm part (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    const run = async (options) => {
+      const result = await page.evaluate((o) => window.thinMark(o), {
+        projection,
+        ...options,
+      });
+      const name = `thin-${projection}-${options.kind}-${options.faces}-${options.eye.join("_")}${options.double ? "-double" : ""}`;
+      results.push({ name, ...result });
+    };
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh", "pending"])
+        for (const eye of [
+          [5, 2, 10],
+          [9, 3, 4],
+          [2, 7, 7],
+        ])
+          await run({ kind, faces, eye });
+    // Drawn double-sided nothing is set aside by facing: own faces decide.
+    // The counterexample's own view, 800 px, 30 degrees, from (5, 2, 10).
+    if (projection === "perspective")
+      for (const kind of ["edge", "part"])
+        for (const faces of ["brep", "mesh"])
+          await run({ kind, faces, eye: [5, 2, 10], double: true });
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* Drawn double-sided, nothing is set aside by facing and the pixel test
+     alone decides. The rear bottom edge seen from (5, 2, 10) lies a third of
+     a pixel inside the part's own outline at 800 px orthographic: deciding
+     by the pixel centres either side is half a pixel out, and this is where
+     it showed. Every view, both face sources, at drawing-buffer ratio 1. */
+  test(`double-sided marks hide the rear edges of a 0.015 mm part (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of [
+          [5, 2, 10],
+          [9, 3, 4],
+          [2, 7, 7],
+        ]) {
+          const result = await page.evaluate((o) => window.thinMark(o), {
+            projection,
+            kind,
+            faces,
+            eye,
+            double: true,
+          });
+          const name = `thin-double-${projection}-${kind}-${faces}-${eye.join("_")}`;
+          results.push({ name, ...result });
+        }
+    // Nor may it take the visible rim: the rear face's right and top edges,
+    // a fraction of a pixel outside the front face, where the right and top
+    // faces turn to the eye (in perspective only from (9, 3, 4): the others
+    // see one of them edge on). Drawn whole, double-sided or not.
+    for (const double of [true, false])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of projection === "perspective"
+          ? [[9, 3, 4]]
+          : [
+              [5, 2, 10],
+              [9, 3, 4],
+              [2, 7, 7],
+            ]) {
+          const result = await page.evaluate((o) => window.thinMark(o), {
+            projection,
+            kind: "edge",
+            faces,
+            eye,
+            double,
+            rim: true,
+          });
+          const name = `thin-rim-${projection}-${double ? "double" : "single"}-${faces}-${eye.join("_")}`;
+          results.push({ name, ...result });
+        }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-double-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* What the rule above must not take: a double-sided open roof seen from
+     below, its ridge turned away on both sides and in plain sight. */
+  test(`double-sided marks seen from behind their faces stay whole (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.backRoof);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of [
+          [3, -5, 2],
+          [-4, -3, -3],
+          [1, -6, 0.3],
+        ]) {
+          const result = await page.evaluate((o) => window.backRoof(o), {
+            projection,
+            kind,
+            faces,
+            eye,
+          });
+          results.push({
+            name: `back-roof-${projection}-${kind}-${faces}-${eye.join("_")}`,
+            ...result,
+          });
+        }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/back-roof-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.total, result.name).toBeGreaterThan(200);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* The same part stored at coordinates far from its origin, the mesh moved
+     back to the same place: nothing in the world differs, so neither may
+     what is drawn. Finding a segment's faces must not count the distance
+     from the origin as model size, or the front wall 0.015 away counts as
+     the rear edge's own face. */
+  test(`marks on a part stored far from its origin hide the same rear edges (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    for (const offset of [
+      [1e5, 0, 0],
+      [-1e5, 1e5, 0],
+    ])
+      for (const kind of ["edge", "part"])
+        for (const faces of ["brep", "mesh", "pending"])
+          for (const eye of [
+            [5, 2, 10],
+            [9, 3, 4],
+          ]) {
+            const result = await page.evaluate((o) => window.thinMark(o), {
+              projection,
+              kind,
+              faces,
+              eye,
+              offset,
+            });
+            const name = `thin-far-${projection}-${kind}-${faces}-${eye.join("_")}-${offset.join("_")}`;
+            results.push({ name, ...result });
+          }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-far-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* The field shell's cavity edge, 0.015 mm behind the outer fillet, faces
+     the eye on both sides: only its own faces can hide it. */
+  test(`marks on the field shell stay off the outer fillet (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.fieldMark);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const distance of [500, 1000, 2000]) {
+        const result = await page.evaluate((o) => window.fieldMark(o), {
+          kind,
+          distance,
+          projection,
+        });
+        const name = `field-mark-${kind}-${projection}-${distance}`;
+        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        results.push({ name, ...result });
+      }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/field-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.fillet, result.name).toBe(0);
+      expect(result.front, result.name).toBe(1);
+      if (result.name.includes("part"))
+        expect(result.total, result.name).toBeGreaterThan(200);
+    }
+  });
+
+  /* A surface the colour pass cuts away by alpha test hides nothing there:
+     an edge behind the hole is drawn whole, behind the solid half it is not. */
+  test(`alpha-tested holes do not hide the edges behind them (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.cutout);
+    const result = await page.evaluate((o) => window.cutout(o), {
+      projection,
+    });
+    await page.screenshot({
+      path: `tmp/evidence/${phase}/cutout-${projection}.png`,
+    });
+    expect(result.hole).toBe(1);
+    expect(result.behind).toBe(0);
+  });
+}

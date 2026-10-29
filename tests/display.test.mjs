@@ -21,7 +21,50 @@ test("display edges omit planar diagonals but wireframe retains them and open bo
   );
   assert.equal(count(result.feature), 4);
   assert.equal(count(result.wire), 5);
-  assert.equal(result.bytes, (4 + 5) * 6 * 4);
+  // Line vertices, plus each drawn edge's two faces on both of its vertices
+  // and one face per source triangle: everything the cache keeps is counted.
+  assert.equal(result.bytes, (4 + 5) * 6 * 4 + 4 * 4 * 4 + 2 * 4);
+});
+
+test("display edges carry their own faces; meshes without file faces use crease-bounded patches", () => {
+  const faces = (result) =>
+    Array.from({ length: result.faces.length / 4 }, (_, i) => [
+      result.faces[i * 4],
+      result.faces[i * 4 + 1],
+    ]);
+  const box = extractEdges(
+    edgeInput(topology(new THREE.BoxGeometry().toNonIndexed())),
+  );
+  assert.equal(box.faces.length, count(box.feature) * 4);
+  for (let i = 0; i < box.faces.length; i += 4) {
+    assert.equal(box.faces[i], box.faces[i + 2]);
+    assert.equal(box.faces[i + 1], box.faces[i + 3]);
+  }
+  // Six patches of two triangles: the box's sides, split only at creases.
+  const sizes = new Map();
+  for (const patch of box.patches)
+    sizes.set(patch, (sizes.get(patch) || 0) + 1);
+  assert.deepEqual([...sizes.values()], [2, 2, 2, 2, 2, 2]);
+  for (const [a, b] of faces(box)) {
+    assert.notEqual(a, b);
+    assert.ok(sizes.has(a) && sizes.has(b));
+  }
+  // A coplanar diagonal joins its triangles; a border has one face.
+  const plane = extractEdges(edgeInput(topology(new THREE.PlaneGeometry())));
+  assert.deepEqual(Array.from(plane.patches), [0, 0]);
+  assert.deepEqual(faces(plane), [
+    [0, 0],
+    [0, 0],
+    [0, 0],
+    [0, 0],
+  ]);
+  // File faces are used as they are, even on a coplanar boundary.
+  const input = edgeInput(topology(new THREE.PlaneGeometry()));
+  input.faceIds = new Int32Array([4, 9]);
+  const step = extractEdges(input);
+  assert.equal(step.patches, null);
+  const pairs = faces(step).map((pair) => pair.sort((a, b) => a - b).join());
+  assert.deepEqual(pairs.sort(), ["4,4", "4,4", "4,9", "9,9", "9,9"]);
 });
 
 test("display crease threshold distinguishes 29 and 31 degree folds", () => {
@@ -56,6 +99,9 @@ test("display crease threshold distinguishes 29 and 31 degree folds", () => {
   assert.equal(count(fold(29).feature), 4);
   assert.equal(count(fold(30).feature), 4);
   assert.equal(count(fold(31).feature), 5);
+  // The patch boundary is the drawn crease, nowhere else.
+  assert.deepEqual(Array.from(fold(29).patches), [0, 0]);
+  assert.deepEqual(Array.from(fold(31).patches), [0, 1]);
 });
 
 test("display welds duplicate mesh vertices and emits each box edge once", () => {
