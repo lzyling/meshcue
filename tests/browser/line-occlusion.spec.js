@@ -112,3 +112,26 @@ test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
     });
   }
 });
+
+for (const change of ["reveal", "explode"]) {
+  test("first demand frame after " + change, async ({ page }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.firstDemandFrame);
+    const result = await page.evaluate(
+      (change) => window.firstDemandFrame(change),
+      change,
+    );
+    expect(result.ink).toBe(24964);
+    expect(result.renders).toBe(1);
+    expect(result.requests).toBe(0);
+  });
+}
+test("grazing curved surface hides close rear edge without breaking visible edge", async ({
+  page,
+}) => {
+  await page.goto(url);
+  await page.waitForFunction(() => window.grazing);
+  const result = await page.evaluate(() => window.grazing());
+  expect(result.hidden).toBe(0);
+  expect(result.coverage).toBe(1);
+});

@@ -290,7 +290,6 @@ export class NavigationMethods {
         this.navigationAnimation = null;
       }
     }
-    this.updateNavigationProjection();
     this.pivotDot.hidden = !this.navigationRotating || !this.enabled;
     if (!this.pivotDot.hidden) {
       const [x, y] = this.toScreen(this.controls.target);

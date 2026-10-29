@@ -279,3 +279,153 @@ window.setupMac = async ({
     parts: context.meshes.length,
   };
 };
+
+// Use the real one-shot render lifecycle; never pre-update the projection
+// after the visibility/transform change, and never draw a corrective frame.
+window.firstDemandFrame = async (change) => {
+  const { ModelViewer } = await import("../../../src/viewer.js");
+  const s = new THREE.Scene();
+  const c = new THREE.PerspectiveCamera(30, 1, 0.1, 4000);
+  c.position.z = 1000;
+  c.lookAt(0, 0, 0);
+  c.updateMatrixWorld(true);
+  const far = new THREE.Mesh(
+    new THREE.BoxGeometry(200, 160, 20),
+    new THREE.MeshBasicMaterial({ color: 0xcccccc }),
+  );
+  const near = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.05, 0.05),
+    new THREE.MeshBasicMaterial({ color: 0xff00ff }),
+  );
+  near.position.z = change === "reveal" ? 999.5 : 0;
+  near.visible = change !== "reveal";
+  s.add(far, near);
+  s.updateMatrixWorld(true);
+  const noop = () => {};
+  const v = {
+    scene: s,
+    camera: c,
+    renderer,
+    meshes: [far, near],
+    navigationSize: 260,
+    controls: { target: new THREE.Vector3() },
+    readReadingSizes: noop,
+    animateEcho: noop,
+    reportOrientation: noop,
+    placePins: noop,
+    placeMeasure: noop,
+    placeReadings: noop,
+    frameRect: noop,
+    container: {},
+    navigationPointers: new Set(),
+    pivotDot: { hidden: true },
+    mode: "orbit",
+    enabled: true,
+    clearNavigationHover: noop,
+    updateNavigationProjection() {
+      NavigationMethods.prototype.updateNavigationProjection.call(this);
+    },
+  };
+  v.frameHooks = new Set([
+    () => NavigationMethods.prototype.navigationFrame.call(v),
+  ]);
+  v.updateNavigationProjection();
+  near.visible = true;
+  near.position.z = 999.5;
+  v.render = () => ModelViewer.prototype.render.call(v);
+  v.invalidate = () => ModelViewer.prototype.invalidate.call(v);
+  v.invalidate();
+  await new Promise(requestAnimationFrame);
+  const gl = renderer.getContext(),
+    p = new Uint8Array(800 * 800 * 4);
+  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+  let ink = 0;
+  for (let i = 0; i < p.length; i += 4)
+    if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) ink++;
+  await new Promise(requestAnimationFrame);
+  await new Promise(requestAnimationFrame);
+  return {
+    ink,
+    requests: v.renderRequest == null ? 0 : 1,
+    renders: v.renderCount,
+  };
+};
+
+window.grazing = async () => {
+  const { biasLineSurface, biasSurfaceLine } =
+    await import("../../../src/viewer/line-depth.js");
+  const s = new THREE.Scene();
+  const c = new THREE.PerspectiveCamera(30, 1, 10, 4000);
+  c.position.z = 1000;
+  c.lookAt(0, 0, 0);
+  c.updateMatrixWorld(true);
+  // Cylinder silhouette: the last curved facets have a large raster slope.
+  const surface = new THREE.Mesh(
+    new THREE.CylinderGeometry(80, 80, 160, 128),
+    biasLineSurface(new THREE.MeshBasicMaterial({ color: 0xcccccc })),
+  );
+  s.add(surface);
+  const x = 79.8,
+    z = Math.sqrt(80 * 80 - x * x) - 0.2;
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, -50, z),
+    new THREE.Vector3(x, 50, z),
+  ]);
+  const line = new THREE.Line(
+    geometry,
+    biasSurfaceLine(new THREE.LineBasicMaterial({ color: 0xff00ff })),
+  );
+  s.add(line);
+  renderer.render(s, c);
+  const gl = renderer.getContext(),
+    p = new Uint8Array(800 * 800 * 4);
+  gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+  let hidden = 0;
+  for (let i = 0; i < p.length; i += 4)
+    if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) hidden++;
+  // Front generators of the curve, then real sharp box creases at steep
+  // angles. Smooth-cylinder tessellation seams are not feature edges.
+  const coverage = [];
+  for (const vertex of [0, 16, 24, 28]) {
+    const angle = (vertex * Math.PI) / 64;
+    let a, b;
+    if (vertex < 24) {
+      const x = 80 * Math.sin(angle),
+        z = 80 * Math.cos(angle);
+      a = new THREE.Vector3(x, -50, z);
+      b = new THREE.Vector3(x, 50, z);
+    } else {
+      for (const child of [...s.children]) if (child !== line) s.remove(child);
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(80, 160, 10),
+        surface.material,
+      );
+      slab.rotation.y = angle;
+      s.add(slab);
+      slab.updateMatrixWorld(true);
+      a = new THREE.Vector3(-40, -50, 5).applyMatrix4(slab.matrixWorld);
+      b = new THREE.Vector3(-40, 50, 5).applyMatrix4(slab.matrixWorld);
+    }
+    line.geometry = new THREE.BufferGeometry().setFromPoints([a, b]);
+    renderer.render(s, c);
+    gl.readPixels(0, 0, 800, 800, gl.RGBA, gl.UNSIGNED_BYTE, p);
+    let covered = 0;
+    for (let n = 1; n < 100; n++) {
+      const q = a
+        .clone()
+        .lerp(b, n / 100)
+        .project(c);
+      const px = Math.round((q.x + 1) * 400),
+        py = Math.round((q.y + 1) * 400);
+      let ink = false;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const i = ((py + dy) * 800 + px + dx) * 4;
+          if (p[i] > 180 && p[i + 1] < 120 && p[i + 2] > 180) ink = true;
+        }
+      if (ink) covered++;
+    }
+    coverage.push(covered / 99);
+  }
+  return { hidden, coverage: Math.min(...coverage), angles: coverage };
+};

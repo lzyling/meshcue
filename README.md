@@ -155,7 +155,7 @@ For development, run the suites after `npm run samples`:
 
 ```sh
 npm test             # 594 unit and integration tests
-npm run test:browser # 317 real-Chromium tests, isolated port and data
+npm run test:browser # 320 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever
