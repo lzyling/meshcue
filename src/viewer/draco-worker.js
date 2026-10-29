@@ -1,8 +1,35 @@
+/*! The decode steps below are adapted from the DRACOLoader worker of three.js
+(examples/jsm/loaders/DRACOLoader.js), which carries this notice:
+
+The MIT License
+
+Copyright © 2010-2026 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
 // Classic worker for KHR_draco_mesh_compression primitives. The first message
 // names the vendored JavaScript decoder, which importScripts runs unchanged:
 // no WASM fetch, no eval and no blob: worker. The decode steps follow
-// three.js's DRACOLoader worker (MIT) for the glTF case, where attributes are
-// always addressed by their unique id.
+// three.js's DRACOLoader worker for the glTF case, where attributes are always
+// addressed by their unique id. The notice above is a legal comment (`/*!`):
+// Vite's worker build keeps those, so the built worker asset carries it too
+// (tests/ci-build.test.mjs checks the packaged copy).
 const arrays = {
   Float32Array,
   Int8Array,
