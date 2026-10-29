@@ -6,9 +6,9 @@ import { browserServerUrl, browserOrigin } from "../helpers/browser-server.mjs";
    reached GitHub to prove it can reach GitHub would be slow, rate-limited and
    wrong about what it was testing.
  *
- * Kept out of review.spec.js on purpose. Every case there runs with the check
- * turned off, which is what a suite should do by default, and one case that
- * needs it on would have to turn it on for all of them. */
+ * Kept out of the review*.spec.js files on purpose. Every case there runs
+ * with the check turned off, which is what a suite should do by default, and
+ * one case that needs it on would have to turn it on for all of them. */
 import { test, expect } from "./fixtures.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";

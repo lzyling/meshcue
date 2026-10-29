@@ -55,3 +55,33 @@ SOFTWARE.
 ## Draco decoder
 
 The offline glTF Draco decoder in `server/gltf-vendor/draco_decoder.cjs` is from Google LLC, distributed with Three.js under Apache-2.0. The implementation is unchanged; its prepended license and `LICENSE.draco.txt` retain the upstream appendix template. See `server/gltf-vendor/README.md` for provenance and packaging.
+
+## three.js
+
+The Draco worker `src/viewer/draco-worker.js` adapts the decode steps of the
+DRACOLoader worker in three.js (`examples/jsm/loaders/DRACOLoader.js`). The
+worker begins with the notice below as a `/*!` legal comment, which the built
+worker asset (`dist/assets/draco-worker-*.js`, also under `web/assets/` in the
+integration package) keeps.
+
+The MIT License
+
+Copyright © 2010-2026 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
