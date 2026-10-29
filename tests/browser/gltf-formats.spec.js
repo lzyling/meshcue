@@ -153,7 +153,11 @@ for (const kind of ["draco", "meshopt", "quantized"]) {
   test(`${kind} renders offline like the plain bracket and pins the same source face`, async ({
     page,
   }) => {
-    const external = [];
+    const external = [],
+      warnings = [];
+    page.on("console", (message) => {
+      if (message.type() === "warning") warnings.push(message.text());
+    });
     await page.route("**/*", (route) => {
       const request = new URL(route.request().url());
       if (
@@ -187,6 +191,30 @@ for (const kind of ["draco", "meshopt", "quantized"]) {
     expect(plainPin.sourceFaceIndex).toEqual(expect.any(Number));
     expect(plainPin.meshId).toEqual(expect.any(String));
     expect(external).toEqual([]);
+    if (kind === "draco") {
+      // Draco decodes in packaged workers that load the vendored JavaScript
+      // decoder and nothing else: no WASM fetch, no blob: worker, and no
+      // deprecation notice from three's own Draco loader.
+      const wasm = (href) => /\.wasm(?:[?#]|$)/.test(href);
+      const resources = () =>
+        performance.getEntriesByType("resource").map((entry) => entry.name);
+      const workers = page
+        .workers()
+        .filter((worker) => /\/draco-worker[^/]*\.js$/.test(worker.url()));
+      expect(workers.length).toBeGreaterThan(0);
+      for (const worker of workers) {
+        const loaded = await worker.evaluate(resources);
+        expect(
+          loaded.filter((href) => /\/draco_decoder-[^/]*\.js$/.test(href)),
+        ).toHaveLength(1);
+        expect(loaded.filter(wasm)).toEqual([]);
+      }
+      expect(page.workers().filter((w) => w.url().startsWith("blob:"))).toEqual(
+        [],
+      );
+      expect((await page.evaluate(resources)).filter(wasm)).toEqual([]);
+      expect(warnings.filter((text) => /draco/i.test(text))).toEqual([]);
+    }
     // Routing disables HTTP cache; reloading creates new decoder workers,
     // so the local review package must supply the decoder again.
     await page.reload();

@@ -7,7 +7,9 @@ upstream CommonJS export. The implementation is unchanged; an Apache license com
 also carries the license. The Apache appendix retains the upstream copyright
 placeholder; it is not a copyright claim by MeshCue. Integration packaging copies this decoder to
 `vendor/` once; it is loaded as CommonJS outside the ESM host bundles.
-The browser receives the same bytes through Vite's local asset URL.
+The browser receives the same bytes through Vite's local asset URL, under a
+`.js` name so a static host serves it as JavaScript; a classic worker
+(`src/viewer/draco-worker.js`) loads it with `importScripts`.
 
 Meshopt is imported from Three's `meshopt_decoder.module.js` by both the server
 and viewer. That module includes its WASM and MIT notice; it needs no remote

@@ -13,5 +13,19 @@ export default defineConfig({
   define: { __MESHCUE_VERSION__: JSON.stringify(version) },
   base: "./",
   server: { proxy: { "/api": "http://127.0.0.1:43173" } },
-  build: { target: "es2022", chunkSizeWarningLimit: 900 },
+  build: {
+    target: "es2022",
+    chunkSizeWarningLimit: 900,
+    rolldownOptions: {
+      output: {
+        // The vendored Draco decoder is CommonJS for the service, and a static
+        // host types `.cjs` as application/node; a worker's importScripts
+        // refuses that under nosniff. The bytes are unchanged, only the name.
+        assetFileNames: ({ names }) =>
+          names.some((name) => name.endsWith(".cjs"))
+            ? "assets/[name]-[hash].js"
+            : "assets/[name]-[hash][extname]",
+      },
+    },
+  },
 });
