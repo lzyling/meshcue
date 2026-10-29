@@ -805,7 +805,10 @@ function coverageOf(ink, a, b) {
    load), "mesh" (crease patches, after the display edges are built), or
    "pending" (crease patches not built yet). `double`: the part is drawn
    double-sided, so a mark facing away on both sides is not set aside by its
-   facing and its own faces alone decide. */
+   facing and its own faces alone decide. `offset`: the plate's coordinates
+   are moved by it and the mesh moved back, so the world, the camera and the
+   marks are unchanged and only the numbers the part is stored in differ.
+   `rim`: the edges in sight are the rear face's right and top (below). */
 const THIN = { x: 2, y: 2, z: 0.0075 };
 window.thinMark = async ({
   kind = "edge",
@@ -813,6 +816,8 @@ window.thinMark = async ({
   faces = "brep",
   eye = [5, 2, 10],
   double = false,
+  offset = [0, 0, 0],
+  rim = false,
 } = {}) => {
   for (const child of [...scene.children])
     if (child !== marks) scene.remove(child);
@@ -827,6 +832,8 @@ window.thinMark = async ({
     }),
   );
   plate.userData.reviewId = "thin-plate";
+  plate.geometry.translate(...offset);
+  plate.position.set(...offset).negate();
   plate.updateMatrixWorld(true);
   plate.userData.fillTopology = buildFillTopology(
     plate.geometry,
@@ -868,11 +875,19 @@ window.thinMark = async ({
     [V(-x, -y * 0.9, -z), V(-x, y * 0.9, -z)],
     [V(-x * 0.9, -y, -z), V(x * 0.9, -y, -z)],
   ];
-  // Front face edges in sight: the left silhouette and the top.
-  const shown = [
-    [V(-x, -y * 0.9, z), V(-x, y * 0.9, z)],
-    [V(-x * 0.9, y, z), V(x * 0.9, y, z)],
-  ];
+  // Front face edges in sight: the left silhouette and the top. With `rim`,
+  // the rear face's right and top edges instead: in sight where the right
+  // and top faces turn to the eye, a fraction of a pixel outside the front
+  // face, with the front face in front of them right beside.
+  const shown = rim
+    ? [
+        [V(x, -y * 0.9, -z), V(x, y * 0.9, -z)],
+        [V(-x * 0.9, y, -z), V(x * 0.9, y, -z)],
+      ]
+    : [
+        [V(-x, -y * 0.9, z), V(-x, y * 0.9, z)],
+        [V(-x * 0.9, y, z), V(x * 0.9, y, z)],
+      ];
   const draw = (segments) => {
     marks.clear();
     if (kind === "edge")
@@ -906,8 +921,10 @@ window.thinMark = async ({
       const keep = [];
       const p = from.attributes.position;
       for (let i = 0; i < p.count; i += 2) {
-        const a = V().fromBufferAttribute(p, i),
-          b = V().fromBufferAttribute(p, i + 1);
+        const a = V().fromBufferAttribute(p, i).applyMatrix4(plate.matrixWorld),
+          b = V()
+            .fromBufferAttribute(p, i + 1)
+            .applyMatrix4(plate.matrixWorld);
         const rear = a.z < 0 && b.z < 0;
         const left = Math.abs(a.x + x) < 1e-6 && Math.abs(b.x + x) < 1e-6;
         const bottom = Math.abs(a.y + y) < 1e-6 && Math.abs(b.y + y) < 1e-6;
@@ -951,6 +968,97 @@ window.thinMark = async ({
     front: front.total,
     coverage: Math.min(...shown.map(([a, b]) => coverageOf(front.ink, a, b))),
   };
+};
+
+/* An open, double-sided roof seen from below: two panels meeting at a ridge,
+   both turned away from the eye, so every mark on the ridge is seen from
+   behind its own faces. Nothing hides it; it must be drawn whole. */
+window.backRoof = async ({
+  kind = "edge",
+  projection = "perspective",
+  faces = "brep",
+  eye = [3, -5, 2],
+} = {}) => {
+  for (const child of [...scene.children])
+    if (child !== marks) scene.remove(child);
+  marks.clear();
+  context.meshMap.clear();
+  context.displayEdges = [];
+  // Ridge along x at y = 1; panels down to z = +1 and z = -1 at y = 0,
+  // wound so their normals point up and out.
+  const r0 = [-2, 1, 0],
+    r1 = [2, 1, 0],
+    a0 = [-2, 0, 1],
+    a1 = [2, 0, 1],
+    b0 = [-2, 0, -1],
+    b1 = [2, 0, -1];
+  const geometry = new THREE.BufferGeometry().setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(
+      [...[a0, a1, r1, a0, r1, r0], ...[b1, b0, r0, b1, r0, r1]].flat(),
+      3,
+    ),
+  );
+  geometry.computeVertexNormals();
+  const roof = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide }),
+  );
+  roof.userData.reviewId = "back-roof";
+  roof.updateMatrixWorld(true);
+  roof.userData.fillTopology = buildFillTopology(geometry, roof.matrixWorld);
+  if (faces === "brep")
+    roof.userData.fillTopology.brep = {
+      of: Int32Array.from([0, 0, 1, 1]),
+      ranges: [
+        [0, 1],
+        [2, 3],
+      ],
+    };
+  context.meshMap.set(roof.userData.reviewId, roof);
+  scene.add(roof);
+  context.meshes = [roof];
+  context.model = { sha256: `back-roof-${faces}` };
+  if (faces === "mesh") {
+    await context.buildDisplayEdges();
+    if (context.displayError) throw new Error(context.displayError);
+    context.displayEdges.forEach((e) => (e.visible = false));
+  } else context.applyDisplayStyle();
+  camera =
+    projection === "perspective"
+      ? new THREE.PerspectiveCamera(30, 1, 0.1, 100)
+      : new THREE.OrthographicCamera(-3, 3, 3, -3, 0.1, 100);
+  camera.aspect = 1;
+  camera.position.set(...eye);
+  camera.lookAt(0, 0.5, 0);
+  camera.updateMatrixWorld(true);
+  NavigationMethods.prototype.updateNavigationProjection.call({
+    camera,
+    meshes: [roof],
+    controls: { target: new THREE.Vector3(0, 0.5, 0) },
+    navigationSize: 5.7,
+  });
+  const ridge = [new THREE.Vector3(-1.8, 1, 0), new THREE.Vector3(1.8, 1, 0)];
+  marks.clear();
+  context.drawObjectMark(
+    marks,
+    kind === "edge"
+      ? {
+          type: "edge",
+          meshId: roof.userData.reviewId,
+          points: ridge.map((p) => p.toArray()),
+          color: "#ff00ff",
+        }
+      : { type: "part", meshIds: [roof.userData.reviewId], color: "#ff00ff" },
+    false,
+    false,
+  );
+  // The tinted overlay is not a line.
+  for (const child of [...marks.children])
+    if (!child.isLineSegments && !child.isLineSegments2) marks.remove(child);
+  renderer.render(scene, camera);
+  const seen = readMagenta();
+  return { total: seen.total, coverage: coverageOf(seen.ink, ...ridge) };
 };
 
 /* A cut-out surface: a plate in front whose left half its texture makes

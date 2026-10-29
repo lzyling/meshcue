@@ -22,6 +22,7 @@ import { DisplayModesMethods } from "../src/viewer/display-modes.js";
 import { extractEdges } from "../src/viewer/edges.js";
 import { buildFillTopology } from "../src/planar-fill.js";
 import { brepTopology } from "../src/measure.js";
+import { MeshBVH } from "three-mesh-bvh";
 
 const box = (material = new THREE.MeshBasicMaterial()) => {
   const mesh = new THREE.Mesh(
@@ -652,6 +653,153 @@ test("an edge mark finds the faces either side of each segment, through review s
     new THREE.Vector3(9, 8, 9),
   ]);
   assert.ok(loose.sources.every((t) => t === -1));
+});
+
+/* Moving a part's coordinates (the geometry translated, the mesh moved back,
+   nothing in the world changed) must not change which faces its marks are
+   on. Through the viewer's indirect BVH and without one, on the 0.015 mm
+   plate (offsets along the wall, and across it where float32 still holds
+   the wall) and on a scan-like mesh whose segments are its own triangle
+   sides. Allowing more than float32 steps of the coordinates, or counting
+   distance from the origin as model size, finds the front wall at 100000. */
+test("the faces a mark segment touches do not depend on where its coordinates sit", () => {
+  const offsets = [
+    [0, 0, 0],
+    [1e5, 0, 0],
+    [-1e5, 1e5, 0],
+    [1e5, -3e4, 1000],
+  ];
+  const found = (geometry, points, bvh) => {
+    geometry.boundsTree = bvh
+      ? new MeshBVH(geometry, { indirect: true, targetLeafSize: 4 })
+      : undefined;
+    return segmentSources(geometry, points);
+  };
+  const faceSets = ({ sources, stride }, faceOf) =>
+    Array.from({ length: sources.length / stride }, (_, s) =>
+      [
+        ...new Set(
+          Array.from(sources.slice(s * stride, (s + 1) * stride))
+            .filter((t) => t !== -1)
+            .map(faceOf),
+        ),
+      ].sort((a, b) => a - b),
+    );
+  // Either side's normal, in either order (the facing test takes either).
+  const facing = ({ normals }) =>
+    Array.from({ length: normals.length / 6 }, (_, s) =>
+      [0, 3]
+        .map((k) =>
+          Array.from(
+            normals.slice(s * 6 + k, s * 6 + k + 3),
+            (n) => Math.round(n * 1e3) / 1e3 || 0,
+          ).join(),
+        )
+        .sort()
+        .join(" "),
+    );
+  for (const bvh of [true, false]) {
+    // The plate's rear left and rear bottom edges: left (1) or bottom (3)
+    // with rear (5), never the front (4) 0.015 away.
+    const plate = [];
+    for (const offset of offsets) {
+      const geometry = new THREE.BoxGeometry(4, 4, 0.015).toNonIndexed();
+      geometry.translate(...offset);
+      const at = (x, y, z) =>
+        new THREE.Vector3(x, y, z).add(new THREE.Vector3(...offset));
+      const result = found(
+        geometry,
+        [at(-2, -1.8, -0.0075), at(-2, 0.4, -0.0075), at(-2, 1.8, -0.0075)],
+        bvh,
+      );
+      const bottom = found(
+        geometry,
+        [at(-1.8, -2, -0.0075), at(1.8, -2, -0.0075)],
+        bvh,
+      );
+      plate.push({
+        offset,
+        faces: [
+          ...faceSets(result, (t) => t >> 1),
+          ...faceSets(bottom, (t) => t >> 1),
+        ],
+        normals: [...facing(result), ...facing(bottom)],
+      });
+    }
+    for (const { offset, faces, normals } of plate) {
+      assert.deepEqual(
+        faces,
+        [
+          [1, 5],
+          [1, 5],
+          [3, 5],
+        ],
+        `${offset} ${bvh}`,
+      );
+      // Rear (-z) and left (-x) or bottom (-y): no +z normal from the front.
+      assert.deepEqual(
+        normals,
+        ["-1,0,0 0,0,-1", "-1,0,0 0,0,-1", "0,-1,0 0,0,-1"],
+        `${offset} ${bvh}`,
+      );
+    }
+    // A scan-like closed mesh: every segment is a side of two triangles.
+    const scan = offsets.map((offset) => {
+      const geometry = new THREE.IcosahedronGeometry(30, 4);
+      geometry.translate(...offset);
+      const position = geometry.attributes.position;
+      const points = [];
+      for (let t = 0; t < 40; t++) {
+        const v = (k) =>
+          new THREE.Vector3().fromBufferAttribute(position, t * 21 + k);
+        points.push(v(0), v(1));
+      }
+      const pairs = [];
+      for (let k = 0; k < points.length; k += 2) {
+        const { sources, stride } = found(
+          geometry,
+          [points[k], points[k + 1]],
+          bvh,
+        );
+        pairs.push(
+          Array.from(sources.slice(0, stride))
+            .filter((t) => t !== -1)
+            .sort((a, b) => a - b),
+        );
+      }
+      return pairs;
+    });
+    for (const pair of scan[0]) assert.equal(pair.length, 2);
+    for (let k = 1; k < scan.length; k++)
+      assert.deepEqual(scan[k], scan[0], `${offsets[k]} ${bvh}`);
+  }
+});
+
+/* A wall closer than the contact allowance (a few millionths of the part's
+   size) is touched too, so the segment's faces are unknown rather than
+   guessed; but its normal faces the other way and is not the edge's own, so
+   it cannot make a segment that faces away count as facing the eye. */
+test("a surface found only through the contact allowance gives a mark no facing normal", () => {
+  for (const bvh of [true, false]) {
+    const geometry = new THREE.BoxGeometry(4, 4, 4e-6).toNonIndexed();
+    if (bvh) geometry.boundsTree = new MeshBVH(geometry, { indirect: true });
+    const { sources, stride, normals } = segmentSources(geometry, [
+      new THREE.Vector3(-2, -1.8, -2e-6),
+      new THREE.Vector3(-2, 1.8, -2e-6),
+    ]);
+    const sides = [
+      ...new Set(
+        Array.from(sources.slice(0, stride))
+          .filter((t) => t >= 0)
+          .map((t) => t >> 1),
+      ),
+    ].sort();
+    assert.deepEqual(sides, [1, 4, 5], `${bvh}`);
+    const pair = [0, 3]
+      .map((k) => Array.from(normals.slice(k, k + 3), Math.round).join())
+      .sort();
+    assert.deepEqual(pair, ["-1,0,0", "0,0,-1"], `${bvh}`);
+  }
 });
 
 test("the face pass cuts away what the colour pass's alpha test cuts away", () => {

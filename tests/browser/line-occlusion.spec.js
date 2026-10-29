@@ -229,6 +229,147 @@ for (const projection of ["perspective", "orthographic"]) {
     }
   });
 
+  /* Drawn double-sided, nothing is set aside by facing and the pixel test
+     alone decides. The rear bottom edge seen from (5, 2, 10) lies a third of
+     a pixel inside the part's own outline at 800 px orthographic: deciding
+     by the pixel centres either side is half a pixel out, and this is where
+     it showed. Every view, both face sources, at drawing-buffer ratio 1. */
+  test(`double-sided marks hide the rear edges of a 0.015 mm part (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of [
+          [5, 2, 10],
+          [9, 3, 4],
+          [2, 7, 7],
+        ]) {
+          const result = await page.evaluate((o) => window.thinMark(o), {
+            projection,
+            kind,
+            faces,
+            eye,
+            double: true,
+          });
+          const name = `thin-double-${projection}-${kind}-${faces}-${eye.join("_")}`;
+          results.push({ name, ...result });
+        }
+    // Nor may it take the visible rim: the rear face's right and top edges,
+    // a fraction of a pixel outside the front face, where the right and top
+    // faces turn to the eye (in perspective only from (9, 3, 4): the others
+    // see one of them edge on). Drawn whole, double-sided or not.
+    for (const double of [true, false])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of projection === "perspective"
+          ? [[9, 3, 4]]
+          : [
+              [5, 2, 10],
+              [9, 3, 4],
+              [2, 7, 7],
+            ]) {
+          const result = await page.evaluate((o) => window.thinMark(o), {
+            projection,
+            kind: "edge",
+            faces,
+            eye,
+            double,
+            rim: true,
+          });
+          const name = `thin-rim-${projection}-${double ? "double" : "single"}-${faces}-${eye.join("_")}`;
+          results.push({ name, ...result });
+        }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-double-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* What the rule above must not take: a double-sided open roof seen from
+     below, its ridge turned away on both sides and in plain sight. */
+  test(`double-sided marks seen from behind their faces stay whole (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.backRoof);
+    const results = [];
+    for (const kind of ["edge", "part"])
+      for (const faces of ["brep", "mesh"])
+        for (const eye of [
+          [3, -5, 2],
+          [-4, -3, -3],
+          [1, -6, 0.3],
+        ]) {
+          const result = await page.evaluate((o) => window.backRoof(o), {
+            projection,
+            kind,
+            faces,
+            eye,
+          });
+          results.push({
+            name: `back-roof-${projection}-${kind}-${faces}-${eye.join("_")}`,
+            ...result,
+          });
+        }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/back-roof-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.total, result.name).toBeGreaterThan(200);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
+  /* The same part stored at coordinates far from its origin, the mesh moved
+     back to the same place: nothing in the world differs, so neither may
+     what is drawn. Finding a segment's faces must not count the distance
+     from the origin as model size, or the front wall 0.015 away counts as
+     the rear edge's own face. */
+  test(`marks on a part stored far from its origin hide the same rear edges (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.thinMark);
+    const results = [];
+    for (const offset of [
+      [1e5, 0, 0],
+      [-1e5, 1e5, 0],
+    ])
+      for (const kind of ["edge", "part"])
+        for (const faces of ["brep", "mesh", "pending"])
+          for (const eye of [
+            [5, 2, 10],
+            [9, 3, 4],
+          ]) {
+            const result = await page.evaluate((o) => window.thinMark(o), {
+              projection,
+              kind,
+              faces,
+              eye,
+              offset,
+            });
+            const name = `thin-far-${projection}-${kind}-${faces}-${eye.join("_")}-${offset.join("_")}`;
+            results.push({ name, ...result });
+          }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/thin-far-marks-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.hidden, result.name).toBe(0);
+      expect(result.front, result.name).toBeGreaterThan(500);
+      expect(result.coverage, result.name).toBe(1);
+    }
+  });
+
   /* The field shell's cavity edge, 0.015 mm behind the outer fillet, faces
      the eye on both sides: only its own faces can hide it. */
   test(`marks on the field shell stay off the outer fillet (${projection})`, async ({

@@ -167,6 +167,19 @@ export function cutLike(material, source, geometry) {
      keeps silhouette edges whose visible face is thinner than a pixel, more
      than half a pixel outside whatever is behind them, and hides an edge more
      than half a pixel inside an occluder's outline.
+   - Closer than half a pixel the centres cannot tell inside from outside, but
+     a mark knows which way its faces turn. One turned away on both sides
+     (both normals, see LINE_FACING) is, on a front-faces-only part, never
+     drawn; on a double-sided part it is seen, if at all, from behind its own
+     faces, whose back faces are then the front surface right beside it. So
+     it is drawn only where one of its own faces is at one of those four
+     centres, or, where the front surface at its own pixel is level with it,
+     at that pixel. The rear edge of a double-sided 0.015 mm part, a third of
+     a pixel inside the part's outline, has neither of its faces in sight, and
+     its last pixel, past the corner where it meets a visible face, has
+     nothing at all at those centres. A mark facing the eye on either side,
+     and every display edge (they carry no normals), is held to the other
+     rules only: its visible face may be under a pixel wide.
    - Otherwise the front surface is level with the line or in front of it, and
      depth cannot say which: the line is drawn only if one of its own faces is
      in front in the 3x3 neighbourhood. Its own pixel may land on either face,
@@ -178,6 +191,11 @@ export function cutLike(material, source, geometry) {
      is. It can extend a line by at most a pixel under the silhouette of an
      occluder at the edge's own depth; where the occluder at the line's own pixel
      is in front by more than the slope allowance the fragment is dropped.
+     A mark turned away on both sides of a double-sided part (above) needs
+     one of its own faces at its own pixel, not just in the window: there
+     the window reaches the part's outline, where its inner face meets the
+     front face and, along that shared edge, can win a pixel in the face
+     pass.
    - An own face can also hide its own edge (the far rim of a hole behind the
      hole's wall). A matching pixel counts only if the line is not behind it by
      more than three of that face's depth slopes plus the line's own slope, the
@@ -227,6 +245,18 @@ bool lineFaceHides(uint id, float front, float slope, float depth, float lineSlo
   if (lineFaceOwns(id)) return depth > front + allowance;
   return front <= depth + allowance;
 }
+// One of the line's own faces is the front surface in the 3x3 window, and the
+// line is not behind it by more than the slope allowance.
+bool lineFaceOwnBeside(ivec2 centre, ivec2 last, float depth, float lineSlope) {
+  float front, slope;
+  for (int dy = -1; dy <= 1; dy++)
+    for (int dx = -1; dx <= 1; dx++) {
+      uint id = lineFaceAt(clamp(centre + ivec2(dx, dy), ivec2(0), last), front, slope);
+      if (lineFaceOwns(id) && depth <= front + 3.0 * (slope + lineSlope) + lineFaceRounding)
+        return true;
+    }
+  return false;
+}
 bool lineFaceVisible(vec2 pixel, vec2 exact, float depth, float lineSlope) {
   if (lineFaceOwn.x < 0.5) return true;
   if (lineFaceOwn.z > 0.5 && vLineFacing < 0.5) return false;
@@ -244,25 +274,29 @@ bool lineFaceVisible(vec2 pixel, vec2 exact, float depth, float lineSlope) {
     ivec2 base = ivec2(floor(corner));
     vec2 t = corner - floor(corner);
     float covered = 0.0;
+    bool own = false;
     for (int k = 0; k < 4; k++) {
       ivec2 o = ivec2(k & 1, k >> 1);
-      uint beside = lineFaceAt(clamp(base + o, ivec2(0), last), front, slope);
-      if (lineFaceHides(beside, front, slope, depth, lineSlope))
+      uint seen = lineFaceAt(clamp(base + o, ivec2(0), last), front, slope);
+      if (lineFaceHides(seen, front, slope, depth, lineSlope))
         covered += (o.x == 1 ? t.x : 1.0 - t.x) * (o.y == 1 ? t.y : 1.0 - t.y);
+      else if (lineFaceOwns(seen)) own = true;
     }
-    return covered < 0.5;
+    if (covered >= 0.5) return false;
+    // A mark turned away on both sides of a double-sided part is seen, if at
+    // all, from behind its own faces, whose back faces are then in front
+    // right beside it: one of them must be among the same four centres.
+    if (vLineFacing > 0.5 || lineFaceOwn.x > 1.5 || vLineFaces.x < 0.0)
+      return true;
+    return own;
   }
   if (lineFaceOwn.x > 2.5) return depth <= front + allowance;
   if (lineFaceOwn.x > 1.5 || vLineFaces.x < 0.0)
     return depth <= front + slope + lineSlope + rounding;
   if (depth > front + allowance && !lineFaceOwns(id)) return false;
-  for (int dy = -1; dy <= 1; dy++)
-    for (int dx = -1; dx <= 1; dx++) {
-      id = lineFaceAt(clamp(centre + ivec2(dx, dy), ivec2(0), last), front, slope);
-      if (lineFaceOwns(id) && depth <= front + 3.0 * (slope + lineSlope) + rounding)
-        return true;
-    }
-  return false;
+  // Seen from behind its own faces (above), one of them is at its own pixel.
+  if (vLineFacing < 0.5) return lineFaceOwns(id) && depth <= front + allowance;
+  return lineFaceOwnBeside(centre, last, depth, lineSlope);
 }
 `;
 
@@ -271,8 +305,10 @@ bool lineFaceVisible(vec2 pixel, vec2 exact, float depth, float lineSlope) {
    none of its faces there. That holds at any distance from a silhouette,
    where the pixel tests above can be half a pixel out. Mark segments carry
    the normals of the triangles either side (zero where unknown or on an open
-   border, which then counts as facing); display edges carry none. Used only
-   where the line's mesh occludes and draws front faces only (lineFaceOwn.z). */
+   border, which then counts as facing); display edges carry none. Where the
+   line's mesh occludes and draws front faces only (lineFaceOwn.z) such a
+   segment is not drawn; on a double-sided mesh it only tightens the
+   half-pixel rule above. */
 const LINE_FACING = /* glsl */ `
 attribute vec3 lineNormalA;
 attribute vec3 lineNormalB;
@@ -399,53 +435,87 @@ const capacityOf = (mesh) =>
    a segment, -1 for none, -2 when more touch than fit. A mark's points are
    tessellation vertices along an edge and review subdivision only splits
    triangles in their own plane, so a midpoint lies on the triangles either
-   side of the edge (more where a vertex falls there) and on no others, unless
-   another surface passes within `tolerance` of it, a few millionths of the
-   model's size. The faces are looked up when known (`remap`): a mark is often
-   drawn before a mesh's crease patches are built. */
+   side of the edge (more where a vertex falls there) and on no others.
+
+   How far "on" may be is two separate allowances, and neither depends on
+   where the geometry sits:
+   - contact: a few millionths of the geometry's own size (its bounding
+     box's half diagonal), for points not taken exactly on this surface;
+   - precision: positions are float32, so a vertex, and a point taken from
+     one, is rounded to the float32 step of each of its coordinates. Each axis
+     gets one step of the largest coordinate the geometry has on that axis,
+     counted only along the direction from the point to the triangle: a wall
+     0.015 away along z gains nothing from coordinates near 100000 along x.
+   A surface only as far away as the steps of its own coordinates cannot be
+   told from the edge by any test, here or on the GPU, which draws the same
+   float32 positions.
+
+   Every triangle within both allowances counts as one the segment touches,
+   so a third face there leaves its faces unknown (`remap`) rather than
+   guessed. Its facing normals come only from the nearest triangle and those
+   no farther than it by more than the precision allowance: the faces either
+   side of the edge are at no distance, rounding apart, and a surface found
+   only through the contact allowance is at a real one, so it cannot turn a
+   segment that faces away into one that faces the eye.
+   The faces are looked up when known (`remap`): a mark is often drawn before
+   a mesh's crease patches are built. */
 const near = new THREE.Vector3(),
   middle = new THREE.Vector3(),
   normal = new THREE.Vector3(),
   first = new THREE.Vector3(),
+  apart = new THREE.Vector3(),
   scratch = new THREE.Triangle();
+// The float32 spacing of numbers of magnitude up to `m`.
+const float32Step = (m) =>
+  m > 0 ? 2 ** (Math.floor(Math.log2(m)) - 23) : 2 ** -149;
+export function segmentAllowances(geometry) {
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  const { min, max } = geometry.boundingBox;
+  const step = ["x", "y", "z"].map((a) =>
+    float32Step(Math.max(Math.abs(min[a]), Math.abs(max[a]))),
+  );
+  return { contact: 1e-6 * min.distanceTo(max), step };
+}
 export function segmentSources(geometry, points, stride = 8) {
   const segments = Math.max(0, points.length - 1);
   const out = new Int32Array(segments * stride).fill(-1);
-  // The first touching triangle's normal, and the one turned furthest from
-  // it (the other side of the edge); one side only on an open border.
+  // The nearest triangle's normal, and the one turned furthest from it (the
+  // other side of the edge); one side only on an open border.
   const normals = new Float32Array(segments * 6);
-  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
-  const bounds = geometry.boundingSphere;
-  const tolerance = 2e-6 * (bounds.radius + bounds.center.length());
+  const { contact, step } = segmentAllowances(geometry);
+  const [sx, sy, sz] = step;
+  const reach = contact + sx + sy + sz;
   const sourceFaces = geometry.userData.sourceFaces;
   const position = geometry.attributes.position,
     index = geometry.index;
+  const found = [];
   for (let s = 0; s < segments; s++) {
     middle.addVectors(points[s], points[s + 1]).multiplyScalar(0.5);
-    let found = 0,
-      turn = 0.999;
+    found.length = 0;
     const touch = (triangle, t) => {
       triangle.closestPointToPoint(middle, near);
-      if (near.distanceTo(middle) > tolerance) return;
+      apart.subVectors(near, middle);
+      const distance = apart.length();
+      // The precision allowance along the direction to the triangle.
+      const rounding =
+        distance > 0
+          ? (Math.abs(apart.x) * sx +
+              Math.abs(apart.y) * sy +
+              Math.abs(apart.z) * sz) /
+            distance
+          : 0;
+      if (distance > contact + rounding) return;
       triangle.getNormal(normal);
-      if (!found) normal.toArray(normals, s * 6);
-      else {
-        const dot = normal.dot(first.fromArray(normals, s * 6));
-        if (dot < turn) {
-          turn = dot;
-          normal.toArray(normals, s * 6 + 3);
-        }
-      }
-      const source = sourceFaces ? sourceFaces[t] : t;
-      for (let k = 0; k < Math.min(found, stride); k++)
-        if (out[s * stride + k] === source) return;
-      if (found < stride) out[s * stride + found] = source;
-      else out[s * stride] = -2;
-      found++;
+      found.push({
+        distance,
+        rounding,
+        normal: normal.toArray(),
+        source: sourceFaces ? sourceFaces[t] : t,
+      });
     };
     if (geometry.boundsTree)
       geometry.boundsTree.shapecast({
-        intersectsBounds: (box) => box.distanceToPoint(middle) <= tolerance,
+        intersectsBounds: (box) => box.distanceToPoint(middle) <= reach,
         intersectsTriangle: (triangle, t) => void touch(triangle, t),
       });
     else
@@ -456,6 +526,29 @@ export function segmentSources(geometry, points, stride = 8) {
         scratch.c.fromBufferAttribute(position, at(2));
         touch(scratch, t);
       }
+    if (!found.length) continue;
+    // Nearest first.
+    found.sort((a, b) => a.distance - b.distance);
+    const nearest = found[0].distance;
+    first.fromArray(found[0].normal).toArray(normals, s * 6);
+    let turn = 0.999,
+      kept = 0;
+    for (const candidate of found) {
+      if (candidate.distance <= nearest + candidate.rounding) {
+        const dot = normal.fromArray(candidate.normal).dot(first);
+        if (dot < turn) {
+          turn = dot;
+          normal.toArray(normals, s * 6 + 3);
+        }
+      }
+      let seen = false;
+      for (let k = 0; k < Math.min(kept, stride); k++)
+        if (out[s * stride + k] === candidate.source) seen = true;
+      if (seen) continue;
+      if (kept < stride) out[s * stride + kept] = candidate.source;
+      else out[s * stride] = -2;
+      kept++;
+    }
   }
   return { sources: out, stride, normals };
 }
