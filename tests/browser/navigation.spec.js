@@ -368,16 +368,29 @@ test("navigation orthographic measuring and section caps use parallel picking ra
   await page.locator("#section-axis").selectOption("y");
   await page.locator("#section-flip").click();
   await clickControl(page, '[data-mode="orbit"]');
-  const cap = await project(page, [0, 0, 0]);
+  // Below the kept measurement: its label sits where the measured points
+  // project, the centre of this view, and covers that pixel whenever the
+  // front half is retained. A click there reaches the label, not the model.
+  const cap = await project(page, [0, -0.4, 0]);
   await page.mouse.move(cap.x, cap.y);
   await expect
     .poll(async () => (await state(page)).navigation.hoverFaces)
     .toBe(0);
   await clickControl(page, '[data-mode="label"]');
+  // The measured points are cut away with the front half, and so is the label.
+  await expect(page.locator(".measure-label")).toBeHidden();
   await page.mouse.click(cap.x, cap.y);
   await page.waitForTimeout(150);
   expect((await state(page)).annotationCount).toBe(1);
   await page.locator("#section-flip").click();
+  // Click what the restored frame shows, not the frame before it.
+  await expect(page.locator(".measure-label")).toBeVisible();
+  expect(
+    await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.tagName,
+      [cap.x, cap.y],
+    ),
+  ).toBe("CANVAS");
   await page.mouse.click(cap.x, cap.y);
   await expect.poll(async () => (await state(page)).annotationCount).toBe(2);
   await expect.poll(async () => (await state(page)).dirty).toBe(false);
