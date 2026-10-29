@@ -243,17 +243,23 @@ exploring. Ideas and requests are welcome in
 [Discussions](https://github.com/lzyling/meshcue/discussions).
 
 - **1.5.x** — maintenance releases: fixes, dependency updates and docs.
-- **1.6** — version tree: branch from any earlier version and keep the old
+- **1.6** — a smoother review: tool buttons start working on the first click
+  and open their menu on the second; the paint bucket moves into the pin menu;
+  explode opens fully at once; section caps are coloured per part; a mark's
+  note takes effect when you confirm it, and can be read on the mark itself in
+  the 3D view.
+- **1.7** — the agent can mark the model too: when it publishes a version it
+  can point at places with a note each, risks and questions on their own
+  layer, with replies in place. The rest of mechanical-assembly GLB support.
+- **1.8** — version tree: branch from any earlier version and keep the old
   line visible, with the agent told exactly which version to change. Feature
   recognition: holes (including counterbores and countersinks), slots, bosses
-  and fillets, so a mark can say what it is on.
-- **1.7** — the agent can mark the model too: risks and questions on their own
-  layer, with replies in place. Tangent-chain selection (a whole fillet in one
-  click), and the rest of mechanical-assembly GLB support.
-- **1.8** — joints and poses: drive revolute and sliding joints within their
+  and fillets, so a mark can say what it is on. Tangent-chain selection (a
+  whole fillet in one click).
+- **1.9** — joints and poses: drive revolute and sliding joints within their
   limits, switch named poses, mark a part in a pose, and see when parts
   collide.
-- **1.9** — simulation results: temperature, stress and similar values the
+- **1.10** — simulation results: temperature, stress and similar values the
   agent computes elsewhere, shown as colour on the model with a value wherever
   you point; emissive parts glow.
 - **Exploring** — server-side snapshots for the agent, closed-loop linkages,
