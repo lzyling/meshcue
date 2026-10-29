@@ -45,7 +45,7 @@ run(
   process.execPath,
   [
     "scripts/test-browser.mjs",
-    "tests/browser/review.spec.js",
+    "tests/browser/review-drafts.spec.js",
     "-g",
     "LAN HTTP",
   ],
