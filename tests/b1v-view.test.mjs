@@ -39,6 +39,7 @@ test("idle renders preserve the exact camera and pivot in both projections while
     );
     v.camera.lookAt(v.controls.target);
     let paints = 0;
+    v.scene = new THREE.Scene();
     v.renderer = { render: () => paints++ };
     for (const method of [
       "animateEcho",

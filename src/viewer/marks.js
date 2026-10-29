@@ -1,4 +1,5 @@
 import { sectionIntersection } from "../section.js";
+import { biasSurfaceLine } from "./line-depth.js";
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
@@ -355,9 +356,10 @@ export class MarksMethods {
           material = new LineMaterial({
             color: a.color || "#2e9e78",
             linewidth: 4,
-            depthTest: false,
+            depthTest: true,
             depthWrite: false,
           });
+          biasSurfaceLine(material);
           const r =
             this.frameRect?.() || this.container.getBoundingClientRect();
           material.resolution.set(r.width, r.height);
@@ -386,9 +388,10 @@ export class MarksMethods {
             color: a.color,
             transparent: true,
             opacity: 0.9,
-            depthTest: false,
+            depthTest: true,
           }),
         );
+        biasSurfaceLine(outline.material);
         this.clipMaterial(outline.material);
         outline.matrixAutoUpdate = false;
         outline.matrix.copy(mesh.matrixWorld);

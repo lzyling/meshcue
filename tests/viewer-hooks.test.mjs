@@ -12,6 +12,8 @@ test("frame hooks follow the existing render phases and mutate only the next hoo
     enableDamping: true,
     update: () => seen.push("controls"),
   };
+  viewer.scene = { updateMatrixWorld: () => seen.push("worldMatrices") };
+  viewer.updateNavigationProjection = () => seen.push("projection");
   viewer.renderer = { render: () => seen.push("render") };
   for (const name of [
     "animateEcho",
@@ -33,6 +35,8 @@ test("frame hooks follow the existing render phases and mutate only the next hoo
   const phases = [
     "controls",
     "animateEcho",
+    "worldMatrices",
+    "projection",
     "render",
     "reportOrientation",
     "placePins",

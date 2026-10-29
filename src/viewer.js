@@ -639,6 +639,10 @@ export class ModelViewer {
        in the way, it is simply not there. */
     if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
     this.animateEcho();
+    // Visibility and explosion transforms can change without moving the camera.
+    // Resolve their bounds before this draw, not in the post-render hooks.
+    this.scene.updateMatrixWorld(true);
+    this.updateNavigationProjection();
     this.renderer.render(this.scene, this.camera);
     this.renderCount = (this.renderCount || 0) + 1;
     this.reportOrientation();
