@@ -639,8 +639,10 @@ export class ModelViewer {
        in the way, it is simply not there. */
     if (this.grid) this.grid.visible = this.camera.position.y > this.gridY;
     this.animateEcho();
-    // Visibility and explosion transforms can change without moving the camera.
-    // Resolve their bounds before this draw, not in the post-render hooks.
+    // Resolve world matrices and the projection for this draw, not in the
+    // post-render hooks: a zoom changes near/far, visibility and explosion move
+    // meshes without moving the camera, and the face pass that decides which
+    // display edges show (viewer/line-visibility.js) reads both before drawing.
     this.scene.updateMatrixWorld(true);
     this.updateNavigationProjection();
     this.renderer.render(this.scene, this.camera);

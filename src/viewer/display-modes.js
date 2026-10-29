@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { biasSurfaceLine, biasLineSurface } from "./line-depth.js";
+import { LineVisibility, faceTestedLine } from "./line-visibility.js";
 import { edgeInputAsync } from "./edges.js";
 import { REVIEW_GREY } from "./shared.js";
 const PLAIN_DIFFUSE = new THREE.Color(REVIEW_GREY)
@@ -19,12 +19,26 @@ const cache = new Map();
 let cacheBytes = 0;
 const materials = (mesh) =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+// The face of each drawn triangle, in the identities its edges carry: the
+// file's B-rep face, else the crease-bounded patch from the edge worker. Review
+// subdivision maps each drawn triangle back to its source triangle.
+function triangleFaces(mesh, patches) {
+  const of = mesh.userData.fillTopology.brep?.of || patches;
+  const sources = mesh.geometry.userData.sourceFaces;
+  const count =
+    (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3;
+  const faces = new Uint32Array(count);
+  for (let t = 0; t < count; t++) faces[t] = of[sources ? sources[t] : t];
+  return faces;
+}
 
 export class DisplayModesMethods {
   initializeDisplayModes() {
     this.displayStyle = "edges";
     this.displayEdges = [];
     this.displayGeneration = 0;
+    this.lineVisibility = new LineVisibility();
+    if (this.scene) this.attachLineVisibility(this.scene, this.renderer);
     // Lifecycle wrapping is local to this feature so loading, section and
     // theme modules need no display-specific branches. Clear cancels pending
     // work before source geometry is freed; a late worker cannot attach lines
@@ -82,6 +96,37 @@ export class DisplayModesMethods {
         cacheHits: this.displayCacheHits || 0,
       },
     });
+  }
+  /* Display edges and object marks are drawn where their own faces are the
+     front surface (line-visibility.js). That needs one face-identity pass
+     before each colour pass; it runs from the scene's own pre-render callback,
+     so it follows the existing on-demand renders and draws nothing when no
+     face-tested line is visible. Its target follows the canvas size. */
+  attachLineVisibility(scene, renderer) {
+    this.lineVisibility ??= new LineVisibility();
+    const visibility = this.lineVisibility;
+    if (renderer) {
+      for (const name of ["setSize", "setPixelRatio"]) {
+        const original = renderer[name];
+        renderer[name] = function (...args) {
+          const result = original.apply(this, args);
+          visibility.resize(this);
+          return result;
+        };
+      }
+      visibility.resize(renderer);
+    }
+    const before = scene.onBeforeRender;
+    scene.onBeforeRender = (renderer, target, camera, renderTarget) => {
+      this.lineVisibility.render(
+        renderer,
+        camera,
+        renderTarget,
+        this.meshes || [],
+        this.section ? this.sectionCapGroup : null,
+      );
+      before.call(scene, renderer, target, camera, renderTarget);
+    };
   }
   setDisplayStyle(style) {
     if (!DISPLAY_STYLES.includes(style)) return;
@@ -165,7 +210,7 @@ export class DisplayModesMethods {
           };
           m.customProgramCacheKey = () => `display-xray-${!!this.neutral}`;
         }
-        return biasLineSurface(m);
+        return m;
       };
       mesh.material = Array.isArray(mesh.material)
         ? mesh.material.map(copy)
@@ -179,6 +224,9 @@ export class DisplayModesMethods {
         this.displayStyle === "wireframe"
           ? edge.userData.wire
           : edge.userData.feature;
+      // Wireframe surfaces hide nothing, as before: every edge is drawn.
+      if (edge.userData.lineFace)
+        edge.userData.lineFace.enabled = this.displayStyle !== "wireframe";
     }
     this.applySectionMaterials();
     if (this.displayEdges.length) this.updateDisplayEdgeColor();
@@ -260,22 +308,28 @@ export class DisplayModesMethods {
             "position",
             new THREE.BufferAttribute(array, 3),
           );
-        const feature = geometry(result.feature);
+        const feature = geometry(result.feature).setAttribute(
+          "lineFaces",
+          new THREE.BufferAttribute(result.faces, 2),
+        );
         const wire =
           result.wire === result.feature ? feature : geometry(result.wire);
         const material = this.clipMaterial(
-          new THREE.LineBasicMaterial({
-            color: 0x26343d,
-            depthWrite: false,
-            toneMapped: false,
-            fog: false,
-          }),
+          faceTestedLine(
+            new THREE.LineBasicMaterial({
+              color: 0x26343d,
+              toneMapped: false,
+              fog: false,
+            }),
+            this.lineVisibility,
+          ),
         );
-        biasSurfaceLine(material);
         const lines = new THREE.LineSegments(feature, material);
         lines.userData = { feature, wire };
         lines.renderOrder = 2;
         lines.raycast = () => {};
+        this.lineVisibility.setFaces(mesh, triangleFaces(mesh, result.patches));
+        this.lineVisibility.track(lines, mesh, "faces");
         mesh.add(lines);
         this.displayEdges.push(lines);
         this.displayBuildMs += result.buildMs;
@@ -296,6 +350,7 @@ export class DisplayModesMethods {
     this.displayWorker = this.cancelDisplayWorker = null;
     this.displayPending = false;
     this.restoreDisplayMaterials();
+    this.lineVisibility?.releaseAll();
     for (const edge of this.displayEdges) {
       edge.removeFromParent();
       edge.userData.feature.dispose();

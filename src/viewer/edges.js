@@ -55,18 +55,59 @@ export function extractEdges(
       }
     }
   }
+  // Face identity of every triangle, for the visibility pass that decides
+  // which face is in front (line-visibility.js): the file's B-rep face, or else
+  // the smooth patch enclosed by the selected crease and border edges, so a
+  // patch boundary is always a drawn edge. A patch is named by one of its own
+  // triangles, which keeps every identity below the mesh's triangle count.
+  let patches = null;
+  if (!faceIds) {
+    patches = new Int32Array(ids.length / 3);
+    for (let i = 0; i < patches.length; i++) patches[i] = i;
+    const root = (i) => {
+      while (patches[i] !== i) i = patches[i] = patches[patches[i]];
+      return i;
+    };
+    for (const first of edges.values()) {
+      if (selected[first]) continue;
+      for (let owner = next[first]; owner !== -1; owner = next[owner]) {
+        const a = root(Math.floor(first / 3)),
+          b = root(Math.floor(owner / 3));
+        if (a !== b) patches[Math.max(a, b)] = Math.min(a, b);
+      }
+    }
+    for (let i = 0; i < patches.length; i++) patches[i] = root(i);
+  }
+  const faceOf = faceIds || patches;
   let count = 0;
   for (const first of edges.values())
     if (selected[first] || next[first] === -1) count++;
   const feature = new Float32Array(count * 6);
+  // Both faces of each drawn edge, on both of its vertices (one face twice on
+  // a border). A non-manifold edge keeps the first face that differs.
+  const faces = new Float32Array(count * 4);
   // STEP wireframe follows file faces; triangle diagonals are intentionally
   // absent even where those triangles approximate a curved B-rep surface.
   const wire = faceIds ? feature : new Float32Array(edges.size * 6);
   let f = 0,
-    w = 0;
+    w = 0,
+    q = 0;
   for (const first of edges.values()) {
     const include = selected[first] || next[first] === -1;
     const b = first - (first % 3) + ((first + 1) % 3);
+    if (include) {
+      const own = faceOf[Math.floor(first / 3)];
+      let other = own;
+      for (let owner = next[first]; owner !== -1; owner = next[owner])
+        if (faceOf[Math.floor(owner / 3)] !== own) {
+          other = faceOf[Math.floor(owner / 3)];
+          break;
+        }
+      faces[q++] = own;
+      faces[q++] = other;
+      faces[q++] = own;
+      faces[q++] = other;
+    }
     for (const i of [first, b])
       for (let k = 0; k < 3; k++) {
         const value = positions[i * 3 + k];
@@ -77,8 +118,14 @@ export function extractEdges(
   return {
     feature,
     wire,
+    faces,
+    patches,
     buildMs: performance.now() - started,
-    bytes: feature.byteLength + (wire === feature ? 0 : wire.byteLength),
+    bytes:
+      feature.byteLength +
+      (wire === feature ? 0 : wire.byteLength) +
+      faces.byteLength +
+      (patches?.byteLength || 0),
   };
 }
 

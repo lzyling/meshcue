@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { surfaceLineNear } from "./line-depth.js";
 import { faceRegion } from "../face-region.js";
 import { planarFacesSteps } from "../planar-fill.js";
 import {
@@ -455,12 +454,7 @@ export class NavigationMethods {
     }
     const distance = camera.position.distanceTo(this.controls.target);
     const size = this.navigationSize || 3;
-    camera.near = surfaceLineNear(
-      camera,
-      this.meshes || [],
-      Math.max(size * 1e-6, distance * 1e-4),
-      distance * 0.01,
-    );
+    camera.near = Math.max(size * 1e-6, distance * 1e-4);
     camera.far = Math.max(size * 4, distance + size * 4);
     camera.updateProjectionMatrix();
   }

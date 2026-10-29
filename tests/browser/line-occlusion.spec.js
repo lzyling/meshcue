@@ -93,12 +93,17 @@ test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
     !process.env.LINE_MAC_EVIDENCE,
     "Local read-only STEP sample is not shipped",
   );
+  const field = [];
   for (const options of [
     { distance: 500, edge: true, name: "mac-front" },
     { distance: 500, edge: true, back: true, name: "mac-back" },
     { distance: 500, name: "mac-edges-500" },
     { distance: 1000, name: "mac-edges-1000" },
     { distance: 2000, name: "mac-edges-2000" },
+    // The field report's three-quarter view of the top right fillet.
+    { distance: 500, view: "field", name: "mac-field-500" },
+    { distance: 1000, view: "field", name: "mac-field-1000" },
+    { distance: 2000, view: "field", name: "mac-field-2000" },
   ]) {
     await page.goto(url);
     await page.waitForFunction(() => window.setupMac);
@@ -110,6 +115,11 @@ test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
     await page.screenshot({
       path: `tmp/evidence/${phase}/${options.name}.png`,
     });
+    if (options.view) field.push({ name: options.name, ...info });
+  }
+  for (const pose of field) {
+    expect(pose.total, pose.name).toBeGreaterThan(200);
+    expect(pose.fillet, pose.name).toBe(0);
   }
 });
 
@@ -126,16 +136,49 @@ for (const change of ["reveal", "explode"]) {
     expect(result.requests).toBe(0);
   });
 }
-/* Known issue in 1.5.2: behind a fillet at grazing angles a few rear-edge pixels
-   still show. Marked as expected to fail, not relaxed: when a fix lands this
-   turns red as an unexpected pass, and the marker comes off. */
-test.fail(
-  "grazing curved surface hides close rear edge without breaking visible edge",
-  async ({ page }) => {
+/* A rear edge 0.2 mm behind a cylinder seen at a grazing angle, and genuine
+   edges on the curved surface and on steep creases. Depth offsets could not do
+   both; face identity does. */
+test("grazing curved surface hides close rear edge without breaking visible edge", async ({
+  page,
+}) => {
+  await page.goto(url);
+  await page.waitForFunction(() => window.grazing);
+  const result = await page.evaluate(() => window.grazing());
+  expect(result.hidden).toBe(0);
+  expect(result.coverage).toBe(1);
+});
+
+/* Field case: an edge 0.015 mm behind a curved wall. No depth tolerance can
+   separate the two, so this checks that a line is drawn only where its own
+   faces are in front; with file faces and with crease-bounded mesh faces. */
+for (const projection of ["perspective", "orthographic"]) {
+  test(`thin non-concentric fillet hides cavity edges at every distance (${projection})`, async ({
+    page,
+  }) => {
     await page.goto(url);
-    await page.waitForFunction(() => window.grazing);
-    const result = await page.evaluate(() => window.grazing());
-    expect(result.hidden).toBe(0);
-    expect(result.coverage).toBe(1);
-  },
-);
+    await page.waitForFunction(() => window.fieldShell);
+    const results = [];
+    for (const brep of [true, false])
+      for (const distance of [500, 1000, 2000]) {
+        const result = await page.evaluate((o) => window.fieldShell(o), {
+          distance,
+          projection,
+          brep,
+        });
+        const name = `field-${brep ? "brep" : "mesh"}-${projection}-${distance}`;
+        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        results.push({ name, ...result });
+      }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/field-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results) {
+      expect(result.total, result.name).toBeGreaterThan(200);
+      expect(result.fillet, result.name).toBe(0);
+      expect(result.front, result.name).toBe(1);
+      expect(result.tangent, result.name).toBe(1);
+    }
+  });
+}
