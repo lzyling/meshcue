@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { biasSurfaceLine, biasLineSurface } from "./line-depth.js";
 import { edgeInputAsync } from "./edges.js";
 import { REVIEW_GREY } from "./shared.js";
 const PLAIN_DIFFUSE = new THREE.Color(REVIEW_GREY)
@@ -164,7 +165,7 @@ export class DisplayModesMethods {
           };
           m.customProgramCacheKey = () => `display-xray-${!!this.neutral}`;
         }
-        return m;
+        return biasLineSurface(m);
       };
       mesh.material = Array.isArray(mesh.material)
         ? mesh.material.map(copy)
@@ -270,15 +271,7 @@ export class DisplayModesMethods {
             fog: false,
           }),
         );
-        // Offset in clip depth, scaled by w: stable across perspective zoom,
-        // without pushing model surfaces back or moving source/pick geometry.
-        material.onBeforeCompile = (shader) => {
-          shader.vertexShader = shader.vertexShader.replace(
-            "#include <project_vertex>",
-            "#include <project_vertex>\ngl_Position.z -= 0.000001 * gl_Position.w;",
-          );
-        };
-        material.customProgramCacheKey = () => "display-edge-depth";
+        biasSurfaceLine(material);
         const lines = new THREE.LineSegments(feature, material);
         lines.userData = { feature, wire };
         lines.renderOrder = 2;
