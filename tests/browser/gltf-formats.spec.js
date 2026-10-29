@@ -177,11 +177,23 @@ for (const kind of ["draco", "meshopt", "quantized"]) {
       bracketGltf(kind === "quantized" ? "draco" : "quantized"),
     );
     ctl("publish", seeded, "--name", "Bracket", "--version", "seed");
+    // Meshopt's decoder, with the WASM it compiles on import, is fetched only
+    // for a model that needs it.
+    const meshoptFetched = () =>
+      page.evaluate(
+        () =>
+          performance
+            .getEntriesByType("resource")
+            .filter((entry) => /\/meshopt_decoder[^/]*\.js$/.test(entry.name))
+            .length,
+      );
     await publish(page, "plain");
+    expect(await meshoptFetched()).toBe(0);
     const plain = await screenshot(page, `${kind}-plain`);
     const plainPin = await pin(page);
     const plainManifest = await manifest(page);
     await publish(page, kind);
+    expect(await meshoptFetched()).toBe(kind === "meshopt" ? 1 : 0);
     const compressed = await screenshot(page, kind);
     const ratio = await difference(page, plain, compressed);
     expect(ratio).toBeLessThan(0.005);

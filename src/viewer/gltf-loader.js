@@ -5,7 +5,6 @@ import {
   InterleavedBufferAttribute,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import dracoUrl from "../../server/gltf-vendor/draco_decoder.cjs?url";
 
 // Draco primitives decode with the identical vendored JavaScript decoder the
@@ -13,8 +12,7 @@ import dracoUrl from "../../server/gltf-vendor/draco_decoder.cjs?url";
 // needs no eval permission. three's DRACOLoader can only be held to its JS
 // decoder through a deprecated option, and its default WASM paths make the
 // bundler emit decoders that are never used, so GLTFLoader gets this small
-// adapter instead. Meshopt embeds its own WASM. One shared pool bounds the
-// page's decoder workers.
+// adapter instead. One shared pool bounds the page's decoder workers.
 class VendoredDracoDecoder {
   constructor(workerLimit) {
     this.workerLimit = workerLimit;
@@ -124,9 +122,25 @@ function geometryFrom({ index, attributes }) {
   return geometry;
 }
 
+// Meshopt embeds its own WASM and compiles it as soon as its module is
+// evaluated. Few models use it, so the module is fetched from the local
+// bundle, and compiled, only when a model carries EXT_meshopt_compression.
+let meshopt;
+const lazyMeshopt = {
+  supported: typeof WebAssembly === "object",
+  decodeGltfBufferAsync(...args) {
+    meshopt ||= import("three/addons/libs/meshopt_decoder.module.js").then(
+      ({ MeshoptDecoder }) => MeshoptDecoder,
+      (error) => {
+        meshopt = null;
+        throw error;
+      },
+    );
+    return meshopt.then((decoder) => decoder.decodeGltfBufferAsync(...args));
+  },
+};
+
 const draco = new VendoredDracoDecoder(2);
 export function createGltfLoader() {
-  return new GLTFLoader()
-    .setDRACOLoader(draco)
-    .setMeshoptDecoder(MeshoptDecoder);
+  return new GLTFLoader().setDRACOLoader(draco).setMeshoptDecoder(lazyMeshopt);
 }
