@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { cacheRelease } from "../integration/release.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -121,6 +122,111 @@ test("the workflow asks for the skip rather than relying on a bare runner", () =
     "utf8",
   );
   assert.match(workflow, /MESHCUE_SKIP_HOST_BUILD:\s*"1"/);
+});
+
+/* MIT, ISC and BSD ask that the copyright line and the licence text travel with
+   every copy, and a minified bundle keeps neither: Vite strips every comment,
+   three's `@license` line with the rest, and esbuild's bundles never had them.
+   So each bundle has a THIRD_PARTY_LICENSES.md beside it, written from the
+   modules the bundler included. Pinned here for the packages each one is known
+   to fold in, text and all, so a build that stops writing the file, writes it
+   empty, or credits meshoptimizer's decoder to three, is caught. The web build
+   is the same Vite build npm ships as dist/. */
+test("every bundle carries the licences of the packages folded into it", (t) => {
+  const out = candidate(t, "ci-licences");
+  build(out, { MESHCUE_SKIP_HOST_BUILD: "1" });
+  const pkg = path.join(repo, out);
+  const own = (dir) => {
+    const name = fs
+      .readdirSync(dir)
+      .sort()
+      .find((file) => /^(licen[cs]e|copying)/i.test(file));
+    return fs.readFileSync(path.join(dir, name), "utf8").trim();
+  };
+  const npm = (name) => {
+    const dir = path.join(repo, "node_modules", name);
+    const { version } = JSON.parse(
+      fs.readFileSync(path.join(dir, "package.json"), "utf8"),
+    );
+    return { name, version, text: own(dir) };
+  };
+  const decoder = fs.readFileSync(
+    path.join(
+      repo,
+      "node_modules/three/examples/jsm/libs/meshopt_decoder.module.js",
+    ),
+    "utf8",
+  );
+  const meshopt = {
+    name: "meshoptimizer",
+    version: decoder.match(/Built from meshoptimizer ([\d.]+)/)[1],
+    text: fs
+      .readFileSync(
+        path.join(repo, "server/gltf-vendor/LICENSE.meshopt.txt"),
+        "utf8",
+      )
+      .trim(),
+  };
+  assert.match(meshopt.text, /Copyright \(c\) 2016-2026 Arseny Kapoulkine/);
+  const expected = {
+    "web/THIRD_PARTY_LICENSES.md": [
+      npm("three"),
+      npm("three-mesh-bvh"),
+      npm("@noble/hashes"),
+      meshopt,
+    ],
+    "THIRD_PARTY_LICENSES.md": [
+      npm("three"),
+      npm("express"),
+      npm("zod"),
+      npm("image-size"),
+      meshopt,
+    ],
+  };
+  for (const [file, packages] of Object.entries(expected)) {
+    const notice = fs.readFileSync(path.join(pkg, file), "utf8");
+    for (const { name, version, text } of packages) {
+      const at = notice.indexOf(`\n### ${name} ${version} (`);
+      assert.ok(at >= 0, `${file} must list ${name} ${version}`);
+      const next = notice.indexOf("\n#", at + 1);
+      assert.ok(
+        notice.slice(at, next < 0 ? undefined : next).includes(text),
+        `${file} must carry the licence text of ${name} under its own heading`,
+      );
+    }
+  }
+  // An installed package does not run from here: each project runs its own
+  // cached copy, which outlives an install root the host replaces. The notice
+  // for the server's bundled code has to be in that copy, not only here.
+  const runtime = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-ci-cache-"));
+  t.after(() => fs.rmSync(runtime, { recursive: true, force: true }));
+  const release = cacheRelease(pkg, runtime);
+  for (const file of Object.keys(expected))
+    assert.deepEqual(
+      fs.readFileSync(path.join(release.root, file)),
+      fs.readFileSync(path.join(pkg, file)),
+      `the release a project runs carries ${file}`,
+    );
+  // The meshopt chunk is in the web build at all, so its entry is not padding.
+  assert.ok(
+    fs
+      .readdirSync(path.join(pkg, "web/assets"))
+      .some((name) => name.startsWith("meshopt_decoder")),
+  );
+  // The icons and adapted code are not npm packages; the web app carries their
+  // hand-kept notices as well.
+  const web = fs.readFileSync(
+    path.join(pkg, "web/THIRD_PARTY_LICENSES.md"),
+    "utf8",
+  );
+  assert.match(web, /### Lucide icons[\s\S]*Copyright \(c\) 2026 Lucide Icons/);
+  assert.match(web, /Copyright \(c\) 2013-present Cole Bemis/);
+  assert.ok(
+    JSON.parse(
+      fs.readFileSync(path.join(repo, "package.json"), "utf8"),
+    ).files.includes("dist/"),
+    "npm and github: installs ship dist/ and the licence file inside it",
+  );
 });
 
 /* The one class of failure the rest of the suite cannot see. Everything else

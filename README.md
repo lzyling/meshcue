@@ -154,8 +154,8 @@ optional release update check when working offline.
 For development, run the suites after `npm run samples`:
 
 ```sh
-npm test             # 608 unit and integration tests
-npm run test:browser # 334 real-Chromium tests, isolated port and data
+npm test             # 611 unit and integration tests
+npm run test:browser # 336 real-Chromium tests, isolated port and data
 ```
 
 Work happens on `dev`; `main` is what has been released, and is only ever
@@ -277,6 +277,10 @@ exploring. Ideas and requests are welcome in
 Apache-2.0. See [LICENSE](LICENSE).
 When using or redistributing MeshCue, retain [NOTICE](NOTICE) as required by
 Apache-2.0 Section 4(d).
+Third-party code folded into the built files keeps its own licence: each
+bundle has a `THIRD_PARTY_LICENSES.md` beside it, written by the build from the
+modules it included, and code copied into the sources is listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 STEP support is the one part that is not ours. Reading a STEP means evaluating
 its surfaces, which MeshCue does with

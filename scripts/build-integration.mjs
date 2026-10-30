@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { execOpenClawSync } from "../server/openclaw-command.mjs";
 import { build } from "esbuild";
 import { i18nBundlePlugin } from "./i18n-bundle.mjs";
+import { LICENSE_FILE, licenseFile } from "./third-party-licenses.mjs";
 import { DOC_FILES } from "../integration/manager.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,7 +35,16 @@ const banner = {
 const pluginManifest = JSON.parse(
   fs.readFileSync(path.join(repo, "adapters/openclaw/package.json"), "utf8"),
 );
-await build({
+/* Every bundle below folds npm packages into one file, and the licences that
+   came with them stay behind in node_modules. esbuild's record of what each
+   bundle read is the list of what the package owes a notice for. */
+const bundledModules = new Set();
+async function bundle(options) {
+  const result = await build({ ...options, metafile: true });
+  for (const input of Object.keys(result.metafile.inputs))
+    bundledModules.add(path.resolve(input));
+}
+await bundle({
   entryPoints: [path.join(repo, "server/index.mjs")],
   outfile: path.join(out, "runtime/server.mjs"),
   bundle: true,
@@ -48,7 +58,7 @@ await build({
    started from `new URL("./step-child.mjs", import.meta.url)`, and inside the
    bundle that URL is `runtime/`. Bundled rather than copied because the child
    imports the converter, which in a package has no node_modules to find. */
-await build({
+await bundle({
   entryPoints: [path.join(repo, "server/step-child.mjs")],
   outfile: path.join(out, "runtime/step-child.mjs"),
   bundle: true,
@@ -58,7 +68,7 @@ await build({
   target: "node22",
   banner,
 });
-await build({
+await bundle({
   entryPoints: [path.join(repo, "scripts/reviewctl.mjs")],
   outfile: path.join(out, "scripts/reviewctl.mjs"),
   bundle: true,
@@ -68,7 +78,7 @@ await build({
   target: "node22",
   banner,
 });
-await build({
+await bundle({
   entryPoints: [path.join(repo, "adapters/openclaw/index.mjs")],
   outfile: path.join(out, "index.mjs"),
   bundle: true,
@@ -89,7 +99,7 @@ await build({
    is bundled like the adapter; and it is marked packaged, so a review runs
    from the verified per-project copy of runtime/ and web/ rather than from
    files the host deletes when it replaces the package. */
-await build({
+await bundle({
   entryPoints: [path.join(repo, "mcp/server.mjs")],
   outfile: path.join(out, "mcp/server.mjs"),
   bundle: true,
@@ -116,6 +126,16 @@ execFileSync(
     stdio: "pipe",
     env: { ...process.env, MESHCUE_VERSION: pluginManifest.version },
   },
+);
+// The web app writes its own beside itself (web/THIRD_PARTY_LICENSES.md, from
+// vite.config.js); this one is for the bundles above.
+fs.writeFileSync(
+  path.join(out, LICENSE_FILE),
+  licenseFile([...bundledModules], {
+    scope:
+      "The bundled service, plugin entry, MCP server and review script (index.mjs, runtime/, mcp/, scripts/)",
+    footer: `The web app in \`web/\` lists what it bundles in \`web/${LICENSE_FILE}\`. The libraries in \`vendor/\` are separate files with their licence texts beside them.`,
+  }).text,
 );
 /* The tessellator travels as two files rather than inside a bundle, and that is
    the whole point of the arrangement. It is LGPL; this package is Apache-2.0.
@@ -258,7 +278,7 @@ if (skillExport) {
 // copy -- which is exactly how the adapter package named four documents and
 // carried two. Read the output back instead: this is the one statement that
 // knows what was written rather than what was intended.
-for (const name of ["LICENSE", "NOTICE"])
+for (const name of ["LICENSE", "NOTICE", LICENSE_FILE, `web/${LICENSE_FILE}`])
   if (!fs.existsSync(path.join(out, name)))
     throw new Error(`The package is missing ${name}.`);
 for (const [key, relative] of Object.entries(DOC_FILES)) {

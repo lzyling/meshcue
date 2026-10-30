@@ -328,6 +328,55 @@ for (const projection of ["perspective", "orthographic"]) {
     }
   });
 
+  /* Known limitation, kept as a test of what should happen. The same roof
+     narrowed to a strip a fraction of a pixel wide on both sides: still
+     double-sided, still open, still turned away on both sides and in plain
+     sight, so its ridge mark should be drawn whole. It is not. A line seen
+     from behind its double-sided faces is shown only where a pixel's front
+     surface is one of its own faces, and two panels this thin cover almost
+     no pixel centre, so the edge mark breaks up (0.0003) or vanishes
+     (0.0001, orthographic). Fixing it needs another way to sample whether a
+     sub-pixel face is in front, not a looser tolerance. The part outline of
+     the same strip, and display edges, are unaffected, and that much is
+     asserted outright before the case is marked as expected to fail, so a
+     fixture that stops rendering fails for real rather than as expected.
+     When the edge mark is fixed this starts passing, Playwright reports
+     that, and the marking comes off. */
+  test(`double-sided marks on a sub-pixel open strip seen from behind stay whole (${projection})`, async ({
+    page,
+  }) => {
+    await page.goto(url);
+    await page.waitForFunction(() => window.backRoof);
+    const results = [];
+    for (const width of [0.0003, 0.0001])
+      for (const kind of ["edge", "part"]) {
+        const result = await page.evaluate((o) => window.backRoof(o), {
+          projection,
+          kind,
+          width,
+        });
+        results.push({
+          name: `narrow-roof-${projection}-${kind}-${width}`,
+          kind,
+          ...result,
+        });
+      }
+    fs.writeFileSync(
+      `tmp/evidence/${phase}/narrow-roof-${projection}.json`,
+      JSON.stringify(results, null, 2),
+    );
+    for (const result of results.filter((r) => r.kind === "part")) {
+      expect(result.total, result.name).toBeGreaterThan(200);
+      expect(result.coverage, result.name).toBe(1);
+    }
+    test.fail(
+      true,
+      "Known limitation: edge marks on a double-sided open strip whose faces are both turned away and both narrower than a pixel break up or vanish.",
+    );
+    for (const result of results.filter((r) => r.kind === "edge"))
+      expect(result.coverage, result.name).toBeGreaterThan(0.95);
+  });
+
   /* The same part stored at coordinates far from its origin, the mesh moved
      back to the same place: nothing in the world differs, so neither may
      what is drawn. Finding a segment's faces must not count the distance
