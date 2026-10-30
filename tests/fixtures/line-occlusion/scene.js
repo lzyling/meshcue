@@ -972,26 +972,29 @@ window.thinMark = async ({
 
 /* An open, double-sided roof seen from below: two panels meeting at a ridge,
    both turned away from the eye, so every mark on the ridge is seen from
-   behind its own faces. Nothing hides it; it must be drawn whole. */
+   behind its own faces. Nothing hides it; it must be drawn whole. `width`
+   narrows both panels to a strip of that cross-section under the same ridge
+   (1, the default, is the full roof). */
 window.backRoof = async ({
   kind = "edge",
   projection = "perspective",
   faces = "brep",
   eye = [3, -5, 2],
+  width = 1,
 } = {}) => {
   for (const child of [...scene.children])
     if (child !== marks) scene.remove(child);
   marks.clear();
   context.meshMap.clear();
   context.displayEdges = [];
-  // Ridge along x at y = 1; panels down to z = +1 and z = -1 at y = 0,
-  // wound so their normals point up and out.
+  // Ridge along x at y = 1; panels down to z = +width and z = -width at
+  // y = 1 - width, wound so their normals point up and out.
   const r0 = [-2, 1, 0],
     r1 = [2, 1, 0],
-    a0 = [-2, 0, 1],
-    a1 = [2, 0, 1],
-    b0 = [-2, 0, -1],
-    b1 = [2, 0, -1];
+    a0 = [-2, 1 - width, width],
+    a1 = [2, 1 - width, width],
+    b0 = [-2, 1 - width, -width],
+    b1 = [2, 1 - width, -width];
   const geometry = new THREE.BufferGeometry().setAttribute(
     "position",
     new THREE.Float32BufferAttribute(
@@ -1018,7 +1021,10 @@ window.backRoof = async ({
   context.meshMap.set(roof.userData.reviewId, roof);
   scene.add(roof);
   context.meshes = [roof];
-  context.model = { sha256: `back-roof-${faces}` };
+  // Display edges are cached by model, so a narrowed roof is another model.
+  context.model = {
+    sha256: `back-roof-${faces}${width === 1 ? "" : `-${width}`}`,
+  };
   if (faces === "mesh") {
     await context.buildDisplayEdges();
     if (context.displayError) throw new Error(context.displayError);
