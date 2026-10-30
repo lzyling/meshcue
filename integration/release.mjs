@@ -57,6 +57,12 @@ export function cacheRelease(installRoot, runtime) {
     // child -- so they are listed with the server rather than treated as
     // optional extras.
     "runtime/step-child.mjs",
+    // The licences of the third-party code bundled into the server above. MIT,
+    // ISC and BSD ask for them to travel with every copy, and this copy is the
+    // one that runs -- after the host may have replaced or removed the install
+    // root that held the original. Required like the server it describes: a
+    // package without it is a broken build, not one to run without its notices.
+    "THIRD_PARTY_LICENSES.md",
     ...files(path.join(installRoot, present(installRoot, "vendor"))).map((p) =>
       path.posix.join("vendor", p),
     ),

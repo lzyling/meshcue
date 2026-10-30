@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { cacheRelease } from "../integration/release.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -194,6 +195,18 @@ test("every bundle carries the licences of the packages folded into it", (t) => 
       );
     }
   }
+  // An installed package does not run from here: each project runs its own
+  // cached copy, which outlives an install root the host replaces. The notice
+  // for the server's bundled code has to be in that copy, not only here.
+  const runtime = fs.mkdtempSync(path.join(os.tmpdir(), "meshcue-ci-cache-"));
+  t.after(() => fs.rmSync(runtime, { recursive: true, force: true }));
+  const release = cacheRelease(pkg, runtime);
+  for (const file of Object.keys(expected))
+    assert.deepEqual(
+      fs.readFileSync(path.join(release.root, file)),
+      fs.readFileSync(path.join(pkg, file)),
+      `the release a project runs carries ${file}`,
+    );
   // The meshopt chunk is in the web build at all, so its entry is not padding.
   assert.ok(
     fs

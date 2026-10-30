@@ -40,6 +40,10 @@ function fixture(t, { id = "meshcue", extra = {} } = {}) {
   write("vendor/package.json", JSON.stringify({ type: "commonjs" }));
   write("vendor/LICENSE.occt.txt", "LGPL-2.1\n");
   write("AGENT-INTERFACE.md", "# interface\n");
+  write(
+    "THIRD_PARTY_LICENSES.md",
+    "# Third-party licences\n\n### express 0.0.0 (MIT)\n",
+  );
   write("web/index.html", "<!doctype html><title>MeshCue</title>");
   write("web/assets/app.js", "console.log(1);\n");
   for (const [relative, content] of Object.entries(extra))
@@ -157,6 +161,7 @@ test("a package missing a part it needs says so rather than throwing ENOENT", (t
     "web",
     "runtime/step-child.mjs",
     "AGENT-INTERFACE.md",
+    "THIRD_PARTY_LICENSES.md",
   ]) {
     const f = fixture(t);
     fs.rmSync(path.join(f.install, missing), { recursive: true });
@@ -165,6 +170,91 @@ test("a package missing a part it needs says so rather than throwing ENOENT", (t
       message: `The package has no ${missing}; nothing was started.`,
     });
   }
+});
+
+/* The server a project runs is the copy in its release cache, and that copy
+   folds in express, qs, zod and the rest. Their licences ask to travel with
+   every copy; the notice that lists them was written at the package root and
+   left behind, so the code that actually ran had none of them beside it. */
+test("a release carries the licences of the code it runs", (t) => {
+  const f = fixture(t);
+  const release = cacheRelease(f.install, f.runtime);
+  const notice = "THIRD_PARTY_LICENSES.md";
+  assert.deepEqual(
+    fs.readFileSync(path.join(release.root, notice)),
+    fs.readFileSync(path.join(f.install, notice)),
+    "the cached copy carries the package's notice, byte for byte",
+  );
+
+  // It is part of the identity: a package with a different notice is a
+  // different release, not a reuse of this one.
+  const reworded = fixture(t);
+  reworded.write(
+    notice,
+    "# Third-party licences\n\n### qs 0.0.0 (BSD-3-Clause)\n",
+  );
+  assert.notEqual(
+    cacheRelease(reworded.install, reworded.runtime).id,
+    release.id,
+  );
+
+  // And verified like the code beside it: one edited in the cache is refused.
+  fs.writeFileSync(path.join(release.root, notice), "# nothing to see\n");
+  assert.throws(() => cachedRelease(f.runtime, release.id), {
+    code: "CACHE_CHANGED",
+  });
+  assert.throws(() => cacheRelease(f.install, f.runtime), {
+    code: "CACHE_CHANGED",
+  });
+});
+
+/* A project that ran a release from before the notice was cached has a release
+   directory without it, and that is still the release it rolls back to. Adding
+   a file changes the identity, so the new package lands in its own directory
+   and the old one is neither rejected nor rewritten. */
+test("a release cached before the notice still verifies and is left alone", (t) => {
+  const f = fixture(t);
+  const legacyFiles = [
+    "runtime/server.mjs",
+    "runtime/step-child.mjs",
+    "AGENT-INTERFACE.md",
+    "package.json",
+    "vendor/occt-import-js.js",
+    "vendor/occt-import-js.wasm",
+    "vendor/package.json",
+    "vendor/LICENSE.occt.txt",
+    "web/index.html",
+    "web/assets/app.js",
+  ].sort();
+  const digest = crypto.createHash("sha256");
+  for (const relative of legacyFiles)
+    digest
+      .update(relative)
+      .update("\0")
+      .update(fs.readFileSync(path.join(f.install, relative)));
+  const legacy = digest.digest("hex");
+  for (const relative of legacyFiles) {
+    const target = path.join(f.runtime, "releases", legacy, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(f.install, relative), target);
+  }
+  assert.equal(cachedRelease(f.runtime, legacy).id, legacy);
+
+  const current = cacheRelease(f.install, f.runtime);
+  assert.notEqual(current.id, legacy);
+  assert.equal(
+    fs.existsSync(path.join(current.root, "THIRD_PARTY_LICENSES.md")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(f.runtime, "releases", legacy, "THIRD_PARTY_LICENSES.md"),
+    ),
+    false,
+    "the older release is not rewritten",
+  );
+  // Still a valid rollback target after the new one is cached.
+  assert.equal(cachedRelease(f.runtime, legacy).id, legacy);
 });
 
 test("a bundled skill is part of the package identity, not a loose file", (t) => {
@@ -260,6 +350,7 @@ test("release identity uses slash paths and matches the 1.4.1 POSIX algorithm", 
     "runtime/server.mjs",
     "runtime/step-child.mjs",
     "AGENT-INTERFACE.md",
+    "THIRD_PARTY_LICENSES.md",
     "package.json",
     "vendor/occt-import-js.js",
     "vendor/occt-import-js.wasm",
