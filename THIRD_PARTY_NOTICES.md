@@ -1,5 +1,20 @@
 # Third-party notices
 
+This file covers third-party code copied into MeshCue's own sources. The npm
+packages folded into the built files are listed, with their licence texts, in
+`THIRD_PARTY_LICENSES.md`, which the build writes from the modules it actually
+bundled:
+
+- `dist/THIRD_PARTY_LICENSES.md` for the web app, which also repeats the
+  sections below. The npm package ships it inside `dist/`, and the OpenClaw and
+  Claude Code package as `web/THIRD_PARTY_LICENSES.md`.
+- `THIRD_PARTY_LICENSES.md` at the root of the OpenClaw and Claude Code package
+  for its bundled service, plugin entry and MCP server.
+
+An npm or clone install runs the service from source, and its dependencies keep
+their own licence files in `node_modules`. The libraries in the package's
+`vendor/` directory are separate files with their licences beside them.
+
 ## Lucide icons
 
 Toolbar icons and the Parts tab use SVG paths from [Lucide](https://lucide.dev),
@@ -54,7 +69,7 @@ SOFTWARE.
 
 ## Draco decoder
 
-The offline glTF Draco decoder in `server/gltf-vendor/draco_decoder.cjs` is from Google LLC, distributed with Three.js under Apache-2.0. The implementation is unchanged; its prepended license and `LICENSE.draco.txt` retain the upstream appendix template. See `server/gltf-vendor/README.md` for provenance and packaging.
+The offline glTF Draco decoder in `server/gltf-vendor/draco_decoder.cjs` is from Google LLC, distributed with Three.js under Apache-2.0. The implementation is unchanged; its prepended license and `LICENSE.draco.txt` retain the upstream appendix template. The browser copy (`assets/draco_decoder-*.js`) is the same bytes and so begins with the full Apache-2.0 text. See `server/gltf-vendor/README.md` for provenance and packaging.
 
 ## three.js
 

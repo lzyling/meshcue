@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
+import { LICENSE_FILE, licenseFile } from "./scripts/third-party-licenses.mjs";
 
 // One source for the version the user sees. The packaging step overrides it
 // with the plugin's own version so a shipped bundle cannot advertise the
@@ -9,8 +10,48 @@ const version =
   JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"))
     .version;
 
+/* What the minified bundle no longer says about the code inside it is written
+   beside it, as THIRD_PARTY_LICENSES.md at the top of the output. Vite's own
+   `build.license` would write a similar file, but it lists only the main
+   bundle's chunks, so a dependency reached only from a worker would go
+   unlisted, and it credits a library one package carries for another (three's
+   copy of the meshoptimizer decoder) to the carrier. The service serves the
+   output directory as it is, so the file is also readable next to the code the
+   browser downloads; that is the copy the licences ask it to accompany. */
+const workerModules = new Set();
+const modulesOf = (bundle) =>
+  Object.values(bundle).flatMap((chunk) =>
+    chunk.type === "chunk" ? chunk.moduleIds : [],
+  );
+const thirdPartyLicenses = {
+  name: "meshcue-third-party-licenses",
+  apply: "build",
+  generateBundle(_, bundle) {
+    this.emitFile({
+      type: "asset",
+      fileName: LICENSE_FILE,
+      source: licenseFile([...workerModules, ...modulesOf(bundle)], {
+        scope: "This web app",
+        copied: true,
+      }).text,
+    });
+  },
+};
+
 export default defineConfig({
   define: { __MESHCUE_VERSION__: JSON.stringify(version) },
+  plugins: [thirdPartyLicenses],
+  // Workers are bundled on their own, ahead of the page that starts them.
+  worker: {
+    plugins: () => [
+      {
+        name: "meshcue-worker-modules",
+        generateBundle(_, bundle) {
+          for (const id of modulesOf(bundle)) workerModules.add(id);
+        },
+      },
+    ],
+  },
   base: "./",
   server: { proxy: { "/api": "http://127.0.0.1:43173" } },
   build: {
