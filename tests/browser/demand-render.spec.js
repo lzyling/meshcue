@@ -21,8 +21,9 @@ const draws = (page) =>
    here one frame over, every time, after Shift+1. So the check waits until
    nothing has been drawn for QUIET, gives up and fails if that has not
    happened within SETTLE_LIMIT, and only then holds the canvas to not one
-   frame for STILL. A canvas that never stops drawing fails at the limit; one
-   that wakes itself less often than QUIET fails the still window. */
+   frame for STILL. A canvas that never stops drawing fails at the limit, and
+   any frame inside the still window fails it; a canvas that wakes itself less
+   often than every STILL can still slip between the two reads. */
 const QUIET = 500,
   SETTLE_LIMIT = 5000,
   STILL = 1100;
