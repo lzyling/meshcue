@@ -12,10 +12,49 @@ test.beforeEach(async () => {
 test.afterEach(async () => environment?.stop());
 const draws = (page) =>
   page.evaluate(() => window.__reviewDiagnostics().viewer.renderCount);
+/* What a change is allowed to draw before the canvas has to sleep. A view
+   preset is a 300ms animation, and its last step asks for one more frame
+   (src/viewer/navigation.js); a pin's precise occlusion check put off during
+   motion comes back up to 80ms later for one more (src/viewer/marks.js). Each
+   of those frames waits for the one before it, so under SwiftShader on a
+   shared runner the last of them can land well past a fixed 500ms: CI failed
+   here one frame over, every time, after Shift+1. So the check waits until
+   nothing has been drawn for QUIET, gives up and fails if that has not
+   happened within SETTLE_LIMIT, and only then holds the canvas to not one
+   frame for STILL. A canvas that never stops drawing fails at the limit, and
+   any frame inside the still window fails it; a canvas that wakes itself less
+   often than every STILL can still slip between the two reads. */
+const QUIET = 500,
+  SETTLE_LIMIT = 5000,
+  STILL = 1100;
 async function idle(page) {
-  await page.waitForTimeout(500);
+  const settle = await page.evaluate(
+    async ({ quiet, limit }) => {
+      const count = () => window.__reviewDiagnostics().viewer.renderCount;
+      const start = performance.now(),
+        first = count();
+      let last = first,
+        drawnAt = start;
+      while (performance.now() - drawnAt < quiet) {
+        if (performance.now() - start > limit)
+          return { settled: false, frames: count() - first };
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const now = count();
+        if (now !== last) {
+          last = now;
+          drawnAt = performance.now();
+        }
+      }
+      return { settled: true, frames: last - first };
+    },
+    { quiet: QUIET, limit: SETTLE_LIMIT },
+  );
+  expect(
+    settle.settled,
+    `the canvas drew ${settle.frames} frame(s) in ${SETTLE_LIMIT}ms and never went ${QUIET}ms without one`,
+  ).toBe(true);
   const before = await draws(page);
-  await page.waitForTimeout(1100);
+  await page.waitForTimeout(STILL);
   expect(await draws(page)).toBe(before);
 }
 test("stationary canvas sleeps, mutations wake it, and the performance panel does not spin", async ({
