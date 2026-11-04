@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { latestVersion, viewingBehindLatest } from "../src/versions.js";
 
-/* Every number here is real. They are the published versions of one XR camera
-   housing review on 2026-09-13, in which the Agent published seventeen versions
-   and activated none of them after the first exploded view. `active` stayed on
-   bca341d1 — 12:58 — while the reviewer worked his way to v0.9 at 17:41, and
-   for all seventeen the page told him he was looking at an earlier version and
-   offered to send him back to 12:58. Nothing failed; it just read backwards. */
+/* Every number here is real. They are the published versions of one review
+   session, in which the Agent published seventeen versions and activated none
+   of them after the first exploded view. `active` stayed on bca341d1 — 12:58 —
+   while the reviewer worked their way to v0.9 at 17:41, and for all seventeen
+   the page said they were looking at an earlier version and offered to send
+   them back to 12:58. Nothing failed; it just read backwards. */
 const REVIEW = [
   { id: "cf45f837", version: "v0.1", publishedAt: 1789273436879 },
   { id: "bca341d1", version: "v0.1-exploded-01", publishedAt: 1789275483132 },

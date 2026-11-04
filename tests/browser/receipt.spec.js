@@ -177,7 +177,7 @@ test("where nothing can push to the Agent, the page says so and hands over the s
   const sentence = `我在 MeshCue 交了 1 个标记，请用 meshcue read 读取：submissionId ${receipt.id}`;
   await expect(page.locator("#receipt-line")).toHaveText(sentence);
   await page.screenshot({
-    path: path.join(dir, "2026-09-29-receipt-zh-wide.png"),
+    path: path.join(dir, "receipt-zh-wide.png"),
   });
   await page.locator("#receipt-copy").click();
   await expect(page.locator("#receipt-copy")).toHaveText("已复制");
@@ -238,7 +238,7 @@ test("the sentence copies without the clipboard API, and fits a narrow host pane
   });
   expect(inside).toEqual([true, true, true]);
   await page.screenshot({
-    path: path.join(dir, "2026-09-29-receipt-zh-narrow.png"),
+    path: path.join(dir, "receipt-zh-narrow.png"),
   });
   await page.locator("#receipt-copy").click();
   await expect(page.locator("#receipt-copy")).toHaveText("已复制");

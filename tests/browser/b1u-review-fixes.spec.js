@@ -5,8 +5,8 @@ import { clickControl, selectSetting, showParts } from "./r12-b-helpers.mjs";
 import fs from "node:fs";
 import * as THREE from "three";
 
-/* Follow-ups from the b1u integration review (2026-10-06). Each test pins one
-   of the five points so a later change cannot quietly bring it back. */
+/* Follow-ups from an integration review. Each test pins one of the five
+   points so a later change cannot quietly bring it back. */
 const evidence = "tmp/b1u-fix/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
