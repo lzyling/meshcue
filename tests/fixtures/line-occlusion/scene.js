@@ -12,8 +12,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(800, 800);
 renderer.setClearColor(0xffffff);
 document.body.append(renderer.domElement);
-// Drawing-buffer pixels per side. The suite runs at 800 x 800, ratio 1; local
-// evidence on other ratios and sizes resizes through canvasSize.
+// Drawing-buffer pixels per side. The suite runs at 800 x 800, ratio 1; a
+// manual check on other ratios and sizes resizes through canvasSize.
 let SIZE = 800,
   CSS = 800;
 window.canvasSize = (css, ratio = 1) => {
@@ -199,126 +199,6 @@ window.probe = () => {
     total,
     coverage: covered / 99,
     depthBits: gl.getParameter(gl.DEPTH_BITS),
-  };
-};
-
-// Optional local-only evidence input; the licensed project sample is not a
-// repository fixture and is never required by the regression suite.
-window.setupMac = async ({
-  distance = 500,
-  back = false,
-  edge = false,
-  view = null,
-  projection = "perspective",
-} = {}) => {
-  const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
-  const { brepTopology } = await import("../../../src/measure.js");
-  const gltf = await new GLTFLoader().loadAsync("/tmp/evidence/macmini.glb");
-  gltf.scene.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(gltf.scene);
-  const center = bounds.getCenter(new THREE.Vector3());
-  context.meshMap.clear();
-  context.meshes = [];
-  context.displayEdges = [];
-  marks.clear();
-  for (const child of [...scene.children])
-    if (child !== marks) scene.remove(child);
-  gltf.scene.traverse((mesh) => {
-    if (!mesh.isMesh) return;
-    const geometry = mesh.geometry
-      .clone()
-      .applyMatrix4(mesh.matrixWorld)
-      .translate(-center.x, -center.y, -center.z);
-    const part = new THREE.Mesh(
-      geometry,
-      new THREE.MeshBasicMaterial({ color: 0xcccccc }),
-    );
-    part.userData.reviewId = `mac-${context.meshes.length}`;
-    part.userData.fillTopology = buildFillTopology(
-      geometry,
-      new THREE.Matrix4(),
-    );
-    part.userData.fillTopology.brep = brepTopology(
-      mesh.userData.brepFaces,
-      part.userData.fillTopology.vertices.length,
-    );
-    context.meshMap.set(part.userData.reviewId, part);
-    context.meshes.push(part);
-    scene.add(part);
-  });
-  context.model = { sha256: "macmini-v04" };
-  await context.buildDisplayEdges();
-  if (context.displayError) throw new Error(context.displayError);
-  const candidates = [];
-  for (const line of context.displayEdges) {
-    const p = line.geometry.attributes.position;
-    for (let i = 0; i < p.count; i += 2) {
-      const a = new THREE.Vector3().fromBufferAttribute(p, i);
-      const b = new THREE.Vector3().fromBufferAttribute(p, i + 1);
-      if (a.distanceTo(b) > 10)
-        candidates.push({
-          points: [a.toArray(), b.toArray()],
-          z: (a.z + b.z) / 2,
-          meshId: line.parent.userData.reviewId,
-        });
-    }
-  }
-  candidates.sort((a, b) => b.z - a.z);
-  const chosen = candidates[0];
-  if (edge) {
-    context.displayEdges.forEach((l) => (l.visible = false));
-    context.drawObjectMark(
-      marks,
-      { type: "edge", ...chosen, color: "#ff00ff" },
-      false,
-      false,
-    );
-  }
-  // Orthographic shows what the perspective view shows at the target.
-  const half = distance * Math.tan(Math.PI / 12);
-  camera =
-    projection === "perspective"
-      ? new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance + 1000)
-      : new THREE.OrthographicCamera(
-          -half,
-          half,
-          half,
-          -half,
-          distance * 1e-4,
-          distance + 1000,
-        );
-  camera.aspect = 1;
-  camera.position.set(
-    distance * 0.28,
-    -distance * 0.2,
-    (back ? -1 : 1) * distance * 0.939,
-  );
-  // The field report's view: right-front-top three-quarter, z up, grille end
-  // and the long right top fillet in sight. Edges in magenta for counting.
-  if (view === "field") {
-    camera.up.set(0, 0, 1);
-    camera.position.set(0.62, -0.55, 0.56).normalize().multiplyScalar(distance);
-    context.displayEdges.forEach((e) => e.material.color.set(0xff00ff));
-  }
-  camera.lookAt(0, 0, 0);
-  camera.updateMatrixWorld(true);
-  NavigationMethods.prototype.updateNavigationProjection.call({
-    camera,
-    meshes: context.meshes,
-    controls: { target: new THREE.Vector3() },
-    navigationSize: 283,
-  });
-  renderer.render(scene, camera);
-  return {
-    bounds: bounds.getSize(new THREE.Vector3()).toArray(),
-    chosen,
-    parts: context.meshes.length,
-    ...(view === "field"
-      ? (({ fillet, total }) => ({ fillet, total }))(
-          // The real shell's power-button recess cuts the fillet above 75°.
-          filletInk(center.clone().negate(), 70),
-        )
-      : {}),
   };
 };
 
@@ -520,25 +400,26 @@ window.grazing = async () => {
   return { hidden, coverage: Math.min(...coverage), angles: coverage };
 };
 
-// Field case: a rounded shell whose inner and outer top fillets are not
-// concentric, so the wall at 45 degrees is only 0.015 mm. The cavity end faces
-// meet the inner fillet in an edge just behind the outer fillet. Outer R21
-// about (71, 99), inner R12.5 about (77, 105), axis along y, z up.
-const FIELD = {
-  outer: { half: 92, bottom: 8, top: 120, cx: 71, cz: 99, r: 21, arc: 9 },
+// A rounded shell whose inner and outer top fillets are not concentric: walls
+// 2.5 mm thick, but at 45 degrees only 0.015 mm (0.0147 between the facets as
+// tessellated). The cavity end faces meet the inner fillet in an edge just
+// behind the outer fillet. Outer R19 about (69, 95), inner R10.5 about
+// (75, 101), axis along y, z up.
+const SHELL = {
+  outer: { half: 88, bottom: 6, top: 114, cx: 69, cz: 95, r: 19, arc: 10 },
   inner: {
-    half: 89.5,
-    bottom: 10.5,
-    top: 117.5,
-    cx: 77,
-    cz: 105,
-    r: 12.5,
-    arc: 7,
+    half: 85.5,
+    bottom: 8.5,
+    top: 111.5,
+    cx: 75,
+    cz: 101,
+    r: 10.5,
+    arc: 8,
   },
-  outerY: 85.61,
-  innerY: 74.5,
+  outerY: 88,
+  innerY: 76,
 };
-function fieldProfile({ half, bottom, top, cx, cz, r, arc }) {
+function shellProfile({ half, bottom, top, cx, cz, r, arc }) {
   // Closed loop in the x/z plane; each segment carries its face name.
   const points = [
     [-half, bottom, "bottom"],
@@ -562,7 +443,7 @@ function fieldProfile({ half, bottom, top, cx, cz, r, arc }) {
   }
   return points;
 }
-function fieldShell(brep) {
+function filletShell(brep) {
   const faces = new Map();
   const add = (face, a, b, c, outward, cavity) => {
     const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
@@ -579,10 +460,10 @@ function fieldShell(brep) {
     faces.get(face).push(...(flip ? [a, c, b] : [a, b, c]));
   };
   for (const [name, spec, y, cavity] of [
-    ["outer", FIELD.outer, FIELD.outerY, false],
-    ["inner", FIELD.inner, FIELD.innerY, true],
+    ["outer", SHELL.outer, SHELL.outerY, false],
+    ["inner", SHELL.inner, SHELL.innerY, true],
   ]) {
-    const loop = fieldProfile(spec);
+    const loop = shellProfile(spec);
     const centre = [0, (spec.bottom + spec.top) / 2];
     for (let i = 0; i < loop.length; i++) {
       const p = loop[i],
@@ -630,7 +511,7 @@ function fieldShell(brep) {
     geometry,
     new THREE.MeshBasicMaterial({ color: 0xcccccc }),
   );
-  mesh.userData.reviewId = "field-shell";
+  mesh.userData.reviewId = "fillet-shell";
   mesh.updateMatrixWorld(true);
   mesh.userData.fillTopology = buildFillTopology(geometry, mesh.matrixWorld);
   if (brep)
@@ -642,14 +523,14 @@ function fieldShell(brep) {
     };
   return mesh;
 }
-const fieldPoint = (angle, y) => {
-  const { cx, cz, r } = FIELD.outer;
+const filletPoint = (angle, y) => {
+  const { cx, cz, r } = SHELL.outer;
   const a = (angle * Math.PI) / 180;
   return new THREE.Vector3(cx + r * Math.cos(a), y, cz + r * Math.sin(a));
 };
 // Magenta pixels inside the outer right fillet's strip, away from its own
 // tangent boundaries and end caps: no genuine edge lies there, and the cavity
-// edges sit just behind it. `offset` moves the field geometry into the scene;
+// edges sit just behind it. `offset` moves the shell geometry into the scene;
 // `upper` is the strip's upper angle in degrees.
 function filletInk(offset, upper = 75) {
   const gl = renderer.getContext(),
@@ -664,10 +545,10 @@ function filletInk(offset, upper = 75) {
     return [(q.x + 1) * (SIZE / 2), (q.y + 1) * (SIZE / 2)];
   };
   const quad = [
-    fieldPoint(15, -80),
-    fieldPoint(15, 80),
-    fieldPoint(upper, 80),
-    fieldPoint(upper, -80),
+    filletPoint(15, -80),
+    filletPoint(15, 80),
+    filletPoint(upper, 80),
+    filletPoint(upper, -80),
   ].map((p) => screen(p.add(offset)));
   const inside = (x, y) => {
     let sign = 0;
@@ -690,8 +571,8 @@ function filletInk(offset, upper = 75) {
       }
   return { fillet, total, ink, screen, quad };
 }
-// Right-front-top three-quarter view: grille end (-y) and the right fillet.
-window.fieldShell = async ({
+// Right-front-top three-quarter view: the -y end and the right fillet.
+window.filletShell = async ({
   distance = 1000,
   projection = "perspective",
   brep = true,
@@ -701,15 +582,19 @@ window.fieldShell = async ({
   marks.clear();
   context.meshMap.clear();
   context.displayEdges = [];
-  const shell = fieldShell(brep);
+  const shell = filletShell(brep);
   context.meshMap.set(shell.userData.reviewId, shell);
   scene.add(shell);
   context.meshes = [shell];
-  context.model = { sha256: `field-shell-${brep ? "brep" : "mesh"}` };
+  context.model = { sha256: `fillet-shell-${brep ? "brep" : "mesh"}` };
   await context.buildDisplayEdges();
   if (context.displayError) throw new Error(context.displayError);
   context.displayEdges.forEach((e) => e.material.color.set(0xff00ff));
-  const centre = new THREE.Vector3(0, 0, 64);
+  const centre = new THREE.Vector3(
+    0,
+    0,
+    (SHELL.outer.bottom + SHELL.outer.top) / 2,
+  );
   camera =
     projection === "perspective"
       ? new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance * 4)
@@ -738,7 +623,7 @@ window.fieldShell = async ({
   });
   renderer.render(scene, camera);
   const { fillet, total, ink, screen } = filletInk(new THREE.Vector3());
-  // Genuinely visible edges stay whole: the grille end's top edge, and with
+  // Genuinely visible edges stay whole: the -y end's top edge, and with
   // file faces the tangent boundary between the top plane and the fillet.
   const coverage = (a, b) => {
     let covered = 0;
@@ -751,8 +636,8 @@ window.fieldShell = async ({
     }
     return covered / 99;
   };
-  const top = FIELD.outer.top,
-    endY = -FIELD.outerY;
+  const top = SHELL.outer.top,
+    endY = -SHELL.outerY;
   return {
     fillet,
     total,
@@ -760,7 +645,7 @@ window.fieldShell = async ({
       new THREE.Vector3(-60, endY, top),
       new THREE.Vector3(60, endY, top),
     ),
-    tangent: brep ? coverage(fieldPoint(90, -80), fieldPoint(90, 80)) : 1,
+    tangent: brep ? coverage(filletPoint(90, -80), filletPoint(90, 80)) : 1,
     near: camera.near,
   };
 };
@@ -1132,11 +1017,11 @@ window.cutout = async ({ projection = "perspective" } = {}) => {
   };
 };
 
-/* Marks on the field shell: an edge mark along a cavity edge (cavity end face
+/* Marks on the fillet shell: an edge mark along a cavity edge (cavity end face
    and inner fillet, both turned towards the eye, 0.015 mm behind the outer
    fillet), and the whole-part outline. Neither may show on the outer fillet;
-   the outline's grille end top edge stays whole. */
-window.fieldMark = async ({
+   the outline's top edge at the -y end stays whole. */
+window.filletShellMark = async ({
   kind = "edge",
   distance = 1000,
   projection = "perspective",
@@ -1146,17 +1031,17 @@ window.fieldMark = async ({
   marks.clear();
   context.meshMap.clear();
   context.displayEdges = [];
-  const shell = fieldShell(true);
+  const shell = filletShell(true);
   context.meshMap.set(shell.userData.reviewId, shell);
   scene.add(shell);
   context.meshes = [shell];
-  context.model = { sha256: "field-shell-marks" };
+  context.model = { sha256: "fillet-shell-marks" };
   context.applyDisplayStyle();
-  const { cx, cz, r, arc } = FIELD.inner;
+  const { cx, cz, r, arc } = SHELL.inner;
   const cavity = [];
   for (let k = 0; k <= arc; k++) {
     const a = ((k / arc) * Math.PI) / 2;
-    cavity.push([cx + r * Math.cos(a), -FIELD.innerY, cz + r * Math.sin(a)]);
+    cavity.push([cx + r * Math.cos(a), -SHELL.innerY, cz + r * Math.sin(a)]);
   }
   context.drawObjectMark(
     marks,
@@ -1174,7 +1059,11 @@ window.fieldMark = async ({
   // The tinted overlay is not a line; count lines only.
   for (const child of [...marks.children])
     if (child.isMesh) marks.remove(child);
-  const centre = new THREE.Vector3(0, 0, 64);
+  const centre = new THREE.Vector3(
+    0,
+    0,
+    (SHELL.outer.bottom + SHELL.outer.top) / 2,
+  );
   camera =
     projection === "perspective"
       ? new THREE.PerspectiveCamera(30, 1, distance * 1e-4, distance * 4)
@@ -1203,8 +1092,8 @@ window.fieldMark = async ({
   });
   renderer.render(scene, camera);
   const { fillet, total, ink } = filletInk(new THREE.Vector3());
-  const top = FIELD.outer.top,
-    endY = -FIELD.outerY;
+  const top = SHELL.outer.top,
+    endY = -SHELL.outerY;
   return {
     fillet,
     total,
