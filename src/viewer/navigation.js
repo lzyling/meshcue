@@ -9,6 +9,120 @@ import {
   rotateDirection,
   zoomLimits,
 } from "./navigation-math.js";
+import {
+  addPointDepth,
+  addSphereDepth,
+  emptyDepth,
+  fittedRange,
+  planeDepth,
+} from "./depth-range.js";
+
+const depthEye = new THREE.Vector3(),
+  depthRight = new THREE.Vector3(),
+  depthUp = new THREE.Vector3(),
+  depthForward = new THREE.Vector3(),
+  depthPoint = new THREE.Vector3();
+
+/* View depths of everything the colour pass draws: each visible part's
+   bounding sphere (where it stands now, exploded or not) as far as it can
+   be on screen; the lines of the measurement being taken and of every kept
+   one, which may reach past a part to a plane's extension or round a circle
+   whose centre is off the part, and the points their readings hang at; the
+   lines drawn on surfaces, which the shader moves toward the eye (by as much
+   as they declare in `depthShift`); and the ground wherever it is in view.
+   Fills, highlights, section caps and display edges lie on the parts. One
+   sphere per visible mesh or line, each cached on its geometry: no geometry
+   is read here. A plain function of the viewer's fields (meshes and camera;
+   parts, measurement lines, overlays, readings and ground when it has them),
+   because the projection update is also borrowed by viewers assembled from
+   parts of this class. */
+export function drawnDepth(viewer, camera = viewer.camera) {
+  const range = emptyDepth();
+  if (!viewer.meshes?.length) return range;
+  camera.updateMatrixWorld();
+  const e = camera.matrixWorld.elements;
+  const eye = depthEye.set(e[12], e[13], e[14]);
+  const right = depthRight.set(e[0], e[1], e[2]).normalize();
+  const up = depthUp.set(e[4], e[5], e[6]).normalize();
+  const forward = depthForward.set(-e[8], -e[9], -e[10]).normalize();
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.zoom;
+  const tanX = tanY * camera.aspect;
+  // The cone around the frustum, a little wider: a wide line's width is in
+  // pixels, so one just off screen can still reach a pixel or two onto it.
+  const cone = Math.hypot(tanX, tanY) * 1.05;
+  for (const mesh of viewer.meshes) {
+    let shown = true;
+    for (let node = mesh; node && shown; node = node.parent)
+      shown = node.visible;
+    if (
+      !shown ||
+      (viewer.parts && !viewer.parts.meshVisible(mesh.userData.reviewId))
+    )
+      continue;
+    addSphereDepth(range, mesh.geometry, mesh.matrixWorld, eye, forward, cone);
+  }
+  if (!(range.farthest > -Infinity)) return range;
+  if (viewer.measureLines?.visible)
+    for (const line of viewer.measureLines.children)
+      if (line.visible && line.geometry)
+        addSphereDepth(
+          range,
+          line.geometry,
+          line.matrixWorld,
+          eye,
+          forward,
+          cone,
+        );
+  // A kept measurement's lines sit among the marks; so do the surface lines,
+  // there and in the Agent's echo.
+  for (const group of [viewer.overlay, viewer.agentOverlay])
+    if (group?.visible)
+      for (const child of group.children) {
+        const shift = child.userData.depthShift;
+        if (
+          child.visible &&
+          child.geometry &&
+          (shift || child.userData.explodeMeasure)
+        )
+          addSphereDepth(
+            range,
+            child.geometry,
+            child.matrixWorld,
+            eye,
+            forward,
+            cone,
+            shift,
+          );
+      }
+  // Readings, kept and being taken, are in the model's frame.
+  const model = viewer.root?.matrixWorld;
+  if (model) {
+    for (const anchor of viewer.measureAnchors || [])
+      addPointDepth(
+        range,
+        depthPoint.copy(anchor.model).applyMatrix4(model),
+        eye,
+        forward,
+        cone,
+      );
+    if (viewer.annotationsVisible !== false)
+      for (const pin of viewer.pins || [])
+        if (pin.model)
+          addPointDepth(
+            range,
+            depthPoint.copy(pin.model).applyMatrix4(model),
+            eye,
+            forward,
+            cone,
+          );
+  }
+  if (viewer.grid?.visible)
+    range.nearest = Math.min(
+      range.nearest,
+      planeDepth(viewer.grid.position.y, eye, right, up, forward, tanX, tanY),
+    );
+  return range;
+}
 
 export class NavigationMethods {
   setupNavigation() {
@@ -454,9 +568,24 @@ export class NavigationMethods {
     }
     const distance = camera.position.distanceTo(this.controls.target);
     const size = this.navigationSize || 3;
-    camera.near = Math.max(size * 1e-6, distance * 1e-4);
-    camera.far = Math.max(size * 4, distance + size * 4);
+    // Distance-based planes: what a close-up among the parts uses, where a
+    // near plane further out would cut into a hole or a fillet.
+    const near = Math.max(size * 1e-6, distance * 1e-4);
+    const far = Math.max(size * 4, distance + size * 4);
+    // Perspective spends its depth steps near the near plane, so zoomed out
+    // that plane has to come out to the model. Orthographic depth is linear
+    // in distance and its steps do not depend on where near is.
+    const fitted = camera.isOrthographicCamera
+      ? { near, far }
+      : fittedRange(drawnDepth(this, camera), near, far);
+    camera.near = fitted.near;
+    camera.far = fitted.far;
     camera.updateProjectionMatrix();
+  }
+
+  // The view depths the colour pass draws to (see drawnDepth below).
+  navigationDepth(camera = this.camera) {
+    return drawnDepth(this, camera);
   }
 
   setProjection(projection, remember = true) {

@@ -12,6 +12,7 @@ import { wholeFaces } from "../annotation-edits.js";
 import { chainSegments, faceNormal, outlineSegments } from "../outline.js";
 import { t } from "../i18n/index.js";
 import { V, measureAnchor } from "./shared.js";
+import { SURFACE_LINE_SHIFT } from "./depth-range.js";
 
 // Choose ink from luminance, not a palette slot: custom bright colors need
 // the same legibility as yellow. THREE.Color also accepts CSS color values.
@@ -65,11 +66,11 @@ const ECHO_FLOW_PX_PER_S = 24;
 // A new echo pulses twice in this time, then settles.
 const ECHO_PULSE_MS = 1600;
 
-// How far above the surface the line floats, as a share of the fitted model.
-const ECHO_LIFT = 0.002;
-
-// How far toward the eye every stroke is drawn, as a share of its distance.
-const ECHO_TOWARD_EYE = 0.001;
+/* How far above the surface the line floats (in the fitted model's units),
+   and how far toward the eye every stroke is then drawn, as a share of its
+   distance. The depth range reads the same numbers to keep the line in front
+   of the near plane. */
+const { lift: ECHO_LIFT, toward: ECHO_TOWARD_EYE } = SURFACE_LINE_SHIFT;
 // API limits count UTF-16 code units, not code points. Leave room for the
 // ellipsis without splitting a surrogate pair at the truncation boundary.
 export function boundedMarkName(name, limit = 256) {
@@ -939,7 +940,7 @@ export class MarksMethods {
         return n
           .applyMatrix3(normalMatrix)
           .normalize()
-          .multiplyScalar(ECHO_LIFT * 3);
+          .multiplyScalar(ECHO_LIFT);
       });
       const world = (point) =>
         new THREE.Vector3()
@@ -970,6 +971,8 @@ export class MarksMethods {
         if (!mark && kind === "core") line.computeLineDistances();
         // Over the reviewer's marks (3) and the bucket's preview (4).
         line.renderOrder = (mark ? 4 : 5) + i;
+        // Drawn toward the eye by the shader: the depth range allows for it.
+        line.userData.depthShift = SURFACE_LINE_SHIFT;
         group.add(line);
         line.userData.explodeOutline = {
           id: onlyMesh,

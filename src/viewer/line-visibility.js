@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { localFaces } from "./edges.js";
+import { addSphereDepth, emptyDepth } from "./depth-range.js";
 
 /* Which surface is in front at each pixel, by face identity rather than depth.
 
@@ -633,7 +634,6 @@ export function outlineEdges(geometry, thresholdAngle) {
   };
 }
 
-const sphere = new THREE.Sphere();
 const forward = new THREE.Vector3();
 const eye = new THREE.Vector3();
 const size = new THREE.Vector2();
@@ -1004,21 +1004,16 @@ export class LineVisibility {
     this.syncCaps(caps);
     // Depth range: the visible occluders' bounding spheres along the view.
     // Lines outside it still compare correctly; their depth is analytic.
+    // The colour pass fits its own near plane to what can be on screen (the
+    // visible parts, the ground, the measurement), so nothing drawn lies
+    // nearer than camera.near; it remains the lower bound.
     camera.getWorldDirection(forward);
     eye.setFromMatrixPosition(camera.matrixWorld);
-    let nearest = Infinity,
-      farthest = -Infinity;
-    for (const proxy of this.proxies.values()) {
-      if (!proxy.userData.occluder) continue;
-      if (!proxy.geometry.boundingSphere)
-        proxy.geometry.computeBoundingSphere();
-      sphere
-        .copy(proxy.geometry.boundingSphere)
-        .applyMatrix4(proxy.matrixWorld);
-      const depth = sphere.center.sub(eye).dot(forward);
-      nearest = Math.min(nearest, depth - sphere.radius);
-      farthest = Math.max(farthest, depth + sphere.radius);
-    }
+    const range = emptyDepth();
+    for (const proxy of this.proxies.values())
+      if (proxy.userData.occluder)
+        addSphereDepth(range, proxy.geometry, proxy.matrixWorld, eye, forward);
+    const { nearest, farthest } = range;
     let near = camera.near,
       far = camera.far;
     if (farthest > nearest) {
