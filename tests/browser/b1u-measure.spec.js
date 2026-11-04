@@ -53,7 +53,7 @@ const ctl = (...args) =>
 
 test.beforeEach(async () => {
   fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
-  dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-b1u-measure-"));
+  dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-smart-measure-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
   installFakeOpenClaw(bin);
@@ -187,7 +187,9 @@ test("smart STEP rim and wall each give the known 5 mm diameter", async ({
   await expect(reading(page)).toHaveText("⌀5.00 mm");
   for (const theme of ["light", "dark"]) {
     await selectSetting(page, "#theme-choice", theme);
-    await page.screenshot({ path: `tmp/b1u-m/evidence/rim-${theme}.png` });
+    await page.screenshot({
+      path: `tmp/smart-measure/evidence/rim-${theme}.png`,
+    });
   }
   await page.keyboard.press("Escape");
   await page.locator("#home-view").click();
@@ -195,7 +197,7 @@ test("smart STEP rim and wall each give the known 5 mm diameter", async ({
   // a low point viewed from a three-quarter corner is occluded by the top.
   await page.locator('[data-view="0,1,1"]').dispatchEvent("click");
   await click(page, await screenOf(page, [0, 2.49, 1]));
-  await page.screenshot({ path: "tmp/b1u-m/evidence/hole-wall.png" });
+  await page.screenshot({ path: "tmp/smart-measure/evidence/hole-wall.png" });
   expect((await diagnostics(page)).measuring.objects).toEqual(["face"]);
   await expect(reading(page)).toHaveText("⌀5.00 mm");
 });
@@ -207,7 +209,7 @@ test("smart straight edge, parallel faces, unsupported relation and third-click 
   const front = await screenOf(page, [0, -7.5, 4]);
   await click(page, { x: front.x, y: front.y + 3 });
   await expect(reading(page)).toHaveText("16.00 mm");
-  // Edge to face is supported since the b1u review follow-up: this edge lies
+  // Edge to face is supported since a review follow-up: this edge lies
   // in the top face, so their gap is zero. The refusal for pairs that remain
   // unsupported (a curved face) is in tests/browser/b1u-review-fixes.spec.js.
   await click(page, await screenOf(page, [5, 3, 4]));
@@ -249,7 +251,9 @@ test("Advanced is closed by default, remembered, and returns to Smart", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("#measure-advanced summary").click();
   await expect(page.locator('[data-measure="circle"]')).toBeVisible();
-  await page.screenshot({ path: "tmp/b1u-m/evidence/advanced-phone.png" });
+  await page.screenshot({
+    path: "tmp/smart-measure/evidence/advanced-phone.png",
+  });
 });
 
 test("a smart kept circle reloads, draws its ring, undoes and submits the existing shape", async ({
@@ -282,7 +286,7 @@ test("a smart kept circle reloads, draws its ring, undoes and submits the existi
   expect((await diagnostics(page)).annotations[0]).toEqual(mark);
   await expect(page.locator(".measure-label")).toContainText("⌀5.00 mm");
   await expect(page.locator(".annotation-row")).toContainText("Circle");
-  await page.screenshot({ path: "tmp/b1u-m/evidence/kept-circle.png" });
+  await page.screenshot({ path: "tmp/smart-measure/evidence/kept-circle.png" });
   const response = page.waitForResponse(
     (r) => r.request().method() === "POST" && r.url().endsWith("/api/feedback"),
   );

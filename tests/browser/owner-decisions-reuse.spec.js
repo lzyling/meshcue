@@ -70,7 +70,7 @@ for (const theme of ["light", "dark"]) {
     await publish("tmp/samples/parametric-bracket.glb", "v4");
     await expect(page.locator("#reuse-notice")).toBeHidden();
     await expect(page.locator("#pending-banner")).toBeHidden();
-    // r4 removed the banner; the latest version remains reachable via its tab,
+    // The banner is gone; the latest version remains reachable via its tab,
     // while passive delivery and reload preserve the reviewer's selection.
     const third = (
       await publish("tmp/samples/bunny-figurine.glb", "v5", { activate: false })

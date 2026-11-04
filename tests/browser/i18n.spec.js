@@ -168,7 +168,7 @@ for (const reader of READERS) {
       expect(stray, `untranslated text on a ${reader.lang} page`).toEqual([]);
     }
 
-    /* Desktop tools now expose short localized captions (r6), while full
+    /* Desktop tools now expose short localized captions, while full
        accessible names/tooltips remain available. Captions and cube faces
        must still fit their drawn widths. */
     await expect(page.locator('[data-mode="fill"] span')).toBeVisible();

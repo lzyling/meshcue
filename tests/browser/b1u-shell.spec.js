@@ -235,7 +235,7 @@ test("single-version tabs stay hidden and multiple pages remain reachable withou
   for (const theme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: theme });
     await page.screenshot({
-      path: `tmp/b1u-s/evidence/after-${theme}-versions.png`,
+      path: `tmp/shell-states/evidence/after-${theme}-versions.png`,
     });
   }
 });
@@ -244,10 +244,10 @@ for (const theme of ["light", "dark"]) {
   test(`capture shell states in ${theme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme });
     await open(page);
-    fs.mkdirSync("tmp/b1u-s/evidence", { recursive: true });
+    fs.mkdirSync("tmp/shell-states/evidence", { recursive: true });
     const shot = (name) =>
       page.screenshot({
-        path: `tmp/b1u-s/evidence/after-${theme}-${name}.png`,
+        path: `tmp/shell-states/evidence/after-${theme}-${name}.png`,
       });
     await shot("overview");
     await page.locator("#dismiss-tool-hint").click();
@@ -380,7 +380,7 @@ for (const [width, height] of [
             )
             .toBe("perspective");
           await page.screenshot({
-            path: `tmp/b1u-s/evidence/layout-${width}-${locale}-${theme}.png`,
+            path: `tmp/shell-states/evidence/layout-${width}-${locale}-${theme}.png`,
           });
         });
       }

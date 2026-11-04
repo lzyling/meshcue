@@ -22,7 +22,7 @@ test("parts framing respects parent gates and Fit all frames an isolated child i
   const { root, parent, child, parts } = assembly();
   parts.setVisible(parts.partOfMesh("parent"), false);
   parts.setVisible(parts.partOfMesh("child"), true);
-  // A child switch cannot reopen a hidden parent (r4 Fusion-style gates).
+  // A child switch cannot reopen a hidden parent (Fusion-style gates).
   assert.equal(parts.isVisible(parts.partOfMesh("parent")), false);
   assert.equal(parts.meshVisible("child"), false);
   // Isolation explicitly overrides gates and keeps the parent traversable.

@@ -8,7 +8,7 @@ import { browserOrigin } from "../helpers/browser-server.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import { clickControl, showParts } from "./r12-b-helpers.mjs";
 
-const evidence = path.resolve("tmp/b1v-groups/evidence");
+const evidence = path.resolve("tmp/part-groups/evidence");
 let fixture, cleanup, file, groups;
 const diagnostics = (page) => page.evaluate(() => window.__reviewDiagnostics());
 const row = (page, id) => page.locator(`[data-part-id="${id}"]`);

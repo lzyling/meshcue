@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import fs from "node:fs";
 
-const evidence = "tmp/b1-integration/evidence";
+const evidence = "tmp/framing-integration/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());

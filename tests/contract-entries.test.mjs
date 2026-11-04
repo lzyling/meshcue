@@ -132,7 +132,7 @@ test("generated flat schemas accept ignored known fields and reject unknown name
     }
     assert.equal(valid(schema, { action: "inspect", typo: true }), false);
     // Intentional discovery-only tightening: raw read/echo still ignore any
-    // versionId value, but providers get a string type (W2 removes the field).
+    // versionId value, but providers get a string type (a planned change removes the field).
     for (const action of ["read", "echo"])
       for (const versionId of [null, 42, false, [], { arbitrary: true }]) {
         const input = {
@@ -385,8 +385,8 @@ test("discovery schemas are flat, explicitly typed and smaller than the pre-cont
   // 2339407:mcp/server.mjs TOOL.inputSchema, evaluated with their imported
   // partGroupsSchema/MAX_AGENT_NAME, then JSON.stringify(...).length (2026-10-10).
   const baseline = { openclaw: 9646, mcp: 8655 };
-  // r3 restores minimal group/region shape guidance without recursive schemas.
-  // W2B adds only sourceTransform and coordinate guidance: measured 3165/3289 characters.
+  // Minimal group/region shape guidance is restored without recursive schemas.
+  // Then only sourceTransform and coordinate guidance: measured 3165/3289 characters.
   // Allow ~5% prose headroom, retaining the pre-contract ceiling and flatness checks.
   const budget = { openclaw: 3330, mcp: 3460 };
   const forbidden = new Set([

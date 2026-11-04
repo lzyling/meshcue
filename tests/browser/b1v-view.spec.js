@@ -4,7 +4,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
 
-const evidence = "tmp/b1v-view/evidence";
+const evidence = "tmp/view-cube/evidence";
 let environment;
 const nav = (page) => page.evaluate(() => window.__navigationDiagnostics());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());
@@ -24,7 +24,7 @@ async function open(page) {
   environment = await startScenario({
     fixture: "tests/fixtures/plate.step",
     dist: process.env.REVIEW_TEST_DIST,
-    runRoot: "tmp/b1v-view/scenarios",
+    runRoot: "tmp/view-cube/scenarios",
   });
   await scenarioKit(page, environment).open(environment.url);
   await settled(page);
@@ -48,7 +48,7 @@ async function probe(page) {
 }
 async function shot(page, name) {
   await page.screenshot({
-    path: `${evidence}/${name}-${process.env.B1V_VIEW_EVIDENCE || "after"}.png`,
+    path: `${evidence}/${name}-${process.env.MESHCUE_VIEW_CUBE_SHOT || "after"}.png`,
   });
 }
 
@@ -102,7 +102,7 @@ test("cube keeps Home visible, exposes four triangle arrows and rotates optional
     await expect(arrow).toHaveAccessibleName(/.+/);
     await expect(arrow.locator("svg")).toHaveCount(1);
   }
-  // r8 brightens Home itself, not every part of the surrounding widget.
+  // Hover brightens Home itself, not every part of the surrounding widget.
   await expect
     .poll(() =>
       page

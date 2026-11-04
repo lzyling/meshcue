@@ -66,7 +66,7 @@ test("A: reuse activates the identical page without obsolete notices on publicat
   await expect(notice).toHaveCount(0);
   await expect(page.locator(".version-tab")).toHaveCount(2);
   // Repeated same-content publications activate the existing page rather
-  // than adding a tab or restoring the removed reviewer notice (r6 §3).
+  // than adding a tab or restoring the removed reviewer notice.
   await publish("tmp/samples/parametric-bracket.glb", "v4");
   await expect(notice).toHaveCount(0);
   await expect(page.locator(".version-tab")).toHaveCount(2);

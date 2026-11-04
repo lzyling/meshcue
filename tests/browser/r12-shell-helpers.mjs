@@ -1,4 +1,4 @@
-// Actions follow the approved r4–r11 shell without changing command contracts.
+// Actions follow the current overflow-menu shell without changing command contracts.
 import {
   clickControl as legacyClick,
   selectSetting,
