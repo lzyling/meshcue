@@ -5,7 +5,7 @@ import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
 
 let environment;
-const evidence = "tmp/b1-ci-browser/evidence";
+const evidence = "tmp/ci-browser/evidence";
 test.beforeEach(async () => {
   fs.mkdirSync(evidence, { recursive: true });
   environment = await startScenario({

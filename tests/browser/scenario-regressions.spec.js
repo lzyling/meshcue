@@ -4,7 +4,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 
-const evidence = "tmp/b1-fix/evidence";
+const evidence = "tmp/scenario-regressions/evidence";
 let environment, kit;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics?.());

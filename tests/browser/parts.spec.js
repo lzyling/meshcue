@@ -11,7 +11,7 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { scenarioKit } from "../scenarios/kit.mjs";
 const repo = process.cwd();
 let url;
-const evidence = path.join(repo, "tmp/b1-p/evidence");
+const evidence = path.join(repo, "tmp/parts/evidence");
 let child, dir, env;
 const ctl = (...args) =>
   execFileSync(process.execPath, ["scripts/reviewctl.mjs", ...args], {

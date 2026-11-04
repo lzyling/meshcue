@@ -9,7 +9,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
 
-const evidence = "tmp/b1-decisions/evidence";
+const evidence = "tmp/owner-decisions/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());
@@ -23,7 +23,7 @@ async function open(page) {
   environment = await startScenario({
     fixture: "tmp/samples/parametric-bracket.glb",
     dist: process.env.REVIEW_TEST_DIST,
-    runRoot: "tmp/b1-decisions/scenarios",
+    runRoot: "tmp/owner-decisions/scenarios",
   });
   await scenarioKit(page, environment).open(environment.url);
   await expect

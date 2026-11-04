@@ -5,8 +5,8 @@ import path from "node:path";
 import { ReviewStore } from "../server/store.mjs";
 
 test("reuse records the latest publication boundary durably without changing notice lifetime", (t) => {
-  fs.mkdirSync("tmp/b1-decisions", { recursive: true });
-  const dir = fs.mkdtempSync(path.resolve("tmp/b1-decisions/store-"));
+  fs.mkdirSync("tmp/owner-decisions", { recursive: true });
+  const dir = fs.mkdtempSync(path.resolve("tmp/owner-decisions/store-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = new ReviewStore(dir);
   const first = { id: "first", name: "first", version: "v1", publishedAt: 1 };

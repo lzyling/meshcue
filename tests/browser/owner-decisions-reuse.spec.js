@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 let environment;
-const evidence = "tmp/b1-decisions/evidence";
+const evidence = "tmp/owner-decisions/evidence";
 test.afterEach(async () => environment?.stop());
 async function publish(file, version, extra = {}) {
   fs.copyFileSync(file, path.join(environment.workspace, path.basename(file)));
@@ -35,7 +35,7 @@ for (const theme of ["light", "dark"]) {
     environment = await startScenario({
       fixture: "tmp/samples/parametric-bracket.glb",
       dist: process.env.REVIEW_TEST_DIST,
-      runRoot: "tmp/b1-decisions/scenarios",
+      runRoot: "tmp/owner-decisions/scenarios",
     });
     await scenarioKit(page, environment).open(environment.url);
     const first = (await environment.ipc("/status")).active.id;
