@@ -19,6 +19,16 @@ const ray = new THREE.Vector3();
 
 export const emptyDepth = () => ({ nearest: Infinity, farthest: -Infinity });
 
+/* A line drawn on a surface -- a region's coloured boundary, an echo -- is
+   moved toward the eye in its vertex shader (viewer/marks.js), so it stays in
+   front of the face it lies on from either side: first `lift` along the
+   face's normal, turned to the side the eye is on, in the line's own units
+   (the model is fitted into three), then every point a share `toward` of its
+   view depth along its own line of sight. The shader and the depth range
+   both read these numbers, so a near plane fitted to the line's geometry can
+   be brought in by exactly as much as the line is drawn in front of it. */
+export const SURFACE_LINE_SHIFT = Object.freeze({ lift: 0.006, toward: 0.001 });
+
 /* Nearest depth of a sphere inside a circular cone around the view axis,
    apex at the eye: the sphere's centre at depth `z` and `rho` off the axis,
    radius `r`, the cone's half-angle tangent `tan`. Infinity where the sphere
@@ -44,7 +54,15 @@ export function coneDepth(z, rho, r, tan = Infinity) {
 
 /* Widen `range` by a bounding sphere (geometry's, placed by matrixWorld).
    With a cone, a sphere beside or behind the view only counts for the part
-   of it that can be on screen. */
+   of it that can be on screen.
+
+   With a `shift` (SURFACE_LINE_SHIFT), the geometry is drawn moved toward
+   the eye as described there. The lift moves a point at most `lift` in the
+   geometry's units, so every lifted point is inside the sphere grown by it,
+   which matrixWorld then scales as it scales the lift. Drawing a point
+   `toward` of the way to the eye keeps it on its line of sight, inside or
+   outside the cone alike, and takes that share off its depth: off the
+   nearest depth too. */
 export function addSphereDepth(
   range,
   geometry,
@@ -52,19 +70,39 @@ export function addSphereDepth(
   eye,
   forward,
   tan = Infinity,
+  shift = null,
 ) {
   if (!geometry.boundingSphere) geometry.computeBoundingSphere();
   const bounds = geometry.boundingSphere;
   if (!bounds || !(bounds.radius >= 0)) return range;
-  sphere.copy(bounds).applyMatrix4(matrixWorld);
+  sphere.copy(bounds);
+  if (shift) sphere.radius += shift.lift;
+  sphere.applyMatrix4(matrixWorld);
   if (!Number.isFinite(sphere.radius)) return range;
   const v = offset.subVectors(sphere.center, eye);
   const z = v.dot(forward);
   const rho = Math.sqrt(Math.max(0, v.lengthSq() - z * z));
   const nearest = coneDepth(z, rho, sphere.radius, tan);
   if (nearest === Infinity) return range;
-  range.nearest = Math.min(range.nearest, nearest);
+  range.nearest = Math.min(
+    range.nearest,
+    shift ? nearest * (1 - shift.toward) : nearest,
+  );
   range.farthest = Math.max(range.farthest, z + sphere.radius);
+  return range;
+}
+
+/* Widen `range` by one point (world space) where it can be on screen: a
+   measurement's reading hangs at a point that need not be on any part, and
+   is hidden once that point is in front of the near plane. */
+export function addPointDepth(range, point, eye, forward, tan = Infinity) {
+  const v = offset.subVectors(point, eye);
+  const z = v.dot(forward);
+  if (!(z > 0)) return range;
+  const rho = Math.sqrt(Math.max(0, v.lengthSq() - z * z));
+  if (coneDepth(z, rho, 0, tan) === Infinity) return range;
+  range.nearest = Math.min(range.nearest, z);
+  range.farthest = Math.max(range.farthest, z);
   return range;
 }
 

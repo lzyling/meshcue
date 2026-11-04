@@ -98,3 +98,92 @@ test("the ground in front of the model is still drawn when zoomed out", async ({
     expect(result.missing, `tier ${tier}`).toBe(0);
   }
 });
+
+/* Besides the parts, the colour pass draws things that are not on them, and
+   near must reach those too. A kept measurement between parallel faces is
+   read square to them, so one end of its line is on a plane's extension,
+   and a circle's ring and centre are off the part it was taken on; seen as
+   a reviewer turns and zooms, that end, ring and reading were in front of a
+   near plane fitted to the parts, and were cut off once the measurement was
+   kept. The lines drawn on surfaces (a region's boundary, the Agent's echo)
+   are moved toward the eye in their shader, by a fixed lift and a share of
+   the distance; on a small part nearest the camera, seen from far away, that
+   took them in front of near too. */
+async function openOverlays(page, scene) {
+  // Still dashes and no arrival pulse: an echo frame is the same twice.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${url}overlays.html`);
+  await page.waitForFunction(() => window.loadScene);
+  const loaded = await page.evaluate((name) => window.loadScene(name), scene);
+  expect(loaded.meshes).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.viewerError ?? null)).toBeNull();
+}
+
+for (const [kind, views] of [
+  [
+    "planes",
+    [
+      { direction: [0, 0, 1], tier: 1 },
+      { direction: [0, 0, 1], tier: 3 },
+      { direction: [0.4, 0.25, 1], tier: 1.5 },
+    ],
+  ],
+  [
+    "circle",
+    [
+      // From above the circle's plane: edge on, its near half would be
+      // drawn over its far half.
+      { direction: [0, 0.5, 1], tier: 1.5 },
+      { direction: [0, 0.5, 1], tier: 4 },
+      { direction: [0.3, 0.6, 1], tier: 2 },
+    ],
+  ],
+]) {
+  test(`a kept ${kind} measurement keeps its line and reading as the view turns and zooms`, async ({
+    page,
+  }) => {
+    await openOverlays(page, kind);
+    const mark = await page.evaluate((k) => window.measureAndKeep(k), kind);
+    expect(mark?.kind).toBe(kind);
+    for (const [i, view] of views.entries()) {
+      const result = await page.evaluate(
+        (v) => window.keptMeasureView(v),
+        view,
+      );
+      await page.screenshot({ path: `${evidence}/kept-${kind}-${i}.png` });
+      record(`kept-${kind}-${i}`, { view, ...result });
+      expect(result.samples, `view ${i}`).toBeGreaterThan(40);
+      expect(result.inked, `view ${i}`).toBeGreaterThan(result.samples * 0.9);
+      expect(result.anchorInFrame, `view ${i}`).toBe(true);
+      expect(result.readingHidden, `view ${i}`).toBe(false);
+    }
+  });
+}
+
+test("a region's boundary and an echo on a small nearest part show at the zoom limit", async ({
+  page,
+}) => {
+  await openOverlays(page, "ball");
+  for (const [i, [part, view]] of [
+    ["ball", { direction: [0, 0, 1], tier: "max" }],
+    ["ball", { direction: [0.2, 0.3, 1], tier: "max" }],
+    ["ball", { direction: [0, 0, 1], tier: 1 }],
+    ["cube", { direction: [0, 0, 1], tier: "max" }],
+    ["cube", { direction: [0.2, 0.3, 1], tier: "max" }],
+  ].entries()) {
+    const result = await page.evaluate(
+      ([v, p]) => window.surfaceLines(v, p),
+      [view, part],
+    );
+    await page.screenshot({ path: `${evidence}/surface-lines-${i}.png` });
+    record(`surface-lines-${i}`, { part, view, ...result });
+    expect(result.faces, `view ${i}`).toBeGreaterThan(part === "ball" ? 10 : 1);
+    expect(result.outline.lines, `view ${i}`).toBeGreaterThan(0);
+    expect(result.echo.lines, `view ${i}`).toBeGreaterThan(0);
+    // As much as the distance-only near plane draws, which cuts nothing.
+    for (const lines of [result.outline, result.echo]) {
+      expect(lines.reference, `view ${i}`).toBeGreaterThan(10);
+      expect(lines.pixels, `view ${i}`).toBeGreaterThan(lines.reference * 0.9);
+    }
+  }
+});

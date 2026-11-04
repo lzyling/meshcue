@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import {
+  addPointDepth,
   addSphereDepth,
   coneDepth,
   emptyDepth,
   fittedRange,
   planeDepth,
+  SURFACE_LINE_SHIFT,
 } from "../src/viewer/depth-range.js";
 import { NavigationMethods } from "../src/viewer/navigation.js";
 
@@ -339,4 +341,180 @@ test("navigation depth: nothing in view is ever cut, from anywhere", () => {
     );
     assertNothingCut(viewer);
   }
+});
+
+/* What the colour pass draws besides the parts. A viewer's overlays carry a
+   kept measurement's lines (tagged `explodeMeasure`) and the lines drawn on
+   surfaces (tagged with the shift their shader applies); readings hang at
+   points in the model's frame. */
+function withOverlays(viewer) {
+  viewer.overlay = new THREE.Group();
+  viewer.agentOverlay = new THREE.Group();
+  viewer.scene.add(viewer.overlay, viewer.agentOverlay);
+  viewer.measureAnchors = [];
+  viewer.pins = [];
+  return viewer;
+}
+const pointsGeometry = (points) =>
+  new THREE.BufferGeometry().setFromPoints(
+    points.map((p) => new THREE.Vector3(...p)),
+  );
+const depthOf = (camera, point) => {
+  camera.updateMatrixWorld();
+  return -new THREE.Vector3(...point).applyMatrix4(camera.matrixWorldInverse).z;
+};
+
+test("navigation depth: a kept measurement's line off the parts bounds near", () => {
+  // A part at the origin and a kept dimension reaching 2 toward the camera,
+  // to where a plane's extension can put its end.
+  const viewer = withOverlays(
+    viewerWith({ parts: [{ size: [0.2, 0.2, 0.2] }] }),
+  );
+  const line = new THREE.Object3D();
+  line.geometry = pointsGeometry([
+    [0, 0, 0],
+    [0, 0, 2],
+  ]);
+  line.userData.explodeMeasure = { kind: "planes" };
+  viewer.overlay.add(line);
+  viewer.scene.updateMatrixWorld(true);
+  const camera = look(viewer, [0, 0, 5]);
+  assert.ok(camera.near < depthOf(camera, [0, 0, 2]), String(camera.near));
+  // Hidden with the marks, it is not drawn and does not count.
+  viewer.overlay.visible = false;
+  assert.ok(look(viewer, [0, 0, 5]).near > 4.8);
+  // Neither does an overlay child that is not a measurement's line.
+  viewer.overlay.visible = true;
+  delete line.userData.explodeMeasure;
+  assert.ok(look(viewer, [0, 0, 5]).near > 4.8);
+});
+
+test("navigation depth: readings off the parts bound near where on screen", () => {
+  const viewer = withOverlays(
+    viewerWith({ parts: [{ size: [0.2, 0.2, 0.2] }] }),
+  );
+  viewer.root.scale.setScalar(2);
+  viewer.scene.updateMatrixWorld(true);
+  // A circle's centre, kept; its reading hangs there, in the model's frame.
+  viewer.pins.push({ model: new THREE.Vector3(0, 0, 1) });
+  let camera = look(viewer, [0, 0, 6]);
+  assert.ok(camera.near < depthOf(camera, [0, 0, 2]), String(camera.near));
+  // With the marks hidden, so is the reading.
+  viewer.annotationsVisible = false;
+  assert.ok(look(viewer, [0, 0, 6]).near > 5.5);
+  // The measurement being taken has its reading too.
+  viewer.measureAnchors.push({ model: new THREE.Vector3(0, 0, 1.5) });
+  camera = look(viewer, [0, 0, 6]);
+  assert.ok(camera.near < depthOf(camera, [0, 0, 3]), String(camera.near));
+  // A reading off screen, or behind the eye, does not hold near back.
+  viewer.measureAnchors[0].model.set(40, 0, 1.5);
+  assert.ok(look(viewer, [0, 0, 6]).near > 5.5);
+  viewer.measureAnchors[0].model.set(0, 0, 4);
+  assert.ok(look(viewer, [0, 0, 6]).near > 5.5);
+});
+
+test("depth range: a point counts only inside the cone and in front", () => {
+  const eye = new THREE.Vector3(),
+    forward = new THREE.Vector3(0, 0, -1);
+  const range = emptyDepth();
+  addPointDepth(range, new THREE.Vector3(0.4, 0, -1), eye, forward, 0.5);
+  assert.deepEqual(range, { nearest: 1, farthest: 1 });
+  addPointDepth(range, new THREE.Vector3(0.6, 0, -0.5), eye, forward, 0.5);
+  addPointDepth(range, new THREE.Vector3(0, 0, 0.5), eye, forward, 0.5);
+  assert.deepEqual(range, { nearest: 1, farthest: 1 });
+});
+
+/* The surface line shader (viewer/marks.js), point by point: lift along the
+   normal to the eye's side, then a share of the depth toward the eye. */
+function drawnSurfacePoint(camera, point, normal, shift) {
+  camera.updateMatrixWorld();
+  const view = camera.matrixWorldInverse;
+  const at = point.clone().applyMatrix4(view);
+  const lift = normal
+    .clone()
+    .multiplyScalar(shift.lift)
+    .applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
+  at.add(lift.dot(at.clone().negate()) < 0 ? lift.negate() : lift);
+  return at.multiplyScalar(1 - shift.toward);
+}
+
+test("navigation depth: lines the shader moves toward the eye stay past near", () => {
+  // The case that needs it: the nearest part is small, the camera far. Its
+  // face is barely behind the sphere's nearest point; the line on it is
+  // drawn a fixed lift plus a thousandth of eighty units nearer.
+  const next = random(41);
+  const viewer = withOverlays(
+    viewerWith({ parts: [{ size: [0.004, 0.004, 0.004] }] }),
+  );
+  const half = 0.002;
+  const points = [],
+    normals = [];
+  for (let i = 0; i < 64; i++) {
+    const p = [next() * 2 - 1, next() * 2 - 1, 1].map((v) => v * half);
+    points.push(p);
+    normals.push(new THREE.Vector3(0, 0, 1));
+  }
+  for (const group of [viewer.overlay, viewer.agentOverlay]) {
+    const line = new THREE.Object3D();
+    line.geometry = pointsGeometry(points);
+    line.userData.depthShift = SURFACE_LINE_SHIFT;
+    group.add(line);
+  }
+  viewer.scene.updateMatrixWorld(true);
+  const check = (from) => {
+    const camera = look(viewer, from);
+    let drawn = 0;
+    const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)),
+      tanX = tanY * camera.aspect;
+    points.forEach((p, i) => {
+      const at = drawnSurfacePoint(
+        camera,
+        new THREE.Vector3(...p),
+        normals[i],
+        SURFACE_LINE_SHIFT,
+      );
+      const depth = -at.z;
+      if (Math.abs(at.x) > depth * tanX || Math.abs(at.y) > depth * tanY)
+        return;
+      drawn++;
+      assert.ok(depth >= camera.near, `${depth} < near ${camera.near}`);
+    });
+    assert.ok(drawn > 0);
+    return camera;
+  };
+  for (const distance of [0.5, 3, 20, 80]) check([0, 0, distance]);
+  for (let k = 0; k < 50; k++) {
+    const direction = new THREE.Vector3(
+      next() * 2 - 1,
+      next() * 2 - 1,
+      next() * 2 - 0.2,
+    ).normalize();
+    check(direction.multiplyScalar(0.05 + next() ** 2 * 80).toArray());
+  }
+  // Without the allowance the fitted near is in front of the drawn line.
+  for (const group of [viewer.overlay, viewer.agentOverlay])
+    for (const line of group.children) delete line.userData.depthShift;
+  const camera = look(viewer, [0, 0, 80]);
+  const at = drawnSurfacePoint(
+    camera,
+    new THREE.Vector3(0, 0, half),
+    normals[0],
+    SURFACE_LINE_SHIFT,
+  );
+  assert.ok(-at.z < camera.near, `${-at.z} >= ${camera.near}`);
+});
+
+test("depth range: a shift grows the sphere by the lift and takes its share", () => {
+  const range = addSphereDepth(
+    emptyDepth(),
+    new THREE.SphereGeometry(1),
+    new THREE.Matrix4().makeScale(2, 2, 2),
+    new THREE.Vector3(0, 0, 10),
+    new THREE.Vector3(0, 0, -1),
+    Infinity,
+    { lift: 0.5, toward: 0.1 },
+  );
+  // Radius (1 + 0.5) × 2 = 3: nearest 7, nine tenths of it drawn.
+  assert.ok(Math.abs(range.nearest - 6.3) < 1e-6, String(range.nearest));
+  assert.ok(Math.abs(range.farthest - 13) < 1e-6, String(range.farthest));
 });

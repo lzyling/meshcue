@@ -10,6 +10,7 @@ import {
   zoomLimits,
 } from "./navigation-math.js";
 import {
+  addPointDepth,
   addSphereDepth,
   emptyDepth,
   fittedRange,
@@ -19,17 +20,22 @@ import {
 const depthEye = new THREE.Vector3(),
   depthRight = new THREE.Vector3(),
   depthUp = new THREE.Vector3(),
-  depthForward = new THREE.Vector3();
+  depthForward = new THREE.Vector3(),
+  depthPoint = new THREE.Vector3();
 
 /* View depths of everything the colour pass draws: each visible part's
    bounding sphere (where it stands now, exploded or not) as far as it can
-   be on screen, the measurement's lines, which may reach past a part to a
-   plane's extension, and the ground wherever it is in view. Marks,
-   highlights, section caps and display edges all lie on the parts. One
-   sphere per visible mesh, each cached on its geometry: no geometry is read
-   here. A plain function of the viewer's fields (meshes and camera; parts,
-   measurement lines and ground when it has them), because the projection
-   update is also borrowed by viewers assembled from parts of this class. */
+   be on screen; the lines of the measurement being taken and of every kept
+   one, which may reach past a part to a plane's extension or round a circle
+   whose centre is off the part, and the points their readings hang at; the
+   lines drawn on surfaces, which the shader moves toward the eye (by as much
+   as they declare in `depthShift`); and the ground wherever it is in view.
+   Fills, highlights, section caps and display edges lie on the parts. One
+   sphere per visible mesh or line, each cached on its geometry: no geometry
+   is read here. A plain function of the viewer's fields (meshes and camera;
+   parts, measurement lines, overlays, readings and ground when it has them),
+   because the projection update is also borrowed by viewers assembled from
+   parts of this class. */
 export function drawnDepth(viewer, camera = viewer.camera) {
   const range = emptyDepth();
   if (!viewer.meshes?.length) return range;
@@ -67,6 +73,49 @@ export function drawnDepth(viewer, camera = viewer.camera) {
           forward,
           cone,
         );
+  // A kept measurement's lines sit among the marks; so do the surface lines,
+  // there and in the Agent's echo.
+  for (const group of [viewer.overlay, viewer.agentOverlay])
+    if (group?.visible)
+      for (const child of group.children) {
+        const shift = child.userData.depthShift;
+        if (
+          child.visible &&
+          child.geometry &&
+          (shift || child.userData.explodeMeasure)
+        )
+          addSphereDepth(
+            range,
+            child.geometry,
+            child.matrixWorld,
+            eye,
+            forward,
+            cone,
+            shift,
+          );
+      }
+  // Readings, kept and being taken, are in the model's frame.
+  const model = viewer.root?.matrixWorld;
+  if (model) {
+    for (const anchor of viewer.measureAnchors || [])
+      addPointDepth(
+        range,
+        depthPoint.copy(anchor.model).applyMatrix4(model),
+        eye,
+        forward,
+        cone,
+      );
+    if (viewer.annotationsVisible !== false)
+      for (const pin of viewer.pins || [])
+        if (pin.model)
+          addPointDepth(
+            range,
+            depthPoint.copy(pin.model).applyMatrix4(model),
+            eye,
+            forward,
+            cone,
+          );
+  }
   if (viewer.grid?.visible)
     range.nearest = Math.min(
       range.nearest,
