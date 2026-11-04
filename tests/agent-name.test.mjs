@@ -317,8 +317,8 @@ test("a Chinese or Japanese sentence spaces a Latin name and not a Chinese one",
 });
 
 /* A name alone does not tell a reviewer who has never met 爆爆 that it is an
-   agent, or where the marks go; the tool after it does. Kelven asked for
-   "爆爆（OpenClaw）" on 2026-09-29, the submit button included. */
+   agent, or where the marks go; the tool after it does: "爆爆（OpenClaw）",
+   the submit button included. */
 test("the page says the name, then the tool it came through in the language's own brackets", (t) => {
   t.after(() => setLocale("en"));
   setLocale("zh-Hans");

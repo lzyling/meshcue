@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 let environment;
-const evidence = "tmp/b1-decisions/evidence";
+const evidence = "tmp/owner-decisions/evidence";
 test.afterEach(async () => environment?.stop());
 async function publish(file, version, extra = {}) {
   fs.copyFileSync(file, path.join(environment.workspace, path.basename(file)));
@@ -35,7 +35,7 @@ for (const theme of ["light", "dark"]) {
     environment = await startScenario({
       fixture: "tmp/samples/parametric-bracket.glb",
       dist: process.env.REVIEW_TEST_DIST,
-      runRoot: "tmp/b1-decisions/scenarios",
+      runRoot: "tmp/owner-decisions/scenarios",
     });
     await scenarioKit(page, environment).open(environment.url);
     const first = (await environment.ipc("/status")).active.id;
@@ -70,7 +70,7 @@ for (const theme of ["light", "dark"]) {
     await publish("tmp/samples/parametric-bracket.glb", "v4");
     await expect(page.locator("#reuse-notice")).toBeHidden();
     await expect(page.locator("#pending-banner")).toBeHidden();
-    // r4 removed the banner; the latest version remains reachable via its tab,
+    // The banner is gone; the latest version remains reachable via its tab,
     // while passive delivery and reload preserve the reviewer's selection.
     const third = (
       await publish("tmp/samples/bunny-figurine.glb", "v5", { activate: false })

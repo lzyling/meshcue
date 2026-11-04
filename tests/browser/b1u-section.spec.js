@@ -12,7 +12,7 @@ const repo = process.cwd();
 let url;
 const evidence = path.join(
   repo,
-  process.env.MESHCUE_SECTION_EVIDENCE || "tmp/b1u-x/evidence",
+  process.env.MESHCUE_SECTION_EVIDENCE || "tmp/section-caps/evidence",
 );
 let child, dir, env;
 const ctl = (...args) =>
@@ -24,7 +24,7 @@ const ctl = (...args) =>
 
 test.beforeEach(async () => {
   fs.mkdirSync(path.join(repo, "tmp"), { recursive: true });
-  dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-b1u-section-"));
+  dir = fs.mkdtempSync(path.join(repo, "tmp", "browser-section-caps-"));
   const bin = path.join(dir, "bin");
   fs.mkdirSync(bin);
   installFakeOpenClaw(bin);

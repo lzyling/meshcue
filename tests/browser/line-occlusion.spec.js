@@ -2,24 +2,21 @@ import { test, expect } from "./fixtures.mjs";
 import { createServer } from "vite";
 import fs from "node:fs";
 let server, url;
-const phase = process.env.LINE_EVIDENCE || "after";
+// Screenshots and pixel counts go to the test's own output directory.
+const artifact = (name) => test.info().outputPath(name);
 test.beforeAll(async () => {
   server = await createServer({ server: { host: "127.0.0.1", port: 0 } });
   await server.listen();
   url = `http://127.0.0.1:${server.httpServer.address().port}/tests/fixtures/line-occlusion/`;
-  fs.mkdirSync(`tmp/evidence/${phase}`, { recursive: true });
 });
 test.afterAll(async () => server?.close());
 async function render(page, options, name) {
   await page.goto(url);
   await page.waitForFunction(() => window.setup);
   await page.evaluate((o) => window.setup(o), options);
-  await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+  await page.screenshot({ path: artifact(`${name}.png`) });
   const pixels = await page.evaluate(() => window.probe());
-  fs.writeFileSync(
-    `tmp/evidence/${phase}/${name}.json`,
-    JSON.stringify(pixels, null, 2),
-  );
+  fs.writeFileSync(artifact(`${name}.json`), JSON.stringify(pixels, null, 2));
   if (name.startsWith("thin-wall")) {
     await page.evaluate(({ distance }) => {
       const label = document.createElement("div");
@@ -34,7 +31,7 @@ async function render(page, options, name) {
       region.style.cssText = `position:absolute;pointer-events:none;border:2px solid red;left:${400 - w / 2}px;top:${400 - h / 2}px;width:${w}px;height:${h}px`;
       document.body.append(region);
     }, options);
-    await page.screenshot({ path: `tmp/evidence/${phase}/${name}-marked.png` });
+    await page.screenshot({ path: artifact(`${name}-marked.png`) });
   }
   return pixels;
 }
@@ -88,41 +85,6 @@ for (const projection of ["perspective", "orthographic"]) {
   }
 }
 
-test("local Mac mini v0.4 screenshot evidence", async ({ page }) => {
-  test.skip(
-    !process.env.LINE_MAC_EVIDENCE,
-    "Local read-only STEP sample is not shipped",
-  );
-  const field = [];
-  for (const options of [
-    { distance: 500, edge: true, name: "mac-front" },
-    { distance: 500, edge: true, back: true, name: "mac-back" },
-    { distance: 500, name: "mac-edges-500" },
-    { distance: 1000, name: "mac-edges-1000" },
-    { distance: 2000, name: "mac-edges-2000" },
-    // The field report's three-quarter view of the top right fillet.
-    { distance: 500, view: "field", name: "mac-field-500" },
-    { distance: 1000, view: "field", name: "mac-field-1000" },
-    { distance: 2000, view: "field", name: "mac-field-2000" },
-  ]) {
-    await page.goto(url);
-    await page.waitForFunction(() => window.setupMac);
-    const info = await page.evaluate((o) => window.setupMac(o), options);
-    fs.writeFileSync(
-      `tmp/evidence/${phase}/${options.name}.json`,
-      JSON.stringify(info, null, 2),
-    );
-    await page.screenshot({
-      path: `tmp/evidence/${phase}/${options.name}.png`,
-    });
-    if (options.view) field.push({ name: options.name, ...info });
-  }
-  for (const pose of field) {
-    expect(pose.total, pose.name).toBeGreaterThan(200);
-    expect(pose.fillet, pose.name).toBe(0);
-  }
-});
-
 for (const change of ["reveal", "explode"]) {
   test("first demand frame after " + change, async ({ page }) => {
     await page.goto(url);
@@ -149,29 +111,30 @@ test("grazing curved surface hides close rear edge without breaking visible edge
   expect(result.coverage).toBe(1);
 });
 
-/* Field case: an edge 0.015 mm behind a curved wall. No depth tolerance can
-   separate the two, so this checks that a line is drawn only where its own
-   faces are in front; with file faces and with crease-bounded mesh faces. */
+/* A rounded shell whose inner and outer fillets are not concentric: a cavity
+   edge 0.015 mm behind the curved outer wall. No depth tolerance can separate
+   the two, so this checks that a line is drawn only where its own faces are in
+   front; with file faces and with crease-bounded mesh faces. */
 for (const projection of ["perspective", "orthographic"]) {
   test(`thin non-concentric fillet hides cavity edges at every distance (${projection})`, async ({
     page,
   }) => {
     await page.goto(url);
-    await page.waitForFunction(() => window.fieldShell);
+    await page.waitForFunction(() => window.filletShell);
     const results = [];
     for (const brep of [true, false])
       for (const distance of [500, 1000, 2000]) {
-        const result = await page.evaluate((o) => window.fieldShell(o), {
+        const result = await page.evaluate((o) => window.filletShell(o), {
           distance,
           projection,
           brep,
         });
-        const name = `field-${brep ? "brep" : "mesh"}-${projection}-${distance}`;
-        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        const name = `fillet-shell-${brep ? "brep" : "mesh"}-${projection}-${distance}`;
+        await page.screenshot({ path: artifact(`${name}.png`) });
         results.push({ name, ...result });
       }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/field-${projection}.json`,
+      artifact(`fillet-shell-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -219,7 +182,7 @@ for (const projection of ["perspective", "orthographic"]) {
         for (const faces of ["brep", "mesh"])
           await run({ kind, faces, eye: [5, 2, 10], double: true });
     fs.writeFileSync(
-      `tmp/evidence/${phase}/thin-marks-${projection}.json`,
+      artifact(`thin-marks-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -282,7 +245,7 @@ for (const projection of ["perspective", "orthographic"]) {
           results.push({ name, ...result });
         }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/thin-double-marks-${projection}.json`,
+      artifact(`thin-double-marks-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -319,7 +282,7 @@ for (const projection of ["perspective", "orthographic"]) {
           });
         }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/back-roof-${projection}.json`,
+      artifact(`back-roof-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -362,7 +325,7 @@ for (const projection of ["perspective", "orthographic"]) {
         });
       }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/narrow-roof-${projection}.json`,
+      artifact(`narrow-roof-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results.filter((r) => r.kind === "part")) {
@@ -409,7 +372,7 @@ for (const projection of ["perspective", "orthographic"]) {
             results.push({ name, ...result });
           }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/thin-far-marks-${projection}.json`,
+      artifact(`thin-far-marks-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -419,27 +382,27 @@ for (const projection of ["perspective", "orthographic"]) {
     }
   });
 
-  /* The field shell's cavity edge, 0.015 mm behind the outer fillet, faces
+  /* The fillet shell's cavity edge, 0.015 mm behind the outer fillet, faces
      the eye on both sides: only its own faces can hide it. */
-  test(`marks on the field shell stay off the outer fillet (${projection})`, async ({
+  test(`marks on the thin non-concentric fillet shell stay off the outer fillet (${projection})`, async ({
     page,
   }) => {
     await page.goto(url);
-    await page.waitForFunction(() => window.fieldMark);
+    await page.waitForFunction(() => window.filletShellMark);
     const results = [];
     for (const kind of ["edge", "part"])
       for (const distance of [500, 1000, 2000]) {
-        const result = await page.evaluate((o) => window.fieldMark(o), {
+        const result = await page.evaluate((o) => window.filletShellMark(o), {
           kind,
           distance,
           projection,
         });
-        const name = `field-mark-${kind}-${projection}-${distance}`;
-        await page.screenshot({ path: `tmp/evidence/${phase}/${name}.png` });
+        const name = `fillet-shell-mark-${kind}-${projection}-${distance}`;
+        await page.screenshot({ path: artifact(`${name}.png`) });
         results.push({ name, ...result });
       }
     fs.writeFileSync(
-      `tmp/evidence/${phase}/field-marks-${projection}.json`,
+      artifact(`fillet-shell-marks-${projection}.json`),
       JSON.stringify(results, null, 2),
     );
     for (const result of results) {
@@ -461,7 +424,7 @@ for (const projection of ["perspective", "orthographic"]) {
       projection,
     });
     await page.screenshot({
-      path: `tmp/evidence/${phase}/cutout-${projection}.png`,
+      path: artifact(`cutout-${projection}.png`),
     });
     expect(result.hole).toBe(1);
     expect(result.behind).toBe(0);

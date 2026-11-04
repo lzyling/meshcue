@@ -16,9 +16,9 @@ export default {
   "help.p4":
     "The paint bucket previews the connected near-flat area and fills it on a click; the spread slider sets how far that area may run. It works on a whole connected surface, which can include parts hidden behind other objects. To take a fill back, undo it or delete the mark from the list.",
   "help.p5":
-    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
+    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Seen from behind, an edge mark on a very narrow open double-sided surface may break up or not show; the mark itself is kept. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file the Agent holds never carries them.",
   "help.p5.named":
-    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file {agent} holds never carries them.",
+    "Painted marks use a semi-transparent solid colour and an outline, thicker when selected; only section cuts are hatched. Seen from behind, an edge mark on a very narrow open double-sided surface may break up or not show; the mark itself is kept. Marks can be hidden in one press; plain view is only a viewing aid. Marks live in the review alone — the model file {agent} holds never carries them.",
   "help.p6":
     "“Send to Agent” saves and submits the marks with their notes. Say what you want changed in a note or in the original conversation — both count. The Agent first explains its understanding and waits for your confirmation before changing the model. Submitting alone does not change it.",
   "help.p6.named":

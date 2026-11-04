@@ -1,5 +1,5 @@
-// Lane B's explicit entry points for the r4-r11 menus; shared lane A helper
-// intentionally stays untouched during the parallel test refresh.
+// Explicit entry points for the overflow menus; the shared base helper
+// intentionally stays untouched.
 import {
   clickControl as legacyClick,
   revealControl as legacyReveal,

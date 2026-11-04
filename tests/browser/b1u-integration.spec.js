@@ -5,14 +5,14 @@ import { clickControl, showParts } from "./r12-b-helpers.mjs";
 import fs from "node:fs";
 
 let environment;
-const evidence = "tmp/b1u-int/evidence";
+const evidence = "tmp/view-part-select/evidence";
 test.afterEach(async () => environment?.stop());
 async function open(page) {
   fs.mkdirSync(evidence, { recursive: true });
   environment = await startScenario({
     fixture: "tests/fixtures/plate.step",
     dist: process.env.REVIEW_TEST_DIST,
-    runRoot: "tmp/b1u-int/scenarios",
+    runRoot: "tmp/view-part-select/scenarios",
   });
   await scenarioKit(page, environment).open(environment.url);
   await expect

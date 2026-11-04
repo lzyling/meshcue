@@ -3,7 +3,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
-const evidence = "tmp/b1-followups/evidence";
+const evidence = "tmp/followups/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 async function open(page, fixture = "tmp/samples/parametric-bracket.glb") {
@@ -66,7 +66,7 @@ test("A: reuse activates the identical page without obsolete notices on publicat
   await expect(notice).toHaveCount(0);
   await expect(page.locator(".version-tab")).toHaveCount(2);
   // Repeated same-content publications activate the existing page rather
-  // than adding a tab or restoring the removed reviewer notice (r6 §3).
+  // than adding a tab or restoring the removed reviewer notice.
   await publish("tmp/samples/parametric-bracket.glb", "v4");
   await expect(notice).toHaveCount(0);
   await expect(page.locator(".version-tab")).toHaveCount(2);

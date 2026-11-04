@@ -8,7 +8,7 @@ import path from "node:path";
 import { bracketGltf, externalGltf } from "../fixtures/gltf-fixtures.mjs";
 
 const repo = process.cwd();
-const evidence = path.join(repo, "tmp/b1-g/evidence");
+const evidence = path.join(repo, "tmp/gltf-formats/evidence");
 let dir, env, child, url;
 const ctl = (...args) =>
   JSON.parse(

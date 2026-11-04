@@ -38,9 +38,7 @@ test("actual double click creates a surface pin; refresh restores it and geometr
   expect(after.annotations).toEqual(before.annotations);
   expect(after.owned).toBe(true);
   await page.screenshot({
-    path: path.resolve(
-      path.join(dir, "2026-09-09-3d-review-v02-pin-tested.png"),
-    ),
+    path: path.resolve(path.join(dir, "review-pin.png")),
     fullPage: true,
   });
 });
@@ -82,9 +80,7 @@ test("a fill produces real face sets; undo, redo, delete and refresh retain the 
     await page.evaluate(() => window.__reviewDiagnostics().annotations),
   ).toEqual(painted);
   await page.screenshot({
-    path: path.resolve(
-      path.join(dir, "2026-09-09-3d-review-v02-brush-tested.png"),
-    ),
+    path: path.resolve(path.join(dir, "review-brush.png")),
     fullPage: true,
   });
   await page

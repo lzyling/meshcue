@@ -39,7 +39,7 @@ const bytes = (value) =>
   Buffer.byteLength(JSON.stringify(normalizePartGroups(value)));
 function temp(t, cleanup = true) {
   fs.mkdirSync("tmp", { recursive: true });
-  const dir = fs.mkdtempSync(path.join(repo, "tmp", "b1v-groups-"));
+  const dir = fs.mkdtempSync(path.join(repo, "tmp", "part-groups-unit-"));
   if (cleanup) t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

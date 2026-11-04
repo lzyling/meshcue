@@ -7,7 +7,7 @@ import * as THREE from "three";
 import fs from "node:fs";
 
 let environment;
-const evidence = "tmp/b1-n/evidence";
+const evidence = "tmp/navigation/evidence";
 test.beforeEach(async () => {
   fs.mkdirSync(evidence, { recursive: true });
   const geometry = new THREE.BoxGeometry(20, 16, 10).toNonIndexed();
@@ -19,9 +19,12 @@ test.beforeEach(async () => {
       stl += `vertex ${positions.getX(i + j)} ${positions.getY(i + j)} ${positions.getZ(i + j)}\n`;
     stl += "endloop\nendfacet\n";
   }
-  fs.writeFileSync("tmp/b1-n/navigation.stl", stl + "endsolid navigation\n");
+  fs.writeFileSync(
+    "tmp/navigation/navigation.stl",
+    stl + "endsolid navigation\n",
+  );
   environment = await startScenario({
-    fixture: "tmp/b1-n/navigation.stl",
+    fixture: "tmp/navigation/navigation.stl",
     dist: process.env.REVIEW_TEST_DIST || "tmp/refinement-dist",
   });
 });

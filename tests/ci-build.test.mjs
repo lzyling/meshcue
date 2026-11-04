@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { cacheRelease } from "../integration/release.mjs";
+import { normalizeDocumentText } from "./helpers/document-text.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -57,9 +58,11 @@ test("without the host build, the package still builds and says so", (t) => {
   // The Draco worker adapts three.js code, and MIT asks that its copyright and
   // permission notice travel with every copy. The built asset is the copy that
   // ships, here and in npm's dist/, and only a legal comment survives the build.
-  const legal = fs
-    .readFileSync(path.join(repo, "src/viewer/draco-worker.js"), "utf8")
-    .match(/^\/\*![\s\S]*?\*\//)?.[0];
+  // Git may check the source out with CRLF line ends while the build writes LF,
+  // so both sides are compared with LF line ends; the text itself must match.
+  const legal = normalizeDocumentText(
+    fs.readFileSync(path.join(repo, "src/viewer/draco-worker.js"), "utf8"),
+  ).match(/^\/\*![\s\S]*?\*\//)?.[0];
   assert.match(legal ?? "", /Copyright © 2010-2026 three\.js authors/);
   assert.match(legal, /The above copyright notice and this permission notice/);
   const assets = path.join(repo, result.output, "web/assets");
@@ -68,7 +71,9 @@ test("without the host build, the package still builds and says so", (t) => {
     .filter((name) => /^draco-worker-.*\.js$/.test(name));
   assert.equal(workers.length, 1);
   assert.ok(
-    fs.readFileSync(path.join(assets, workers[0]), "utf8").includes(legal),
+    normalizeDocumentText(
+      fs.readFileSync(path.join(assets, workers[0]), "utf8"),
+    ).includes(legal),
     "the built Draco worker must keep the three.js MIT notice",
   );
   // npm's files whitelist also governs github: installs. LICENSE is automatic;

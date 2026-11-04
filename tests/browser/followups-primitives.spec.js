@@ -3,7 +3,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
-const evidence = "tmp/b1-followups/evidence";
+const evidence = "tmp/followups/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 async function open(page, fixture = "tmp/samples/parametric-bracket.glb") {

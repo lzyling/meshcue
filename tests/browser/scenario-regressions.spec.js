@@ -4,7 +4,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import fs from "node:fs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 
-const evidence = "tmp/b1-fix/evidence";
+const evidence = "tmp/scenario-regressions/evidence";
 let environment, kit;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics?.());
@@ -68,7 +68,7 @@ for (const locale of ["en", "zh-Hant", "de"]) {
         locale,
       );
       await open(page);
-      // r5 makes model axes optional and hidden by default. Enable them as a
+      // Model axes are optional and hidden by default. Enable them as a
       // reader would, then retain the original Section/axes clearance checks.
       await expect(page.locator(".navigation-triad")).toBeHidden();
       await page.locator("#settings-button").tap();

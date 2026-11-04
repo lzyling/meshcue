@@ -7,13 +7,13 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { clickControl } from "./r12-shell-helpers.mjs";
 
 let environment;
-const evidence = "tmp/b1v-ui/evidence";
+const evidence = "tmp/tabs-and-tools/evidence";
 test.afterEach(async () => environment?.stop());
 async function open(page, fixture = "tmp/samples/parametric-bracket.glb") {
   environment = await startScenario({
     fixture,
     dist: process.env.REVIEW_TEST_DIST,
-    runRoot: "tmp/b1v-ui/scenarios",
+    runRoot: "tmp/tabs-and-tools/scenarios",
   });
   const kit = scenarioKit(page, environment);
   await kit.open(environment.url);
@@ -27,16 +27,16 @@ for (const [name, viewport] of [
     await page.setViewportSize(viewport);
     await open(page);
     fs.mkdirSync(evidence, { recursive: true });
-    const phase = process.env.B1V_BEFORE ? "before" : "after";
+    const phase = process.env.MESHCUE_UI_CAPTURE_BEFORE ? "before" : "after";
     await page.screenshot({ path: `${evidence}/${phase}-${name}-marks.png` });
-    if (process.env.B1V_BEFORE) {
+    if (process.env.MESHCUE_UI_CAPTURE_BEFORE) {
       await page.locator("#settings-button").click();
       await page.locator("#setting-parts").check();
       await page.locator("#close-settings").click();
     }
     await page.locator("#sidebar-parts").click();
     await page.screenshot({ path: `${evidence}/${phase}-${name}-parts.png` });
-    if (!process.env.B1V_BEFORE && name === "phone") {
+    if (!process.env.MESHCUE_UI_CAPTURE_BEFORE && name === "phone") {
       await page.locator('.toolbar [data-mode="measure"]').click();
       await page.locator("#measure-advanced summary").click();
       await page.locator("#section-toggle").click();
@@ -93,8 +93,8 @@ async function modelFixture(single = false) {
     mesh.position.x = (index - (single ? 0 : 1)) * 3;
     (single ? root : index < 2 ? drive : guard).add(mesh);
   }
-  fs.mkdirSync("tmp/b1v-ui", { recursive: true });
-  const file = `tmp/b1v-ui/${single ? "single" : "assembly"}.glb`;
+  fs.mkdirSync("tmp/tabs-and-tools", { recursive: true });
+  const file = `tmp/tabs-and-tools/${single ? "single" : "assembly"}.glb`;
   fs.writeFileSync(
     file,
     Buffer.from(await new GLTFExporter().parseAsync(root, { binary: true })),
@@ -301,12 +301,12 @@ test("modified arrows reach camera shortcuts from flat View and Display buttons"
 }) => {
   await open(page);
   await page.evaluate(() => {
-    window.__b1vToolbarArrowEvents = [];
+    window.__toolbarArrowEvents = [];
     // This bubble listener runs after the application's registry listener;
     // a group that stops propagation never delivers an event here.
     window.addEventListener("keydown", (event) => {
       if (["ArrowUp", "ArrowDown"].includes(event.key))
-        window.__b1vToolbarArrowEvents.push({
+        window.__toolbarArrowEvents.push({
           key: event.key,
           prevented: event.defaultPrevented,
         });
@@ -331,7 +331,7 @@ test("modified arrows reach camera shortcuts from flat View and Display buttons"
         await settle(page);
         const before = (await diagnostics(page)).camera;
         await page.evaluate(() => {
-          window.__b1vToolbarArrowEvents = [];
+          window.__toolbarArrowEvents = [];
         });
         await page.keyboard.press(`${modifier}+${key}`);
         await settle(page);
@@ -344,9 +344,9 @@ test("modified arrows reach camera shortcuts from flat View and Display buttons"
           /menu-open/,
         );
         await expect(button).toBeFocused();
-        expect(
-          await page.evaluate(() => window.__b1vToolbarArrowEvents),
-        ).toEqual([{ key, prevented: registered }]);
+        expect(await page.evaluate(() => window.__toolbarArrowEvents)).toEqual([
+          { key, prevented: registered },
+        ]);
         if (!registered) continue;
         const after = (await diagnostics(page)).camera;
         expect(after).not.toEqual(before);
@@ -398,7 +398,7 @@ test("Reset requires confirmation, restores Agent display and clears draft marks
   await page.locator("#sidebar-parts").click();
   await row(page, "Screw A").locator(".parts-name").click();
   // Visibility changes cancel the old reading. The confirmed Reset now clears
-  // measurements too (r4 §7); undo restores the draft marks, not viewer picks.
+  // measurements too; undo restores the draft marks, not viewer picks.
   await page.keyboard.press("Shift+T");
   await page.keyboard.press("Shift+I");
   await row(page, "Screw A").locator(".parts-eye").click();

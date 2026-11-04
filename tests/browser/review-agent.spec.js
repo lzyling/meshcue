@@ -71,8 +71,9 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
     "not an instruction to change anything",
   );
   // The round is not closed here, because closing it is not a thing a reviewer
-  // does: he hands the batch over and walks onto whatever the Agent publishes
-  // next. The submission below was made by handing over, not by finishing.
+  // does: the reviewer hands the batch over and walks onto whatever the Agent
+  // publishes next. The submission below was made by handing over, not by
+  // finishing.
   await expect(page.locator("#loading")).toBeHidden();
   await expect(
     page.getByRole("button", { name: "Show the latest version", exact: true }),
@@ -87,9 +88,7 @@ test("a new Agent model takes the screen at once and the marked one stays a tab"
   expect(state.data.submissions).toHaveLength(1);
   expect(state.data.submissions[0].versionId).toBe(original);
   await page.screenshot({
-    path: path.resolve(
-      path.join(dir, "2026-09-09-3d-review-v02-figurine-tested.png"),
-    ),
+    path: path.resolve(path.join(dir, "review-figurine.png")),
     fullPage: true,
   });
 });
@@ -356,7 +355,7 @@ test("iteration: current-version download is original bytes, including after neu
   );
   // `versionId` turns over when the load begins; the version's draft comes
   // back once its model has loaded. Counted at once, a busy run caught the gap
-  // between the two and read 0 (09-29, full suite; alone it passed 3 of 3).
+  // between the two and read 0 (in a full-suite run; run alone it passed).
   await expect
     .poll(() =>
       page.evaluate(() => window.__reviewDiagnostics().annotationCount),
@@ -399,9 +398,9 @@ test("many versions stay on one row, and the one being marked stays reachable", 
   page,
 }) => {
   await ready(page);
-  // Kelven's XR housing session reached seventeen published versions in an
-  // afternoon and the strip had been wrapping onto a second row since about the
-  // tenth, taking that row out of the model's height for the rest of the day.
+  // A real session reached seventeen published versions in an afternoon, and
+  // the strip had been wrapping onto a second row since about the tenth, taking
+  // that row out of the model's height for the rest of the day.
   // Versions are identified by the hash of their bytes, so republishing one
   // sample seventeen times is one version. Each variant rewrites the generator
   // string in the GLB header — same length, same geometry, different file.
@@ -586,7 +585,7 @@ test("the Agent's understanding leaves on its own and comes back when asked", as
   );
   const file = path.join(dir, "echo.json");
   // No annotations on purpose: an Agent that replies with words and no region is
-  // what every echo in the real session looked like.
+  // what agent echoes in real use usually look like.
   fs.writeFileSync(
     file,
     JSON.stringify({

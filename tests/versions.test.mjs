@@ -2,48 +2,42 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { latestVersion, viewingBehindLatest } from "../src/versions.js";
 
-/* Every number here is real. They are the published versions of one XR camera
-   housing review on 2026-09-13, in which the Agent published seventeen versions
-   and activated none of them after the first exploded view. `active` stayed on
-   bca341d1 — 12:58 — while the reviewer worked his way to v0.9 at 17:41, and
-   for all seventeen the page told him he was looking at an earlier version and
-   offered to send him back to 12:58. Nothing failed; it just read backwards. */
+/* This list copies the shape of one real review session, not its values:
+   the ids, names and times are synthetic. The Agent published seventeen
+   versions and activated none of them after the first alternate view.
+   `active` stayed on the second entry while the reviewer worked their way to
+   v0.9 about five hours later, and for all seventeen the page said they were
+   looking at an earlier version and offered to send them back to the second
+   one. Nothing failed; it just read backwards. Versions published together
+   keep the original millisecond gaps between them. */
 const REVIEW = [
-  { id: "cf45f837", version: "v0.1", publishedAt: 1789273436879 },
-  { id: "bca341d1", version: "v0.1-exploded-01", publishedAt: 1789275483132 },
-  { id: "342ac27a", version: "v0.2-exploded-01", publishedAt: 1789276698755 },
-  { id: "e68d2798", version: "v0.3-exploded-01", publishedAt: 1789280377493 },
-  { id: "740a6d01", version: "v0.4-exploded-01", publishedAt: 1789282162068 },
-  { id: "1118dba7", version: "v0.5-bed-layout", publishedAt: 1789284122185 },
-  { id: "b81355bf", version: "v0.5-exploded-01", publishedAt: 1789284122216 },
-  { id: "47044b8a", version: "v0.6-appearance", publishedAt: 1789286581130 },
-  { id: "037c4ec2", version: "v0.6-exploded-01", publishedAt: 1789286581166 },
-  { id: "4d30dab2", version: "v0.7", publishedAt: 1789289160298 },
-  { id: "5428daa8", version: "v0.7.1", publishedAt: 1789289574669 },
-  { id: "42440889", version: "v0.7.1-exploded-01", publishedAt: 1789289574703 },
-  {
-    id: "70f0542b",
-    version: "v0.8-bed-interior-01",
-    publishedAt: 1789291766097,
-  },
-  { id: "d70afe80", version: "v0.8-exploded-01", publishedAt: 1789291766136 },
-  { id: "9e1c19a6", version: "v0.9-assembly", publishedAt: 1789292484059 },
-  { id: "c2355da2", version: "v0.9-exploded-01", publishedAt: 1789292484098 },
-  {
-    id: "9f553b56",
-    version: "v0.9-bed-interior-01",
-    publishedAt: 1789292484134,
-  },
+  { id: "a1000001", version: "v0.1", publishedAt: 1700000000000 },
+  { id: "a1000002", version: "v0.1-view-a", publishedAt: 1700001800000 },
+  { id: "a1000003", version: "v0.2-view-a", publishedAt: 1700003000000 },
+  { id: "a1000004", version: "v0.3-view-a", publishedAt: 1700006600000 },
+  { id: "a1000005", version: "v0.4-view-a", publishedAt: 1700008400000 },
+  { id: "a1000006", version: "v0.5-view-b", publishedAt: 1700010500000 },
+  { id: "a1000007", version: "v0.5-view-a", publishedAt: 1700010500031 },
+  { id: "a1000008", version: "v0.6-view-c", publishedAt: 1700012900000 },
+  { id: "a1000009", version: "v0.6-view-a", publishedAt: 1700012900036 },
+  { id: "a1000010", version: "v0.7", publishedAt: 1700015400000 },
+  { id: "a1000011", version: "v0.7.1", publishedAt: 1700015820000 },
+  { id: "a1000012", version: "v0.7.1-view-a", publishedAt: 1700015820034 },
+  { id: "a1000013", version: "v0.8-view-d", publishedAt: 1700018040000 },
+  { id: "a1000014", version: "v0.8-view-a", publishedAt: 1700018040039 },
+  { id: "a1000015", version: "v0.9", publishedAt: 1700018760000 },
+  { id: "a1000016", version: "v0.9-view-a", publishedAt: 1700018760039 },
+  { id: "a1000017", version: "v0.9-view-d", publishedAt: 1700018760075 },
 ];
-const ACTIVE_ID = "bca341d1"; // where the Agent's pointer actually sat
+const ACTIVE_ID = "a1000002"; // where the Agent's pointer actually sat
 
 test("the newest version is the one published last, not the one activated", () => {
-  assert.equal(latestVersion(REVIEW).id, "9f553b56");
+  assert.equal(latestVersion(REVIEW).id, "a1000017");
   assert.notEqual(latestVersion(REVIEW).id, ACTIVE_ID);
 });
 
 test("a reviewer on the newest version is never called behind", () => {
-  assert.equal(viewingBehindLatest(REVIEW, "9f553b56"), false);
+  assert.equal(viewingBehindLatest(REVIEW, "a1000017"), false);
 });
 
 test("a reviewer sitting on the stale pointer is told he is behind", () => {
@@ -54,14 +48,15 @@ test("a reviewer sitting on the stale pointer is told he is behind", () => {
 test("every version the reviewer passed through reads as behind except the last", () => {
   const behind = REVIEW.filter((v) => viewingBehindLatest(REVIEW, v.id));
   assert.equal(behind.length, REVIEW.length - 1);
-  assert.ok(!behind.some((v) => v.id === "9f553b56"));
+  assert.ok(!behind.some((v) => v.id === "a1000017"));
 });
 
 test("versions published in the same batch are separated by position", () => {
-  // v0.9's three views are 39ms apart; a clock alone cannot order them.
+  // v0.9's three views are 39 ms and 36 ms apart; a clock alone cannot
+  // order them.
   const batch = REVIEW.slice(-3);
   assert.equal(batch[2].publishedAt - batch[0].publishedAt, 75);
-  assert.equal(latestVersion(batch).id, "9f553b56");
+  assert.equal(latestVersion(batch).id, "a1000017");
   const tied = [
     { id: "first", publishedAt: 5 },
     { id: "second", publishedAt: 5 },

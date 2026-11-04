@@ -39,9 +39,7 @@ test("compact viewport remains usable without page-wide horizontal overflow", as
   // slider that stood here before the brush was shelved.
   await expect(page.locator("#fill-range")).toBeVisible();
   await page.screenshot({
-    path: path.resolve(
-      path.join(dir, "2026-09-09-3d-review-v02-compact-tested.png"),
-    ),
+    path: path.resolve(path.join(dir, "review-compact.png")),
     fullPage: true,
   });
 });
@@ -104,21 +102,23 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
   page,
 }) => {
   test.setTimeout(180000);
-  // These are real models from the developer's own media library, not fixtures
-  // this repository ships or generates: a textured GLB, the same head at full
+  // These are real models from a local media folder, not fixtures this
+  // repository ships or generates: a textured GLB, the same head at full
   // density, and an STL. The case is worth keeping — nothing generated stresses
-  // texture upload the way it does — but on a clone that does not have them it
-  // has to say so instead of failing, the way the LAN case already does.
+  // texture upload the way it does — so MESHCUE_MEDIA_DIR names the folder that
+  // holds them. Where it is not set, or the files are not there, the case has
+  // to say so instead of failing, the way the LAN case already does.
+  const media = process.env.MESHCUE_MEDIA_DIR
+    ? path.resolve(process.env.MESHCUE_MEDIA_DIR)
+    : null;
   const heavy = [
     ["TRex_Head_retopo.glb", "恐龍頭 · 重拓撲"],
     ["TRex_Head_baked.glb", "恐龍頭 · 高面數"],
     ["3dbenchy.stl", "STL 小船"],
   ];
   test.skip(
-    !heavy.every(([file]) =>
-      fs.existsSync(path.join(repo, "../../media/3d", file)),
-    ),
-    "needs the local media library: media/3d/TRex_Head_*.glb and 3dbenchy.stl",
+    !media || !heavy.every(([file]) => fs.existsSync(path.join(media, file))),
+    "needs MESHCUE_MEDIA_DIR set to a folder with TRex_Head_retopo.glb, TRex_Head_baked.glb and 3dbenchy.stl",
   );
   await trackGpuTextures(page);
   await ready(page);
@@ -132,12 +132,9 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
         [
           "scripts/reviewctl.mjs",
           "publish",
-          // A copy inside the clone: the library is outside what the server
-          // will publish from, and is only read here to decide to run at all.
-          (fs.copyFileSync(
-            path.join(repo, "../../media/3d", file),
-            path.join(dir, file),
-          ),
+          // A copy inside the clone: the media folder may be outside what the
+          // server will publish from, and is only read here to copy from.
+          (fs.copyFileSync(path.join(media, file), path.join(dir, file)),
           path.join(dir, file)),
           "--name",
           name,
@@ -173,10 +170,7 @@ test("real textured GLB, large mesh and STL load sequentially without retaining 
     });
     await page.screenshot({
       path: path.resolve(
-        path.join(
-          dir,
-          `2026-09-09-3d-review-v02-real-${file.split(".")[0]}.png`,
-        ),
+        path.join(dir, `review-real-${file.split(".")[0]}.png`),
       ),
       fullPage: true,
     });
@@ -445,9 +439,7 @@ test("iteration: colored texture survives annotation, hide and neutral display r
   );
   expect((await capture()).equals(clean)).toBe(false);
   await page.screenshot({
-    path: path.resolve(
-      path.join(dir, "2026-09-09-3d-review-v03-colored-annotations.png"),
-    ),
+    path: path.resolve(path.join(dir, "review-colored-annotations.png")),
   });
   await clickControl(page, "#toggle-marks");
   const hidden = await capture();

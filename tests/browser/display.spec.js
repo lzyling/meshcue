@@ -15,7 +15,7 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const repo = process.cwd();
 let url;
-const evidence = path.join(repo, "tmp/b1-d/evidence");
+const evidence = path.join(repo, "tmp/display/evidence");
 let child, dir, env;
 const ctl = (...args) =>
   execFileSync(process.execPath, ["scripts/reviewctl.mjs", ...args], {

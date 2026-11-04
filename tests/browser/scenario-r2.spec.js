@@ -11,7 +11,7 @@ import * as THREE from "three";
 import fs from "node:fs";
 import { primitiveGlb } from "../fixtures/primitive-glb.mjs";
 
-const evidence = "tmp/b1-scenario-r2/evidence";
+const evidence = "tmp/scenario-r2/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 const diag = (page) => page.evaluate(() => window.__reviewDiagnostics());
@@ -19,7 +19,7 @@ const settled = (page) =>
   expect
     .poll(() => page.evaluate(() => window.__navigationDiagnostics().animating))
     .toBe(false);
-async function open(page, fixture = "tmp/b1-scenario-r2/box.stl") {
+async function open(page, fixture = "tmp/scenario-r2/box.stl") {
   fs.mkdirSync(evidence, { recursive: true });
   const positions = new THREE.BoxGeometry(20, 16, 10).toNonIndexed().attributes
     .position;
@@ -30,7 +30,7 @@ async function open(page, fixture = "tmp/b1-scenario-r2/box.stl") {
       stl += `vertex ${positions.getX(i + j)} ${positions.getY(i + j)} ${positions.getZ(i + j)}\n`;
     stl += "endloop\nendfacet\n";
   }
-  fs.writeFileSync("tmp/b1-scenario-r2/box.stl", stl + "endsolid regression\n");
+  fs.writeFileSync("tmp/scenario-r2/box.stl", stl + "endsolid regression\n");
   environment = await startScenario({
     fixture,
     dist: process.env.REVIEW_TEST_DIST,
@@ -208,9 +208,9 @@ for (const [device, locale] of [
       if (device === "iPhone 13") {
         const afterSecondPick = await measureLayout(page);
         expect(afterSecondPick).toEqual(beforePick);
-        fs.mkdirSync("tmp/b1v-ci/evidence", { recursive: true });
+        fs.mkdirSync("tmp/scenario-r2/evidence", { recursive: true });
         fs.writeFileSync(
-          `tmp/b1v-ci/evidence/r2-${locale}-geometry.json`,
+          `tmp/scenario-r2/evidence/r2-${locale}-geometry.json`,
           JSON.stringify(
             { taps, beforePick, afterFirstPick, afterSecondPick },
             null,
@@ -218,7 +218,7 @@ for (const [device, locale] of [
           ),
         );
         await page.screenshot({
-          path: `tmp/b1v-ci/evidence/r2-${locale}-two-picks.png`,
+          path: `tmp/scenario-r2/evidence/r2-${locale}-two-picks.png`,
         });
       }
       const session = await context.newCDPSession(page);
@@ -321,9 +321,9 @@ for (const locale of ["en", "de"]) {
             after: await measureLayout(page),
           });
         }
-        fs.mkdirSync("tmp/b1v-ci/evidence", { recursive: true });
+        fs.mkdirSync("tmp/scenario-r2/evidence", { recursive: true });
         fs.writeFileSync(
-          `tmp/b1v-ci/evidence/kinds-${locale}-${viewport.width}-${viewport.height}.json`,
+          `tmp/scenario-r2/evidence/kinds-${locale}-${viewport.width}-${viewport.height}.json`,
           JSON.stringify(layouts, null, 2),
         );
       } finally {
@@ -537,9 +537,9 @@ test("R2 bug 6: GLB triangle stays above toolbar when Parts opens after load", a
   page,
 }) => {
   fs.mkdirSync(evidence, { recursive: true });
-  fs.writeFileSync("tmp/b1-scenario-r2/triangle.glb", primitiveGlb());
+  fs.writeFileSync("tmp/scenario-r2/triangle.glb", primitiveGlb());
   await page.setViewportSize({ width: 1000, height: 768 });
-  await open(page, "tmp/b1-scenario-r2/triangle.glb");
+  await open(page, "tmp/scenario-r2/triangle.glb");
   await expectFramed(page);
   await page.setViewportSize({ width: 1024, height: 768 });
   await showParts(page);

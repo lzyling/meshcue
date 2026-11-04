@@ -4,7 +4,7 @@ import { startScenario } from "../../scripts/scenario-env.mjs";
 import { scenarioKit } from "../scenarios/kit.mjs";
 import fs from "node:fs";
 
-const evidence = "tmp/b1u-v/evidence";
+const evidence = "tmp/face-hover/evidence";
 let environment;
 test.afterEach(async () => environment?.stop());
 const nav = (page) => page.evaluate(() => window.__navigationDiagnostics());
@@ -16,7 +16,7 @@ async function open(page, fixture = "tests/fixtures/plate.step") {
   environment = await startScenario({
     fixture,
     dist: process.env.REVIEW_TEST_DIST,
-    runRoot: "tmp/b1u-v/scenarios",
+    runRoot: "tmp/face-hover/scenarios",
   });
   await scenarioKit(page, environment).open(environment.url);
   await settled(page);
@@ -37,7 +37,7 @@ async function probes(page) {
 }
 async function shot(page, name) {
   await page.screenshot({
-    path: `${evidence}/${name}-${process.env.B1U_VIEW_EVIDENCE || "after"}.png`,
+    path: `${evidence}/${name}-${process.env.MESHCUE_FACE_HOVER_SHOT || "after"}.png`,
   });
 }
 test("STEP hover follows whole planar and rounded B-rep faces", async ({
@@ -278,9 +278,9 @@ test("STL hover and fill retain planar regions and the spread slider", async ({
       stl += `vertex ${vertices.getX(i + j)} ${vertices.getY(i + j)} ${vertices.getZ(i + j)}\n`;
     stl += "endloop\nendfacet\n";
   }
-  fs.writeFileSync("tmp/b1u-v/box.stl", stl + "endsolid view\n");
+  fs.writeFileSync("tmp/face-hover/box.stl", stl + "endsolid view\n");
   geometry.dispose();
-  await open(page, "tmp/b1u-v/box.stl");
+  await open(page, "tmp/face-hover/box.stl");
   const p = (await probes(page))[0];
   expect(p.range).toBeUndefined();
   await page.mouse.move(p.x, p.y);
