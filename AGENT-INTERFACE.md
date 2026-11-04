@@ -815,9 +815,11 @@ mark, then say what to change."
   take a fill back, undo it or delete the mark from the list.
 
 - Painted marks use a semi-transparent solid colour and an outline, thicker
-  when selected; only section cuts are hatched. Marks can be hidden in one
-  press; plain view is only a viewing aid. Marks live in the review alone — the
-  model file the Agent holds never carries them.
+  when selected; only section cuts are hatched. Seen from behind, an edge mark
+  on a very narrow open double-sided surface may break up or not show; the mark
+  itself is kept. Marks can be hidden in one press; plain view is only a viewing
+  aid. Marks live in the review alone — the model file the Agent holds never
+  carries them.
 
 - “Send to Agent” saves and submits the marks with their notes. Say what you
   want changed in a note or in the original conversation — both count. The Agent
