@@ -58,10 +58,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "esbuild": "0.28.2",
-    "prettier": "^3.9.10",
-    "vite": "^8.3.7"
+    "prettier": "^3.10.1",
+    "vite": "^8.3.8"
   },
   "description": "Browser-based 3D review and annotation for agent-assisted modeling."
 }
